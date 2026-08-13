@@ -1,6 +1,6 @@
-// src/pages/Notifications.js - نظام الإشعارات
+// src/pages/Notifications.js - صفحة الإشعارات
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Sidebar from '../components/common/Sidebar';
 
@@ -52,24 +52,24 @@ export default function Notifications() {
       const tasksSnapshot = await getDocs(collection(db, 'tasks'));
       tasksSnapshot.forEach((doc) => {
         const task = { id: doc.id, ...doc.data() };
-        const dueDate = new Date(task.dueDate);
-        const today = new Date();
-        const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-        if (diffDays <= 3 && diffDays >= 0 && task.status !== 'completed') {
-          notificationsList.push({
-            id: `task-${task.id}`,
-            type: 'info',
-            title: `📋 مهمة قريبة: ${task.title}`,
-            message: `تاريخ الاستحقاق: ${dueDate.toLocaleDateString('ar-EG')}`,
-            date: task.dueDate,
-            read: false,
-          });
+        if (task.dueDate) {
+          const dueDate = new Date(task.dueDate);
+          const today = new Date();
+          const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 3 && diffDays >= 0 && task.status !== 'completed') {
+            notificationsList.push({
+              id: `task-${task.id}`,
+              type: 'info',
+              title: `📋 مهمة قريبة: ${task.title}`,
+              message: `تاريخ الاستحقاق: ${dueDate.toLocaleDateString('ar-EG')}`,
+              date: task.dueDate,
+              read: false,
+            });
+          }
         }
       });
 
-      // ترتيب الإشعارات من الأحدث
       notificationsList.sort((a, b) => new Date(b.date) - new Date(a.date));
-
       setNotifications(notificationsList);
     } catch (error) {
       console.error('Error fetching notifications:', error);
