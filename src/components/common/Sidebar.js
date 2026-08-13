@@ -40,6 +40,22 @@ export default function Sidebar() {
           <span className="icon"><i className="fas fa-file-invoice"></i></span>
           الفواتير
         </Link>
+        <Link to="/inventory">
+          <span className="icon"><i className="fas fa-boxes"></i></span>
+          المخزون
+        </Link>
+        <Link to="/tasks">
+          <span className="icon"><i className="fas fa-tasks"></i></span>
+          المهام
+        </Link>
+        <Link to="/reports">
+          <span className="icon"><i className="fas fa-chart-pie"></i></span>
+          التقارير
+        </Link>
+        <Link to="/profile">
+          <span className="icon"><i className="fas fa-user"></i></span>
+          الملف الشخصي
+        </Link>
         {userRole === 'super_admin' && (
           <Link to="/admin">
             <span className="icon"><i className="fas fa-crown"></i></span>

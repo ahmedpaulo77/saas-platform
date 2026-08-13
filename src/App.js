@@ -1,4 +1,4 @@
-// src/App.js
+// src/App.js - النسخة النهائية (مع إضافة التقارير)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -7,12 +7,16 @@ import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
 import Clients from './pages/Clients';
 import Invoices from './pages/Invoices';
+import Inventory from './pages/Inventory';
+import Tasks from './pages/Tasks';
+import Reports from './pages/Reports';
+import Profile from './pages/Profile';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
-// src/App.js
-import './App.css';  // <-- مهم
-// ... باقي الكود
+
+import './App.css';
+
 function AppRoutes() {
   const { userRole } = useAuth();
 
@@ -37,6 +41,26 @@ function AppRoutes() {
       <Route path="/invoices" element={
         <ProtectedRoute>
           <Invoices />
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory" element={
+        <ProtectedRoute>
+          <Inventory />
+        </ProtectedRoute>
+      } />
+      <Route path="/tasks" element={
+        <ProtectedRoute>
+          <Tasks />
+        </ProtectedRoute>
+      } />
+      <Route path="/reports" element={
+        <ProtectedRoute>
+          <Reports />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
         </ProtectedRoute>
       } />
       <Route path="/admin" element={

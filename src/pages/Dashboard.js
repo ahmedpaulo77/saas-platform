@@ -24,7 +24,7 @@ export default function Dashboard() {
         <div className="header">
           <div>
             <h1>مرحباً بك في لوحة التحكم</h1>
-            <p className="subtitle">إدارة كاملة لنظام الشركات والفواتير والعملاء</p>
+            <p className="subtitle">إدارة كاملة لنظام الشركات والفواتير والعملاء والمخزون والمهام</p>
           </div>
           <div className="user-info">
             <div className="avatar">
@@ -86,27 +86,48 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* بطاقة المخزون (قريباً) */}
-          <div className="card" style={{ opacity: 0.85 }}>
+          {/* بطاقة المخزون */}
+          <div className="card">
             <div>
               <span className="card-icon"><i className="fas fa-boxes" style={{ color: '#8b5cf6' }}></i></span>
               <h3>إدارة المخزون</h3>
-              <p>تتبع المخزون والمنتجات (قريباً)</p>
+              <p>تتبع المنتجات والكميات والأسعار</p>
             </div>
-            <button className="btn-primary" disabled>
-              <i className="fas fa-clock"></i> قريباً
+            <button 
+              onClick={() => navigate('/inventory')} 
+              className="btn-primary"
+            >
+              <i className="fas fa-arrow-left"></i> اذهب إلى المخزون
             </button>
           </div>
 
-          {/* بطاقة المهام (قريباً) */}
-          <div className="card" style={{ opacity: 0.85 }}>
+          {/* بطاقة المهام */}
+          <div className="card">
             <div>
               <span className="card-icon"><i className="fas fa-tasks" style={{ color: '#ec4899' }}></i></span>
               <h3>إدارة المهام</h3>
-              <p>توزيع ومتابعة المهام (قريباً)</p>
+              <p>توزيع ومتابعة المهام على الموظفين</p>
             </div>
-            <button className="btn-primary" disabled>
-              <i className="fas fa-clock"></i> قريباً
+            <button 
+              onClick={() => navigate('/tasks')} 
+              className="btn-primary"
+            >
+              <i className="fas fa-arrow-left"></i> اذهب إلى المهام
+            </button>
+          </div>
+
+          {/* بطاقة التقارير */}
+          <div className="card">
+            <div>
+              <span className="card-icon"><i className="fas fa-chart-pie" style={{ color: '#06b6d4' }}></i></span>
+              <h3>التقارير والإحصائيات</h3>
+              <p>عرض إحصائيات شاملة عن النظام</p>
+            </div>
+            <button 
+              onClick={() => navigate('/reports')} 
+              className="btn-primary"
+            >
+              <i className="fas fa-arrow-left"></i> اذهب إلى التقارير
             </button>
           </div>
         </div>
