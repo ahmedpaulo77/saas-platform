@@ -1,15 +1,9 @@
-// src/pages/Subscription.js - نظام الاشتراكات مع Stripe
-// eslint-disable-next-line no-unused-vars
-import { loadStripe } from '@stripe/stripe-js';
+// src/pages/Subscription.js - نسخة مصححة (مع تحسين المظهر والنصوص)
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/common/Sidebar';
-
-// ─── ضع هنا مفتاح Stripe الـ Publishable key بتاعك عند التفعيل ───
-// eslint-disable-next-line no-unused-vars
-const STRIPE_PUBLIC_KEY = 'pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 
 const PLANS = [
   {
@@ -27,8 +21,6 @@ const PLANS = [
       'تصدير PDF',
       'دعم بالبريد الإلكتروني',
     ],
-    stripePriceMonthly: 'price_starter_monthly',
-    stripePriceYearly: 'price_starter_yearly',
   },
   {
     id: 'professional',
@@ -36,7 +28,7 @@ const PLANS = [
     nameAr: 'الاحترافي',
     monthlyPrice: 249,
     yearlyPrice: 2490,
-    color: '#6366f1',
+    color: '#4f46e5',
     featured: true,
     description: 'للشركات المتوسطة والنامية',
     features: [
@@ -47,8 +39,6 @@ const PLANS = [
       'إدارة مخزون كاملة',
       'دعم أولوية 24/7',
     ],
-    stripePriceMonthly: 'price_pro_monthly',
-    stripePriceYearly: 'price_pro_yearly',
   },
   {
     id: 'enterprise',
@@ -66,8 +56,6 @@ const PLANS = [
       'مدير حساب مخصص',
       'SLA 99.9% uptime',
     ],
-    stripePriceMonthly: 'price_enterprise_monthly',
-    stripePriceYearly: 'price_enterprise_yearly',
   },
 ];
 
@@ -101,23 +89,11 @@ export default function Subscription() {
     if (userCompanyId) fetchCurrentSubscription();
     else setFetching(false);
   }, [userCompanyId, fetchCurrentSubscription]);
+
   async function handleSubscribe(plan) {
     setLoadingPlan(plan.id);
-
     try {
-      // ── في حالة Stripe حقيقي ──
-      // const stripe = await loadStripe(STRIPE_PUBLIC_KEY);
-      // const priceId = billing === 'monthly' ? plan.stripePriceMonthly : plan.stripePriceYearly;
-      // const { error } = await stripe.redirectToCheckout({
-      //   lineItems: [{ price: priceId, quantity: 1 }],
-      //   mode: 'subscription',
-      //   successUrl: `${window.location.origin}/dashboard?success=true`,
-      //   cancelUrl: `${window.location.origin}/subscription`,
-      //   clientReferenceId: userCompanyId,
-      // });
-      // if (error) console.error(error);
-
-      // ── Simulation (Demo) ──
+      // Simulation (Demo)
       await new Promise(r => setTimeout(r, 1500));
 
       if (userCompanyId) {
@@ -139,7 +115,7 @@ export default function Subscription() {
         setSubEndDate(endDate.toISOString());
         alert(`✅ تم تفعيل باقة ${plan.nameAr} بنجاح!`);
       } else {
-        alert('✅ في التطبيق الحقيقي سيتم تحويلك لـ Stripe لإتمام الدفع.\n\nباقة: ' + plan.nameAr + '\nالسعر: ' + (billing === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice) + ' ج.م/' + (billing === 'monthly' ? 'شهر' : 'سنة'));
+        alert('✅ سيتم تحويلك لـ Stripe لإتمام الدفع.\n\nباقة: ' + plan.nameAr + '\nالسعر: ' + (billing === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice) + ' ج.م/' + (billing === 'monthly' ? 'شهر' : 'سنة'));
       }
     } catch (e) {
       console.error(e);
@@ -177,7 +153,7 @@ export default function Subscription() {
             background: subStatus === 'active'
               ? 'linear-gradient(135deg,#10b981,#059669)'
               : 'linear-gradient(135deg,#f59e0b,#d97706)',
-            borderRadius: 'var(--radius)',
+            borderRadius: '16px',
             padding: '20px 28px',
             marginBottom: 28,
             display: 'flex',
@@ -217,15 +193,15 @@ export default function Subscription() {
 
         {/* Billing Toggle */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--gray-900)', marginBottom: 6 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
             اختر باقتك
           </h2>
-          <p style={{ color: 'var(--gray-500)', marginBottom: 20 }}>
-            ادفع سنوياً ووفر حتى 17%
+          <p style={{ color: '#64748b', marginBottom: 20 }}>
+            ادفع سنوياً ووفر حتى <strong style={{ color: '#4f46e5' }}>17%</strong>
           </p>
           <div style={{
             display: 'inline-flex',
-            background: 'var(--gray-100)',
+            background: '#f1f5f9',
             borderRadius: 60,
             padding: 4,
             gap: 4,
@@ -244,10 +220,10 @@ export default function Subscription() {
                   fontSize: 14,
                   transition: 'all 0.2s',
                   background: billing === b ? 'white' : 'transparent',
-                  color: billing === b ? 'var(--primary)' : 'var(--gray-500)',
-                  boxShadow: billing === b ? 'var(--shadow-sm)' : 'none',
+                  color: billing === b ? '#4f46e5' : '#64748b',
+                  boxShadow: billing === b ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
                 }}>
-                {b === 'monthly' ? 'شهري' : 'سنوي'}
+                {b === 'monthly' ? 'شهرية' : 'سنوية'}
                 {b === 'yearly' && (
                   <span style={{
                     marginRight: 6,
@@ -264,7 +240,12 @@ export default function Subscription() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="pricing-grid">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px',
+          marginBottom: '32px',
+        }}>
           {PLANS.map(plan => {
             const price = billing === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
             const isActive = currentPlan === plan.id;
@@ -273,11 +254,37 @@ export default function Subscription() {
             return (
               <div
                 key={plan.id}
-                className={`pricing-card ${plan.featured ? 'featured' : ''}`}
-                style={{ position: 'relative', overflow: 'hidden' }}
+                style={{
+                  background: 'white',
+                  borderRadius: '24px',
+                  padding: '32px 24px',
+                  boxShadow: plan.featured
+                    ? '0 8px 30px rgba(79, 70, 229, 0.15)'
+                    : '0 4px 12px rgba(0,0,0,0.05)',
+                  border: plan.featured ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                  transform: plan.featured ? 'scale(1.02)' : 'scale(1)',
+                  transition: 'all 0.3s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative',
+                }}
               >
                 {plan.featured && (
-                  <div className="plan-badge">الأكثر شيوعاً</div>
+                  <span style={{
+                    position: 'absolute',
+                    top: '-12px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#4f46e5',
+                    color: 'white',
+                    padding: '4px 16px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    letterSpacing: '0.5px',
+                  }}>
+                    الأكثر شيوعاً
+                  </span>
                 )}
 
                 {isActive && (
@@ -285,7 +292,7 @@ export default function Subscription() {
                     position: 'absolute', top: 12, left: 12,
                     background: '#10b981', color: 'white',
                     padding: '3px 10px', borderRadius: 60,
-                    fontSize: 10, fontWeight: 700
+                    fontSize: 10, fontWeight: 700,
                   }}>
                     ✓ مفعّل
                   </div>
@@ -295,34 +302,56 @@ export default function Subscription() {
                   {plan.id === 'starter' ? '🚀' : plan.id === 'professional' ? '⚡' : '🏢'}
                 </div>
 
-                <div className="plan-name">{plan.nameAr}</div>
-                <div style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 4 }}>{plan.description}</div>
-
-                <div className="plan-price">
-                  {price.toLocaleString()}
-                  <span> ج.م</span>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
+                  {plan.nameAr}
                 </div>
-                <div className="plan-period">/{billing === 'monthly' ? 'شهر' : 'سنة'}</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{plan.description}</div>
 
-                <ul className="plan-features">
+                <div style={{ margin: '16px 0' }}>
+                  <span style={{ fontSize: 36, fontWeight: 800, color: '#0f172a' }}>
+                    {price.toLocaleString()}
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: 14 }}> ج.م</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>
+                  /{billing === 'monthly' ? 'شهر' : 'سنة'}
+                </div>
+
+                <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0', flex: 1 }}>
                   {plan.features.map((f, i) => (
-                    <li key={i}>
-                      <i className="fas fa-check-circle"></i>
+                    <li key={i} style={{
+                      padding: '6px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: '#334155',
+                      fontSize: 14,
+                    }}>
+                      <i className="fas fa-check-circle" style={{ color: '#4f46e5' }}></i>
                       {f}
                     </li>
                   ))}
                 </ul>
 
                 <button
-                  className={`btn-primary btn-block ${isActive ? 'btn-success' : ''}`}
                   onClick={() => handleSubscribe(plan)}
                   disabled={isLoading}
                   style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: 16,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
                     background: isActive
                       ? '#10b981'
                       : plan.featured
                         ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
-                        : 'var(--primary)',
+                        : '#4f46e5',
+                    color: 'white',
+                    opacity: isLoading ? 0.7 : 1,
                   }}
                 >
                   {isLoading ? (
@@ -344,22 +373,21 @@ export default function Subscription() {
           border: '1px solid #e0e7ff',
           textAlign: 'center',
           padding: '24px 32px',
-          marginTop: 8
+          marginTop: 8,
+          borderRadius: '16px',
         }}>
           <div style={{ fontSize: 28, marginBottom: 10 }}>🔒</div>
-          <h3 style={{ color: 'var(--gray-800)', marginBottom: 6, justifyContent: 'center' }}>
-            دفع آمن بـ Stripe
-          </h3>
-          <p style={{ color: 'var(--gray-500)', fontSize: 14, maxWidth: 480, margin: '0 auto' }}>
+          <h3 style={{ color: '#0f172a', marginBottom: 6 }}>دفع آمن بـ Stripe</h3>
+          <p style={{ color: '#64748b', fontSize: 14, maxWidth: 480, margin: '0 auto' }}>
             جميع المعاملات المالية مشفرة ومحمية بأعلى معايير الأمان.
             نقبل بطاقات Visa وMastercard والمحافظ الإلكترونية.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
             {['fab fa-cc-visa','fab fa-cc-mastercard','fab fa-cc-stripe'].map(ic => (
-              <i key={ic} className={ic} style={{ fontSize: 28, color: 'var(--gray-400)' }}></i>
+              <i key={ic} className={ic} style={{ fontSize: 28, color: '#94a3b8' }}></i>
             ))}
           </div>
-          <p style={{ marginTop: 12, fontSize: 12, color: 'var(--gray-400)' }}>
+          <p style={{ marginTop: 12, fontSize: 12, color: '#94a3b8' }}>
             * لتفعيل الدفع الحقيقي أضف Stripe Secret Key في الـ Backend
           </p>
         </div>
