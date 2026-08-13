@@ -1,4 +1,4 @@
-// src/pages/Notifications.js - صفحة الإشعارات
+// src/pages/Notifications.js - تصميم احترافي
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -7,130 +7,176 @@ import Sidebar from '../components/common/Sidebar';
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  useEffect(() => { fetchNotifications(); }, []);
 
   async function fetchNotifications() {
     try {
-      const notificationsList = [];
+      const list = [];
 
-      // 1. إشعارات المخزون (منتجات أقل من 5)
-      const productsSnapshot = await getDocs(collection(db, 'inventory'));
-      productsSnapshot.forEach((doc) => {
-        const product = { id: doc.id, ...doc.data() };
-        if (product.quantity < 5) {
-          notificationsList.push({
-            id: `stock-${product.id}`,
+      const productsSnap = await getDocs(collection(db, 'inventory'));
+      productsSnap.forEach(d => {
+        const p = { id: d.id, ...d.data() };
+        if (p.quantity < 5) {
+          list.push({
+            id: `stock-${p.id}`,
             type: 'warning',
-            title: `⚠️ تنبيه مخزون: ${product.name}`,
-            message: `الكمية المتبقية: ${product.quantity} (أقل من 5)`,
+            icon: 'fas fa-exclamation-triangle',
+            title: `تنبيه مخزون: ${p.name}`,
+            message: `الكمية المتبقية ${p.quantity} وحدة — أقل من الحد الأدنى (5)`,
             date: new Date().toISOString(),
-            read: false,
           });
         }
       });
 
-      // 2. إشعارات الفواتير المتأخرة
-      const invoicesSnapshot = await getDocs(collection(db, 'invoices'));
-      invoicesSnapshot.forEach((doc) => {
-        const invoice = { id: doc.id, ...doc.data() };
-        if (invoice.status === 'overdue') {
-          notificationsList.push({
-            id: `invoice-${invoice.id}`,
+      const invoicesSnap = await getDocs(collection(db, 'invoices'));
+      invoicesSnap.forEach(d => {
+        const inv = { id: d.id, ...d.data() };
+        if (inv.status === 'overdue') {
+          list.push({
+            id: `inv-${inv.id}`,
             type: 'danger',
-            title: `⚠️ فاتورة متأخرة`,
-            message: `الفاتورة رقم ${invoice.id} متأخرة`,
-            date: invoice.date || new Date().toISOString(),
-            read: false,
+            icon: 'fas fa-file-invoice',
+            title: 'فاتورة متأخرة السداد',
+            message: `فاتورة بمبلغ ${inv.amount?.toLocaleString()} ج.م تحتاج إلى مراجعة`,
+            date: inv.date || new Date().toISOString(),
           });
         }
       });
 
-      // 3. إشعارات المهام (الاستحقاق خلال 3 أيام)
-      const tasksSnapshot = await getDocs(collection(db, 'tasks'));
-      tasksSnapshot.forEach((doc) => {
-        const task = { id: doc.id, ...doc.data() };
-        if (task.dueDate) {
-          const dueDate = new Date(task.dueDate);
-          const today = new Date();
-          const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-          if (diffDays <= 3 && diffDays >= 0 && task.status !== 'completed') {
-            notificationsList.push({
+      const tasksSnap = await getDocs(collection(db, 'tasks'));
+      tasksSnap.forEach(d => {
+        const task = { id: d.id, ...d.data() };
+        if (task.dueDate && task.status !== 'completed') {
+          const due = new Date(task.dueDate);
+          const diff = Math.ceil((due - new Date()) / 86400000);
+          if (diff <= 3 && diff >= 0) {
+            list.push({
               id: `task-${task.id}`,
               type: 'info',
-              title: `📋 مهمة قريبة: ${task.title}`,
-              message: `تاريخ الاستحقاق: ${dueDate.toLocaleDateString('ar-EG')}`,
+              icon: 'fas fa-tasks',
+              title: `مهمة تستحق قريباً: ${task.title}`,
+              message: `تاريخ الاستحقاق: ${due.toLocaleDateString('ar-EG')} — ${diff === 0 ? 'اليوم!' : `بعد ${diff} أيام`}`,
               date: task.dueDate,
-              read: false,
             });
           }
         }
       });
 
-      notificationsList.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setNotifications(notificationsList);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+      list.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setNotifications(list);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return <div className="loading">جاري تحميل الإشعارات...</div>;
-  }
+  const filtered = filter === 'all' ? notifications : notifications.filter(n => n.type === filter);
+
+  const counts = {
+    all: notifications.length,
+    danger: notifications.filter(n => n.type === 'danger').length,
+    warning: notifications.filter(n => n.type === 'warning').length,
+    info: notifications.filter(n => n.type === 'info').length,
+  };
+
+  if (loading) return (
+    <div className="loading"><div className="spinner"></div>جاري تحميل الإشعارات...</div>
+  );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <div className="main-content">
-        <h2 style={{ color: '#333', marginBottom: '20px' }}>
-          <i className="fas fa-bell" style={{ color: '#4f46e5' }}></i> الإشعارات
-          <span style={{ fontSize: '14px', fontWeight: 'normal', color: '#64748b', marginRight: '10px' }}>
-            ({notifications.length} إشعار)
-          </span>
-        </h2>
 
-        {notifications.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-            <i className="fas fa-check-circle" style={{ fontSize: '48px', color: '#10b981' }}></i>
-            <h3 style={{ marginTop: '16px' }}>كل شيء هادئ!</h3>
-            <p style={{ color: '#64748b' }}>لا توجد إشعارات جديدة في الوقت الحالي</p>
+        <div className="header">
+          <div>
+            <h1><i className="fas fa-bell" style={{ color: '#6366f1', marginLeft: 10 }}></i>الإشعارات</h1>
+            <p className="subtitle">مراقبة تنبيهات المخزون والفواتير والمهام</p>
+          </div>
+          <button onClick={() => { setLoading(true); fetchNotifications(); }} className="btn-secondary">
+            <i className="fas fa-sync-alt"></i> تحديث
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="stats-row" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', marginBottom: 24 }}>
+          <div className="stat-card indigo">
+            <div className="stat-icon"><i className="fas fa-bell"></i></div>
+            <div className="stat-value">{counts.all}</div>
+            <div className="stat-label">إجمالي الإشعارات</div>
+          </div>
+          <div className="stat-card red">
+            <div className="stat-icon"><i className="fas fa-exclamation-circle"></i></div>
+            <div className="stat-value">{counts.danger}</div>
+            <div className="stat-label">عاجل</div>
+          </div>
+          <div className="stat-card amber">
+            <div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div>
+            <div className="stat-value">{counts.warning}</div>
+            <div className="stat-label">تنبيهات</div>
+          </div>
+          <div className="stat-card cyan">
+            <div className="stat-icon"><i className="fas fa-info-circle"></i></div>
+            <div className="stat-value">{counts.info}</div>
+            <div className="stat-label">معلومات</div>
+          </div>
+        </div>
+
+        {/* Filter tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          {[
+            { key: 'all', label: 'الكل', icon: 'fas fa-list' },
+            { key: 'danger', label: 'عاجل', icon: 'fas fa-exclamation-circle' },
+            { key: 'warning', label: 'تنبيهات', icon: 'fas fa-exclamation-triangle' },
+            { key: 'info', label: 'معلومات', icon: 'fas fa-info-circle' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={filter === tab.key ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
+            >
+              <i className={tab.icon}></i> {tab.label}
+              {counts[tab.key] > 0 && (
+                <span style={{
+                  background: filter === tab.key ? 'rgba(255,255,255,0.25)' : 'var(--primary-bg)',
+                  color: filter === tab.key ? 'white' : 'var(--primary)',
+                  padding: '1px 7px', borderRadius: 60, fontSize: 10, marginRight: 4, fontWeight: 700
+                }}>{counts[tab.key]}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Notifications list */}
+        {filtered.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <i className="fas fa-check-circle" style={{ color: '#10b981' }}></i>
+            </div>
+            <h3>كل شيء هادئ!</h3>
+            <p>لا توجد إشعارات في هذه الفئة</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="card"
-                style={{
-                  borderRight: `4px solid ${
-                    notification.type === 'danger' ? '#ef4444' :
-                    notification.type === 'warning' ? '#f59e0b' : '#4f46e5'
-                  }`,
-                  padding: '16px 20px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h4 style={{ marginBottom: '4px' }}>{notification.title}</h4>
-                    <p style={{ color: '#64748b', margin: 0 }}>{notification.message}</p>
-                    <small style={{ color: '#94a3b8' }}>
-                      {new Date(notification.date).toLocaleDateString('ar-EG')}
-                    </small>
-                  </div>
-                  <span
-                    className={`badge ${
-                      notification.type === 'danger' ? 'badge-expired' :
-                      notification.type === 'warning' ? 'badge-pending' : 'badge-active'
-                    }`}
-                  >
-                    {notification.type === 'danger' ? 'عاجل' :
-                     notification.type === 'warning' ? 'تنبيه' : 'معلومة'}
-                  </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filtered.map(n => (
+              <div key={n.id} className={`notification-item ${n.type}`}>
+                <div className="notification-icon">
+                  <i className={n.icon}></i>
                 </div>
+                <div className="notification-content">
+                  <div className="notification-title">{n.title}</div>
+                  <div className="notification-msg">{n.message}</div>
+                  <div className="notification-date">
+                    <i className="fas fa-clock" style={{ marginLeft: 4 }}></i>
+                    {new Date(n.date).toLocaleDateString('ar-EG')}
+                  </div>
+                </div>
+                <span className={`badge ${n.type === 'danger' ? 'badge-expired' : n.type === 'warning' ? 'badge-pending' : 'badge-info'}`}>
+                  {n.type === 'danger' ? 'عاجل' : n.type === 'warning' ? 'تنبيه' : 'معلومة'}
+                </span>
               </div>
             ))}
           </div>

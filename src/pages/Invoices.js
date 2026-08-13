@@ -1,84 +1,67 @@
-// src/pages/Invoices.js - نسخة معدلة (مع ربط المخزون)
+// src/pages/Invoices.js - مع تصدير PDF + تصميم احترافي
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Sidebar from '../components/common/Sidebar';
+import { exportInvoicePDF } from '../utils/pdfExport';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [newInvoice, setNewInvoice] = useState({ 
-    clientId: '', 
-    productId: '',
-    quantity: 1,
-    amount: '', 
-    status: 'pending', 
-    description: '' 
-  });
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(true);
-  
+  const [submitting, setSubmitting] = useState(false);
+
+  const [newInvoice, setNewInvoice] = useState({
+    clientId: '', productId: '', quantity: 1,
+    amount: '', status: 'pending', description: ''
+  });
+
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    fetchInvoices();
-    fetchClients();
-    fetchProducts();
+    Promise.all([fetchInvoices(), fetchClients(), fetchProducts()]);
   }, []);
 
   async function fetchInvoices() {
     try {
-      const querySnapshot = await getDocs(collection(db, 'invoices'));
-      const invoicesData = [];
-      querySnapshot.forEach((doc) => {
-        invoicesData.push({ id: doc.id, ...doc.data() });
-      });
-      setInvoices(invoicesData);
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-      alert('حدث خطأ في جلب الفواتير');
-    } finally {
-      setLoading(false);
-    }
+      const snap = await getDocs(collection(db, 'invoices'));
+      setInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }
 
   async function fetchClients() {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'clients'));
-      const clientsData = [];
-      querySnapshot.forEach((doc) => {
-        clientsData.push({ id: doc.id, name: doc.data().name });
-      });
-      setClients(clientsData);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
+    const snap = await getDocs(collection(db, 'clients'));
+    setClients(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
   }
 
   async function fetchProducts() {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'inventory'));
-      const productsData = [];
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
-      setProducts(productsData);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    }
+    const snap = await getDocs(collection(db, 'inventory'));
+    setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   }
 
   async function addInvoice(e) {
     e.preventDefault();
-    if (!newInvoice.clientId || !newInvoice.amount || !newInvoice.productId) {
-      alert('يرجى ملء جميع الحقول المطلوبة');
-      return;
-    }
-
+    if (!newInvoice.clientId || !newInvoice.amount || !newInvoice.productId) return;
+    setSubmitting(true);
     try {
-      // 1. إضافة الفاتورة
+      const productRef = doc(db, 'inventory', newInvoice.productId);
+      const productDoc = await getDoc(productRef);
+      if (productDoc.exists()) {
+        const currentQty = productDoc.data().quantity || 0;
+        const qty = parseInt(newInvoice.quantity) || 1;
+        if (currentQty - qty < 0) {
+          alert('❌ الكمية المطلوبة أكبر من المتوفرة في المخزون!');
+          setSubmitting(false);
+          return;
+        }
+        await updateDoc(productRef, { quantity: currentQty - qty });
+      }
+
       await addDoc(collection(db, 'invoices'), {
         ...newInvoice,
         amount: parseFloat(newInvoice.amount),
@@ -87,311 +70,278 @@ export default function Invoices() {
         createdAt: new Date().toISOString()
       });
 
-      // 2. تقليل الكمية في المخزون
-      const productRef = doc(db, 'inventory', newInvoice.productId);
-      const productDoc = await getDoc(productRef);
-      if (productDoc.exists()) {
-        const currentQuantity = productDoc.data().quantity || 0;
-        const quantityToReduce = parseInt(newInvoice.quantity) || 1;
-        const newQuantity = currentQuantity - quantityToReduce;
-        
-        if (newQuantity < 0) {
-          alert('❌ الكمية المطلوبة أكبر من المتوفرة في المخزون!');
-          return;
-        }
-        
-        await updateDoc(productRef, { quantity: newQuantity });
-      }
-
       setNewInvoice({ clientId: '', productId: '', quantity: 1, amount: '', status: 'pending', description: '' });
-      await fetchInvoices();
-      await fetchProducts();
-      alert('✅ تم إضافة الفاتورة وتحديث المخزون بنجاح');
-    } catch (error) {
-      console.error('Error adding invoice:', error);
-      alert('❌ حدث خطأ في إضافة الفاتورة');
+      await Promise.all([fetchInvoices(), fetchProducts()]);
+    } catch (e) {
+      console.error(e);
+      alert('❌ حدث خطأ');
     }
-  }
-
-  function openEditModal(invoice) {
-    setEditingInvoice(invoice);
-    setShowEditModal(true);
-  }
-
-  function closeEditModal() {
-    setEditingInvoice(null);
-    setShowEditModal(false);
+    setSubmitting(false);
   }
 
   async function updateInvoice(e) {
     e.preventDefault();
-    if (!editingInvoice.clientId || !editingInvoice.amount) {
-      alert('يرجى ملء جميع الحقول المطلوبة');
-      return;
-    }
-
     try {
-      const invoiceRef = doc(db, 'invoices', editingInvoice.id);
-      await updateDoc(invoiceRef, {
+      await updateDoc(doc(db, 'invoices', editingInvoice.id), {
         clientId: editingInvoice.clientId,
         amount: parseFloat(editingInvoice.amount),
         status: editingInvoice.status,
         description: editingInvoice.description || ''
       });
       await fetchInvoices();
-      closeEditModal();
-      alert('✅ تم تحديث الفاتورة بنجاح');
-    } catch (error) {
-      console.error('Error updating invoice:', error);
-      alert('❌ حدث خطأ في تحديث الفاتورة');
-    }
+      setShowEditModal(false);
+    } catch (e) { console.error(e); }
   }
 
   async function deleteInvoice(id) {
     if (!window.confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
-    try {
-      await deleteDoc(doc(db, 'invoices', id));
-      await fetchInvoices();
-      alert('✅ تم حذف الفاتورة بنجاح');
-    } catch (error) {
-      console.error('Error deleting invoice:', error);
-      alert('❌ حدث خطأ في حذف الفاتورة');
-    }
+    await deleteDoc(doc(db, 'invoices', id));
+    await fetchInvoices();
   }
 
-  const filteredInvoices = invoices.filter(invoice => {
-    const clientName = clients.find(c => c.id === invoice.clientId)?.name || '';
-    return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.amount.toString().includes(searchTerm) ||
-      invoice.status.includes(searchTerm) ||
-      (invoice.description && invoice.description.toLowerCase().includes(searchTerm.toLowerCase()));
+  function handleExportPDF(invoice) {
+    const clientName = clients.find(c => c.id === invoice.clientId)?.name || 'غير محدد';
+    const productName = products.find(p => p.id === invoice.productId)?.name || 'غير محدد';
+    exportInvoicePDF(invoice, clientName, productName);
+  }
+
+  const filtered = invoices.filter(inv => {
+    const clientName = clients.find(c => c.id === inv.clientId)?.name || '';
+    const matchSearch = clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(inv.amount).includes(searchTerm) ||
+      (inv.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = filterStatus === 'all' || inv.status === filterStatus;
+    return matchSearch && matchStatus;
   });
 
-  if (loading) {
-    return <div className="loading">جاري تحميل الفواتير...</div>;
-  }
+  const totalRevenue = filtered.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  const paidCount = filtered.filter(i => i.status === 'paid').length;
+  const pendingCount = filtered.filter(i => i.status === 'pending').length;
+
+  if (loading) return (
+    <div className="loading">
+      <div className="spinner"></div>
+      جاري تحميل الفواتير...
+    </div>
+  );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <div className="main-content">
-        <h2 style={{ color: '#333', marginBottom: '20px' }}>📄 إدارة الفواتير</h2>
 
-        <form onSubmit={addInvoice} className="form-container">
-          <select
-            value={newInvoice.clientId}
-            onChange={(e) => setNewInvoice({ ...newInvoice, clientId: e.target.value })}
-            required
-          >
-            <option value="">اختر العميل</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>{client.name}</option>
-            ))}
-          </select>
-          
-          <select
-            value={newInvoice.productId}
-            onChange={(e) => {
-              const product = products.find(p => p.id === e.target.value);
-              setNewInvoice({ 
-                ...newInvoice, 
-                productId: e.target.value,
-                amount: product ? product.price : ''
-              });
-            }}
-            required
-          >
-            <option value="">اختر المنتج</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name} - {product.quantity} متبقي
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            placeholder="الكمية"
-            value={newInvoice.quantity}
-            onChange={(e) => setNewInvoice({ ...newInvoice, quantity: e.target.value })}
-            required
-            min="1"
-          />
-
-          <input
-            type="number"
-            placeholder="المبلغ"
-            value={newInvoice.amount}
-            onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
-            required
-          />
-
-          <select
-            value={newInvoice.status}
-            onChange={(e) => setNewInvoice({ ...newInvoice, status: e.target.value })}
-          >
-            <option value="pending">قيد الانتظار</option>
-            <option value="paid">مدفوعة</option>
-            <option value="overdue">متأخرة</option>
-          </select>
-
-          <input
-            type="text"
-            placeholder="الوصف"
-            value={newInvoice.description}
-            onChange={(e) => setNewInvoice({ ...newInvoice, description: e.target.value })}
-          />
-
-          <button type="submit" className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة فاتورة
-          </button>
-        </form>
-
-        <div style={{ marginBottom: '20px' }}>
-          <input
-            type="text"
-            placeholder="🔍 ابحث عن فاتورة باسم العميل أو المبلغ أو الحالة..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: '2px solid #e2e8f0',
-              borderRadius: '10px',
-              fontSize: '15px',
-              transition: 'border-color 0.3s',
-              outline: 'none',
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
-            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-          />
-        </div>
-
-        <div className="table-container">
-          <div className="table-header">
-            <h3>قائمة الفواتير</h3>
-            <span>{filteredInvoices.length} فاتورة</span>
+        {/* Header */}
+        <div className="header">
+          <div>
+            <h1><i className="fas fa-file-invoice" style={{ color: '#f59e0b', marginLeft: 10 }}></i>إدارة الفواتير</h1>
+            <p className="subtitle">إنشاء وتتبع الفواتير مع تصدير PDF احترافي</p>
           </div>
-          {filteredInvoices.length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
-              {searchTerm ? '❌ لا توجد نتائج مطابقة للبحث' : 'لا توجد فواتير مسجلة حتى الآن'}
-            </p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>العميل</th>
-                  <th>المنتج</th>
-                  <th>الكمية</th>
-                  <th>المبلغ</th>
-                  <th>الحالة</th>
-                  <th>التاريخ</th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredInvoices.map((invoice, index) => {
-                  const clientName = clients.find(c => c.id === invoice.clientId)?.name || 'غير محدد';
-                  const productName = products.find(p => p.id === invoice.productId)?.name || 'غير محدد';
-                  return (
-                    <tr key={invoice.id}>
-                      <td>{index + 1}</td>
-                      <td>{clientName}</td>
-                      <td>{productName}</td>
-                      <td>{invoice.quantity || 1}</td>
-                      <td>{invoice.amount} ج.م</td>
-                      <td>
-                        <span className={`badge ${
-                          invoice.status === 'paid' ? 'badge-paid' :
-                          invoice.status === 'pending' ? 'badge-pending' : 'badge-overdue'
-                        }`}>
-                          {invoice.status === 'paid' ? 'مدفوعة' :
-                           invoice.status === 'pending' ? 'قيد الانتظار' : 'متأخرة'}
-                        </span>
-                      </td>
-                      <td>{new Date(invoice.date).toLocaleDateString('ar-EG')}</td>
-                      <td>
-                        <button 
-                          onClick={() => openEditModal(invoice)} 
-                          className="btn-primary" 
-                          style={{ marginLeft: '8px', padding: '6px 14px', fontSize: '13px' }}
-                        >
-                          <i className="fas fa-edit"></i> تعديل
-                        </button>
-                        <button 
-                          onClick={() => deleteInvoice(invoice.id)} 
-                          className="btn-danger"
-                        >
-                          <i className="fas fa-trash"></i> حذف
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
         </div>
-      </div>
 
-      {showEditModal && editingInvoice && (
-        <div style={styles.modalOverlay} onClick={closeEditModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3><i className="fas fa-edit"></i> تعديل الفاتورة</h3>
-              <button onClick={closeEditModal} style={styles.closeBtn}>&times;</button>
-            </div>
-            <form onSubmit={updateInvoice}>
-              <div style={styles.formGroup}>
-                <label>العميل</label>
-                <select
-                  value={editingInvoice.clientId}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, clientId: e.target.value })}
-                  required
-                  style={styles.input}
-                >
+        {/* Stats */}
+        <div className="stats-row" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))' }}>
+          <div className="stat-card amber">
+            <div className="stat-icon"><i className="fas fa-file-invoice"></i></div>
+            <div className="stat-value">{invoices.length}</div>
+            <div className="stat-label">إجمالي الفواتير</div>
+          </div>
+          <div className="stat-card green">
+            <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
+            <div className="stat-value">{paidCount}</div>
+            <div className="stat-label">فواتير مدفوعة</div>
+          </div>
+          <div className="stat-card indigo">
+            <div className="stat-icon"><i className="fas fa-clock"></i></div>
+            <div className="stat-value">{pendingCount}</div>
+            <div className="stat-label">قيد الانتظار</div>
+          </div>
+          <div className="stat-card cyan">
+            <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
+            <div className="stat-value" style={{ fontSize: 20 }}>{totalRevenue.toLocaleString('ar-EG')} ج</div>
+            <div className="stat-label">إجمالي الإيرادات</div>
+          </div>
+        </div>
+
+        {/* Add Form */}
+        <div className="form-card">
+          <h3><i className="fas fa-plus-circle" style={{ color: '#6366f1' }}></i>إضافة فاتورة جديدة</h3>
+          <form onSubmit={addInvoice}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 14 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>العميل *</label>
+                <select value={newInvoice.clientId} onChange={e => setNewInvoice({ ...newInvoice, clientId: e.target.value })} required>
                   <option value="">اختر العميل</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
-                  ))}
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div style={styles.formGroup}>
-                <label>المبلغ</label>
-                <input
-                  type="number"
-                  value={editingInvoice.amount}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })}
-                  required
-                  style={styles.input}
-                />
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>المنتج *</label>
+                <select value={newInvoice.productId} onChange={e => {
+                  const p = products.find(p => p.id === e.target.value);
+                  setNewInvoice({ ...newInvoice, productId: e.target.value, amount: p ? p.price : '' });
+                }} required>
+                  <option value="">اختر المنتج</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.quantity} متبقي)</option>)}
+                </select>
               </div>
-              <div style={styles.formGroup}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>الكمية *</label>
+                <input type="number" min="1" value={newInvoice.quantity}
+                  onChange={e => setNewInvoice({ ...newInvoice, quantity: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>المبلغ (ج.م) *</label>
+                <input type="number" step="0.01" placeholder="0.00" value={newInvoice.amount}
+                  onChange={e => setNewInvoice({ ...newInvoice, amount: e.target.value })} required />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>الحالة</label>
-                <select
-                  value={editingInvoice.status}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, status: e.target.value })}
-                  style={styles.input}
-                >
+                <select value={newInvoice.status} onChange={e => setNewInvoice({ ...newInvoice, status: e.target.value })}>
                   <option value="pending">قيد الانتظار</option>
                   <option value="paid">مدفوعة</option>
                   <option value="overdue">متأخرة</option>
                 </select>
               </div>
-              <div style={styles.formGroup}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>الوصف</label>
-                <input
-                  type="text"
-                  value={editingInvoice.description || ''}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, description: e.target.value })}
-                  style={styles.input}
-                />
+                <input type="text" placeholder="ملاحظات اختيارية" value={newInvoice.description}
+                  onChange={e => setNewInvoice({ ...newInvoice, description: e.target.value })} />
               </div>
-              <div style={styles.modalFooter}>
-                <button type="button" onClick={closeEditModal} className="btn-danger" style={{ marginLeft: '10px' }}>
-                  إلغاء
-                </button>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting
+                  ? <><i className="fas fa-spinner fa-spin"></i> جاري الإضافة...</>
+                  : <><i className="fas fa-plus"></i> إضافة فاتورة</>}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="filter-bar">
+          <div className="search-wrapper" style={{ flex: 1 }}>
+            <i className="fas fa-search search-icon"></i>
+            <input type="text" placeholder="ابحث بالعميل أو المبلغ أو الوصف..."
+              value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="all">جميع الحالات</option>
+            <option value="paid">مدفوعة</option>
+            <option value="pending">قيد الانتظار</option>
+            <option value="overdue">متأخرة</option>
+          </select>
+        </div>
+
+        {/* Table */}
+        <div className="table-container">
+          <div className="table-header">
+            <h3><i className="fas fa-list"></i> قائمة الفواتير</h3>
+            <span className="table-count">{filtered.length} فاتورة</span>
+          </div>
+          <div className="table-wrapper">
+            {filtered.length === 0 ? (
+              <div className="table-empty">
+                <i className="fas fa-file-invoice"></i>
+                <p>{searchTerm || filterStatus !== 'all' ? 'لا توجد نتائج مطابقة' : 'لا توجد فواتير بعد'}</p>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>العميل</th>
+                    <th>المنتج</th>
+                    <th>الكمية</th>
+                    <th>المبلغ</th>
+                    <th>الحالة</th>
+                    <th>التاريخ</th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((inv, i) => {
+                    const clientName = clients.find(c => c.id === inv.clientId)?.name || 'غير محدد';
+                    const productName = products.find(p => p.id === inv.productId)?.name || 'غير محدد';
+                    return (
+                      <tr key={inv.id}>
+                        <td style={{ color: 'var(--gray-400)', fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{clientName}</td>
+                        <td>{productName}</td>
+                        <td>{inv.quantity || 1}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--gray-800)' }}>{(inv.amount || 0).toLocaleString()} ج.م</td>
+                        <td>
+                          <span className={`badge ${inv.status === 'paid' ? 'badge-paid' : inv.status === 'pending' ? 'badge-pending' : 'badge-overdue'}`}>
+                            {inv.status === 'paid' ? '✓ مدفوعة' : inv.status === 'pending' ? '⏳ انتظار' : '⚠ متأخرة'}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--gray-500)', fontSize: 13 }}>
+                          {inv.date ? new Date(inv.date).toLocaleDateString('ar-EG') : '-'}
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <button onClick={() => handleExportPDF(inv)} className="btn-primary btn-sm" title="تصدير PDF">
+                              <i className="fas fa-file-pdf"></i> PDF
+                            </button>
+                            <button onClick={() => { setEditingInvoice(inv); setShowEditModal(true); }}
+                              className="btn-secondary btn-sm" title="تعديل">
+                              <i className="fas fa-edit"></i>
+                            </button>
+                            <button onClick={() => deleteInvoice(inv.id)} className="btn-danger btn-sm" title="حذف">
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editingInvoice && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3><i className="fas fa-edit" style={{ color: '#6366f1' }}></i> تعديل الفاتورة</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
+            </div>
+            <form onSubmit={updateInvoice}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>العميل</label>
+                  <select value={editingInvoice.clientId}
+                    onChange={e => setEditingInvoice({ ...editingInvoice, clientId: e.target.value })} required>
+                    <option value="">اختر العميل</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>المبلغ (ج.م)</label>
+                  <input type="number" step="0.01" value={editingInvoice.amount}
+                    onChange={e => setEditingInvoice({ ...editingInvoice, amount: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label>الحالة</label>
+                  <select value={editingInvoice.status}
+                    onChange={e => setEditingInvoice({ ...editingInvoice, status: e.target.value })}>
+                    <option value="pending">قيد الانتظار</option>
+                    <option value="paid">مدفوعة</option>
+                    <option value="overdue">متأخرة</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>الوصف</label>
+                  <input type="text" value={editingInvoice.description || ''}
+                    onChange={e => setEditingInvoice({ ...editingInvoice, description: e.target.value })} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>إلغاء</button>
                 <button type="submit" className="btn-primary">
                   <i className="fas fa-save"></i> حفظ التعديلات
                 </button>
@@ -403,63 +353,3 @@ export default function Invoices() {
     </div>
   );
 }
-
-const styles = {
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    backdropFilter: 'blur(4px)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '30px',
-    width: '90%',
-    maxWidth: '500px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-    direction: 'rtl',
-  },
-  modalHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    borderBottom: '1px solid #e2e8f0',
-    paddingBottom: '15px',
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    fontSize: '28px',
-    cursor: 'pointer',
-    color: '#94a3b8',
-    transition: 'color 0.3s',
-  },
-  formGroup: {
-    marginBottom: '16px',
-  },
-  input: {
-    width: '100%',
-    padding: '10px 14px',
-    border: '2px solid #e2e8f0',
-    borderRadius: '10px',
-    fontSize: '15px',
-    transition: 'border-color 0.3s',
-    marginTop: '6px',
-  },
-  modalFooter: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    marginTop: '20px',
-    borderTop: '1px solid #e2e8f0',
-    paddingTop: '20px',
-  },
-};  

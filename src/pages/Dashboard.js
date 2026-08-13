@@ -1,133 +1,194 @@
-// src/pages/Dashboard.js - بأيقونات Font Awesome
-import React from 'react';
+// src/pages/Dashboard.js - تصميم احترافي
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/common/Sidebar';
 
+const featureCards = [
+  {
+    to: '/companies', icon: 'fas fa-building', color: '#6366f1', bg: '#eef2ff',
+    title: 'إدارة الشركات', desc: 'إضافة وتعديل الشركات المسجلة في النظام'
+  },
+  {
+    to: '/clients', icon: 'fas fa-user-friends', color: '#10b981', bg: '#d1fae5',
+    title: 'إدارة العملاء', desc: 'إدارة عملاء الشركات وإضافة عملاء جدد'
+  },
+  {
+    to: '/invoices', icon: 'fas fa-file-invoice', color: '#f59e0b', bg: '#fef3c7',
+    title: 'إدارة الفواتير', desc: 'إنشاء وتتبع الفواتير مع تصدير PDF'
+  },
+  {
+    to: '/inventory', icon: 'fas fa-boxes', color: '#8b5cf6', bg: '#f3e8ff',
+    title: 'إدارة المخزون', desc: 'تتبع المنتجات والكميات والأسعار'
+  },
+  {
+    to: '/tasks', icon: 'fas fa-tasks', color: '#ec4899', bg: '#fdf2f8',
+    title: 'إدارة المهام', desc: 'توزيع ومتابعة المهام على الفريق'
+  },
+  {
+    to: '/reports', icon: 'fas fa-chart-pie', color: '#06b6d4', bg: '#ecfeff',
+    title: 'التقارير والإحصائيات', desc: 'تقارير شاملة وتصدير Excel'
+  },
+];
+
 export default function Dashboard() {
   const { currentUser, userRole, logout } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({ companies: 0, clients: 0, invoices: 0, tasks: 0, revenue: 0 });
+  const [loading, setLoading] = useState(true);
 
-  async function handleLogout() {
+  useEffect(() => { fetchStats(); }, []);
+
+  async function fetchStats() {
     try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+      const [compSnap, cliSnap, invSnap, taskSnap] = await Promise.all([
+        getDocs(collection(db, 'companies')),
+        getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'invoices')),
+        getDocs(collection(db, 'tasks')),
+      ]);
+      let revenue = 0;
+      invSnap.forEach(d => { revenue += d.data().amount || 0; });
+      setStats({
+        companies: compSnap.size,
+        clients: cliSnap.size,
+        invoices: invSnap.size,
+        tasks: taskSnap.size,
+        revenue,
+      });
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <div className="main-content">
+
+        {/* Header */}
         <div className="header">
           <div>
-            <h1>مرحباً بك في لوحة التحكم</h1>
-            <p className="subtitle">إدارة كاملة لنظام الشركات والفواتير والعملاء والمخزون والمهام</p>
+            <h1>مرحباً بك 👋</h1>
+            <p className="subtitle">لوحة تحكم SaaS PRO — نظرة عامة على أعمالك</p>
           </div>
           <div className="user-info">
             <div className="avatar">
               {currentUser?.email?.charAt(0).toUpperCase() || 'A'}
             </div>
-            <span>{currentUser?.email}</span>
-            <span className="role-badge">
-              <i className="fas fa-shield-alt"></i> {userRole === 'super_admin' ? 'مدير النظام' : 'مستخدم'}
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-700)' }}>
+              {currentUser?.email}
             </span>
-            <button onClick={handleLogout} className="btn-danger" style={{ marginRight: '8px' }}>
-              <i className="fas fa-sign-out-alt"></i> خروج
+            <span className="role-badge">
+              {userRole === 'super_admin' ? '👑 أدمن' : '👤 مستخدم'}
+            </span>
+            <button onClick={async () => { await logout(); navigate('/login'); }} className="btn-danger btn-sm">
+              <i className="fas fa-sign-out-alt"></i>
             </button>
           </div>
         </div>
 
+        {/* Stats Row */}
+        <div className="stats-row">
+          <div className="stat-card indigo">
+            <div className="stat-icon"><i className="fas fa-building"></i></div>
+            <div className="stat-value">{loading ? '—' : stats.companies}</div>
+            <div className="stat-label">الشركات</div>
+            <i className="fas fa-building stat-bg-icon"></i>
+          </div>
+          <div className="stat-card green">
+            <div className="stat-icon"><i className="fas fa-user-friends"></i></div>
+            <div className="stat-value">{loading ? '—' : stats.clients}</div>
+            <div className="stat-label">العملاء</div>
+            <i className="fas fa-user-friends stat-bg-icon"></i>
+          </div>
+          <div className="stat-card amber">
+            <div className="stat-icon"><i className="fas fa-file-invoice"></i></div>
+            <div className="stat-value">{loading ? '—' : stats.invoices}</div>
+            <div className="stat-label">الفواتير</div>
+            <i className="fas fa-file-invoice stat-bg-icon"></i>
+          </div>
+          <div className="stat-card pink">
+            <div className="stat-icon"><i className="fas fa-tasks"></i></div>
+            <div className="stat-value">{loading ? '—' : stats.tasks}</div>
+            <div className="stat-label">المهام</div>
+            <i className="fas fa-tasks stat-bg-icon"></i>
+          </div>
+          <div className="stat-card cyan">
+            <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
+            <div className="stat-value" style={{ fontSize: loading ? 30 : stats.revenue > 99999 ? 18 : 24 }}>
+              {loading ? '—' : stats.revenue.toLocaleString('ar-EG')} <span style={{ fontSize: 14 }}>ج</span>
+            </div>
+            <div className="stat-label">إجمالي الإيرادات</div>
+            <i className="fas fa-money-bill-wave stat-bg-icon"></i>
+          </div>
+        </div>
+
+        {/* Feature Cards */}
+        <div style={{ marginBottom: 12 }}>
+          <div className="section-title"><i className="fas fa-th-large"></i> الوحدات الرئيسية</div>
+        </div>
         <div className="grid-3">
-          {/* بطاقة الشركات */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-building" style={{ color: '#4f46e5' }}></i></span>
-              <h3>إدارة الشركات</h3>
-              <p>إضافة، عرض، وتعديل الشركات المسجلة في النظام</p>
+          {featureCards.map(card => (
+            <div key={card.to} className="card hoverable feature-card">
+              <div className="card-icon" style={{ background: card.bg, color: card.color, width: 52, height: 52 }}>
+                <i className={card.icon}></i>
+              </div>
+              <div className="card-body">
+                <h3 style={{ color: 'var(--gray-800)' }}>{card.title}</h3>
+                <p>{card.desc}</p>
+              </div>
+              <button onClick={() => navigate(card.to)} className="btn-primary btn-block">
+                <i className="fas fa-arrow-left"></i>
+                الانتقال
+              </button>
             </div>
-            <button 
-              onClick={() => navigate('/companies')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى الشركات
+          ))}
+        </div>
+
+        {/* Quick actions */}
+        <div className="grid-2" style={{ marginTop: 4 }}>
+          <div className="card" style={{
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color: 'white', border: 'none'
+          }}>
+            <h3 style={{ color: 'white', marginBottom: 8 }}>
+              <i className="fas fa-crown"></i> ترقية الاشتراك
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.75)', marginBottom: 20 }}>
+              استفد من جميع الميزات المتقدمة — فواتير PDF، تقارير مفصلة، دعم أولوية
+            </p>
+            <button onClick={() => navigate('/subscription')} style={{
+              background: 'white', color: '#6366f1',
+              border: 'none', padding: '10px 22px', borderRadius: 10,
+              fontWeight: 700, cursor: 'pointer', fontSize: 14,
+              fontFamily: 'Cairo, sans-serif',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}>
+              <i className="fas fa-arrow-left"></i> عرض الباقات
             </button>
           </div>
 
-          {/* بطاقة العملاء */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-user-friends" style={{ color: '#10b981' }}></i></span>
-              <h3>إدارة العملاء</h3>
-              <p>إدارة عملاء الشركات وإضافة عملاء جدد</p>
-            </div>
-            <button 
-              onClick={() => navigate('/clients')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى العملاء
-            </button>
-          </div>
-
-          {/* بطاقة الفواتير */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-file-invoice" style={{ color: '#f59e0b' }}></i></span>
-              <h3>إدارة الفواتير</h3>
-              <p>إنشاء وعرض وتتبع الفواتير المالية</p>
-            </div>
-            <button 
-              onClick={() => navigate('/invoices')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى الفواتير
-            </button>
-          </div>
-
-          {/* بطاقة المخزون */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-boxes" style={{ color: '#8b5cf6' }}></i></span>
-              <h3>إدارة المخزون</h3>
-              <p>تتبع المنتجات والكميات والأسعار</p>
-            </div>
-            <button 
-              onClick={() => navigate('/inventory')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى المخزون
-            </button>
-          </div>
-
-          {/* بطاقة المهام */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-tasks" style={{ color: '#ec4899' }}></i></span>
-              <h3>إدارة المهام</h3>
-              <p>توزيع ومتابعة المهام على الموظفين</p>
-            </div>
-            <button 
-              onClick={() => navigate('/tasks')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى المهام
-            </button>
-          </div>
-
-          {/* بطاقة التقارير */}
-          <div className="card">
-            <div>
-              <span className="card-icon"><i className="fas fa-chart-pie" style={{ color: '#06b6d4' }}></i></span>
-              <h3>التقارير والإحصائيات</h3>
-              <p>عرض إحصائيات شاملة عن النظام</p>
-            </div>
-            <button 
-              onClick={() => navigate('/reports')} 
-              className="btn-primary"
-            >
-              <i className="fas fa-arrow-left"></i> اذهب إلى التقارير
+          <div className="card" style={{
+            background: 'linear-gradient(135deg,#0f172a,#1e293b)',
+            color: 'white', border: 'none'
+          }}>
+            <h3 style={{ color: 'white', marginBottom: 8 }}>
+              <i className="fas fa-chart-line"></i> التقارير والإحصائيات
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 20 }}>
+              تصدير بياناتك إلى Excel وعرض تحليلات مفصلة عن أداء أعمالك
+            </p>
+            <button onClick={() => navigate('/reports')} style={{
+              background: 'rgba(255,255,255,0.1)', color: 'white',
+              border: '1px solid rgba(255,255,255,0.2)',
+              padding: '10px 22px', borderRadius: 10,
+              fontWeight: 700, cursor: 'pointer', fontSize: 14,
+              fontFamily: 'Cairo, sans-serif',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}>
+              <i className="fas fa-arrow-left"></i> عرض التقارير
             </button>
           </div>
         </div>
