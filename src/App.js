@@ -1,4 +1,4 @@
-// src/App.js - النسخة النهائية (مع إضافة Notifications)
+// src/App.js - النسخة النهائية (مع إضافة About)
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,6 +11,7 @@ import Inventory from './pages/Inventory';
 import Tasks from './pages/Tasks';
 import Reports from './pages/Reports';
 import Notifications from './pages/Notifications';
+import About from './pages/About';
 import Profile from './pages/Profile';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -62,6 +63,11 @@ function AppRoutes() {
       <Route path="/notifications" element={
         <ProtectedRoute>
           <Notifications />
+        </ProtectedRoute>
+      } />
+      <Route path="/about" element={
+        <ProtectedRoute>
+          <About />
         </ProtectedRoute>
       } />
       <Route path="/profile" element={

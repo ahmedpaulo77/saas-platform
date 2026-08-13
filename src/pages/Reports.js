@@ -1,8 +1,9 @@
-// src/pages/Reports.js - صفحة التقارير والإحصائيات (بأيقونات Font Awesome)
+// src/pages/Reports.js - بأيقونات Font Awesome (بدون إيموجي)
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import Sidebar from '../components/common/Sidebar';
+import * as XLSX from 'xlsx';
 
 export default function Reports() {
   const [stats, setStats] = useState({
@@ -20,6 +21,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [recentInvoices, setRecentInvoices] = useState([]);
   const [lowStock, setLowStock] = useState([]);
+  const [allData, setAllData] = useState({});
 
   useEffect(() => {
     fetchAllData();
@@ -28,10 +30,14 @@ export default function Reports() {
   async function fetchAllData() {
     try {
       const companiesSnapshot = await getDocs(collection(db, 'companies'));
-      const companiesCount = companiesSnapshot.size;
+      const companiesData = [];
+      companiesSnapshot.forEach((doc) => companiesData.push({ id: doc.id, ...doc.data() }));
+      const companiesCount = companiesData.length;
 
       const clientsSnapshot = await getDocs(collection(db, 'clients'));
-      const clientsCount = clientsSnapshot.size;
+      const clientsData = [];
+      clientsSnapshot.forEach((doc) => clientsData.push({ id: doc.id, ...doc.data() }));
+      const clientsCount = clientsData.length;
 
       const invoicesSnapshot = await getDocs(collection(db, 'invoices'));
       const invoicesData = [];
@@ -39,12 +45,10 @@ export default function Reports() {
       let paid = 0,
         pending = 0,
         overdue = 0;
-
       invoicesSnapshot.forEach((doc) => {
         const data = { id: doc.id, ...doc.data() };
         invoicesData.push(data);
         totalRevenue += data.amount || 0;
-
         if (data.status === 'paid') paid++;
         else if (data.status === 'pending') pending++;
         else if (data.status === 'overdue') overdue++;
@@ -56,15 +60,16 @@ export default function Reports() {
 
       const productsSnapshot = await getDocs(collection(db, 'inventory'));
       const productsData = [];
-      productsSnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
+      productsSnapshot.forEach((doc) => productsData.push({ id: doc.id, ...doc.data() }));
       const productsCount = productsData.length;
-
       const lowStockProducts = productsData.filter((p) => p.quantity < 5);
 
       const tasksSnapshot = await getDocs(collection(db, 'tasks'));
-      const tasksCount = tasksSnapshot.size;
+      const tasksData = [];
+      tasksSnapshot.forEach((doc) => tasksData.push({ id: doc.id, ...doc.data() }));
+      const tasksCount = tasksData.length;
+
+      setAllData({ companiesData, clientsData, invoicesData, productsData, tasksData });
 
       setStats({
         companies: companiesCount,
@@ -89,6 +94,41 @@ export default function Reports() {
     }
   }
 
+  function exportToExcel(type) {
+    let data = [];
+    let fileName = '';
+
+    switch (type) {
+      case 'companies':
+        data = allData.companiesData || [];
+        fileName = 'الشركات.xlsx';
+        break;
+      case 'clients':
+        data = allData.clientsData || [];
+        fileName = 'العملاء.xlsx';
+        break;
+      case 'invoices':
+        data = allData.invoicesData || [];
+        fileName = 'الفواتير.xlsx';
+        break;
+      case 'products':
+        data = allData.productsData || [];
+        fileName = 'المنتجات.xlsx';
+        break;
+      case 'tasks':
+        data = allData.tasksData || [];
+        fileName = 'المهام.xlsx';
+        break;
+      default:
+        return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+    XLSX.writeFile(workbook, fileName);
+  }
+
   if (loading) {
     return <div className="loading">جاري تحميل التقارير...</div>;
   }
@@ -100,6 +140,24 @@ export default function Reports() {
         <h2 style={{ color: '#333', marginBottom: '20px' }}>
           <i className="fas fa-chart-pie" style={{ color: '#4f46e5' }}></i> التقارير والإحصائيات
         </h2>
+
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <button onClick={() => exportToExcel('companies')} className="btn-primary">
+            <i className="fas fa-building"></i> تصدير الشركات
+          </button>
+          <button onClick={() => exportToExcel('clients')} className="btn-primary">
+            <i className="fas fa-user-friends"></i> تصدير العملاء
+          </button>
+          <button onClick={() => exportToExcel('invoices')} className="btn-primary">
+            <i className="fas fa-file-invoice"></i> تصدير الفواتير
+          </button>
+          <button onClick={() => exportToExcel('products')} className="btn-primary">
+            <i className="fas fa-boxes"></i> تصدير المنتجات
+          </button>
+          <button onClick={() => exportToExcel('tasks')} className="btn-primary">
+            <i className="fas fa-tasks"></i> تصدير المهام
+          </button>
+        </div>
 
         <div className="grid-3">
           <div className="card" style={{ borderRight: '4px solid #4f46e5' }}>

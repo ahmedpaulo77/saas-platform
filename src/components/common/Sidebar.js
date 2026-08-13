@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - النسخة النهائية (مع إضافة Notifications)
+// src/components/common/Sidebar.js - النسخة النهائية (مع إضافة About)
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -55,6 +55,10 @@ export default function Sidebar() {
         <Link to="/notifications">
           <span className="icon"><i className="fas fa-bell"></i></span>
           الإشعارات
+        </Link>
+        <Link to="/about">
+          <span className="icon"><i className="fas fa-info-circle"></i></span>
+          حول النظام
         </Link>
         <Link to="/profile">
           <span className="icon"><i className="fas fa-user"></i></span>
