@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - بأيقونات Font Awesome
+// src/components/common/Sidebar.js - النسخة النهائية (مع إضافة Notifications)
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +51,10 @@ export default function Sidebar() {
         <Link to="/reports">
           <span className="icon"><i className="fas fa-chart-pie"></i></span>
           التقارير
+        </Link>
+        <Link to="/notifications">
+          <span className="icon"><i className="fas fa-bell"></i></span>
+          الإشعارات
         </Link>
         <Link to="/profile">
           <span className="icon"><i className="fas fa-user"></i></span>
