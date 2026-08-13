@@ -1,5 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#4f46e5"/>
-  <text x="50" y="72" font-size="64" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">S</text>
-  <text x="50" y="95" font-size="14" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-family="Arial, sans-serif">PRO</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="8" fill="url(#grad)"/>
+  <!-- Cube icon -->
+  <g transform="translate(6, 5)" fill="white" opacity="0.95">
+    <!-- Top face -->
+    <polygon points="10,2 18,6 10,10 2,6" fill="white" opacity="1"/>
+    <!-- Left face -->
+    <polygon points="2,6 2,16 10,20 10,10" fill="white" opacity="0.65"/>
+    <!-- Right face -->
+    <polygon points="18,6 18,16 10,20 10,10" fill="white" opacity="0.85"/>
+  </g>
 </svg>
