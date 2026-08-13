@@ -1,70 +1,287 @@
-# Getting Started with Create React App
+<div align="center">
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# 🚀 SaaS PRO
+### منصة إدارة الأعمال المتكاملة
 
-## Available Scripts
+[![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-12-ffa000?style=flat-square&logo=firebase)](https://firebase.google.com)
+[![Stripe](https://img.shields.io/badge/Stripe-Ready-635bff?style=flat-square&logo=stripe)](https://stripe.com)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![RTL](https://img.shields.io/badge/Arabic-RTL-blue?style=flat-square)]()
 
-In the project directory, you can run:
+> نظام SaaS عربي متكامل لإدارة الشركات والعملاء والفواتير والمخزون والمهام — مبني بـ React 19 و Firebase
 
-### `npm start`
+</div>
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 📸 لقطات الشاشة
 
-### `npm test`
+| الصفحة | الوصف |
+|--------|-------|
+| 🔐 Login | تصميم dark mode احترافي |
+| 📊 Dashboard | إحصائيات حية من Firebase |
+| 📄 الفواتير | إنشاء وتصدير PDF بضغطة واحدة |
+| 💳 الاشتراكات | 3 باقات مدفوعة جاهزة لـ Stripe |
+| 👑 Super Admin | إدارة كاملة لجميع الشركات |
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## ✨ المميزات
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### الوحدات الرئيسية
+- 🏢 **إدارة الشركات** — إضافة وتعديل وإدارة اشتراكات الشركات
+- 👥 **إدارة العملاء** — ربط العملاء بالشركات مع بحث متقدم
+- 📄 **الفواتير + PDF** — إنشاء فواتير احترافية وتصديرها كـ PDF بضغطة واحدة
+- 📦 **إدارة المخزون** — تتبع المنتجات مع تحديث تلقائي عند كل عملية بيع
+- ✅ **إدارة المهام** — توزيع المهام بالأولويات والمواعيد
+- 📊 **التقارير** — إحصائيات شاملة وتصدير Excel لكل البيانات
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### المميزات التقنية
+- 🔐 **Firebase Auth** — تسجيل دخول آمن مع صلاحيات متعددة المستويات
+- 💳 **Stripe Ready** — نظام اشتراكات كامل جاهز للربط بـ Stripe
+- 🔔 **إشعارات ذكية** — تنبيهات تلقائية للمخزون والفواتير والمهام
+- 📱 **Responsive** — يعمل على جميع الأجهزة
+- 🌙 **Dark Sidebar** — تصميم احترافي بـ Cairo font
+- 👑 **Super Admin Panel** — لوحة تحكم كاملة لمدير النظام
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## 🛠 التقنيات المستخدمة
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+| التقنية | الإصدار | الاستخدام |
+|---------|---------|-----------|
+| React | 19 | Frontend framework |
+| Firebase | 12 | Auth + Firestore database |
+| React Router | 7 | Client-side routing |
+| jsPDF + autoTable | 4 + 5 | تصدير الفواتير كـ PDF |
+| XLSX | 0.18 | تصدير التقارير لـ Excel |
+| Stripe.js | 9 | نظام الدفع والاشتراكات |
+| Font Awesome | 6.5 | الأيقونات |
+| Cairo Font | - | الخط العربي |
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## ⚡ تشغيل المشروع محلياً
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### المتطلبات
+- Node.js 18+
+- npm أو yarn
+- حساب Firebase
 
-## Learn More
+### الخطوات
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+# 1. clone المشروع
+git clone https://github.com/yourusername/saas-platform.git
+cd saas-platform
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+# 2. تثبيت الـ dependencies
+npm install
 
-### Code Splitting
+# 3. إعداد Firebase (اتبع القسم التالي)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# 4. تشغيل المشروع
+npm start
+```
 
-### Analyzing the Bundle Size
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🔥 إعداد Firebase
 
-### Making a Progressive Web App
+### 1. إنشاء مشروع Firebase
+1. اذهب إلى [Firebase Console](https://console.firebase.google.com)
+2. أنشئ مشروع جديد
+3. فعّل **Authentication** → Email/Password
+4. فعّل **Firestore Database**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### 2. إعداد ملف الـ Config
+الملف موجود في `src/firebase/config.js` — استبدل القيم بقيم مشروعك:
 
-### Advanced Configuration
+```js
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### 3. Firestore Rules
+افتح Firestore → Rules والصق:
 
-### Deployment
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### 4. إنشاء Super Admin
+شغّل السكريبت ده مرة واحدة بس:
 
-### `npm run build` fails to minify
+```bash
+node src/scripts/createSuperAdmin.js
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+أو أنشئ مستخدم في Firebase Auth وافتح Firestore وأضف في collection `users`:
+```json
+{
+  "email": "admin@yourdomain.com",
+  "role": "super_admin",
+  "isActive": true
+}
+```
+
+---
+
+## 💳 إعداد Stripe (اختياري)
+
+المشروع جاهز للربط بـ Stripe — فيه simulation mode شغال بدونه.
+
+### لتفعيل الدفع الحقيقي:
+
+**1. Frontend** — في `src/pages/Subscription.js`:
+```js
+const STRIPE_PUBLIC_KEY = 'pk_live_XXXXXXXX'; // مفتاحك الحقيقي
+```
+
+**2. Backend** — محتاج server-side للـ Stripe Checkout Session:
+```js
+// مثال Node.js / Express
+const session = await stripe.checkout.sessions.create({
+  payment_method_types: ['card'],
+  line_items: [{ price: priceId, quantity: 1 }],
+  mode: 'subscription',
+  success_url: 'https://yourdomain.com/dashboard?success=true',
+  cancel_url: 'https://yourdomain.com/subscription',
+  client_reference_id: companyId,
+});
+```
+
+**3. Webhook** — لتحديث Firebase عند نجاح الدفع:
+```js
+stripe.webhooks.constructEvent(payload, sig, webhookSecret);
+// عند checkout.session.completed → updateDoc في Firebase
+```
+
+---
+
+## 📁 هيكل المشروع
+
+```
+saas-platform/
+├── public/
+│   ├── index.html          # HTML الرئيسي + Favicon
+│   ├── favicon.svg         # الأيقونة (cube gradient)
+│   └── _redirects          # Netlify SPA routing fix
+├── src/
+│   ├── components/
+│   │   └── common/
+│   │       ├── Sidebar.js          # القائمة الجانبية
+│   │       ├── ProtectedRoute.js   # حماية الصفحات
+│   │       └── SuperAdminRoute.js  # صلاحيات الأدمن
+│   ├── context/
+│   │   └── AuthContext.js   # إدارة الـ Auth
+│   ├── firebase/
+│   │   └── config.js        # إعدادات Firebase
+│   ├── pages/
+│   │   ├── Login.js         # صفحة الدخول
+│   │   ├── Dashboard.js     # الرئيسية + إحصائيات
+│   │   ├── Companies.js     # إدارة الشركات
+│   │   ├── Clients.js       # إدارة العملاء
+│   │   ├── Invoices.js      # الفواتير + PDF export
+│   │   ├── Inventory.js     # المخزون
+│   │   ├── Tasks.js         # المهام
+│   │   ├── Reports.js       # التقارير + Excel export
+│   │   ├── Notifications.js # الإشعارات الذكية
+│   │   ├── Subscription.js  # الاشتراكات + Stripe
+│   │   ├── Profile.js       # الملف الشخصي
+│   │   ├── About.js         # حول النظام
+│   │   └── admin/
+│   │       └── SuperAdminDashboard.js
+│   ├── utils/
+│   │   └── pdfExport.js     # منطق تصدير PDF
+│   ├── App.js               # الـ Router الرئيسي
+│   └── App.css              # Design System كامل
+└── vercel.json              # إعداد Vercel
+```
+
+---
+
+## 🚀 الـ Deployment
+
+### Vercel (الأسرع)
+```bash
+npm install -g vercel
+npm run build
+vercel --prod
+```
+أو وصّل الـ repo بـ [vercel.com](https://vercel.com) مباشرة.
+
+### Netlify
+```bash
+npm run build
+# ارفع الـ build folder على netlify.com
+# أو وصّل الـ GitHub repo
+```
+ملف `_redirects` موجود تلقائياً في الـ `public` folder.
+
+### Firebase Hosting
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+npm run build
+firebase deploy
+```
+
+---
+
+## 👤 أنواع المستخدمين
+
+| النوع | الصلاحيات |
+|-------|-----------|
+| `super_admin` | كل شيء + لوحة الأدمن + إدارة اشتراكات الشركات |
+| `user` | الوصول لجميع الوحدات حسب الشركة |
+
+---
+
+## 📋 الـ Firestore Collections
+
+| Collection | الوصف |
+|------------|-------|
+| `users` | بيانات المستخدمين والصلاحيات |
+| `companies` | الشركات + بيانات الاشتراك |
+| `clients` | العملاء مع ربطهم بالشركات |
+| `invoices` | الفواتير |
+| `inventory` | المنتجات والمخزون |
+| `tasks` | المهام |
+
+---
+
+## ⚠️ ملاحظات مهمة قبل الإنتاج
+
+- [ ] غيّر Firestore Rules من `allow all` لقواعد محكمة
+- [ ] أضف Stripe Secret Key في backend آمن (مش في الـ frontend)
+- [ ] فعّل Firebase App Check لحماية الـ API
+- [ ] أضف `.env` file للـ API keys وأضفه لـ `.gitignore`
+- [ ] اختبر الاشتراكات على Stripe Test Mode قبل الإنتاج
+
+---
+
+## 📄 الرخصة
+
+MIT License — حر في الاستخدام التجاري والتعديل.
+
+---
+
+<div align="center">
+  صُنع بـ ❤️ للشركات العربية
+</div>
