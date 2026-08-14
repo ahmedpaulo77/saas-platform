@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Setup from './pages/Setup';
 import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
 import Clients from './pages/Clients';
@@ -33,6 +34,7 @@ function AppRoutes() {
       <Route path="/"        element={<Landing />} />
       <Route path="/login"   element={<Login />} />
       <Route path="/signup"  element={<Signup />} />
+      <Route path="/setup"   element={<Setup />} />
 
       {/* Protected */}
       <Route path="/dashboard" element={

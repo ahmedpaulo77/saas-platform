@@ -4,26 +4,37 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProtectedRoute({ children }) {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, userRole, userCompanyId, loading } = useAuth();
 
   if (loading) {
-    return <div style={styles.loading}>جاري التحميل...</div>;
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        minHeight: '100vh', flexDirection: 'column', gap: 16,
+        fontFamily: 'Cairo, sans-serif', color: '#64748b', fontSize: 16,
+      }}>
+        <div style={{
+          width: 36, height: 36,
+          border: '3px solid #e2e8f0',
+          borderTopColor: '#6366f1',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+        جاري التحميل...
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
+  // مش مسجل — روح للـ login
   if (!currentUser) {
     return <Navigate to="/login" />;
   }
 
+  // مسجل بس مش عنده شركة ومش super_admin — روح للـ signup عشان يكمل
+  if (!userCompanyId && userRole !== 'super_admin') {
+    return <Navigate to="/setup" />;
+  }
+
   return children;
 }
-
-const styles = {
-  loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    fontSize: '1.2rem',
-    color: '#666'
-  }
-};
