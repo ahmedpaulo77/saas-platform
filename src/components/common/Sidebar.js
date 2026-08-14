@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - تصميم احترافي
+// src/components/common/Sidebar.js - كامل (مع إضافة Users)
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -10,9 +10,11 @@ const navItems = [
   { to: '/invoices', icon: 'fas fa-file-invoice', label: 'الفواتير' },
   { to: '/inventory', icon: 'fas fa-boxes', label: 'المخزون' },
   { to: '/tasks', icon: 'fas fa-tasks', label: 'المهام' },
+  { to: '/projects', icon: 'fas fa-project-diagram', label: 'المشاريع' },
 ];
 
 const secondaryItems = [
+  { to: '/users', icon: 'fas fa-users', label: 'المستخدمين' },
   { to: '/reports', icon: 'fas fa-chart-pie', label: 'التقارير' },
   { to: '/notifications', icon: 'fas fa-bell', label: 'الإشعارات' },
   { to: '/subscription', icon: 'fas fa-crown', label: 'الاشتراك' },
@@ -80,15 +82,17 @@ export default function Sidebar() {
         {userRole === 'super_admin' && (
           <>
             <div className="nav-label">مدير النظام</div>
-            <Link
-              to="/admin"
-              className={isActive('/admin') ? 'active' : ''}
-              style={{ borderColor: 'rgba(245,158,11,0.3)' }}
-            >
+            <Link to="/admin" className={isActive('/admin') ? 'active' : ''}>
               <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
                 <i className="fas fa-shield-alt" style={{ color: '#f59e0b' }}></i>
               </span>
               <span style={{ color: '#fcd34d' }}>لوحة الأدمن</span>
+            </Link>
+            <Link to="/admin/users" className={isActive('/admin/users') ? 'active' : ''}>
+              <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
+                <i className="fas fa-users-cog" style={{ color: '#f59e0b' }}></i>
+              </span>
+              <span style={{ color: '#fcd34d' }}>إدارة المستخدمين</span>
             </Link>
           </>
         )}

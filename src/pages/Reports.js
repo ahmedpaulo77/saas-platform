@@ -1,7 +1,9 @@
-// src/pages/Reports.js - تصميم احترافي
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+// src/pages/Reports.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery, isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
 
@@ -14,6 +16,8 @@ const exportItems = [
 ];
 
 export default function Reports() {
+  const { userRole, userCompanyId } = useAuth();
+  const superAdmin = isSuperAdmin(userRole);
   const [stats, setStats] = useState({
     companies: 0, clients: 0, invoices: 0, products: 0, tasks: 0,
     totalRevenue: 0, paidInvoices: 0, pendingInvoices: 0, overdueInvoices: 0,
@@ -26,19 +30,26 @@ export default function Reports() {
   const [exporting, setExporting] = useState(null);
   const [clientsMap, setClientsMap] = useState({});
 
-  useEffect(() => { fetchAllData(); }, []);
-
-  async function fetchAllData() {
+  const fetchAllData = useCallback(async () => {
     try {
-      const [cSnap, clSnap, iSnap, pSnap, tSnap] = await Promise.all([
-        getDocs(collection(db, 'companies')),
-        getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'invoices')),
-        getDocs(collection(db, 'inventory')),
-        getDocs(collection(db, 'tasks')),
+      let companiesData;
+      if (superAdmin) {
+        const cSnap = await getDocs(collection(db, 'companies'));
+        companiesData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } else if (userCompanyId) {
+        const snap = await getDoc(doc(db, 'companies', userCompanyId));
+        companiesData = snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
+      } else {
+        companiesData = [];
+      }
+
+      const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
+        getDocs(getScopedQuery('clients', userRole, userCompanyId)),
+        getDocs(getScopedQuery('invoices', userRole, userCompanyId)),
+        getDocs(getScopedQuery('inventory', userRole, userCompanyId)),
+        getDocs(getScopedQuery('tasks', userRole, userCompanyId)),
       ]);
 
-      const companiesData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const clientsData = clSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const invoicesData = iSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const productsData = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -81,7 +92,9 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userRole, userCompanyId, superAdmin]);
+
+  useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
   async function exportToExcel(type) {
     setExporting(type);

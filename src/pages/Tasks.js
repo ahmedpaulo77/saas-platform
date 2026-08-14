@@ -1,10 +1,13 @@
-// src/pages/Tasks.js - نظام إدارة المهام
-import React, { useState, useEffect } from 'react';
+// src/pages/Tasks.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Tasks() {
+  const { userRole, userCompanyId } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -21,16 +24,12 @@ export default function Tasks() {
   const [editingTask, setEditingTask] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  async function fetchTasks() {
+  const fetchTasks = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'tasks'));
+      const querySnapshot = await getDocs(getScopedQuery('tasks', userRole, userCompanyId));
       const tasksData = [];
-      querySnapshot.forEach((doc) => {
-        tasksData.push({ id: doc.id, ...doc.data() });
+      querySnapshot.forEach((d) => {
+        tasksData.push({ id: d.id, ...d.data() });
       });
       setTasks(tasksData);
     } catch (error) {
@@ -39,7 +38,11 @@ export default function Tasks() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userRole, userCompanyId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   async function addTask(e) {
     e.preventDefault();
@@ -51,6 +54,7 @@ export default function Tasks() {
     try {
       await addDoc(collection(db, 'tasks'), {
         ...newTask,
+        companyId: userCompanyId,
         createdAt: new Date().toISOString()
       });
       setNewTask({

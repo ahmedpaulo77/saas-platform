@@ -1,4 +1,4 @@
-// src/context/AuthContext.js
+// src/context/AuthContext.js - نسخة مصححة
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
         isActive: true
       });
       
-      return user;
+      return userCredential; // ✅ لازم ترجع userCredential مش user بس
     } catch (error) {
       throw error;
     }
@@ -70,6 +70,21 @@ export function AuthProvider({ children }) {
         if (userData) {
           setUserRole(userData.role || 'user');
           setUserCompanyId(userData.companyId || null);
+        } else {
+          // لو مفيش بيانات للمستخدم في Firestore، نضيفه
+          try {
+            await setDoc(doc(db, "users", user.uid), {
+              email: user.email,
+              role: 'user',
+              companyId: null,
+              createdAt: new Date().toISOString(),
+              isActive: true
+            });
+            setUserRole('user');
+            setUserCompanyId(null);
+          } catch (error) {
+            console.error("Error creating user document:", error);
+          }
         }
       } else {
         setUserRole(null);

@@ -1,7 +1,7 @@
-// src/pages/Login.js - تصميم احترافي
+// src/pages/Login.js - مع إضافة رابط التسجيل
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -114,6 +114,9 @@ export default function Login() {
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
             <i className="fas fa-shield-alt" style={{ marginLeft: 6 }}></i>
             جميع البيانات مشفرة ومحمية بالكامل
+          </p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+            ليس لديك حساب؟ <Link to="/signup" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: '600' }}>إنشاء حساب جديد</Link>
           </p>
         </div>
       </div>

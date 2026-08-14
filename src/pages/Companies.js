@@ -1,10 +1,14 @@
-// src/pages/Companies.js - نسخة كاملة مع البحث والتعديل
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+// src/pages/Companies.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Companies() {
+  const { userRole, userCompanyId } = useAuth();
+  const superAdmin = isSuperAdmin(userRole);
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [newCompany, setNewCompany] = useState({ name: '', email: '', plan: 'monthly' });
@@ -14,23 +18,30 @@ export default function Companies() {
 
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [fetchCompanies]);
 
-  async function fetchCompanies() {
+  const fetchCompanies = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'companies'));
-      const companiesData = [];
-      querySnapshot.forEach((doc) => {
-        companiesData.push({ id: doc.id, ...doc.data() });
-      });
-      setCompanies(companiesData);
+      if (superAdmin) {
+        const querySnapshot = await getDocs(collection(db, 'companies'));
+        const companiesData = [];
+        querySnapshot.forEach((d) => {
+          companiesData.push({ id: d.id, ...d.data() });
+        });
+        setCompanies(companiesData);
+      } else if (userCompanyId) {
+        const snap = await getDoc(doc(db, 'companies', userCompanyId));
+        setCompanies(snap.exists() ? [{ id: snap.id, ...snap.data() }] : []);
+      } else {
+        setCompanies([]);
+      }
     } catch (error) {
       console.error('Error fetching companies:', error);
       alert('حدث خطأ في جلب الشركات');
     } finally {
       setLoading(false);
     }
-  }
+  }, [superAdmin, userCompanyId]);
 
   async function addCompany(e) {
     e.preventDefault();
@@ -118,9 +129,12 @@ export default function Companies() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <div className="main-content">
-        <h2 style={{ color: '#333', marginBottom: '20px' }}>🏢 إدارة الشركات</h2>
+        <h2 style={{ color: '#333', marginBottom: '20px' }}>
+          🏢 {superAdmin ? 'إدارة الشركات' : 'بيانات شركتي'}
+        </h2>
 
-        {/* نموذج الإضافة */}
+        {superAdmin && (
+        /* نموذج الإضافة */
         <form onSubmit={addCompany} className="form-container">
           <input
             type="text"
@@ -147,6 +161,7 @@ export default function Companies() {
             <i className="fas fa-plus"></i> إضافة شركة
           </button>
         </form>
+        )}
 
         {/* حقل البحث */}
         <div style={{ marginBottom: '20px' }}>
@@ -215,12 +230,14 @@ export default function Companies() {
                       >
                         <i className="fas fa-edit"></i> تعديل
                       </button>
+                      {superAdmin && (
                       <button 
                         onClick={() => deleteCompany(company.id)} 
                         className="btn-danger"
                       >
                         <i className="fas fa-trash"></i> حذف
                       </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -1,21 +1,21 @@
-// src/pages/Notifications.js - تصميم احترافي
-import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/config';
+// src/pages/Notifications.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
+import { getDocs } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Notifications() {
+  const { userRole, userCompanyId } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => { fetchNotifications(); }, []);
-
-  async function fetchNotifications() {
+  const fetchNotifications = useCallback(async () => {
     try {
       const list = [];
 
-      const productsSnap = await getDocs(collection(db, 'inventory'));
+      const productsSnap = await getDocs(getScopedQuery('inventory', userRole, userCompanyId));
       productsSnap.forEach(d => {
         const p = { id: d.id, ...d.data() };
         if (p.quantity < 5) {
@@ -30,7 +30,7 @@ export default function Notifications() {
         }
       });
 
-      const invoicesSnap = await getDocs(collection(db, 'invoices'));
+      const invoicesSnap = await getDocs(getScopedQuery('invoices', userRole, userCompanyId));
       invoicesSnap.forEach(d => {
         const inv = { id: d.id, ...d.data() };
         if (inv.status === 'overdue') {
@@ -45,7 +45,7 @@ export default function Notifications() {
         }
       });
 
-      const tasksSnap = await getDocs(collection(db, 'tasks'));
+      const tasksSnap = await getDocs(getScopedQuery('tasks', userRole, userCompanyId));
       tasksSnap.forEach(d => {
         const task = { id: d.id, ...d.data() };
         if (task.dueDate && task.status !== 'completed') {
@@ -71,7 +71,9 @@ export default function Notifications() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userRole, userCompanyId]);
+
+  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
   const filtered = filter === 'all' ? notifications : notifications.filter(n => n.type === filter);
 

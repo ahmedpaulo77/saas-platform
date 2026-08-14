@@ -1,11 +1,14 @@
-// src/pages/Invoices.js - مع تصدير PDF + تصميم احترافي
-import React, { useState, useEffect } from 'react';
+// src/pages/Invoices.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 import { exportInvoicePDF } from '../utils/pdfExport';
 
 export default function Invoices() {
+  const { userRole, userCompanyId } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -22,27 +25,27 @@ export default function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    Promise.all([fetchInvoices(), fetchClients(), fetchProducts()]);
-  }, []);
-
-  async function fetchInvoices() {
+  const fetchInvoices = useCallback(async () => {
     try {
-      const snap = await getDocs(collection(db, 'invoices'));
+      const snap = await getDocs(getScopedQuery('invoices', userRole, userCompanyId));
       setInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }
+  }, [userRole, userCompanyId]);
 
-  async function fetchClients() {
-    const snap = await getDocs(collection(db, 'clients'));
+  const fetchClients = useCallback(async () => {
+    const snap = await getDocs(getScopedQuery('clients', userRole, userCompanyId));
     setClients(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
-  }
+  }, [userRole, userCompanyId]);
 
-  async function fetchProducts() {
-    const snap = await getDocs(collection(db, 'inventory'));
+  const fetchProducts = useCallback(async () => {
+    const snap = await getDocs(getScopedQuery('inventory', userRole, userCompanyId));
     setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }
+  }, [userRole, userCompanyId]);
+
+  useEffect(() => {
+    Promise.all([fetchInvoices(), fetchClients(), fetchProducts()]);
+  }, [fetchInvoices, fetchClients, fetchProducts]);
 
   async function addInvoice(e) {
     e.preventDefault();
@@ -64,6 +67,7 @@ export default function Invoices() {
 
       await addDoc(collection(db, 'invoices'), {
         ...newInvoice,
+        companyId: userCompanyId,
         amount: parseFloat(newInvoice.amount),
         quantity: parseInt(newInvoice.quantity) || 1,
         date: new Date().toISOString(),

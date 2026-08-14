@@ -1,10 +1,13 @@
-// src/pages/Inventory.js - نسخة خالية من الأخطاء
-import React, { useState, useEffect } from 'react';
+// src/pages/Inventory.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Inventory() {
+  const { userRole, userCompanyId } = useAuth();
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [newProduct, setNewProduct] = useState({ 
@@ -19,16 +22,12 @@ export default function Inventory() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  async function fetchProducts() {
+  const fetchProducts = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'inventory'));
+      const querySnapshot = await getDocs(getScopedQuery('inventory', userRole, userCompanyId));
       const productsData = [];
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
+      querySnapshot.forEach((d) => {
+        productsData.push({ id: d.id, ...d.data() });
       });
       setProducts(productsData);
     } catch (error) {
@@ -37,7 +36,11 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userRole, userCompanyId]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   async function addProduct(e) {
     e.preventDefault();
@@ -49,6 +52,7 @@ export default function Inventory() {
     try {
       await addDoc(collection(db, 'inventory'), {
         ...newProduct,
+        companyId: userCompanyId,
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
         createdAt: new Date().toISOString()

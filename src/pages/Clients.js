@@ -1,10 +1,14 @@
-// src/pages/Clients.js - نسخة كاملة مع البحث والتعديل
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+// src/pages/Clients.js - مع عزل البيانات حسب الشركة
+import React, { useState, useEffect, useCallback } from 'react';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
+import { getScopedQuery, isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Clients() {
+  const { userRole, userCompanyId } = useAuth();
+  const superAdmin = isSuperAdmin(userRole);
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [newClient, setNewClient] = useState({ name: '', email: '', phone: '', companyId: '' });
@@ -16,14 +20,14 @@ export default function Clients() {
   useEffect(() => {
     fetchClients();
     fetchCompanies();
-  }, []);
+  }, [fetchClients, fetchCompanies]);
 
-  async function fetchClients() {
+  const fetchClients = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'clients'));
+      const querySnapshot = await getDocs(getScopedQuery('clients', userRole, userCompanyId));
       const clientsData = [];
-      querySnapshot.forEach((doc) => {
-        clientsData.push({ id: doc.id, ...doc.data() });
+      querySnapshot.forEach((d) => {
+        clientsData.push({ id: d.id, ...d.data() });
       });
       setClients(clientsData);
     } catch (error) {
@@ -32,34 +36,43 @@ export default function Clients() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [userRole, userCompanyId]);
 
-  async function fetchCompanies() {
+  const fetchCompanies = useCallback(async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'companies'));
-      const companiesData = [];
-      querySnapshot.forEach((doc) => {
-        companiesData.push({ id: doc.id, name: doc.data().name });
-      });
-      setCompanies(companiesData);
+      if (superAdmin) {
+        const querySnapshot = await getDocs(collection(db, 'companies'));
+        const companiesData = [];
+        querySnapshot.forEach((d) => {
+          companiesData.push({ id: d.id, name: d.data().name });
+        });
+        setCompanies(companiesData);
+      } else if (userCompanyId) {
+        const snap = await getDoc(doc(db, 'companies', userCompanyId));
+        setCompanies(snap.exists() ? [{ id: snap.id, name: snap.data().name }] : []);
+      }
     } catch (error) {
       console.error('Error fetching companies:', error);
     }
-  }
+  }, [superAdmin, userCompanyId]);
 
   async function addClient(e) {
     e.preventDefault();
-    if (!newClient.name || !newClient.email || !newClient.companyId) {
+    const companyId = superAdmin ? newClient.companyId : userCompanyId;
+    if (!newClient.name || !newClient.email || !companyId) {
       alert('يرجى ملء جميع الحقول');
       return;
     }
 
     try {
       await addDoc(collection(db, 'clients'), {
-        ...newClient,
+        name: newClient.name,
+        email: newClient.email,
+        phone: newClient.phone,
+        companyId,
         createdAt: new Date().toISOString()
       });
-      setNewClient({ name: '', email: '', phone: '', companyId: '' });
+      setNewClient({ name: '', email: '', phone: '', companyId: superAdmin ? '' : userCompanyId });
       await fetchClients();
       alert('✅ تم إضافة العميل بنجاح');
     } catch (error) {
@@ -154,9 +167,10 @@ export default function Clients() {
             onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
           />
           <select
-            value={newClient.companyId}
+            value={superAdmin ? newClient.companyId : userCompanyId}
             onChange={(e) => setNewClient({ ...newClient, companyId: e.target.value })}
             required
+            disabled={!superAdmin}
           >
             <option value="">اختر الشركة</option>
             {companies.map((company) => (
@@ -290,6 +304,7 @@ export default function Clients() {
                   onChange={(e) => setEditingClient({ ...editingClient, companyId: e.target.value })}
                   required
                   style={styles.input}
+                  disabled={!superAdmin}
                 >
                   <option value="">اختر الشركة</option>
                   {companies.map((company) => (
