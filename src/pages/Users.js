@@ -1,16 +1,16 @@
-// src/pages/Users.js - إدارة المستخدمين مع عزل البيانات حسب الشركة
+// src/pages/Users.js - إدارة المستخدمين
 import React, { useState, useEffect, useCallback } from 'react';
-import { getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { canManageUsers, isSuperAdmin, getUsersQuery } from '../utils/companyQuery';
+import { isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Users() {
   const { currentUser, userRole, userCompanyId } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
-  const hasAccess = canManageUsers(userRole);
+  const hasAccess = isSuperAdmin(userRole);
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,24 +23,17 @@ export default function Users() {
   });
 
   const fetchUsers = useCallback(async () => {
-    if (!hasAccess) {
-      setLoading(false);
-      return;
-    }
+    if (!hasAccess) { setLoading(false); return; }
     try {
-      const querySnapshot = await getDocs(getUsersQuery(userRole, userCompanyId));
-      const usersData = [];
-      querySnapshot.forEach((d) => {
-        usersData.push({ id: d.id, ...d.data() });
-      });
-      setUsers(usersData);
+      const querySnapshot = await getDocs(collection(db, 'users'));
+      setUsers(querySnapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (error) {
       console.error('Error fetching users:', error);
       alert('حدث خطأ في جلب المستخدمين');
     } finally {
       setLoading(false);
     }
-  }, [hasAccess, userRole, userCompanyId]);
+  }, [hasAccess]);
 
   useEffect(() => {
     fetchUsers();

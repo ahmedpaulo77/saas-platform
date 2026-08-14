@@ -16,10 +16,6 @@ export default function Companies() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
-
   const fetchCompanies = useCallback(async () => {
     try {
       if (superAdmin) {
@@ -42,6 +38,10 @@ export default function Companies() {
       setLoading(false);
     }
   }, [superAdmin, userCompanyId]);
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
 
   async function addCompany(e) {
     e.preventDefault();

@@ -17,11 +17,6 @@ export default function Clients() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchClients();
-    fetchCompanies();
-  }, [fetchClients, fetchCompanies]);
-
   const fetchClients = useCallback(async () => {
     try {
       const querySnapshot = await getDocs(getScopedQuery('clients', userRole, userCompanyId));
@@ -55,6 +50,11 @@ export default function Clients() {
       console.error('Error fetching companies:', error);
     }
   }, [superAdmin, userCompanyId]);
+
+  useEffect(() => {
+    fetchClients();
+    fetchCompanies();
+  }, [fetchClients, fetchCompanies]);
 
   async function addClient(e) {
     e.preventDefault();
