@@ -16,19 +16,23 @@ const features = [
 
 const plans = [
   {
-    id: 'starter', nameAr: 'المبتدئ', emoji: '🚀',
-    monthlyPrice: 99, desc: 'للشركات الناشئة',
-    features: ['حتى 5 مستخدمين','50 عميل','فواتير PDF','تقارير أساسية','دعم بالإيميل'],
-  },
-  {
-    id: 'professional', nameAr: 'الاحترافي', emoji: '⚡',
-    monthlyPrice: 249, desc: 'للشركات المتوسطة', featured: true,
-    features: ['مستخدمون غير محدودون','عملاء غير محدودون','كل مميزات Starter','تقارير بيانية متقدمة','إدارة مخزون كاملة','دعم أولوية 24/7'],
-  },
-  {
-    id: 'enterprise', nameAr: 'المؤسسي', emoji: '🏢',
-    monthlyPrice: 599, desc: 'للمؤسسات الكبيرة',
-    features: ['كل مميزات Professional','Multi-tenant كامل','API مخصص','مدير حساب مخصص','SLA 99.9%'],
+    id: 'standard',
+    nameAr: 'الباقة الكاملة',
+    emoji: '⚡',
+    monthlyPrice: 500,
+    desc: 'كل المميزات — بدون قيود',
+    featured: true,
+    features: [
+      'مستخدمون غير محدودون',
+      'عملاء غير محدودون',
+      'فواتير + تصدير PDF',
+      'إدارة مخزون كاملة',
+      'إدارة المهام',
+      'تقارير بيانية متقدمة',
+      'تصدير Excel',
+      'إشعارات ذكية',
+      'دعم فني 24/7',
+    ],
   },
 ];
 
@@ -290,9 +294,9 @@ export default function Landing() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 24, maxWidth: 420, margin: '0 auto' }}>
             {plans.map(plan => {
-              const price = billing === 'monthly' ? plan.monthlyPrice : Math.round(plan.monthlyPrice * 12 * 0.83);
+              const price = billing === 'monthly' ? plan.monthlyPrice : plan.monthlyPrice * 10;
               return (
                 <div key={plan.id} style={{
                   background: 'white', borderRadius: 24, padding: '36px 28px',
