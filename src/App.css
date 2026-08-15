@@ -1583,68 +1583,165 @@ tbody tr:last-child td {
 }
 
 /* ==================
-   Responsive
+   Mobile Sidebar & Hamburger
    ================== */
-@media (max-width: 1024px) {
-  .main-content { padding: 24px 28px; }
+
+/* الهامبرغر — مخفي على الديسكتوب */
+.hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 200;
+  width: 44px;
+  height: 44px;
+  background: var(--sidebar-bg);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-fast);
+}
+
+.hamburger-btn:hover {
+  background: var(--primary);
+}
+
+/* زرار الإغلاق داخل الـ sidebar */
+.sidebar-close-btn {
+  display: none;
+  margin-right: auto;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: rgba(255,255,255,0.6);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-close-btn:hover {
+  background: rgba(239,68,68,0.2);
+  color: #ef4444;
+}
+
+/* Overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  animation: fadeIn 0.2s ease;
 }
 
 @media (max-width: 768px) {
-  :root { --sidebar-width: 0px; }
+  /* إظهار الهامبرغر */
+  .hamburger-btn {
+    display: flex;
+  }
 
+  /* إظهار زرار الإغلاق */
+  .sidebar-close-btn {
+    display: flex;
+  }
+
+  /* إظهار الـ overlay */
+  .sidebar-overlay {
+    display: block;
+  }
+
+  /* الـ sidebar مخفي بالكامل على اليمين */
   .sidebar {
-    width: 260px;
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    box-shadow: none;
   }
 
-  .sidebar.open {
+  /* لما يتفتح */
+  .sidebar.mobile-open {
     transform: translateX(0);
+    box-shadow: -8px 0 40px rgba(0,0,0,0.4);
   }
 
+  /* المحتوى يبدأ من فوق */
   .main-content {
-    margin-right: 0;
-    padding: 20px 16px;
+    margin-right: 0 !important;
+    padding: 70px 16px 24px !important;
   }
 
-  .grid-3, .grid-2 {
-    grid-template-columns: 1fr;
+  /* تصغير الجداول */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
+  /* تصغير الـ stats */
   .stats-row {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 
-  .form-container {
-    flex-direction: column;
+  /* الـ form بيبقى column */
+  .form-container, .form-card form > div[style] {
+    flex-direction: column !important;
   }
 
+  /* الـ filter bar */
   .filter-bar {
     flex-direction: column;
   }
 
-  .filter-bar .search-wrapper {
+  .filter-bar select,
+  .filter-bar input {
     width: 100%;
   }
 
-  .header h1, .page-header-left h1 {
-    font-size: 20px;
+  /* تصغير الـ header */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  table { font-size: 13px; }
-  thead th, tbody td { padding: 10px 12px; }
-
-  .login-card {
-    padding: 32px 24px;
+  .header .user-info {
+    width: 100%;
+    justify-content: flex-end;
   }
 
+  /* الـ grid */
+  .grid-3, .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* الـ pricing */
   .pricing-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
-}
 
-@media (max-width: 480px) {
-  .stats-row {
-    grid-template-columns: 1fr;
+  /* الـ modal */
+  .modal-content {
+    margin: 10px;
+    max-height: 95vh;
+  }
+
+  /* الجداول */
+  thead th, tbody td {
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+  }
+
+  .table-actions {
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }

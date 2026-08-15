@@ -1,5 +1,5 @@
-// src/components/common/Sidebar.js - كامل (مع إضافة Users)
-import React from 'react';
+// src/components/common/Sidebar.js - مع دعم كامل للموبايل
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -14,18 +14,24 @@ const navItems = [
 ];
 
 const secondaryItems = [
-  { to: '/users', icon: 'fas fa-users', label: 'المستخدمين' },
-  { to: '/reports', icon: 'fas fa-chart-pie', label: 'التقارير' },
-  { to: '/notifications', icon: 'fas fa-bell', label: 'الإشعارات' },
-  { to: '/subscription', icon: 'fas fa-crown', label: 'الاشتراك' },
-  { to: '/profile', icon: 'fas fa-user-circle', label: 'الملف الشخصي' },
-  { to: '/about', icon: 'fas fa-info-circle', label: 'حول النظام' },
+  { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين' },
+  { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير' },
+  { to: '/notifications',icon: 'fas fa-bell',         label: 'الإشعارات' },
+  { to: '/subscription', icon: 'fas fa-crown',        label: 'الاشتراك' },
+  { to: '/profile',      icon: 'fas fa-user-circle',  label: 'الملف الشخصي' },
+  { to: '/about',        icon: 'fas fa-info-circle',  label: 'حول النظام' },
 ];
 
 export default function Sidebar() {
   const { userRole, currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // أغلق الـ sidebar لما يتنقل لصفحة تانية
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   async function handleLogout() {
     try {
@@ -38,8 +44,8 @@ export default function Sidebar() {
 
   const isActive = (path) => location.pathname === path;
 
-  return (
-    <div className="sidebar">
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="logo">
         <div className="logo-icon">
@@ -49,36 +55,32 @@ export default function Sidebar() {
           <span className="logo-name">SaaS PRO</span>
           <span className="logo-badge">Business Platform</span>
         </div>
+        {/* زرار إغلاق على الموبايل */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="sidebar-close-btn"
+        >
+          <i className="fas fa-times"></i>
+        </button>
       </div>
 
       <nav>
-        {/* Main nav */}
         <div className="nav-label">القائمة الرئيسية</div>
         {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={isActive(item.to) ? 'active' : ''}
-          >
+          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
             <span className="icon"><i className={item.icon}></i></span>
             {item.label}
           </Link>
         ))}
 
-        {/* Secondary nav */}
         <div className="nav-label">الإعدادات والتقارير</div>
         {secondaryItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={isActive(item.to) ? 'active' : ''}
-          >
+          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
             <span className="icon"><i className={item.icon}></i></span>
             {item.label}
           </Link>
         ))}
 
-        {/* Admin link */}
         {userRole === 'super_admin' && (
           <>
             <div className="nav-label">مدير النظام</div>
@@ -98,18 +100,13 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* User info strip */}
+      {/* User info */}
       <div style={{
-        margin: '0 12px 10px',
-        padding: '12px 14px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: 10,
+        margin: '0 12px 10px', padding: '12px 14px',
+        background: 'rgba(255,255,255,0.04)', borderRadius: 10,
         border: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        position: 'relative',
-        zIndex: 2,
+        display: 'flex', alignItems: 'center', gap: 10,
+        position: 'relative', zIndex: 2,
       }}>
         <div style={{
           width: 34, height: 34, borderRadius: '50%',
@@ -122,7 +119,7 @@ export default function Sidebar() {
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{
             fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {currentUser?.email}
           </div>
@@ -132,11 +129,36 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Logout */}
       <button onClick={handleLogout} className="logout-btn">
         <i className="fas fa-sign-out-alt"></i>
         تسجيل الخروج
       </button>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* ── زرار الهامبرغر — موبايل فقط ── */}
+      <button
+        className="hamburger-btn"
+        onClick={() => setMobileOpen(true)}
+        aria-label="فتح القائمة"
+      >
+        <i className="fas fa-bars"></i>
+      </button>
+
+      {/* ── Overlay — موبايل فقط ── */}
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ── */}
+      <div className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+        {sidebarContent}
+      </div>
+    </>
   );
 }
