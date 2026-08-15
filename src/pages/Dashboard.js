@@ -1,6 +1,6 @@
-// src/pages/Dashboard.js - بدون تحذيرات
-import React, { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+// src/pages/Dashboard.js
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -20,55 +20,72 @@ const featureCards = [
 export default function Dashboard() {
   const { currentUser, userRole, userCompanyId, logout } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ companies: 0, clients: 0, invoices: 0, tasks: 0, projects: 0, users: 0, revenue: 0 });
+  const [stats, setStats] = useState({
+    companies: 0,
+    clients: 0,
+    invoices: 0,
+    tasks: 0,
+    projects: 0,
+    users: 0,
+    revenue: 0
+  });
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = useCallback(async () => {
-    // لو مش super_admin ومفيش companyId — استنى
-    if (userRole !== 'super_admin' && !userCompanyId) {
-      setLoading(false);
-      return;
-    }
-    try {
-      let compQuery, cliQuery, invQuery, taskQuery, projQuery, usersQuery;
-
-      if (userRole === 'super_admin') {
-        compQuery  = collection(db, 'companies');
-        cliQuery   = collection(db, 'clients');
-        invQuery   = collection(db, 'invoices');
-        taskQuery  = collection(db, 'tasks');
-        projQuery  = collection(db, 'projects');
-        usersQuery = collection(db, 'users');
-      } else {
-        compQuery  = query(collection(db, 'companies'), where('__name__', '==', userCompanyId));
-        cliQuery   = query(collection(db, 'clients'),   where('companyId', '==', userCompanyId));
-        invQuery   = query(collection(db, 'invoices'),  where('companyId', '==', userCompanyId));
-        taskQuery  = query(collection(db, 'tasks'),     where('companyId', '==', userCompanyId));
-        projQuery  = query(collection(db, 'projects'),  where('companyId', '==', userCompanyId));
-        usersQuery = query(collection(db, 'users'),     where('companyId', '==', userCompanyId));
-      }
-
-      const [compSnap, cliSnap, invSnap, taskSnap, projSnap, usersSnap] = await Promise.all([
-        getDocs(compQuery), getDocs(cliQuery), getDocs(invQuery),
-        getDocs(taskQuery), getDocs(projQuery), getDocs(usersQuery),
-      ]);
-
-      let revenue = 0;
-      invSnap.forEach(d => { revenue += d.data().amount || 0; });
-
-      setStats({
-        companies: compSnap.size, clients: cliSnap.size,
-        invoices:  invSnap.size,  tasks:   taskSnap.size,
-        projects:  projSnap.size, users:   usersSnap.size,
-        revenue,
-      });
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [userRole, userCompanyId]);
-
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    // التأكد من جاهزية صفتك وصلاحياتك قبل تنفيذ الاستعلام
+    if (!currentUser) return;
+    if (userRole !== 'super_admin' && !userCompanyId) return;
+
+    setLoading(true);
+
+    // بناء الاستعلامات حسب نوع المستخدم
+    const compRef = collection(db, 'companies');
+    const cliRef = collection(db, 'clients');
+    const invRef = collection(db, 'invoices');
+    const taskRef = collection(db, 'tasks');
+    const projRef = collection(db, 'projects');
+    const usersRef = collection(db, 'users');
+
+    const isSuper = userRole === 'super_admin';
+
+    const compQ = isSuper ? compRef : query(compRef, where('__name__', '==', userCompanyId));
+    const cliQ = isSuper ? cliRef : query(cliRef, where('companyId', '==', userCompanyId));
+    const invQ = isSuper ? invRef : query(invRef, where('companyId', '==', userCompanyId));
+    const taskQ = isSuper ? taskRef : query(taskRef, where('companyId', '==', userCompanyId));
+    const projQ = isSuper ? projRef : query(projRef, where('companyId', '==', userCompanyId));
+    const usersQ = isSuper ? usersRef : query(usersRef, where('companyId', '==', userCompanyId));
+
+    // إعداد المشرفين اللحظيين (Listeners)
+    const unsubComp = onSnapshot(compQ, (snap) => setStats(prev => ({ ...prev, companies: snap.size })));
+    const unsubCli = onSnapshot(cliQ, (snap) => setStats(prev => ({ ...prev, clients: snap.size })));
+    const unsubTask = onSnapshot(taskQ, (snap) => setStats(prev => ({ ...prev, tasks: snap.size })));
+    const unsubProj = onSnapshot(projQ, (snap) => setStats(prev => ({ ...prev, projects: snap.size })));
+    const unsubUsers = onSnapshot(usersQ, (snap) => setStats(prev => ({ ...prev, users: snap.size })));
+    
+    const unsubInv = onSnapshot(invQ, (snap) => {
+      let totalRevenue = 0;
+      snap.forEach((doc) => {
+        const amount = parseFloat(doc.data().amount) || 0;
+        totalRevenue += amount;
+      });
+      setStats(prev => ({
+        ...prev,
+        invoices: snap.size,
+        revenue: totalRevenue
+      }));
+      setLoading(false);
+    });
+
+    // إغلاق الاستماع عند مغادرة الصفحة لتجنب استهلاك الذاكرة
+    return () => {
+      unsubComp();
+      unsubCli();
+      unsubInv();
+      unsubTask();
+      unsubProj();
+      unsubUsers();
+    };
+  }, [currentUser, userRole, userCompanyId]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -81,7 +98,7 @@ export default function Dashboard() {
           </div>
           <div className="user-info">
             <div className="avatar">{currentUser?.email?.charAt(0).toUpperCase() || 'A'}</div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-700)' }}>{currentUser?.email}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#475569' }}>{currentUser?.email}</span>
             <span className="role-badge">{userRole === 'super_admin' ? '👑 أدمن' : '👤 مستخدم'}</span>
             <button onClick={async () => { await logout(); navigate('/login'); }} className="btn-danger btn-sm">
               <i className="fas fa-sign-out-alt"></i>
@@ -92,38 +109,38 @@ export default function Dashboard() {
         <div className="stats-row">
           <div className="stat-card indigo">
             <div className="stat-icon"><i className="fas fa-building"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.companies}</div>
+            <div className="stat-value">{loading ? '...' : stats.companies}</div>
             <div className="stat-label">الشركات</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-user-friends"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.clients}</div>
+            <div className="stat-value">{loading ? '...' : stats.clients}</div>
             <div className="stat-label">العملاء</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon"><i className="fas fa-file-invoice"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.invoices}</div>
+            <div className="stat-value">{loading ? '...' : stats.invoices}</div>
             <div className="stat-label">الفواتير</div>
           </div>
           <div className="stat-card pink">
             <div className="stat-icon"><i className="fas fa-tasks"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.tasks}</div>
+            <div className="stat-value">{loading ? '...' : stats.tasks}</div>
             <div className="stat-label">المهام</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-project-diagram"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.projects}</div>
+            <div className="stat-value">{loading ? '...' : stats.projects}</div>
             <div className="stat-label">المشاريع</div>
           </div>
           <div className="stat-card purple">
             <div className="stat-icon"><i className="fas fa-users"></i></div>
-            <div className="stat-value">{loading ? '—' : stats.users}</div>
+            <div className="stat-value">{loading ? '...' : stats.users}</div>
             <div className="stat-label">المستخدمين</div>
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
-            <div className="stat-value" style={{ fontSize: 22, letterSpacing: -0.5 }}>
-              {loading ? '—' : stats.revenue.toLocaleString('ar-EG')}
+            <div className="stat-value" style={{ fontSize: 22 }}>
+              {loading ? '...' : stats.revenue.toLocaleString('ar-EG')}
             </div>
             <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
           </div>
@@ -137,7 +154,7 @@ export default function Dashboard() {
                 <i className={card.icon}></i>
               </div>
               <div className="card-body">
-                <h3 style={{ color: 'var(--gray-800)' }}>{card.title}</h3>
+                <h3 style={{ color: '#1e293b' }}>{card.title}</h3>
                 <p>{card.desc}</p>
               </div>
               <button onClick={() => navigate(card.to)} className="btn-primary btn-block">

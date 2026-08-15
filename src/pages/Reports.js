@@ -1,4 +1,4 @@
-// src/pages/Reports.js - نسخة معدلة (إصلاح الأرقام)
+// src/pages/Reports.js - نسخة معدلة (بدون تحذيرات)
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -62,27 +62,18 @@ export default function Reports() {
   const [taskStatusData, setTaskStatusData]   = useState([]);
   const [topProducts, setTopProducts]         = useState([]);
 
-  // دالة لجلب البيانات مع فلترة حسب الشركة
-  const getScopedQuery = (collectionName) => {
-    if (superAdmin) {
-      return collection(db, collectionName);
-    } else {
-      return collection(db, collectionName);
-    }
-  };
-
   const fetchAllData = useCallback(async () => {
     try {
-      let companiesData;
+      let companiesData = [];
       if (superAdmin) {
         const cSnap = await getDocs(collection(db, 'companies'));
         companiesData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       } else if (userCompanyId) {
         const snap = await getDoc(doc(db, 'companies', userCompanyId));
         companiesData = snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
-      } else { companiesData = []; }
+      }
 
-      // جلب البيانات مع فلترة حسب companyId
+      // جلب البيانات
       let clientsData = [];
       let invoicesData = [];
       let productsData = [];
@@ -100,7 +91,6 @@ export default function Reports() {
         productsData = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       } else {
-        // للمستخدم العادي: جلب البيانات المرتبطة بشركته فقط
         const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
           getDocs(collection(db, 'clients')),
           getDocs(collection(db, 'invoices')),
@@ -191,7 +181,7 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, superAdmin]);
+  }, [userCompanyId, superAdmin]); // ✅ userRole مش محتاجها هنا
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
@@ -244,11 +234,11 @@ export default function Reports() {
             { label: 'الفواتير', value: stats.invoices,                             icon: 'fas fa-file-invoice',  cls: 'amber'  },
             { label: 'المنتجات', value: stats.products,                             icon: 'fas fa-boxes',         cls: 'purple' },
             { label: 'المهام',   value: stats.tasks,                                icon: 'fas fa-tasks',         cls: 'pink'   },
-            { label: 'الإيرادات', value: stats.totalRevenue.toLocaleString() + ' ج.م', icon: 'fas fa-money-bill-wave', cls: 'cyan' },
+            { label: 'الإيرادات',value: stats.totalRevenue.toLocaleString() + ' ج', icon: 'fas fa-money-bill-wave', cls: 'cyan' },
           ].map(s => (
             <div key={s.label} className={`stat-card ${s.cls}`}>
               <div className="stat-icon"><i className={s.icon}></i></div>
-              <div className="stat-value" style={{ fontSize: s.label === 'الإيرادات' ? 20 : 30 }}>{s.value}</div>
+              <div className="stat-value" style={{ fontSize: s.label === 'الإيرادات' ? 18 : 30 }}>{s.value}</div>
               <div className="stat-label">{s.label}</div>
             </div>
           ))}

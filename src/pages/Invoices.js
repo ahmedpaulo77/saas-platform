@@ -1,4 +1,4 @@
-// src/pages/Invoices.js - مع عزل البيانات حسب الشركة
+// src/pages/Invoices.js - مع حساب تلقائي للسعر
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -25,22 +25,44 @@ export default function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // ✅ دالة لحساب المبلغ تلقائياً
+  const calculateAmount = (productId, quantity) => {
+    const product = products.find(p => p.id === productId);
+    if (product && quantity > 0) {
+      const price = parseFloat(product.price) || 0;
+      return price * quantity;
+    }
+    return 0;
+  };
+
   const fetchInvoices = useCallback(async () => {
     try {
       const snap = await getDocs(getScopedQuery('invoices', userRole, userCompanyId));
-      setInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      const invoicesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setInvoices(invoicesData);
+      setLoading(false);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
   }, [userRole, userCompanyId]);
 
   const fetchClients = useCallback(async () => {
-    const snap = await getDocs(getScopedQuery('clients', userRole, userCompanyId));
-    setClients(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    try {
+      const snap = await getDocs(getScopedQuery('clients', userRole, userCompanyId));
+      setClients(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    } catch (e) {
+      console.error(e);
+    }
   }, [userRole, userCompanyId]);
 
   const fetchProducts = useCallback(async () => {
-    const snap = await getDocs(getScopedQuery('inventory', userRole, userCompanyId));
-    setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      const snap = await getDocs(getScopedQuery('inventory', userRole, userCompanyId));
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error(e);
+    }
   }, [userRole, userCompanyId]);
 
   useEffect(() => {
@@ -65,10 +87,12 @@ export default function Invoices() {
         await updateDoc(productRef, { quantity: currentQty - qty });
       }
 
+      const amount = parseFloat(newInvoice.amount) || 0;
+
       await addDoc(collection(db, 'invoices'), {
         ...newInvoice,
         companyId: userCompanyId,
-        amount: parseFloat(newInvoice.amount),
+        amount: amount,
         quantity: parseInt(newInvoice.quantity) || 1,
         date: new Date().toISOString(),
         createdAt: new Date().toISOString()
@@ -86,9 +110,10 @@ export default function Invoices() {
   async function updateInvoice(e) {
     e.preventDefault();
     try {
+      const amount = parseFloat(editingInvoice.amount) || 0;
       await updateDoc(doc(db, 'invoices', editingInvoice.id), {
         clientId: editingInvoice.clientId,
-        amount: parseFloat(editingInvoice.amount),
+        amount: amount,
         status: editingInvoice.status,
         description: editingInvoice.description || ''
       });
@@ -109,6 +134,14 @@ export default function Invoices() {
     exportInvoicePDF(invoice, clientName, productName);
   }
 
+  const totalRevenue = invoices.reduce((sum, inv) => {
+    const amount = parseFloat(inv.amount) || 0;
+    return sum + amount;
+  }, 0);
+
+  const paidCount = invoices.filter(i => i.status === 'paid').length;
+  const pendingCount = invoices.filter(i => i.status === 'pending').length;
+
   const filtered = invoices.filter(inv => {
     const clientName = clients.find(c => c.id === inv.clientId)?.name || '';
     const matchSearch = clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -117,10 +150,6 @@ export default function Invoices() {
     const matchStatus = filterStatus === 'all' || inv.status === filterStatus;
     return matchSearch && matchStatus;
   });
-
-  const totalRevenue = filtered.reduce((sum, inv) => sum + (inv.amount || 0), 0);
-  const paidCount = filtered.filter(i => i.status === 'paid').length;
-  const pendingCount = filtered.filter(i => i.status === 'pending').length;
 
   if (loading) return (
     <div className="loading">
@@ -161,7 +190,9 @@ export default function Invoices() {
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
-            <div className="stat-value" style={{ fontSize: 20 }}>{totalRevenue.toLocaleString('ar-EG')}</div>
+            <div className="stat-value" style={{ fontSize: 20 }}>
+              {totalRevenue.toLocaleString('ar-EG')}
+            </div>
             <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
           </div>
         </div>
@@ -180,23 +211,52 @@ export default function Invoices() {
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>المنتج *</label>
-                <select value={newInvoice.productId} onChange={e => {
-                  const p = products.find(p => p.id === e.target.value);
-                  setNewInvoice({ ...newInvoice, productId: e.target.value, amount: p ? p.price : '' });
-                }} required>
+                <select 
+                  value={newInvoice.productId} 
+                  onChange={e => {
+                    const productId = e.target.value;
+                    const quantity = parseInt(newInvoice.quantity) || 1;
+                    const amount = calculateAmount(productId, quantity);
+                    setNewInvoice({ 
+                      ...newInvoice, 
+                      productId: productId,
+                      amount: amount > 0 ? amount.toString() : ''
+                    });
+                  }} 
+                  required
+                >
                   <option value="">اختر المنتج</option>
                   {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.quantity} متبقي)</option>)}
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>الكمية *</label>
-                <input type="number" min="1" value={newInvoice.quantity}
-                  onChange={e => setNewInvoice({ ...newInvoice, quantity: e.target.value })} required />
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={newInvoice.quantity}
+                  onChange={e => {
+                    const quantity = parseInt(e.target.value) || 1;
+                    const amount = calculateAmount(newInvoice.productId, quantity);
+                    setNewInvoice({ 
+                      ...newInvoice, 
+                      quantity: quantity,
+                      amount: amount > 0 ? amount.toString() : ''
+                    });
+                  }} 
+                  required 
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>المبلغ (ج.م) *</label>
-                <input type="number" step="0.01" placeholder="0.00" value={newInvoice.amount}
-                  onChange={e => setNewInvoice({ ...newInvoice, amount: e.target.value })} required />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  value={newInvoice.amount}
+                  onChange={e => setNewInvoice({ ...newInvoice, amount: e.target.value })} 
+                  required 
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>الحالة</label>

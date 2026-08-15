@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - نهائي (مع استيراد setDoc)
+// src/context/AuthContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -6,7 +6,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // ✅ أضفنا setDoc هنا
+import { doc, setDoc, onSnapshot } from 'firebase/firestore'; // ✅ استبدلنا getDoc بـ onSnapshot
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -26,7 +26,6 @@ export function AuthProvider({ children }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // ✅ بنشئ وثيقة جديدة مرة واحدة بس وقت التسجيل
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
         role: role,
@@ -49,42 +48,40 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   }
 
-  async function getUserData(uid) {
-    try {
-      const docRef = doc(db, "users", uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        return docSnap.data();
-      }
-      return null;
-    } catch (error) {
-      console.error("Error getting user data:", error);
-      return null;
-    }
-  }
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubUserDoc = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      
       if (user) {
-        const userData = await getUserData(user.uid);
-        if (userData) {
-          setUserRole(userData.role || 'user');
-          setUserCompanyId(userData.companyId || null);
-        } else {
-          // مفيش document — مش هنعمل حاجة، بس هنسيب الـ role كـ null
-          // الـ ProtectedRoute هيتعامل معاه
-          setUserRole(null);
-          setUserCompanyId(null);
-        }
+        // ✅ استماع لحظي لتغييرات مستند المستخدم (Role و CompanyId)
+        unsubUserDoc = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            setUserRole(userData.role || 'user');
+            setUserCompanyId(userData.companyId || null);
+          } else {
+            setUserRole(null);
+            setUserCompanyId(null);
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Error listening to user doc:", error);
+          setLoading(false);
+        });
+
       } else {
         setUserRole(null);
         setUserCompanyId(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubUserDoc) unsubUserDoc();
+    };
   }, []);
 
   const value = {
@@ -94,8 +91,7 @@ export function AuthProvider({ children }) {
     loading,
     signup,
     login,
-    logout,
-    getUserData
+    logout
   };
 
   return (

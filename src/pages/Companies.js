@@ -1,13 +1,13 @@
-// src/pages/Companies.js - مع عزل البيانات حسب الشركة
-import React, { useState, useEffect, useCallback } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+// src/pages/Companies.js
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Companies() {
-  const { userRole, userCompanyId } = useAuth();
+  const { currentUser, userRole, userCompanyId } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,32 +16,36 @@ export default function Companies() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchCompanies = useCallback(async () => {
-    try {
-      if (superAdmin) {
-        const querySnapshot = await getDocs(collection(db, 'companies'));
-        const companiesData = [];
-        querySnapshot.forEach((d) => {
-          companiesData.push({ id: d.id, ...d.data() });
-        });
+  useEffect(() => {
+    let unsubscribe;
+
+    if (superAdmin) {
+      // الأدمن الرئيسي يرى جميع الشركات مباشرة
+      unsubscribe = onSnapshot(collection(db, 'companies'), (snapshot) => {
+        const companiesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCompanies(companiesData);
-      } else if (userCompanyId) {
-        const snap = await getDoc(doc(db, 'companies', userCompanyId));
-        setCompanies(snap.exists() ? [{ id: snap.id, ...snap.data() }] : []);
-      } else {
-        setCompanies([]);
-      }
-    } catch (error) {
-      console.error('Error fetching companies:', error);
-      alert('حدث خطأ في جلب الشركات');
-    } finally {
+        setLoading(false);
+      }, (err) => {
+        console.error("Error listening to companies:", err);
+        setLoading(false);
+      });
+    } else if (userCompanyId) {
+      // المستخدم العادي يرى شركته فقط
+      unsubscribe = onSnapshot(doc(db, 'companies', userCompanyId), (docSnap) => {
+        if (docSnap.exists()) {
+          setCompanies([{ id: docSnap.id, ...docSnap.data() }]);
+        } else {
+          setCompanies([]);
+        }
+        setLoading(false);
+      });
+    } else {
+      setCompanies([]);
       setLoading(false);
     }
-  }, [superAdmin, userCompanyId]);
 
-  useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+    return () => unsubscribe && unsubscribe();
+  }, [superAdmin, userCompanyId]);
 
   async function addCompany(e) {
     e.preventDefault();
@@ -51,7 +55,8 @@ export default function Companies() {
     }
 
     try {
-      await addDoc(collection(db, 'companies'), {
+      // 1. إضافة الشركة
+      const docRef = await addDoc(collection(db, 'companies'), {
         ...newCompany,
         subscription: {
           status: 'trial',
@@ -61,8 +66,15 @@ export default function Companies() {
         createdAt: new Date().toISOString(),
         isActive: true
       });
+
+      // 2. تذكير هام: إذا كان المنشئ مستخدماً عادياً وليس super_admin، يجب ربط الـ userCompanyId بالشركة المضافة
+      if (!superAdmin && currentUser) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          companyId: docRef.id
+        });
+      }
+
       setNewCompany({ name: '', email: '', plan: 'monthly' });
-      await fetchCompanies();
       alert('✅ تم إضافة الشركة بنجاح');
     } catch (error) {
       console.error('Error adding company:', error);
@@ -94,7 +106,6 @@ export default function Companies() {
         email: editingCompany.email,
         plan: editingCompany.plan
       });
-      await fetchCompanies();
       closeEditModal();
       alert('✅ تم تحديث الشركة بنجاح');
     } catch (error) {
@@ -107,7 +118,6 @@ export default function Companies() {
     if (!window.confirm('هل أنت متأكد من حذف هذه الشركة؟')) return;
     try {
       await deleteDoc(doc(db, 'companies', id));
-      await fetchCompanies();
       alert('✅ تم حذف الشركة بنجاح');
     } catch (error) {
       console.error('Error deleting company:', error);
@@ -115,10 +125,9 @@ export default function Companies() {
     }
   }
 
-  // فلترة الشركات حسب البحث
   const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.email.toLowerCase().includes(searchTerm.toLowerCase())
+    company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    company.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -134,36 +143,34 @@ export default function Companies() {
         </h2>
 
         {superAdmin && (
-        /* نموذج الإضافة */
-        <form onSubmit={addCompany} className="form-container">
-          <input
-            type="text"
-            placeholder="اسم الشركة"
-            value={newCompany.name}
-            onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
-            required
-          />
-          <input
-            type="email"
-            placeholder="البريد الإلكتروني"
-            value={newCompany.email}
-            onChange={(e) => setNewCompany({ ...newCompany, email: e.target.value })}
-            required
-          />
-          <select
-            value={newCompany.plan}
-            onChange={(e) => setNewCompany({ ...newCompany, plan: e.target.value })}
-          >
-            <option value="monthly">شهري</option>
-            <option value="yearly">سنوي</option>
-          </select>
-          <button type="submit" className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة شركة
-          </button>
-        </form>
+          <form onSubmit={addCompany} className="form-container">
+            <input
+              type="text"
+              placeholder="اسم الشركة"
+              value={newCompany.name}
+              onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+              required
+            />
+            <input
+              type="email"
+              placeholder="البريد الإلكتروني"
+              value={newCompany.email}
+              onChange={(e) => setNewCompany({ ...newCompany, email: e.target.value })}
+              required
+            />
+            <select
+              value={newCompany.plan}
+              onChange={(e) => setNewCompany({ ...newCompany, plan: e.target.value })}
+            >
+              <option value="monthly">شهري</option>
+              <option value="yearly">سنوي</option>
+            </select>
+            <button type="submit" className="btn-primary">
+              <i className="fas fa-plus"></i> إضافة شركة
+            </button>
+          </form>
         )}
 
-        {/* حقل البحث */}
         <div style={{ marginBottom: '20px' }}>
           <input
             type="text"
@@ -176,15 +183,11 @@ export default function Companies() {
               border: '2px solid #e2e8f0',
               borderRadius: '10px',
               fontSize: '15px',
-              transition: 'border-color 0.3s',
               outline: 'none',
             }}
-            onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
-            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
           />
         </div>
 
-        {/* جدول الشركات */}
         <div className="table-container">
           <div className="table-header">
             <h3>قائمة الشركات</h3>
@@ -231,12 +234,12 @@ export default function Companies() {
                         <i className="fas fa-edit"></i> تعديل
                       </button>
                       {superAdmin && (
-                      <button 
-                        onClick={() => deleteCompany(company.id)} 
-                        className="btn-danger"
-                      >
-                        <i className="fas fa-trash"></i> حذف
-                      </button>
+                        <button 
+                          onClick={() => deleteCompany(company.id)} 
+                          className="btn-danger"
+                        >
+                          <i className="fas fa-trash"></i> حذف
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -247,7 +250,6 @@ export default function Companies() {
         </div>
       </div>
 
-      {/* مودال التعديل */}
       {showEditModal && editingCompany && (
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -340,7 +342,6 @@ const styles = {
     fontSize: '28px',
     cursor: 'pointer',
     color: '#94a3b8',
-    transition: 'color 0.3s',
   },
   formGroup: {
     marginBottom: '16px',
@@ -351,7 +352,6 @@ const styles = {
     border: '2px solid #e2e8f0',
     borderRadius: '10px',
     fontSize: '15px',
-    transition: 'border-color 0.3s',
     marginTop: '6px',
   },
   modalFooter: {
