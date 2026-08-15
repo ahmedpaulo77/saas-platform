@@ -244,11 +244,11 @@ export default function Reports() {
             { label: 'الفواتير', value: stats.invoices,                             icon: 'fas fa-file-invoice',  cls: 'amber'  },
             { label: 'المنتجات', value: stats.products,                             icon: 'fas fa-boxes',         cls: 'purple' },
             { label: 'المهام',   value: stats.tasks,                                icon: 'fas fa-tasks',         cls: 'pink'   },
-            { label: 'الإيرادات',value: stats.totalRevenue.toLocaleString() + ' ج', icon: 'fas fa-money-bill-wave', cls: 'cyan' },
+            { label: 'الإيرادات', value: stats.totalRevenue.toLocaleString() + ' ج.م', icon: 'fas fa-money-bill-wave', cls: 'cyan' },
           ].map(s => (
             <div key={s.label} className={`stat-card ${s.cls}`}>
               <div className="stat-icon"><i className={s.icon}></i></div>
-              <div className="stat-value" style={{ fontSize: s.label === 'الإيرادات' ? 18 : 30 }}>{s.value}</div>
+              <div className="stat-value" style={{ fontSize: s.label === 'الإيرادات' ? 20 : 30 }}>{s.value}</div>
               <div className="stat-label">{s.label}</div>
             </div>
           ))}

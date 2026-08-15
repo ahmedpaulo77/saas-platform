@@ -161,8 +161,8 @@ export default function Invoices() {
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
-            <div className="stat-value" style={{ fontSize: 20 }}>{totalRevenue.toLocaleString('ar-EG')} ج</div>
-            <div className="stat-label">إجمالي الإيرادات</div>
+            <div className="stat-value" style={{ fontSize: 20 }}>{totalRevenue.toLocaleString('ar-EG')}</div>
+            <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
           </div>
         </div>
 

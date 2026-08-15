@@ -24,44 +24,42 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
+    // لو مش super_admin ومفيش companyId — استنى
+    if (userRole !== 'super_admin' && !userCompanyId) {
+      setLoading(false);
+      return;
+    }
     try {
-      let compQuery, cliQuery, invQuery, taskQuery, projQuery;
+      let compQuery, cliQuery, invQuery, taskQuery, projQuery, usersQuery;
 
       if (userRole === 'super_admin') {
-        compQuery = collection(db, 'companies');
-        cliQuery = collection(db, 'clients');
-        invQuery = collection(db, 'invoices');
-        taskQuery = collection(db, 'tasks');
-        projQuery = collection(db, 'projects');
+        compQuery  = collection(db, 'companies');
+        cliQuery   = collection(db, 'clients');
+        invQuery   = collection(db, 'invoices');
+        taskQuery  = collection(db, 'tasks');
+        projQuery  = collection(db, 'projects');
+        usersQuery = collection(db, 'users');
       } else {
-        compQuery = query(collection(db, 'companies'), where('__name__', '==', userCompanyId));
-        cliQuery = query(collection(db, 'clients'), where('companyId', '==', userCompanyId));
-        invQuery = query(collection(db, 'invoices'), where('companyId', '==', userCompanyId));
-        taskQuery = query(collection(db, 'tasks'), where('companyId', '==', userCompanyId));
-        projQuery = query(collection(db, 'projects'), where('companyId', '==', userCompanyId));
+        compQuery  = query(collection(db, 'companies'), where('__name__', '==', userCompanyId));
+        cliQuery   = query(collection(db, 'clients'),   where('companyId', '==', userCompanyId));
+        invQuery   = query(collection(db, 'invoices'),  where('companyId', '==', userCompanyId));
+        taskQuery  = query(collection(db, 'tasks'),     where('companyId', '==', userCompanyId));
+        projQuery  = query(collection(db, 'projects'),  where('companyId', '==', userCompanyId));
+        usersQuery = query(collection(db, 'users'),     where('companyId', '==', userCompanyId));
       }
 
       const [compSnap, cliSnap, invSnap, taskSnap, projSnap, usersSnap] = await Promise.all([
-        getDocs(compQuery),
-        getDocs(cliQuery),
-        getDocs(invQuery),
-        getDocs(taskQuery),
-        getDocs(projQuery),
-        userRole === 'super_admin'
-          ? getDocs(collection(db, 'users'))
-          : getDocs(query(collection(db, 'users'), where('companyId', '==', userCompanyId))),
+        getDocs(compQuery), getDocs(cliQuery), getDocs(invQuery),
+        getDocs(taskQuery), getDocs(projQuery), getDocs(usersQuery),
       ]);
 
       let revenue = 0;
       invSnap.forEach(d => { revenue += d.data().amount || 0; });
 
       setStats({
-        companies: compSnap.size,
-        clients: cliSnap.size,
-        invoices: invSnap.size,
-        tasks: taskSnap.size,
-        projects: projSnap.size,
-        users: usersSnap.size,
+        companies: compSnap.size, clients: cliSnap.size,
+        invoices:  invSnap.size,  tasks:   taskSnap.size,
+        projects:  projSnap.size, users:   usersSnap.size,
         revenue,
       });
     } catch (e) { console.error(e); }
@@ -124,10 +122,10 @@ export default function Dashboard() {
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
-            <div className="stat-value" style={{ fontSize: loading ? 30 : stats.revenue > 99999 ? 18 : 24 }}>
-              {loading ? '—' : stats.revenue.toLocaleString('ar-EG')} <span style={{ fontSize: 14 }}>ج</span>
+            <div className="stat-value" style={{ fontSize: 22, letterSpacing: -0.5 }}>
+              {loading ? '—' : stats.revenue.toLocaleString('ar-EG')}
             </div>
-            <div className="stat-label">إجمالي الإيرادات</div>
+            <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
           </div>
         </div>
 
