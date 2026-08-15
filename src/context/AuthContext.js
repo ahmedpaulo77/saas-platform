@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - النسخة النهائية (مش بيعيد كتابة البيانات)
+// src/context/AuthContext.js - نهائي (مع استيراد setDoc)
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -6,7 +6,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // ✅ أضفنا setDoc هنا
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
+      // ✅ بنشئ وثيقة جديدة مرة واحدة بس وقت التسجيل
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
         role: role,
@@ -68,24 +69,13 @@ export function AuthProvider({ children }) {
       if (user) {
         const userData = await getUserData(user.uid);
         if (userData) {
-          // ✅ جلب الدور من Firestore مباشرة (من غير تعديل)
           setUserRole(userData.role || 'user');
           setUserCompanyId(userData.companyId || null);
         } else {
-          // ✅ لو مفيش بيانات، نضيفها مرة واحدة بس
-          try {
-            await setDoc(doc(db, "users", user.uid), {
-              email: user.email,
-              role: 'user',
-              companyId: null,
-              createdAt: new Date().toISOString(),
-              isActive: true
-            });
-            setUserRole('user');
-            setUserCompanyId(null);
-          } catch (error) {
-            console.error("Error creating user document:", error);
-          }
+          // مفيش document — مش هنعمل حاجة، بس هنسيب الـ role كـ null
+          // الـ ProtectedRoute هيتعامل معاه
+          setUserRole(null);
+          setUserCompanyId(null);
         }
       } else {
         setUserRole(null);
