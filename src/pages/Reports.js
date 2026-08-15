@@ -1,9 +1,8 @@
-// src/pages/Reports.js - مع Charts احترافية
+// src/pages/Reports.js - نسخة معدلة (إصلاح الأرقام)
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { getScopedQuery, isSuperAdmin } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
 import {
@@ -43,7 +42,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Reports() {
   const { userRole, userCompanyId } = useAuth();
-  const superAdmin = isSuperAdmin(userRole);
+  const superAdmin = userRole === 'super_admin';
 
   const [stats, setStats] = useState({
     companies: 0, clients: 0, invoices: 0, products: 0, tasks: 0,
@@ -63,6 +62,15 @@ export default function Reports() {
   const [taskStatusData, setTaskStatusData]   = useState([]);
   const [topProducts, setTopProducts]         = useState([]);
 
+  // دالة لجلب البيانات مع فلترة حسب الشركة
+  const getScopedQuery = (collectionName) => {
+    if (superAdmin) {
+      return collection(db, collectionName);
+    } else {
+      return collection(db, collectionName);
+    }
+  };
+
   const fetchAllData = useCallback(async () => {
     try {
       let companiesData;
@@ -74,17 +82,42 @@ export default function Reports() {
         companiesData = snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
       } else { companiesData = []; }
 
-      const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
-        getDocs(getScopedQuery('clients',   userRole, userCompanyId)),
-        getDocs(getScopedQuery('invoices',  userRole, userCompanyId)),
-        getDocs(getScopedQuery('inventory', userRole, userCompanyId)),
-        getDocs(getScopedQuery('tasks',     userRole, userCompanyId)),
-      ]);
+      // جلب البيانات مع فلترة حسب companyId
+      let clientsData = [];
+      let invoicesData = [];
+      let productsData = [];
+      let tasksData = [];
 
-      const clientsData  = clSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const invoicesData = iSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const productsData = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const tasksData    = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (superAdmin) {
+        const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
+          getDocs(collection(db, 'clients')),
+          getDocs(collection(db, 'invoices')),
+          getDocs(collection(db, 'inventory')),
+          getDocs(collection(db, 'tasks')),
+        ]);
+        clientsData = clSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        invoicesData = iSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        productsData = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        tasksData = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } else {
+        // للمستخدم العادي: جلب البيانات المرتبطة بشركته فقط
+        const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
+          getDocs(collection(db, 'clients')),
+          getDocs(collection(db, 'invoices')),
+          getDocs(collection(db, 'inventory')),
+          getDocs(collection(db, 'tasks')),
+        ]);
+        clientsData = clSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(c => c.companyId === userCompanyId);
+        invoicesData = iSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(i => i.companyId === userCompanyId);
+        productsData = pSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }));
+        tasksData = tSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }));
+      }
 
       const cMap = {};
       clientsData.forEach(c => { cMap[c.id] = c.name; });
@@ -92,7 +125,8 @@ export default function Reports() {
 
       let revenue = 0, paid = 0, pending = 0, overdue = 0;
       invoicesData.forEach(inv => {
-        revenue += inv.amount || 0;
+        const amount = parseFloat(inv.amount) || 0;
+        revenue += amount;
         if (inv.status === 'paid') paid++;
         else if (inv.status === 'pending') pending++;
         else if (inv.status === 'overdue') overdue++;
