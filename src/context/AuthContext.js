@@ -1,4 +1,4 @@
-// src/context/AuthContext.js - نسخة مصححة
+// src/context/AuthContext.js - النسخة النهائية (مش بيعيد كتابة البيانات)
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { 
   createUserWithEmailAndPassword, 
@@ -34,7 +34,7 @@ export function AuthProvider({ children }) {
         isActive: true
       });
       
-      return userCredential; // ✅ لازم ترجع userCredential مش user بس
+      return userCredential;
     } catch (error) {
       throw error;
     }
@@ -68,10 +68,11 @@ export function AuthProvider({ children }) {
       if (user) {
         const userData = await getUserData(user.uid);
         if (userData) {
+          // ✅ جلب الدور من Firestore مباشرة (من غير تعديل)
           setUserRole(userData.role || 'user');
           setUserCompanyId(userData.companyId || null);
         } else {
-          // لو مفيش بيانات للمستخدم في Firestore، نضيفه
+          // ✅ لو مفيش بيانات، نضيفها مرة واحدة بس
           try {
             await setDoc(doc(db, "users", user.uid), {
               email: user.email,
