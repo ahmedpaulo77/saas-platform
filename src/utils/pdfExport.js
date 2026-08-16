@@ -1,254 +1,337 @@
-// src/utils/pdfExport.js - تصدير الفاتورة كـ PDF مع دعم العربية
+// src/utils/pdfExport.js - تصدير الفاتورة كـ PDF (نسخة مُصلحة: أرقام + اتجاه النص العربي)
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-
-// ✅ تحميل الخط العربي (مرة واحدة)
-const loadArabicFont = async () => {
-  try {
-    // تحميل الخط من Google Fonts
-    const response = await fetch('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-    const css = await response.text();
-    // استخراج رابط الخط
-    const fontUrl = css.match(/url\(([^)]+)\)/)?.[1];
-    if (fontUrl) {
-      const fontResponse = await fetch(fontUrl);
-      const fontBlob = await fontResponse.arrayBuffer();
-      return fontBlob;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error loading font:', error);
-    return null;
-  }
-};
+import html2canvas from 'html2canvas';
 
 export async function exportInvoicePDF(invoice, clientName, productName) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const qty = parseInt(invoice.quantity) || 1;
+  const total = parseFloat(invoice.amount) || 0;
+  const unitPrice = qty > 0 ? total / qty : 0;
 
-  // ✅ إضافة خط عربي
-  const fontBlob = await loadArabicFont();
-  if (fontBlob) {
-    // تحويل الخط إلى base64 وإضافته
-    const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontBlob)));
-    doc.addFileToVFS('Cairo-Regular.ttf', fontBase64);
-    doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
-    doc.addFileToVFS('Cairo-Bold.ttf', fontBase64);
-    doc.addFont('Cairo-Bold.ttf', 'Cairo', 'bold');
+ const date = invoice.date ? new Date(invoice.date).toLocaleDateString() : new Date().toLocaleDateString();
+const dueDate = invoice.dueDate
+  ? new Date(invoice.dueDate).toLocaleDateString()
+  : new Date(Date.now() + 30 * 86400000).toLocaleDateString();
+
+  const statusText = invoice.status === 'paid' ? 'مدفوعة' : invoice.status === 'pending' ? 'قيد الانتظار' : 'متأخرة';
+  const statusColor = invoice.status === 'paid' ? '#10b981' : invoice.status === 'pending' ? '#f59e0b' : '#ef4444';
+
+  const bodyMarkup = `
+    <style>
+      .invoice-pdf-root * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .invoice-pdf-root {
+        font-family: 'Tahoma', 'Arial', sans-serif;
+        direction: rtl;
+        background: #f8fafc;
+        padding: 40px;
+        width: 800px;
+      }
+      .rtl-text {
+        unicode-bidi: plaintext;
+        direction: rtl;
+        display: inline-block;
+      }
+      .invoice-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+      }
+      .invoice-header {
+        background: #4f46e5;
+        padding: 30px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .invoice-header h1 {
+        color: white;
+        font-size: 24px;
+        font-weight: 800;
+      }
+      .invoice-header .invoice-number {
+        color: rgba(255,255,255,0.7);
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .invoice-header .invoice-label {
+        text-align: left;
+      }
+      .invoice-header .invoice-label h2 {
+        color: white;
+        font-size: 32px;
+        font-weight: 800;
+      }
+      .invoice-meta {
+        background: #f1f5f9;
+        padding: 14px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .invoice-meta-item {
+        display: flex;
+        flex-direction: column;
+      }
+      .invoice-meta-item label {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .invoice-meta-item span {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .invoice-meta-item .status {
+        color: ${statusColor};
+      }
+      .invoice-body {
+        padding: 30px 40px;
+      }
+      .invoice-client {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+      .invoice-client .client-label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+      .invoice-client .client-name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 4px;
+      }
+      .invoice-client .client-email {
+        font-size: 13px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      table thead {
+        background: #4f46e5;
+      }
+      table thead th {
+        color: white;
+        padding: 12px 16px;
+        text-align: right;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      table tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+        color: #0f172a;
+      }
+      table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      table tbody tr:nth-child(even) {
+        background: #f8fafc;
+      }
+      .text-center { text-align: center; }
+      .text-right { text-align: right; }
+      .text-left { text-align: left; }
+      .font-bold { font-weight: 700; }
+      .invoice-totals {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .invoice-totals .totals-box {
+        background: #f1f5f9;
+        padding: 20px 24px;
+        border-radius: 12px;
+        min-width: 220px;
+      }
+      .invoice-totals .totals-box .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 14px;
+        color: #475569;
+      }
+      .invoice-totals .totals-box .total-row:last-child {
+        border-top: 2px solid #4f46e5;
+        padding-top: 12px;
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 800;
+        color: #4f46e5;
+      }
+      .invoice-notes {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .invoice-notes label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 600;
+      }
+      .invoice-notes p {
+        font-size: 14px;
+        color: #475569;
+        margin-top: 4px;
+      }
+      .invoice-footer {
+        background: #4f46e5;
+        padding: 16px 40px;
+        text-align: center;
+        color: rgba(255,255,255,0.7);
+        font-size: 13px;
+      }
+    </style>
+    <div class="invoice-pdf-root">
+      <div class="invoice-container">
+        <!-- Header -->
+        <div class="invoice-header">
+          <div>
+            <h1>SaaS PRO</h1>
+            <div class="invoice-number">منصة إدارة الأعمال</div>
+          </div>
+          <div class="invoice-label">
+            <h2>فاتورة</h2>
+            <div class="invoice-number" style="text-align:left;">#${invoice.id?.slice(0, 8).toUpperCase() || 'INV-0001'}</div>
+          </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="invoice-meta">
+          <div class="invoice-meta-item">
+            <label>التاريخ</label>
+            <span><bdi class="rtl-text">${date}</bdi></span>
+          </div>
+          <div class="invoice-meta-item">
+            <label>تاريخ الاستحقاق</label>
+            <span><bdi class="rtl-text">${dueDate}</bdi></span>
+          </div>
+          <div class="invoice-meta-item">
+            <label>الحالة</label>
+            <span class="status"><bdi class="rtl-text">${statusText}</bdi></span>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="invoice-body">
+          <!-- Client -->
+          <div class="invoice-client">
+            <div>
+              <div class="client-label">العميل</div>
+              <div class="client-name"><bdi class="rtl-text">${clientName || 'اسم العميل'}</bdi></div>
+              <div class="client-email">${invoice.clientEmail || 'client@example.com'}</div>
+            </div>
+            <div style="text-align:left;">
+              <div class="client-label">من</div>
+              <div class="client-name" style="font-size:16px;">SaaS PRO</div>
+              <div class="client-email">support@saaspro.com</div>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>الوصف</th>
+                <th style="width:70px;text-align:center;">الكمية</th>
+                <th style="width:100px;text-align:left;">سعر الوحدة</th>
+                <th style="width:100px;text-align:left;">الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-center">1</td>
+                <td><bdi class="rtl-text">${productName || invoice.description || 'المنتج / الخدمة'}</bdi></td>
+                <td class="text-center">${qty}</td>
+                <td class="text-left">${unitPrice.toFixed(2)} ج.م</td>
+                <td class="text-left font-bold">${total.toFixed(2)} ج.م</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Totals -->
+          <div class="invoice-totals">
+            <div class="totals-box">
+              <div class="total-row">
+                <span>المجموع الفرعي</span>
+                <span>${total.toFixed(2)} ج.م</span>
+              </div>
+              <div class="total-row">
+                <span>الضريبة (0%)</span>
+                <span>0.00 ج.م</span>
+              </div>
+              <div class="total-row">
+                <span>الإجمالي</span>
+                <span>${total.toFixed(2)} ج.م</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          ${invoice.description ? `
+          <div class="invoice-notes">
+            <label>ملاحظات</label>
+            <p><bdi class="rtl-text">${invoice.description}</bdi></p>
+          </div>
+          ` : ''}
+        </div>
+
+        <!-- Footer -->
+        <div class="invoice-footer">
+          شكراً لتعاملكم معنا! • support@saaspro.com • www.saaspro.com
+        </div>
+      </div>
+    </div>
+  `;
+
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.left = '-9999px';
+  container.innerHTML = bodyMarkup;
+  document.body.appendChild(container);
+
+  try {
+    const element = container.querySelector('.invoice-pdf-root');
+    if (!element) throw new Error('تعذر إنشاء عنصر الفاتورة');
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: [canvas.width, canvas.height],
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+
+    const fileName = `invoice-${invoice.id?.slice(0, 8) || 'new'}.pdf`;
+    pdf.save(fileName);
+  } catch (err) {
+    console.error('PDF export error:', err);
+    alert('❌ حدث خطأ أثناء تصدير الفاتورة PDF، حاول مرة أخرى');
+  } finally {
+    document.body.removeChild(container);
   }
-
-  const primaryColor = [99, 102, 241];    // indigo
-  const darkColor    = [15, 23, 42];      // near black
-  const grayColor    = [100, 116, 139];   // gray-500
-  const lightGray    = [241, 245, 249];   // gray-100
-  const greenColor   = [16, 185, 129];
-  const amberColor   = [245, 158, 11];
-  const redColor     = [239, 68, 68];
-
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-
-  // ── Header Background ──
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageW, 45, 'F');
-
-  // ✅ استخدام الخط العربي
-  const arabicFont = fontBlob ? 'Cairo' : 'helvetica';
-
-  // Company name (white)
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(255, 255, 255);
-  doc.text('SaaS PRO', 20, 22);
-
-  // Tagline
-  doc.setFont(arabicFont, 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(200, 210, 255);
-  doc.text('منصة إدارة الأعمال', 20, 30);
-
-  // "فاتورة" label (right side)
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(28);
-  doc.setTextColor(255, 255, 255);
-  doc.text('فاتورة', pageW - 20, 24, { align: 'right' });
-
-  doc.setFont(arabicFont, 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(200, 210, 255);
-  doc.text(`#${invoice.id?.slice(0, 8).toUpperCase() || 'INV-0001'}`, pageW - 20, 33, { align: 'right' });
-
-  // ── Invoice Meta Strip ──
-  doc.setFillColor(...lightGray);
-  doc.rect(0, 45, pageW, 22, 'F');
-
-  const date = invoice.date ? new Date(invoice.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
-  const dueDate = invoice.dueDate
-    ? new Date(invoice.dueDate).toLocaleDateString('ar-EG')
-    : new Date(Date.now() + 30 * 86400000).toLocaleDateString('ar-EG');
-
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...grayColor);
-
-  const metaItems = [
-    { label: 'التاريخ', value: date, x: 20 },
-    { label: 'تاريخ الاستحقاق', value: dueDate, x: 75 },
-    { label: 'الحالة', value: invoice.status === 'paid' ? 'مدفوعة' : invoice.status === 'pending' ? 'قيد الانتظار' : 'متأخرة', x: 130 },
-  ];
-
-  metaItems.forEach(({ label, value, x }) => {
-    doc.setTextColor(...grayColor);
-    doc.setFont(arabicFont, 'normal');
-    doc.text(label, x, 52);
-    doc.setFont(arabicFont, 'bold');
-    doc.setFontSize(9);
-    if (label === 'الحالة') {
-      const col = invoice.status === 'paid' ? greenColor : invoice.status === 'pending' ? amberColor : redColor;
-      doc.setTextColor(...col);
-    } else {
-      doc.setTextColor(...darkColor);
-    }
-    doc.text(value, x, 61);
-    doc.setFontSize(8);
-  });
-
-  // ── Bill To / From ──
-  const secY = 78;
-  doc.setFillColor(255, 255, 255);
-
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(...grayColor);
-  doc.text('العميل', 20, secY);
-
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...darkColor);
-  doc.text(clientName || 'اسم العميل', 20, secY + 8);
-
-  doc.setFont(arabicFont, 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...grayColor);
-  doc.text(invoice.clientEmail || 'client@example.com', 20, secY + 15);
-
-  // From (right side)
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(...grayColor);
-  doc.text('من', pageW - 20, secY, { align: 'right' });
-
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...darkColor);
-  doc.text('SaaS PRO', pageW - 20, secY + 8, { align: 'right' });
-
-  doc.setFont(arabicFont, 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...grayColor);
-  doc.text('support@saaspro.com', pageW - 20, secY + 15, { align: 'right' });
-
-  // ── Items Table ──
-  const qty = invoice.quantity || 1;
-  const unitPrice = invoice.amount ? invoice.amount / qty : 0;
-  const total = invoice.amount || 0;
-
-  autoTable(doc, {
-    startY: secY + 28,
-    head: [['#', 'الوصف', 'الكمية', 'سعر الوحدة', 'الإجمالي']],
-    body: [
-      [
-        '1',
-        productName || invoice.description || 'المنتج / الخدمة',
-        qty.toString(),
-        `${unitPrice.toFixed(2)} ج.م`,
-        `${total.toFixed(2)} ج.م`,
-      ],
-    ],
-    headStyles: {
-      fillColor: primaryColor,
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 9,
-      cellPadding: 8,
-    },
-    bodyStyles: {
-      fontSize: 9,
-      cellPadding: 8,
-      textColor: darkColor,
-    },
-    alternateRowStyles: { fillColor: lightGray },
-    columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 22, halign: 'center' },
-      3: { cellWidth: 38, halign: 'right' },
-      4: { cellWidth: 38, halign: 'right', fontStyle: 'bold' },
-    },
-    theme: 'grid',
-    tableLineColor: lightGray,
-    tableLineWidth: 0.1,
-    margin: { left: 15, right: 15 },
-  });
-
-  const tableEndY = doc.lastAutoTable.finalY;
-
-  // ── Totals Box ──
-  const totalsX = pageW - 80;
-  const totalsY = tableEndY + 8;
-
-  doc.setFillColor(...lightGray);
-  doc.roundedRect(totalsX - 5, totalsY, 70, 40, 3, 3, 'F');
-
-  const rows = [
-    { label: 'المجموع الفرعي', value: `${total.toFixed(2)} ج.م`, bold: false },
-    { label: 'الضريبة (0%)', value: '0.00 ج.م', bold: false },
-  ];
-
-  let rY = totalsY + 9;
-  rows.forEach(({ label, value }) => {
-    doc.setFont(arabicFont, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...grayColor);
-    doc.text(label, totalsX, rY);
-    doc.setTextColor(...darkColor);
-    doc.text(value, pageW - 20, rY, { align: 'right' });
-    rY += 9;
-  });
-
-  // Total line
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.line(totalsX - 5, rY - 1, pageW - 15, rY - 1);
-
-  doc.setFont(arabicFont, 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...primaryColor);
-  doc.text('الإجمالي', totalsX, rY + 8);
-  doc.text(`${total.toFixed(2)} ج.م`, pageW - 20, rY + 8, { align: 'right' });
-
-  // ── Notes ──
-  const notesY = Math.max(tableEndY + 60, totalsY + 52);
-  if (invoice.description) {
-    doc.setFont(arabicFont, 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...grayColor);
-    doc.text('ملاحظات', 15, notesY);
-    doc.setFont(arabicFont, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...darkColor);
-    doc.text(invoice.description, 15, notesY + 7, { maxWidth: pageW - 90 });
-  }
-
-  // ── Footer ──
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, pageH - 18, pageW, 18, 'F');
-
-  doc.setFont(arabicFont, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(200, 210, 255);
-  doc.text('شكراً لتعاملكم معنا!  •  support@saaspro.com  •  www.saaspro.com', pageW / 2, pageH - 7, { align: 'center' });
-
-  // Save
-  const fileName = `invoice-${invoice.id?.slice(0, 8) || 'new'}.pdf`;
-  doc.save(fileName);
 }

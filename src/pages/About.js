@@ -14,14 +14,6 @@ const features = [
   { icon: 'fas fa-shield-alt', color: '#14b8a6', bg: '#f0fdfa', title: 'أمان متقدم', desc: 'Firebase Auth مع صلاحيات متعددة المستويات' },
 ];
 
-const techStack = [
-  { name: 'React 19', icon: 'fab fa-react', color: '#61dafb' },
-  { name: 'Firebase', icon: 'fas fa-fire', color: '#ffa000' },
-  { name: 'Stripe', icon: 'fab fa-stripe', color: '#635bff' },
-  { name: 'jsPDF', icon: 'fas fa-file-pdf', color: '#ef4444' },
-  { name: 'XLSX Export', icon: 'fas fa-file-excel', color: '#10b981' },
-];
-
 export default function About() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -74,26 +66,6 @@ export default function About() {
           </div>
         </div>
 
-        {/* Tech Stack */}
-        <div className="card" style={{ marginBottom: 24 }}>
-          <h3 style={{ marginBottom: 16 }}>
-            <i className="fas fa-code" style={{ color: '#6366f1' }}></i>
-            التقنيات المستخدمة
-          </h3>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            {techStack.map(t => (
-              <div key={t.name} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 16px', background: 'var(--gray-50)',
-                borderRadius: 'var(--radius-sm)', border: '1px solid var(--gray-200)',
-              }}>
-                <i className={t.icon} style={{ color: t.color, fontSize: 18 }}></i>
-                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--gray-700)' }}>{t.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Features Grid */}
         <div style={{ marginBottom: 16 }}>
           <div className="section-title">
@@ -120,9 +92,8 @@ export default function About() {
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>
             {[
-              { icon: 'fas fa-envelope', label: 'البريد الإلكتروني', value: 'support@saaspro.com', color: '#6366f1' },
-              { icon: 'fas fa-phone', label: 'الهاتف', value: '+20 123 456 7890', color: '#10b981' },
-              { icon: 'fas fa-globe', label: 'الموقع الإلكتروني', value: 'www.saaspro.com', color: '#f59e0b' },
+              { icon: 'fas fa-envelope', label: 'البريد الإلكتروني', value: 'p638599@gmail.com', color: '#6366f1' },
+              { icon: 'fas fa-phone', label: 'الهاتف', value: '01220811060', color: '#10b981' },
             ].map(c => (
               <div key={c.label} style={{
                 display: 'flex', gap: 12, alignItems: 'center',
