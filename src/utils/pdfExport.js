@@ -1,9 +1,40 @@
-// src/utils/pdfExport.js - تصدير الفاتورة كـ PDF احترافي
+// src/utils/pdfExport.js - تصدير الفاتورة كـ PDF مع دعم العربية
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export function exportInvoicePDF(invoice, clientName, productName) {
+// ✅ تحميل الخط العربي (مرة واحدة)
+const loadArabicFont = async () => {
+  try {
+    // تحميل الخط من Google Fonts
+    const response = await fetch('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+    const css = await response.text();
+    // استخراج رابط الخط
+    const fontUrl = css.match(/url\(([^)]+)\)/)?.[1];
+    if (fontUrl) {
+      const fontResponse = await fetch(fontUrl);
+      const fontBlob = await fontResponse.arrayBuffer();
+      return fontBlob;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading font:', error);
+    return null;
+  }
+};
+
+export async function exportInvoicePDF(invoice, clientName, productName) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // ✅ إضافة خط عربي
+  const fontBlob = await loadArabicFont();
+  if (fontBlob) {
+    // تحويل الخط إلى base64 وإضافته
+    const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontBlob)));
+    doc.addFileToVFS('Cairo-Regular.ttf', fontBase64);
+    doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
+    doc.addFileToVFS('Cairo-Bold.ttf', fontBase64);
+    doc.addFont('Cairo-Bold.ttf', 'Cairo', 'bold');
+  }
 
   const primaryColor = [99, 102, 241];    // indigo
   const darkColor    = [15, 23, 42];      // near black
@@ -20,30 +51,28 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, pageW, 45, 'F');
 
-  // decorative circle
-  doc.setFillColor(255, 255, 255, 0.05);
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.1);
+  // ✅ استخدام الخط العربي
+  const arabicFont = fontBlob ? 'Cairo' : 'helvetica';
 
   // Company name (white)
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(22);
   doc.setTextColor(255, 255, 255);
   doc.text('SaaS PRO', 20, 22);
 
   // Tagline
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(arabicFont, 'normal');
   doc.setFontSize(9);
   doc.setTextColor(200, 210, 255);
-  doc.text('Business Management Platform', 20, 30);
+  doc.text('منصة إدارة الأعمال', 20, 30);
 
-  // "INVOICE" label (right side)
-  doc.setFont('helvetica', 'bold');
+  // "فاتورة" label (right side)
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(28);
   doc.setTextColor(255, 255, 255);
-  doc.text('INVOICE', pageW - 20, 24, { align: 'right' });
+  doc.text('فاتورة', pageW - 20, 24, { align: 'right' });
 
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(arabicFont, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(200, 210, 255);
   doc.text(`#${invoice.id?.slice(0, 8).toUpperCase() || 'INV-0001'}`, pageW - 20, 33, { align: 'right' });
@@ -52,28 +81,28 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   doc.setFillColor(...lightGray);
   doc.rect(0, 45, pageW, 22, 'F');
 
-  const date = invoice.date ? new Date(invoice.date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+  const date = invoice.date ? new Date(invoice.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
   const dueDate = invoice.dueDate
-    ? new Date(invoice.dueDate).toLocaleDateString('en-GB')
-    : new Date(Date.now() + 30 * 86400000).toLocaleDateString('en-GB');
+    ? new Date(invoice.dueDate).toLocaleDateString('ar-EG')
+    : new Date(Date.now() + 30 * 86400000).toLocaleDateString('ar-EG');
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...grayColor);
 
   const metaItems = [
-    { label: 'DATE', value: date, x: 20 },
-    { label: 'DUE DATE', value: dueDate, x: 75 },
-    { label: 'STATUS', value: invoice.status === 'paid' ? 'PAID' : invoice.status === 'pending' ? 'PENDING' : 'OVERDUE', x: 130 },
+    { label: 'التاريخ', value: date, x: 20 },
+    { label: 'تاريخ الاستحقاق', value: dueDate, x: 75 },
+    { label: 'الحالة', value: invoice.status === 'paid' ? 'مدفوعة' : invoice.status === 'pending' ? 'قيد الانتظار' : 'متأخرة', x: 130 },
   ];
 
   metaItems.forEach(({ label, value, x }) => {
     doc.setTextColor(...grayColor);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(arabicFont, 'normal');
     doc.text(label, x, 52);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(arabicFont, 'bold');
     doc.setFontSize(9);
-    if (label === 'STATUS') {
+    if (label === 'الحالة') {
       const col = invoice.status === 'paid' ? greenColor : invoice.status === 'pending' ? amberColor : redColor;
       doc.setTextColor(...col);
     } else {
@@ -87,33 +116,33 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   const secY = 78;
   doc.setFillColor(255, 255, 255);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...grayColor);
-  doc.text('BILL TO', 20, secY);
+  doc.text('العميل', 20, secY);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(13);
   doc.setTextColor(...darkColor);
-  doc.text(clientName || 'Client Name', 20, secY + 8);
+  doc.text(clientName || 'اسم العميل', 20, secY + 8);
 
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(arabicFont, 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...grayColor);
   doc.text(invoice.clientEmail || 'client@example.com', 20, secY + 15);
 
   // From (right side)
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...grayColor);
-  doc.text('FROM', pageW - 20, secY, { align: 'right' });
+  doc.text('من', pageW - 20, secY, { align: 'right' });
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(13);
   doc.setTextColor(...darkColor);
   doc.text('SaaS PRO', pageW - 20, secY + 8, { align: 'right' });
 
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(arabicFont, 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...grayColor);
   doc.text('support@saaspro.com', pageW - 20, secY + 15, { align: 'right' });
@@ -125,14 +154,14 @@ export function exportInvoicePDF(invoice, clientName, productName) {
 
   autoTable(doc, {
     startY: secY + 28,
-    head: [['#', 'Description', 'Qty', 'Unit Price', 'Total']],
+    head: [['#', 'الوصف', 'الكمية', 'سعر الوحدة', 'الإجمالي']],
     body: [
       [
         '1',
-        productName || invoice.description || 'Product / Service',
+        productName || invoice.description || 'المنتج / الخدمة',
         qty.toString(),
-        `${unitPrice.toFixed(2)} EGP`,
-        `${total.toFixed(2)} EGP`,
+        `${unitPrice.toFixed(2)} ج.م`,
+        `${total.toFixed(2)} ج.م`,
       ],
     ],
     headStyles: {
@@ -171,13 +200,13 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   doc.roundedRect(totalsX - 5, totalsY, 70, 40, 3, 3, 'F');
 
   const rows = [
-    { label: 'Subtotal', value: `${total.toFixed(2)} EGP`, bold: false },
-    { label: 'Tax (0%)', value: '0.00 EGP', bold: false },
+    { label: 'المجموع الفرعي', value: `${total.toFixed(2)} ج.م`, bold: false },
+    { label: 'الضريبة (0%)', value: '0.00 ج.م', bold: false },
   ];
 
   let rY = totalsY + 9;
   rows.forEach(({ label, value }) => {
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(arabicFont, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...grayColor);
     doc.text(label, totalsX, rY);
@@ -191,20 +220,20 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   doc.setLineWidth(0.5);
   doc.line(totalsX - 5, rY - 1, pageW - 15, rY - 1);
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(arabicFont, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...primaryColor);
-  doc.text('TOTAL', totalsX, rY + 8);
-  doc.text(`${total.toFixed(2)} EGP`, pageW - 20, rY + 8, { align: 'right' });
+  doc.text('الإجمالي', totalsX, rY + 8);
+  doc.text(`${total.toFixed(2)} ج.م`, pageW - 20, rY + 8, { align: 'right' });
 
   // ── Notes ──
   const notesY = Math.max(tableEndY + 60, totalsY + 52);
   if (invoice.description) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(arabicFont, 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...grayColor);
-    doc.text('NOTES', 15, notesY);
-    doc.setFont('helvetica', 'normal');
+    doc.text('ملاحظات', 15, notesY);
+    doc.setFont(arabicFont, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...darkColor);
     doc.text(invoice.description, 15, notesY + 7, { maxWidth: pageW - 90 });
@@ -214,10 +243,10 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   doc.setFillColor(...primaryColor);
   doc.rect(0, pageH - 18, pageW, 18, 'F');
 
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(arabicFont, 'normal');
   doc.setFontSize(8);
   doc.setTextColor(200, 210, 255);
-  doc.text('Thank you for your business!  •  support@saaspro.com  •  www.saaspro.com', pageW / 2, pageH - 7, { align: 'center' });
+  doc.text('شكراً لتعاملكم معنا!  •  support@saaspro.com  •  www.saaspro.com', pageW / 2, pageH - 7, { align: 'center' });
 
   // Save
   const fileName = `invoice-${invoice.id?.slice(0, 8) || 'new'}.pdf`;
