@@ -6,21 +6,37 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
 
+// الشرائح: [لم يحن موعدها، <30، 30-59، 60-89، 90+]
 const BUCKETS = [
-  { label: 'أقل من 30 يوم',   min: 0,  max: 30,       color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
-  { label: '30 - 60 يوم',     min: 30, max: 60,       color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
-  { label: '60 - 90 يوم',     min: 60, max: 90,       color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
-  { label: 'أكتر من 90 يوم',  min: 90, max: Infinity, color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
+  { label: 'لم يحن موعدها', min: -Infinity, max: 0, color: '#6366f1', bg: '#e0e7ff', textColor: '#3730a3' },
+  { label: 'أقل من 30 يوم', min: 0, max: 30, color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
+  { label: '30 - 60 يوم', min: 30, max: 60, color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
+  { label: '60 - 90 يوم', min: 60, max: 90, color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
+  { label: 'أكتر من 90 يوم', min: 90, max: Infinity, color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
 ];
 
+// تحويل القيمة لتاريخ (يدعم Firestore Timestamp و string و Date)
+function parseDate(value) {
+  if (!value) return new Date();
+  if (typeof value.toDate === 'function') return value.toDate(); // Firestore Timestamp
+  return new Date(value);
+}
+
+// بداية اليوم (منتصف الليل) لتجنب أخطاء الفروق الزمنية
+function startOfDay(d) {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+// حساب أيام التأخير (سالب = لم يحن موعدها بعد)
 function getDaysPastDue(invoice) {
-  // لو فيه dueDate — احسب من تاريخ الاستحقاق
   const baseDate = invoice.dueDate
-    ? new Date(invoice.dueDate)
-    : new Date(invoice.date || invoice.createdAt || new Date());
-  const today = new Date();
-  const diff = Math.floor((today - baseDate) / (1000 * 60 * 60 * 24));
-  return Math.max(0, diff);
+    ? parseDate(invoice.dueDate)
+    : parseDate(invoice.date || invoice.createdAt || new Date());
+  const today = startOfDay(new Date());
+  const diff = Math.floor((today - startOfDay(baseDate)) / (1000 * 60 * 60 * 24));
+  return diff;
 }
 
 function getBucket(days) {
@@ -32,7 +48,7 @@ export default function Aging() {
   const superAdmin = userRole === 'super_admin';
 
   const [agingData, setAgingData] = useState([]);
-  const [totals, setTotals] = useState({ total: 0, buckets: [0, 0, 0, 0] });
+  const [totals, setTotals] = useState({ total: 0, buckets: BUCKETS.map(() => 0) });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -50,9 +66,10 @@ export default function Aging() {
       const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       // جلب الفواتير غير المدفوعة فقط
+      // (فلترة في الـ query للـ super_admin، وفي JS للشركة لتجنب فهارس مركبة)
       const invoicesSnap = await getDocs(
         superAdmin
-          ? collection(db, 'invoices')
+          ? query(collection(db, 'invoices'), where('status', '!=', 'paid'))
           : query(collection(db, 'invoices'), where('companyId', '==', userCompanyId))
       );
       const invoices = invoicesSnap.docs
@@ -67,28 +84,26 @@ export default function Aging() {
           name: c.name,
           phone: c.phone || '-',
           total: 0,
-          buckets: [0, 0, 0, 0], // [<30, 30-60, 60-90, >90]
+          buckets: BUCKETS.map(() => 0),
           invoicesCount: 0,
           oldestDays: 0,
         };
       });
 
-      // توزيع الفواتير على الأعمار
+      // توزيع الفواتير على الأعمار (المبلغ = المتبقي بعد الدفعات الجزئية)
       invoices.forEach(inv => {
         if (!inv.clientId || !clientMap[inv.clientId]) return;
 
-        let days = getDaysPastDue(inv);
-
-        // لو حالتها overdue صريح — نحطها في 90+ تلقائياً
-        if (inv.status === 'overdue' && days < 90) {
-          days = 90;
-        }
-
-        const bucketIdx = getBucket(days);
         const amount = parseFloat(inv.amount) || 0;
+        const paid = parseFloat(inv.paidAmount) || 0;
+        const remaining = amount - paid;
+        if (remaining <= 0) return; // مدفوعة بالكامل
 
-        clientMap[inv.clientId].total += amount;
-        clientMap[inv.clientId].buckets[bucketIdx] += amount;
+        const days = getDaysPastDue(inv);
+        const bucketIdx = getBucket(days);
+
+        clientMap[inv.clientId].total += remaining;
+        clientMap[inv.clientId].buckets[bucketIdx] += remaining;
         clientMap[inv.clientId].invoicesCount++;
         if (days > clientMap[inv.clientId].oldestDays) {
           clientMap[inv.clientId].oldestDays = days;
@@ -100,14 +115,15 @@ export default function Aging() {
       result.sort((a, b) => b.total - a.total);
 
       // حساب الإجماليات
-      const totalBuckets = [0, 0, 0, 0];
+      const totalBuckets = BUCKETS.map(() => 0);
       let totalDebt = 0;
       let criticalClients = 0;
 
       result.forEach(c => {
         totalDebt += c.total;
         c.buckets.forEach((v, i) => { totalBuckets[i] += v; });
-        if (c.buckets[2] + c.buckets[3] > 0) criticalClients++;
+        // العملاء في خطر: عندهم دين في 60-90 أو 90+ (باستثناء "لم يحن موعدها")
+        if (c.buckets[3] + c.buckets[4] > 0) criticalClients++;
       });
 
       setAgingData(result);
@@ -128,10 +144,11 @@ export default function Aging() {
       'العميل': c.name,
       'الهاتف': c.phone,
       'عدد الفواتير': c.invoicesCount,
-      'أقل من 30 يوم (ج.م)': c.buckets[0].toFixed(2),
-      '30-60 يوم (ج.م)': c.buckets[1].toFixed(2),
-      '60-90 يوم (ج.م)': c.buckets[2].toFixed(2),
-      'أكتر من 90 يوم (ج.م)': c.buckets[3].toFixed(2),
+      'لم يحن موعدها (ج.م)': c.buckets[0].toFixed(2),
+      'أقل من 30 يوم (ج.م)': c.buckets[1].toFixed(2),
+      '30-60 يوم (ج.م)': c.buckets[2].toFixed(2),
+      '60-90 يوم (ج.م)': c.buckets[3].toFixed(2),
+      'أكتر من 90 يوم (ج.م)': c.buckets[4].toFixed(2),
       'إجمالي المديونية (ج.م)': c.total.toFixed(2),
       'أقدم فاتورة (يوم)': c.oldestDays,
     }));
@@ -141,10 +158,11 @@ export default function Aging() {
       'العميل': 'الإجمالي',
       'الهاتف': '',
       'عدد الفواتير': '',
-      'أقل من 30 يوم (ج.م)': totals.buckets[0].toFixed(2),
-      '30-60 يوم (ج.م)': totals.buckets[1].toFixed(2),
-      '60-90 يوم (ج.م)': totals.buckets[2].toFixed(2),
-      'أكتر من 90 يوم (ج.م)': totals.buckets[3].toFixed(2),
+      'لم يحن موعدها (ج.م)': totals.buckets[0].toFixed(2),
+      'أقل من 30 يوم (ج.م)': totals.buckets[1].toFixed(2),
+      '30-60 يوم (ج.م)': totals.buckets[2].toFixed(2),
+      '60-90 يوم (ج.م)': totals.buckets[3].toFixed(2),
+      'أكتر من 90 يوم (ج.م)': totals.buckets[4].toFixed(2),
       'إجمالي المديونية (ج.م)': totals.total.toFixed(2),
       'أقدم فاتورة (يوم)': '',
     });
@@ -212,7 +230,7 @@ export default function Aging() {
             <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
             <div className="stat-value" style={{ fontSize: 20 }}>
               {summary.totalDebt > 0
-                ? Math.round((totals.buckets[0] / summary.totalDebt) * 100)
+                ? Math.round((totals.buckets[1] / summary.totalDebt) * 100)
                 : 0}%
             </div>
             <div className="stat-label">ديون أقل من 30 يوم</div>
@@ -307,9 +325,9 @@ export default function Aging() {
                 </thead>
                 <tbody>
                   {filtered.map((client, i) => {
-                    // تحديد الحالة
-                    const isHighRisk = client.buckets[3] > 0;
-                    const isMedRisk  = client.buckets[2] > 0 && !isHighRisk;
+                    // تحديد الحالة (باستثناء شريحة "لم يحن موعدها")
+                    const isHighRisk = client.buckets[4] > 0;
+                    const isMedRisk  = client.buckets[3] > 0 && !isHighRisk;
 
                     return (
                       <tr key={client.id} style={{
@@ -392,6 +410,7 @@ export default function Aging() {
           </h3>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             {[
+              { color: '#6366f1', bg: '#e0e7ff', label: 'لم يحن موعدها', desc: 'تاريخ الاستحقاق في المستقبل' },
               { color: '#10b981', bg: '#d1fae5', label: 'مقبول', desc: 'أقل من 30 يوم من تاريخ الاستحقاق' },
               { color: '#f59e0b', bg: '#fef3c7', label: 'تحذير', desc: 'تجاوز 60 يوم — يحتاج متابعة' },
               { color: '#ef4444', bg: '#fee2e2', label: 'متأخر جداً', desc: 'تجاوز 90 يوم — يستلزم إجراء فوري' },

@@ -37,6 +37,12 @@ export default function Invoices() {
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // الدفعات الجزئية
+  const [payingInvoice, setPayingInvoice] = useState(null);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [paying, setPaying] = useState(false);
+
   // ✅ دالة لحساب المبلغ تلقائياً
   const calculateAmount = (productId, quantity) => {
     const product = products.find((p) => p.id === productId);
@@ -156,6 +162,44 @@ export default function Invoices() {
     if (!window.confirm("هل أنت متأكد من حذف هذه الفاتورة؟")) return;
     await deleteDoc(doc(db, "invoices", id));
     await fetchInvoices();
+  }
+
+  // تسجيل دفعة جزئية أو كاملة
+  async function recordPayment(e) {
+    e.preventDefault();
+    if (!payingInvoice) return;
+    const amount = parseFloat(payAmount) || 0;
+    const currentPaid = parseFloat(payingInvoice.paidAmount) || 0;
+    const total = parseFloat(payingInvoice.amount) || 0;
+    const newPaid = currentPaid + amount;
+
+    if (amount <= 0) {
+      alert("❌ أدخل مبلغ صحيح أكبر من صفر");
+      return;
+    }
+    if (newPaid > total) {
+      alert(`❌ المبلغ المدفوع (${newPaid}) أكبر من قيمة الفاتورة (${total})`);
+      return;
+    }
+
+    setPaying(true);
+    try {
+      const isFullyPaid = newPaid >= total;
+      await updateDoc(doc(db, "invoices", payingInvoice.id), {
+        paidAmount: newPaid,
+        // لو اكتمل السداد — خلي الحالة مدفوعة تلقائياً
+        status: isFullyPaid ? "paid" : payingInvoice.status,
+      });
+      await fetchInvoices();
+      setShowPayModal(false);
+      setPayAmount("");
+      setPayingInvoice(null);
+      alert(isFullyPaid ? "✅ تم سداد الفاتورة بالكامل" : "✅ تم تسجيل الدفعة");
+    } catch (err) {
+      console.error(err);
+      alert("❌ حدث خطأ أثناء تسجيل الدفعة");
+    }
+    setPaying(false);
   }
 
   function handleExportPDF(invoice) {
@@ -442,6 +486,8 @@ export default function Invoices() {
                     <th>المنتج</th>
                     <th>الكمية</th>
                     <th>المبلغ</th>
+                    <th>المدفوع</th>
+                    <th>المتبقي</th>
                     <th>الحالة</th>
                     <th>التاريخ</th>
                     <th>الإجراءات</th>
@@ -455,6 +501,8 @@ export default function Invoices() {
                     const productName =
                       products.find((p) => p.id === inv.productId)?.name ||
                       "غير محدد";
+                    const paid = parseFloat(inv.paidAmount) || 0;
+                    const remaining = (parseFloat(inv.amount) || 0) - paid;
                     return (
                       <tr key={inv.id}>
                         <td
@@ -469,6 +517,12 @@ export default function Invoices() {
                           style={{ fontWeight: 700, color: "var(--gray-800)" }}
                         >
                           {(inv.amount || 0).toLocaleString()} ج.م
+                        </td>
+                        <td style={{ color: "#10b981", fontWeight: 600 }}>
+                          {paid > 0 ? `${paid.toLocaleString()} ج.م` : "—"}
+                        </td>
+                        <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
+                          {remaining > 0 ? `${remaining.toLocaleString()} ج.م` : "✓"}
                         </td>
                         <td>
                           <span
@@ -495,6 +549,19 @@ export default function Invoices() {
                             >
                               <i className="fas fa-file-pdf"></i> PDF
                             </button>
+                            {inv.status !== "paid" && (
+                              <button
+                                onClick={() => {
+                                  setPayingInvoice(inv);
+                                  setPayAmount("");
+                                  setShowPayModal(true);
+                                }}
+                                className="btn-success btn-sm"
+                                title="تسجيل دفعة"
+                              >
+                                <i className="fas fa-money-bill-wave"></i>
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setEditingInvoice(inv);
@@ -617,6 +684,87 @@ export default function Invoices() {
                 </button>
                 <button type="submit" className="btn-primary">
                   <i className="fas fa-save"></i> حفظ التعديلات
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pay Modal - تسجيل دفعة */}
+      {showPayModal && payingInvoice && (
+        <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                <i className="fas fa-money-bill-wave" style={{ color: "#10b981" }}></i>{" "}
+                تسجيل دفعة
+              </h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowPayModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={recordPayment}>
+              <div className="modal-body">
+                <div style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #86efac",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  marginBottom: 16,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>قيمة الفاتورة</span>
+                    <span style={{ fontWeight: 800 }}>{(payingInvoice.amount || 0).toLocaleString()} ج.م</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>المدفوع سابقاً</span>
+                    <span style={{ fontWeight: 700, color: "#10b981" }}>
+                      {(parseFloat(payingInvoice.paidAmount) || 0).toLocaleString()} ج.م
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>المتبقي</span>
+                    <span style={{ fontWeight: 900, color: "#ef4444" }}>
+                      {((parseFloat(payingInvoice.amount) || 0) - (parseFloat(payingInvoice.paidAmount) || 0)).toLocaleString()} ج.م
+                    </span>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>مبلغ الدفعة (ج.م) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowPayModal(false)}
+                >
+                  إلغاء
+                </button>
+                <button type="submit" className="btn-primary" disabled={paying}>
+                  {paying ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> جاري التسجيل...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check"></i> تأكيد الدفعة
+                    </>
+                  )}
                 </button>
               </div>
             </form>
