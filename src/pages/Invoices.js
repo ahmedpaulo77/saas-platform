@@ -31,6 +31,7 @@ export default function Invoices() {
     amount: "",
     status: "pending",
     description: "",
+    dueDate: "",
   });
 
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -113,6 +114,7 @@ export default function Invoices() {
         amount: amount,
         quantity: parseInt(newInvoice.quantity) || 1,
         date: new Date().toISOString(),
+        dueDate: newInvoice.dueDate || null,
         createdAt: new Date().toISOString(),
       });
 
@@ -123,6 +125,7 @@ export default function Invoices() {
         amount: "",
         status: "pending",
         description: "",
+        dueDate: "",
       });
       await Promise.all([fetchInvoices(), fetchProducts()]);
     } catch (e) {
@@ -355,10 +358,17 @@ export default function Invoices() {
                   placeholder="ملاحظات اختيارية"
                   value={newInvoice.description}
                   onChange={(e) =>
-                    setNewInvoice({
-                      ...newInvoice,
-                      description: e.target.value,
-                    })
+                    setNewInvoice({ ...newInvoice, description: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>تاريخ الاستحقاق (السداد)</label>
+                <input
+                  type="date"
+                  value={newInvoice.dueDate}
+                  onChange={(e) =>
+                    setNewInvoice({ ...newInvoice, dueDate: e.target.value })
                   }
                 />
               </div>

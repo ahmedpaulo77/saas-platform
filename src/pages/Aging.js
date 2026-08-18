@@ -7,16 +7,20 @@ import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
 
 const BUCKETS = [
-  { label: 'أقل من 30 يوم',  min: 0,   max: 30,  color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
-  { label: '30 - 60 يوم',    min: 30,  max: 60,  color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
-  { label: '60 - 90 يوم',    min: 60,  max: 90,  color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
-  { label: 'أكتر من 90 يوم', min: 90,  max: Infinity, color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
+  { label: 'أقل من 30 يوم',   min: 0,  max: 30,       color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
+  { label: '30 - 60 يوم',     min: 30, max: 60,       color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
+  { label: '60 - 90 يوم',     min: 60, max: 90,       color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
+  { label: 'أكتر من 90 يوم',  min: 90, max: Infinity, color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
 ];
 
-function getDaysDiff(dateStr) {
-  const invoiceDate = new Date(dateStr);
+function getDaysPastDue(invoice) {
+  // لو فيه dueDate — احسب من تاريخ الاستحقاق
+  const baseDate = invoice.dueDate
+    ? new Date(invoice.dueDate)
+    : new Date(invoice.date || invoice.createdAt || new Date());
   const today = new Date();
-  return Math.floor((today - invoiceDate) / (1000 * 60 * 60 * 24));
+  const diff = Math.floor((today - baseDate) / (1000 * 60 * 60 * 24));
+  return Math.max(0, diff);
 }
 
 function getBucket(days) {
@@ -72,7 +76,7 @@ export default function Aging() {
       // توزيع الفواتير على الأعمار
       invoices.forEach(inv => {
         if (!inv.clientId || !clientMap[inv.clientId]) return;
-        const days = getDaysDiff(inv.date || inv.createdAt || new Date().toISOString());
+        const days = getDaysPastDue(inv);
         const bucketIdx = getBucket(days);
         const amount = parseFloat(inv.amount) || 0;
 
@@ -297,9 +301,8 @@ export default function Aging() {
                 <tbody>
                   {filtered.map((client, i) => {
                     // تحديد الحالة
-                    const isHighRisk   = client.buckets[3] > 0;
-                    const isMedRisk    = client.buckets[2] > 0 && !isHighRisk;
-                    const isLowRisk    = !isHighRisk && !isMedRisk;
+                    const isHighRisk = client.buckets[3] > 0;
+                    const isMedRisk  = client.buckets[2] > 0 && !isHighRisk;
 
                     return (
                       <tr key={client.id} style={{
@@ -335,15 +338,15 @@ export default function Aging() {
                         <td>
                           {isHighRisk ? (
                             <span className="badge badge-expired">
-                              <i className="fas fa-exclamation-triangle"></i> خطر
+                              <i className="fas fa-skull-crossbones"></i> متأخر جداً ({client.oldestDays} يوم)
                             </span>
                           ) : isMedRisk ? (
                             <span className="badge badge-pending">
-                              <i className="fas fa-clock"></i> تحذير
+                              <i className="fas fa-exclamation-triangle"></i> تحذير ({client.oldestDays} يوم)
                             </span>
                           ) : (
                             <span className="badge badge-active">
-                              <i className="fas fa-check"></i> مقبول
+                              <i className="fas fa-check"></i> مقبول ({client.oldestDays} يوم)
                             </span>
                           )}
                         </td>
@@ -382,9 +385,9 @@ export default function Aging() {
           </h3>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             {[
-              { color: '#10b981', bg: '#d1fae5', label: 'مقبول', desc: 'ديون أقل من 30 يوم' },
-              { color: '#f59e0b', bg: '#fef3c7', label: 'تحذير', desc: 'تجاوزت 60 يوم' },
-              { color: '#ef4444', bg: '#fee2e2', label: 'خطر', desc: 'تجاوزت 90 يوم — يستلزم إجراء فوري' },
+              { color: '#10b981', bg: '#d1fae5', label: 'مقبول', desc: 'أقل من 30 يوم من تاريخ الاستحقاق' },
+              { color: '#f59e0b', bg: '#fef3c7', label: 'تحذير', desc: 'تجاوز 60 يوم — يحتاج متابعة' },
+              { color: '#ef4444', bg: '#fee2e2', label: 'متأخر جداً', desc: 'تجاوز 90 يوم — يستلزم إجراء فوري' },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
