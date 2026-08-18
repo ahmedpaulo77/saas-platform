@@ -150,6 +150,7 @@ export default function Invoices() {
         amount: amount,
         status: editingInvoice.status,
         description: editingInvoice.description || "",
+        dueDate: editingInvoice.dueDate || null,
       });
       await fetchInvoices();
       setShowEditModal(false);
@@ -210,9 +211,13 @@ export default function Invoices() {
     exportInvoicePDF(invoice, clientName, productName);
   }
 
+  // الإيراد الحقيقي = المبالغ المدفوعة فقط
   const totalRevenue = invoices.reduce((sum, inv) => {
-    const amount = parseFloat(inv.amount) || 0;
-    return sum + amount;
+    if (inv.status === "paid") {
+      return sum + (parseFloat(inv.amount) || 0);
+    }
+    // لو فيه دفع جزئي — المدفوع جزء من الإيراد
+    return sum + (parseFloat(inv.paidAmount) || 0);
   }, 0);
 
   const paidCount = invoices.filter((i) => i.status === "paid").length;
@@ -669,6 +674,19 @@ export default function Invoices() {
                       setEditingInvoice({
                         ...editingInvoice,
                         description: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>تاريخ الاستحقاق (السداد)</label>
+                  <input
+                    type="date"
+                    value={editingInvoice.dueDate || ""}
+                    onChange={(e) =>
+                      setEditingInvoice({
+                        ...editingInvoice,
+                        dueDate: e.target.value,
                       })
                     }
                   />

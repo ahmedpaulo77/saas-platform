@@ -143,8 +143,16 @@ export default function Dashboard() {
     const unsubInv = onSnapshot(invQ, (snap) => {
       let totalRevenue = 0;
       snap.forEach((doc) => {
-        const amount = parseFloat(doc.data().amount) || 0;
-        totalRevenue += amount;
+        const inv = doc.data();
+        // الإيراد الحقيقي = المبالغ المدفوعة فقط
+        if (inv.status === "paid") {
+          const amount = parseFloat(inv.amount) || 0;
+          totalRevenue += amount;
+        } else {
+          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
+          const paid = parseFloat(inv.paidAmount) || 0;
+          totalRevenue += paid;
+        }
       });
       setStats((prev) => ({
         ...prev,

@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().role == 'super_admin';
+    }
+
+    function isCompanyUser(companyId) {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().companyId == companyId;
+    }
+
+    // إضافة/تعديل مستندات الشركة — بدون super_admin لازم الـ companyId يطابق شركته
+    function canCreateForCompany() {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (isSuperAdmin() || request.resource.data.companyId == getUserData().companyId);
+    }
+
+    // قراءة/تعديل/حذف مستند — بدون super_admin لازم المستند يخص شركته
+    function canAccessCompanyDoc() {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (isSuperAdmin() || resource.data.companyId == getUserData().companyId);
+    }
+
+    // ============================================================
+    // users/{userId}
+    // ============================================================
+    match /users/{userId} {
+      allow get: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSuperAdmin();
+
+      // المستخدم يقدر يعمل مستنده بس
+      allow create: if isLoggedIn() && request.auth.uid == userId &&
+        (!("isSuperAdmin" in request.resource.data) ||
+         request.resource.data.isSuperAdmin == false);
+
+      // المستخدم يعدل نفسه فقط، وممنوع يغير الـ role أو الـ companyId
+      // (السوبر أدمن يقدر يعدل أي مستخدم)
+      allow update: if isLoggedIn() &&
+        (request.auth.uid == userId || isSuperAdmin()) &&
+        (request.resource.data.role == resource.data.role) &&
+        (request.resource.data.companyId == resource.data.companyId);
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================
+    // companies/{companyId}
+    // ============================================================
+    match /companies/{companyId} {
+      // أي مستخدم مسجل يقدر يقرأ شركة واحدة بمعرفها
+      allow get: if isLoggedIn();
+      // الـ list (جلب كل الشركات) للسوبر أدمن فقط
+      allow list: if isSuperAdmin();
+      allow create: if isLoggedIn();
+      // صاحب الشركة أو السوبر أدمن يقدر يعدل
+      allow update: if isSuperAdmin() || isCompanyUser(companyId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================
+    // clients/{clientId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /clients/{clientId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // invoices/{invoiceId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /invoices/{invoiceId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // inventory/{itemId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /inventory/{itemId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // tasks/{taskId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /tasks/{taskId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // projects/{projectId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /projects/{projectId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+  }
+}

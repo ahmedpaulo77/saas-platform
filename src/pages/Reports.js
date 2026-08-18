@@ -1,6 +1,6 @@
 // src/pages/Reports.js - نسخة مُصلحة (أسماء بدل IDs في تصدير الفواتير)
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
@@ -143,18 +143,15 @@ export default function Reports() {
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } else {
+        // استخدام queries مُفعّلة بـ where في Firestore نفسه (عزل كامل)
         const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
-          getDocs(collection(db, "clients")),
-          getDocs(collection(db, "invoices")),
-          getDocs(collection(db, "inventory")),
-          getDocs(collection(db, "tasks")),
+          getDocs(query(collection(db, "clients"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "inventory"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "tasks"), where("companyId", "==", userCompanyId))),
         ]);
-        clientsData = clSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((c) => c.companyId === userCompanyId);
-        invoicesData = iSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((i) => i.companyId === userCompanyId);
+        clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
@@ -171,10 +168,19 @@ export default function Reports() {
         overdue = 0;
       invoicesData.forEach((inv) => {
         const amount = parseFloat(inv.amount) || 0;
-        revenue += amount;
-        if (inv.status === "paid") paid++;
-        else if (inv.status === "pending") pending++;
-        else if (inv.status === "overdue") overdue++;
+        // الإيراد الحقيقي = المبالغ المدفوعة فقط
+        if (inv.status === "paid") {
+          revenue += amount;
+          paid++;
+        } else if (inv.status === "pending") {
+          pending++;
+          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
+          revenue += parseFloat(inv.paidAmount) || 0;
+        } else if (inv.status === "overdue") {
+          overdue++;
+          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
+          revenue += parseFloat(inv.paidAmount) || 0;
+        }
       });
 
       const lowStockList = productsData.filter((p) => p.quantity < 5);
@@ -222,9 +228,17 @@ export default function Reports() {
       const revenueMap = {};
       invoicesData.forEach((inv) => {
         if (!inv.date) return;
+        // الإيراد الشهري = المدفوع الفعلي فقط
+        let paidAmount = 0;
+        if (inv.status === "paid") {
+          paidAmount = parseFloat(inv.amount) || 0;
+        } else {
+          paidAmount = parseFloat(inv.paidAmount) || 0;
+        }
+        if (paidAmount <= 0) return;
         const d = new Date(inv.date);
         const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-        revenueMap[key] = (revenueMap[key] || 0) + (inv.amount || 0);
+        revenueMap[key] = (revenueMap[key] || 0) + paidAmount;
       });
       const last6 = [];
       for (let i = 5; i >= 0; i--) {

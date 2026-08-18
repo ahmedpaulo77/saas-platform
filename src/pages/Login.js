@@ -1,7 +1,9 @@
-// src/pages/Login.js - مع إضافة رابط التسجيل
+// src/pages/Login.js - مع إضافة رابط التسجيل ونسيت كلمة المرور
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../firebase/config';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -11,6 +13,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // نسيت كلمة المرور
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,6 +31,25 @@ export default function Login() {
       setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
     }
     setLoading(false);
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    if (!resetEmail) return;
+    setResetLoading(true);
+    setResetMessage('');
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      setResetMessage('✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني');
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetEmail('');
+        setResetMessage('');
+      }, 3000);
+    } catch (err) {
+      setResetMessage('❌ حدث خطأ. تأكد من صحة البريد الإلكتروني');
+    }
+    setResetLoading(false);
   }
 
   return (
@@ -65,7 +92,7 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="form-group" style={{ marginBottom: 24 }}>
+          <div className="form-group" style={{ marginBottom: 12 }}>
             <label>كلمة المرور</label>
             <div style={{ position: 'relative' }}>
               <input
@@ -88,6 +115,25 @@ export default function Login() {
                 <i className={`fas fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
               </button>
             </div>
+          </div>
+
+          {/* نسيت كلمة المرور */}
+          <div style={{ textAlign: 'left', marginBottom: 20 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setResetEmail(email);
+                setResetMessage('');
+                setShowResetModal(true);
+              }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#818cf8', fontSize: 13, fontWeight: 600,
+                fontFamily: 'Cairo', textDecoration: 'underline',
+              }}
+            >
+              نسيت كلمة المرور؟
+            </button>
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>
@@ -120,6 +166,78 @@ export default function Login() {
           </p>
         </div>
       </div>
+
+      {/* Reset Password Modal */}
+      {showResetModal && (
+        <div className="modal-overlay" onClick={() => setShowResetModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                <i className="fas fa-key" style={{ color: '#6366f1' }}></i>{" "}
+                استعادة كلمة المرور
+              </h3>
+              <button
+                className="modal-close"
+                onClick={() => setShowResetModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleResetPassword}>
+              <div className="modal-body">
+                <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
+                  أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور
+                </p>
+                <div className="form-group">
+                  <label>البريد الإلكتروني</label>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="example@company.com"
+                    required
+                    autoFocus
+                  />
+                </div>
+                {resetMessage && (
+                  <div style={{
+                    marginTop: 12,
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: resetMessage.startsWith('✅') ? '#f0fdf4' : '#fef2f2',
+                    color: resetMessage.startsWith('✅') ? '#16a34a' : '#dc2626',
+                    border: `1px solid ${resetMessage.startsWith('✅') ? '#bbf7d0' : '#fecaca'}`,
+                  }}>
+                    {resetMessage}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowResetModal(false)}
+                >
+                  إلغاء
+                </button>
+                <button type="submit" className="btn-primary" disabled={resetLoading}>
+                  {resetLoading ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i> جاري الإرسال...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-paper-plane"></i> إرسال الرابط
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
