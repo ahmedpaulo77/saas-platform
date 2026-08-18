@@ -16,6 +16,7 @@ const navItems = [
 const secondaryItems = [
   { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين' },
   { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير' },
+  { to: '/aging',        icon: 'fas fa-clock',        label: 'أعمار الديون' },
   { to: '/notifications',icon: 'fas fa-bell',         label: 'الإشعارات' },
   { to: '/subscription', icon: 'fas fa-crown',        label: 'الاشتراك' },
   { to: '/profile',      icon: 'fas fa-user-circle',  label: 'الملف الشخصي' },

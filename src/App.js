@@ -15,6 +15,7 @@ import Tasks from './pages/Tasks';
 import Projects from './pages/Projects';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
+import Aging from './pages/Aging';
 import Notifications from './pages/Notifications';
 import About from './pages/About';
 import Profile from './pages/Profile';
@@ -50,6 +51,7 @@ function AppRoutes() {
       <Route path="/projects"     element={<ProtectedRoute><Projects /></ProtectedRoute>} />
       <Route path="/users"        element={<ProtectedRoute><Users /></ProtectedRoute>} />
       <Route path="/reports"      element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+      <Route path="/aging"        element={<ProtectedRoute><Aging /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
       <Route path="/about"        element={<ProtectedRoute><About /></ProtectedRoute>} />
       <Route path="/profile"      element={<ProtectedRoute><Profile /></ProtectedRoute>} />
