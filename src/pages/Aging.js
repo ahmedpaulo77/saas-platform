@@ -76,7 +76,14 @@ export default function Aging() {
       // توزيع الفواتير على الأعمار
       invoices.forEach(inv => {
         if (!inv.clientId || !clientMap[inv.clientId]) return;
-        const days = getDaysPastDue(inv);
+
+        let days = getDaysPastDue(inv);
+
+        // لو حالتها overdue صريح — نحطها في 90+ تلقائياً
+        if (inv.status === 'overdue' && days < 90) {
+          days = 90;
+        }
+
         const bucketIdx = getBucket(days);
         const amount = parseFloat(inv.amount) || 0;
 
