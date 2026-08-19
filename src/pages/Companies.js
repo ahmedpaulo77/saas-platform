@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { isSuperAdmin } from '../utils/companyQuery';
+import { isSuperAdmin, generateInviteCode } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Companies() {
@@ -63,6 +63,7 @@ export default function Companies() {
           startDate: new Date().toISOString(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         },
+        inviteCode: generateInviteCode(newCompany.name), // توليد كود تلقائي
         createdAt: new Date().toISOString(),
         isActive: true
       });
@@ -129,6 +130,13 @@ export default function Companies() {
     company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // نسخ كود الانضمام
+  function copyInviteCode(code) {
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    alert(`✅ تم نسخ كود الانضمام: ${code}`);
+  }
 
   if (loading) {
     return <div className="loading">جاري تحميل الشركات...</div>;
@@ -204,6 +212,7 @@ export default function Companies() {
                   <th>#</th>
                   <th>اسم الشركة</th>
                   <th>البريد الإلكتروني</th>
+                  <th>كود الانضمام</th>
                   <th>الباقة</th>
                   <th>الحالة</th>
                   <th>الإجراءات</th>
@@ -215,6 +224,41 @@ export default function Companies() {
                     <td>{index + 1}</td>
                     <td>{company.name}</td>
                     <td>{company.email}</td>
+                    <td>
+                      {company.inviteCode ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <code style={{
+                            background: '#f1f5f9',
+                            padding: '4px 10px',
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: '#6366f1',
+                            letterSpacing: 1,
+                            direction: 'ltr',
+                            display: 'inline-block',
+                          }}>
+                            {company.inviteCode}
+                          </code>
+                          <button
+                            onClick={() => copyInviteCode(company.inviteCode)}
+                            title="نسخ الكود"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#6366f1',
+                              fontSize: 14,
+                              padding: 4,
+                            }}
+                          >
+                            <i className="fas fa-copy"></i>
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                      )}
+                    </td>
                     <td>{company.plan === 'monthly' ? 'شهري' : 'سنوي'}</td>
                     <td>
                       <span className={`badge ${

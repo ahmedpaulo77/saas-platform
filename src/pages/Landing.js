@@ -19,7 +19,7 @@ const plans = [
     id: 'standard',
     nameAr: 'الباقة الكاملة',
     emoji: '⚡',
-    monthlyPrice: 500,
+    monthlyPrice: 1000,
     desc: 'كل المميزات — بدون قيود',
     featured: true,
     features: [
@@ -98,7 +98,7 @@ export default function Landing() {
             fontSize: 14, color: 'white',
             boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
           }}>
-            ابدأ مجاناً
+            ابدأ الآن
           </button>
         </div>
       </nav>
@@ -131,7 +131,7 @@ export default function Landing() {
             borderRadius: 60, padding: '6px 18px', marginBottom: 28,
           }}>
             <i className="fas fa-star" style={{ color: '#fbbf24', fontSize: 12 }}></i>
-            <span style={{ fontSize: 13, color: '#a5b4fc', fontWeight: 600 }}>منصة إدارة الأعمال الأولى عربياً</span>
+            <span style={{ fontSize: 13, color: '#a5b4fc', fontWeight: 600 }}>منصة إدارة الأعمال الكاملة</span>
           </div>
 
           <h1 style={{
@@ -169,7 +169,7 @@ export default function Landing() {
               onMouseOut={e => e.target.style.transform = 'translateY(0)'}
             >
               <i className="fas fa-rocket" style={{ marginLeft: 10 }}></i>
-              ابدأ مجاناً 30 يوم
+              ابدأ الآن
             </button>
             <button onClick={() => navigate('/login')} style={{
               padding: '16px 40px', borderRadius: 12,
@@ -188,7 +188,7 @@ export default function Landing() {
 
           <p style={{ marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
             <i className="fas fa-check-circle" style={{ color: '#10b981', marginLeft: 6 }}></i>
-            لا يلزم بطاقة ائتمان — جرب مجاناً لمدة 30 يوم
+            اشترك الآن بباقة الاشتراك الشهري 1000 ج.م
           </p>
         </div>
       </section>
@@ -373,10 +373,10 @@ export default function Landing() {
             onMouseOut={e => e.target.style.transform = 'translateY(0)'}
           >
             <i className="fas fa-rocket" style={{ marginLeft: 12 }}></i>
-            ابدأ مجاناً الآن
+            ابدأ الآن
           </button>
           <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
-            30 يوم تجريبي مجاني — لا بطاقة ائتمان
+            اشترك الآن واحصل على كل المميزات — بدون قيود
           </p>
         </div>
       </section>

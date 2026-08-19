@@ -1,9 +1,10 @@
-// src/pages/Signup.js - نسخة مصححة
+// src/pages/Signup.js - مع دعم كود الانضمام للشركات
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { generateInviteCode } from '../utils/companyQuery';
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ export default function Signup() {
     email: '',
     password: '',
     confirmPassword: '',
+    inviteCode: '', // كود الانضمام (اختياري)
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,33 +37,62 @@ export default function Signup() {
 
     try {
       // 1. إنشاء المستخدم في Authentication
-      const userCredential = await signup(formData.email, formData.password, 'admin');
+      const userCredential = await signup(formData.email, formData.password, 'user');
       const user = userCredential.user;
 
-      // 2. إنشاء الشركة في Firestore باستخدام addDoc
-      const companyRef = await addDoc(collection(db, 'companies'), {
-        name: formData.companyName,
-        email: formData.email,
-        subscription: {
-          status: 'trial',
-          startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        createdAt: new Date().toISOString(),
-        isActive: true,
-      });
+      // 2. التحقق من كود الانضمام (لو موجود)
+      let companyId = null;
+      let role = 'admin';
 
-      // 3. ربط المستخدم بالشركة
+      if (formData.inviteCode.trim()) {
+        // البحث عن الشركة بالكود
+        const code = formData.inviteCode.trim().toUpperCase();
+        const companiesSnap = await getDocs(
+          query(collection(db, 'companies'), where('inviteCode', '==', code))
+        );
+
+        if (companiesSnap.empty) {
+          // الكود غير صحيح — نحذف المستخدم ونرجع خطأ
+          await user.delete();
+          setError('❌ كود الانضمام غير صحيح. تأكد من الكود وحاول مرة أخرى');
+          setLoading(false);
+          return;
+        }
+
+        // الكود صحيح — نربط المستخدم بالشركة
+        const companyDoc = companiesSnap.docs[0];
+        companyId = companyDoc.id;
+        role = 'user'; // الموظف المنضم بالكود يكون مستخدم عادي
+      } else {
+        // 3. لا يوجد كود — إنشاء شركة جديدة
+        const companyRef = await addDoc(collection(db, 'companies'), {
+          name: formData.companyName,
+          email: formData.email,
+          subscription: {
+            status: 'trial',
+            startDate: new Date().toISOString(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+          inviteCode: generateInviteCode(formData.companyName), // توليد كود تلقائي
+          createdAt: new Date().toISOString(),
+          isActive: true,
+        });
+        companyId = companyRef.id;
+      }
+
+      // 4. ربط المستخدم بالشركة
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, {
         email: user.email,
-        role: 'admin',
-        companyId: companyRef.id, // ✅ الآن companyRef.id موجود
+        role: role,
+        companyId: companyId,
         isActive: true,
         createdAt: new Date().toISOString(),
       });
 
-      alert('✅ تم إنشاء الحساب والشركة بنجاح!');
+      alert(role === 'admin'
+        ? '✅ تم إنشاء الحساب والشركة بنجاح!'
+        : '✅ تم الانضمام للشركة بنجاح!');
       navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
@@ -90,16 +121,39 @@ export default function Signup() {
         )}
 
         <form onSubmit={handleSubmit} className="login-form">
+          {/* كود الانضمام (اختياري) */}
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>اسم الشركة</label>
+            <label>كود الانضمام للشركة (اختياري)</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="مثال: NGAH-9K2D"
+                value={formData.inviteCode}
+                onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                style={{ paddingRight: '42px' }}
+              />
+              <i className="fas fa-key" style={{
+                position: 'absolute', right: 14, top: '50%',
+                transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', fontSize: 14
+              }}></i>
+            </div>
+            <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
+              لو عندك كود من شركتك — اكتبه هنا للانضمام. لو مش عندك — سجل شركة جديدة
+            </small>
+          </div>
+
+          {/* اسم الشركة (مطلوب فقط لو مفيش كود) */}
+          <div className="form-group" style={{ marginBottom: 20 }}>
+            <label>اسم الشركة {!formData.inviteCode && '*'}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
                 placeholder="أدخل اسم الشركة"
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                required
-                style={{ paddingRight: '42px' }}
+                required={!formData.inviteCode}
+                disabled={!!formData.inviteCode}
+                style={{ paddingRight: '42px', opacity: formData.inviteCode ? 0.5 : 1 }}
               />
               <i className="fas fa-building" style={{
                 position: 'absolute', right: 14, top: '50%',
@@ -172,7 +226,7 @@ export default function Signup() {
             ) : (
               <>
                 <i className="fas fa-user-plus" style={{ marginLeft: 8 }}></i>
-                إنشاء حساب
+                {formData.inviteCode ? 'انضمام للشركة' : 'إنشاء حساب'}
               </>
             )}
           </button>

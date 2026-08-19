@@ -33,3 +33,36 @@ export function canManageUsers(userRole) {
 export function getUsersQuery(userRole, userCompanyId) {
   return getScopedQuery('users', userRole, userCompanyId);
 }
+
+/**
+ * توليد كود انضمام للشركة
+ * النمط: أول 4 حروف من اسم الشركة + 4 أحرف/أرقام عشوائية
+ * مثال: شركة النجاح → NGAH-9K2D
+ */
+export function generateInviteCode(companyName = '') {
+  // استخراج الحروف الأولى من الكلمات (إنجليزي أو أرقام)
+  const words = companyName.toLowerCase().replace(/[^\u0600-\u065F\w\s]/g, '').trim().split(/\s+/);
+  let letters = '';
+  for (const word of words) {
+    // نحول الكلمات العربية لأحرف رومانية مبسطة (من الصوت) أو نأخذ أول حرف
+    const first = word.replace(/[^\w]/g, '')[0] || '';
+    if (first) letters += first.toUpperCase();
+  }
+  if (letters.length < 4) {
+    // لو اسم عربي كامل أو قصير — نستخدم أحرف عشوائية
+    const fallback = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    while (letters.length < 4) {
+      letters += fallback[Math.floor(Math.random() * fallback.length)];
+    }
+  }
+  letters = letters.slice(0, 4);
+
+  // 4 أحرف عشوائية
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let random = '';
+  for (let i = 0; i < 4; i++) {
+    random += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  return `${letters}-${random}`.toUpperCase();
+}

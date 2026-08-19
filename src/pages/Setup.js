@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
+import { generateInviteCode } from '../utils/companyQuery';
 
 export default function Setup() {
   const { currentUser, logout } = useAuth();
@@ -28,17 +29,18 @@ export default function Setup() {
           startDate: new Date().toISOString(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         },
+        inviteCode: generateInviteCode(companyName.trim()), // توليد كود تلقائي
         createdAt: new Date().toISOString(),
         isActive: true,
       });
 
-      // ربط اليوزر بالشركة
+      // ربط المستخدم بالشركة
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
         role: 'admin',
       });
 
-      // reload عشان الـ AuthContext ياخد الـ companyId الجديد
+      // إعادة تحميل عشان الـ AuthContext ياخد الـ companyId الجديد
       window.location.href = '/dashboard';
     } catch (e) {
       console.error(e);
@@ -50,8 +52,6 @@ export default function Setup() {
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 440 }}>
-
-        {/* Logo */}
         <div className="login-logo">
           <div className="logo-icon">
             <i className="fas fa-building"></i>
@@ -60,26 +60,23 @@ export default function Setup() {
           <p>خطوة أخيرة — أدخل اسم شركتك لتبدأ</p>
         </div>
 
-        {/* User info */}
-        <div style={{
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 10, padding: '10px 16px',
-          marginBottom: 24, display: 'flex',
-          alignItems: 'center', gap: 10,
-        }}>
+        {/* عرض كود الانضمام (لو موجود) */}
+        {companyName && (
           <div style={{
-            width: 34, height: 34, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontWeight: 800, fontSize: 14, flexShrink: 0,
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 10, padding: '10px 16px', marginBottom: 24,
+            display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            {currentUser?.email?.charAt(0).toUpperCase()}
+            <i className="fas fa-key" style={{ color: '#10b981', fontSize: 18 }}></i>
+            <div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>كود انضمام الشركة</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'white', letterSpacing: 1 }}>
+                {companyName.trim().substring(0, 4).toUpperCase()}-{Math.random().toString(36).substring(2, 6).toUpperCase()}
+              </div>
+            </div>
           </div>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
-            {currentUser?.email}
-          </span>
-        </div>
+        )}
 
         {error && (
           <div className="login-error">
@@ -95,7 +92,7 @@ export default function Setup() {
                 type="text"
                 placeholder="مثال: شركة النجاح للتجارة"
                 value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
+                onChange={(e) => setCompanyName(e.target.value)}
                 required
                 autoFocus
                 style={{ paddingRight: 42 }}
@@ -109,10 +106,15 @@ export default function Setup() {
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading
-              ? <><i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>جاري الإنشاء...</>
-              : <><i className="fas fa-arrow-left" style={{ marginLeft: 8 }}></i>ابدأ الآن</>
-            }
+            {loading ? (
+              <>
+                <i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>جاري الإنشاء...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-arrow-left" style={{ marginLeft: 8 }}></i>ابدأ الآن
+              </>
+            )}
           </button>
         </form>
 
