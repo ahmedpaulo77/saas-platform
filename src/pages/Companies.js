@@ -4,6 +4,7 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from 'fireb
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin, generateInviteCode } from '../utils/companyQuery';
+import { INDUSTRIES, INDUSTRY_LABELS } from '../utils/modules';
 import Sidebar from '../components/common/Sidebar';
 
 export default function Companies() {
@@ -11,7 +12,7 @@ export default function Companies() {
   const superAdmin = isSuperAdmin(userRole);
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newCompany, setNewCompany] = useState({ name: '', email: '', plan: 'monthly' });
+  const [newCompany, setNewCompany] = useState({ name: '', email: '', plan: 'monthly', industry: 'general' });
   const [editingCompany, setEditingCompany] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,7 @@ export default function Companies() {
       // 1. إضافة الشركة
       const docRef = await addDoc(collection(db, 'companies'), {
         ...newCompany,
+        industry: newCompany.industry || 'general',
         subscription: {
           status: 'trial',
           startDate: new Date().toISOString(),
@@ -75,7 +77,7 @@ export default function Companies() {
         });
       }
 
-      setNewCompany({ name: '', email: '', plan: 'monthly' });
+      setNewCompany({ name: '', email: '', plan: 'monthly', industry: 'general' });
       alert('✅ تم إضافة الشركة بنجاح');
     } catch (error) {
       console.error('Error adding company:', error);
@@ -105,7 +107,8 @@ export default function Companies() {
       await updateDoc(companyRef, {
         name: editingCompany.name,
         email: editingCompany.email,
-        plan: editingCompany.plan
+        plan: editingCompany.plan,
+        industry: editingCompany.industry || 'general'
       });
       closeEditModal();
       alert('✅ تم تحديث الشركة بنجاح');
@@ -173,6 +176,14 @@ export default function Companies() {
               <option value="monthly">شهري</option>
               <option value="yearly">سنوي</option>
             </select>
+            <select
+              value={newCompany.industry}
+              onChange={(e) => setNewCompany({ ...newCompany, industry: e.target.value })}
+            >
+              {INDUSTRIES.map((ind) => (
+                <option key={ind.id} value={ind.id}>{ind.label}</option>
+              ))}
+            </select>
             <button type="submit" className="btn-primary">
               <i className="fas fa-plus"></i> إضافة شركة
             </button>
@@ -212,6 +223,7 @@ export default function Companies() {
                   <th>#</th>
                   <th>اسم الشركة</th>
                   <th>البريد الإلكتروني</th>
+                  <th>مجال العمل</th>
                   <th>كود الانضمام</th>
                   <th>الباقة</th>
                   <th>الحالة</th>
@@ -224,6 +236,11 @@ export default function Companies() {
                     <td>{index + 1}</td>
                     <td>{company.name}</td>
                     <td>{company.email}</td>
+                    <td>
+                      <span className="badge badge-info">
+                        {INDUSTRY_LABELS[company.industry] || '🏢 شركة / مكتب عام'}
+                      </span>
+                    </td>
                     <td>
                       {company.inviteCode ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -331,6 +348,18 @@ export default function Companies() {
                 >
                   <option value="monthly">شهري</option>
                   <option value="yearly">سنوي</option>
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>مجال العمل</label>
+                <select
+                  value={editingCompany.industry || 'general'}
+                  onChange={(e) => setEditingCompany({ ...editingCompany, industry: e.target.value })}
+                  style={styles.input}
+                >
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind.id} value={ind.id}>{ind.label}</option>
+                  ))}
                 </select>
               </div>
               <div style={styles.modalFooter}>

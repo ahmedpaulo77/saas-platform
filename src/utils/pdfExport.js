@@ -300,7 +300,7 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   window.onload = function() {
     setTimeout(function() { window.print(); }, 800);
   };
-</script>
+${'<'}/script>
 </body>
 </html>`;
 

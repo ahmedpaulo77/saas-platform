@@ -16,6 +16,9 @@ import Projects from './pages/Projects';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Aging from './pages/Aging';
+import POS from './pages/POS';
+import Suppliers from './pages/Suppliers';
+import Expiry from './pages/Expiry';
 import Notifications from './pages/Notifications';
 import About from './pages/About';
 import Profile from './pages/Profile';
@@ -24,7 +27,19 @@ import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
+import { getAvailableModules } from './utils/modules';
 import './App.css';
+
+// مكون لحماية المسارات حسب مجال العمل
+function IndustryRoute({ moduleKey, children }) {
+  const { userRole, userIndustry } = useAuth();
+  const available = getAvailableModules(userIndustry, userRole);
+  
+  if (!available.has(moduleKey)) {
+    return <Navigate to="/dashboard" />;
+  }
+  return children;
+}
 
 function AppRoutes() {
   const { userRole } = useAuth();
@@ -43,19 +58,22 @@ function AppRoutes() {
           {userRole === 'super_admin' ? <Navigate to="/admin" /> : <Dashboard />}
         </ProtectedRoute>
       } />
-      <Route path="/companies"    element={<ProtectedRoute><Companies /></ProtectedRoute>} />
-      <Route path="/clients"      element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-      <Route path="/invoices"     element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-      <Route path="/inventory"    element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-      <Route path="/tasks"        element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-      <Route path="/projects"     element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-      <Route path="/users"        element={<ProtectedRoute><Users /></ProtectedRoute>} />
-      <Route path="/reports"      element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-      <Route path="/aging"        element={<ProtectedRoute><Aging /></ProtectedRoute>} />
-      <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-      <Route path="/about"        element={<ProtectedRoute><About /></ProtectedRoute>} />
-      <Route path="/profile"      element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+      <Route path="/companies"    element={<ProtectedRoute><IndustryRoute moduleKey="companies"><Companies /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/clients"      element={<ProtectedRoute><IndustryRoute moduleKey="clients"><Clients /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/invoices"     element={<ProtectedRoute><IndustryRoute moduleKey="invoices"><Invoices /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/inventory"    element={<ProtectedRoute><IndustryRoute moduleKey="inventory"><Inventory /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/tasks"        element={<ProtectedRoute><IndustryRoute moduleKey="tasks"><Tasks /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/projects"     element={<ProtectedRoute><IndustryRoute moduleKey="projects"><Projects /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/users"        element={<ProtectedRoute><IndustryRoute moduleKey="users"><Users /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/reports"      element={<ProtectedRoute><IndustryRoute moduleKey="reports"><Reports /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/aging"        element={<ProtectedRoute><IndustryRoute moduleKey="aging"><Aging /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/pos"          element={<ProtectedRoute><IndustryRoute moduleKey="pos"><POS /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/suppliers"    element={<ProtectedRoute><IndustryRoute moduleKey="suppliers"><Suppliers /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/expiry"       element={<ProtectedRoute><IndustryRoute moduleKey="expiry"><Expiry /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><IndustryRoute moduleKey="notifications"><Notifications /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/subscription" element={<ProtectedRoute><IndustryRoute moduleKey="subscription"><Subscription /></IndustryRoute></ProtectedRoute>} />
 
       {/* Super Admin */}
       <Route path="/admin"       element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />

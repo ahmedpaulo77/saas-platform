@@ -9,6 +9,7 @@ import { generateInviteCode } from '../utils/companyQuery';
 export default function Signup() {
   const [formData, setFormData] = useState({
     companyName: '',
+    industry: 'general',
     email: '',
     password: '',
     confirmPassword: '',
@@ -68,6 +69,7 @@ export default function Signup() {
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
+          industry: formData.industry,
           subscription: {
             status: 'trial',
             startDate: new Date().toISOString(),
@@ -160,6 +162,38 @@ export default function Signup() {
                 transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', fontSize: 14
               }}></i>
             </div>
+          </div>
+
+          {/* مجال العمل (مطلوب فقط لو مفيش كود) */}
+          <div className="form-group" style={{ marginBottom: 20 }}>
+            <label>مجال العمل {!formData.inviteCode && '*'}</label>
+            <select
+              value={formData.industry}
+              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+              required={!formData.inviteCode}
+              disabled={!!formData.inviteCode}
+              style={{
+                width: '100%',
+                padding: '12px 42px 12px 12px',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.07)',
+                color: 'white',
+                fontSize: 14,
+                fontFamily: 'Cairo, sans-serif',
+                outline: 'none',
+                opacity: formData.inviteCode ? 0.5 : 1,
+              }}
+            >
+              <option value="general">🏢 شركة / مكتب عام</option>
+              <option value="super_market">🏪 سوبر ماركت</option>
+              <option value="pharmacy">💊 صيدلية</option>
+              <option value="restaurant">🍽️ مطعم / كافيه</option>
+              <option value="clothing">👕 ملابس</option>
+            </select>
+            <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
+              اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
+            </small>
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>

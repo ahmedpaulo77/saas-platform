@@ -10,6 +10,7 @@ export default function Setup() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('general');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,6 +25,7 @@ export default function Setup() {
       const companyRef = await addDoc(collection(db, 'companies'), {
         name: companyName.trim(),
         email: currentUser.email,
+        industry: industry,
         subscription: {
           status: 'trial',
           startDate: new Date().toISOString(),
@@ -103,6 +105,36 @@ export default function Setup() {
                 color: 'rgba(255,255,255,0.3)', fontSize: 14,
               }}></i>
             </div>
+          </div>
+
+          {/* مجال العمل */}
+          <div className="form-group" style={{ marginBottom: 24 }}>
+            <label>مجال العمل *</label>
+            <select
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '12px 42px 12px 12px',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.07)',
+                color: 'white',
+                fontSize: 14,
+                fontFamily: 'Cairo, sans-serif',
+                outline: 'none',
+              }}
+            >
+              <option value="general">🏢 شركة / مكتب عام</option>
+              <option value="super_market">🏪 سوبر ماركت</option>
+              <option value="pharmacy">💊 صيدلية</option>
+              <option value="restaurant">🍽️ مطعم / كافيه</option>
+              <option value="clothing">👕 ملابس</option>
+            </select>
+            <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
+              اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
+            </small>
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>

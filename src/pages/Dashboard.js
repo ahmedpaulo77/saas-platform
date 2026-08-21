@@ -5,8 +5,10 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/common/Sidebar";
+import { getAvailableModules } from "../utils/modules";
 
-const featureCards = [
+// كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
+const ALL_FEATURE_CARDS = [
   {
     to: "/companies",
     icon: "fas fa-building",
@@ -14,6 +16,7 @@ const featureCards = [
     bg: "#eef2ff",
     title: "إدارة الشركات",
     desc: "إضافة وتعديل الشركات المسجلة في النظام",
+    module: "companies",
   },
   {
     to: "/clients",
@@ -22,6 +25,7 @@ const featureCards = [
     bg: "#d1fae5",
     title: "إدارة العملاء",
     desc: "إدارة عملاء الشركات وإضافة عملاء جدد",
+    module: "clients",
   },
   {
     to: "/invoices",
@@ -30,6 +34,7 @@ const featureCards = [
     bg: "#fef3c7",
     title: "إدارة الفواتير",
     desc: "إنشاء وتتبع الفواتير مع تصدير PDF",
+    module: "invoices",
   },
   {
     to: "/inventory",
@@ -38,6 +43,7 @@ const featureCards = [
     bg: "#f3e8ff",
     title: "إدارة المخزون",
     desc: "تتبع المنتجات والكميات والأسعار",
+    module: "inventory",
   },
   {
     to: "/tasks",
@@ -46,6 +52,7 @@ const featureCards = [
     bg: "#fdf2f8",
     title: "إدارة المهام",
     desc: "توزيع ومتابعة المهام على الفريق",
+    module: "tasks",
   },
   {
     to: "/projects",
@@ -54,6 +61,7 @@ const featureCards = [
     bg: "#ffe4e6",
     title: "إدارة المشاريع",
     desc: "إدارة المشاريع ومتابعة التقدم",
+    module: "projects",
   },
   {
     to: "/users",
@@ -62,6 +70,7 @@ const featureCards = [
     bg: "#f3e8ff",
     title: "إدارة المستخدمين",
     desc: "إدارة المستخدمين والصلاحيات",
+    module: "users",
   },
   {
     to: "/reports",
@@ -70,12 +79,17 @@ const featureCards = [
     bg: "#ecfeff",
     title: "التقارير والإحصائيات",
     desc: "تقارير شاملة وتصدير Excel",
+    module: "reports",
   },
 ];
 
 export default function Dashboard() {
-  const { currentUser, userRole, userCompanyId, logout } = useAuth();
+  const { currentUser, userRole, userCompanyId, userIndustry, logout } = useAuth();
   const navigate = useNavigate();
+
+  // الكروت المتاحة حسب المجال
+  const availableModules = getAvailableModules(userIndustry, userRole);
+  const featureCards = ALL_FEATURE_CARDS.filter((card) => availableModules.has(card.module));
   const [stats, setStats] = useState({
     companies: 0,
     clients: 0,

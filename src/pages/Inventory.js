@@ -15,7 +15,9 @@ export default function Inventory() {
     category: '', 
     quantity: '', 
     price: '', 
-    description: '' 
+    description: '',
+    barcode: '',
+    expiryDate: ''
   });
   const [loading, setLoading] = useState(true);
   
@@ -55,9 +57,11 @@ export default function Inventory() {
         companyId: userCompanyId,
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
+        barcode: newProduct.barcode || '',
+        expiryDate: newProduct.expiryDate || '',
         createdAt: new Date().toISOString()
       });
-      setNewProduct({ name: '', category: '', quantity: '', price: '', description: '' });
+      setNewProduct({ name: '', category: '', quantity: '', price: '', description: '', barcode: '', expiryDate: '' });
       await fetchProducts();
       alert('✅ تم إضافة المنتج بنجاح');
     } catch (error) {
@@ -90,7 +94,9 @@ export default function Inventory() {
         category: editingProduct.category || '',
         quantity: parseInt(editingProduct.quantity),
         price: parseFloat(editingProduct.price),
-        description: editingProduct.description || ''
+        description: editingProduct.description || '',
+        barcode: editingProduct.barcode || '',
+        expiryDate: editingProduct.expiryDate || ''
       });
       await fetchProducts();
       closeEditModal();
@@ -163,6 +169,18 @@ export default function Inventory() {
             value={newProduct.description}
             onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
           />
+          <input
+            type="text"
+            placeholder="الباركود (اختياري)"
+            value={newProduct.barcode}
+            onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
+          />
+          <input
+            type="date"
+            placeholder="تاريخ الصلاحية (اختياري)"
+            value={newProduct.expiryDate}
+            onChange={(e) => setNewProduct({ ...newProduct, expiryDate: e.target.value })}
+          />
           <button type="submit" className="btn-primary">
             <i className="fas fa-plus"></i> إضافة منتج
           </button>
@@ -207,6 +225,8 @@ export default function Inventory() {
                   <th>الكمية</th>
                   <th>السعر</th>
                   <th>الوصف</th>
+                  <th>الباركود</th>
+                  <th>الصلاحية</th>
                   <th>الإجراءات</th>
                 </tr>
               </thead>
@@ -223,6 +243,31 @@ export default function Inventory() {
                     </td>
                     <td>{product.price} ج.م</td>
                     <td>{product.description || '-'}</td>
+                    <td>
+                      {product.barcode ? (
+                        <code style={{
+                          background: '#f1f5f9',
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: '#6366f1',
+                          direction: 'ltr',
+                          display: 'inline-block',
+                        }}>
+                          {product.barcode}
+                        </code>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {product.expiryDate ? (
+                        new Date(product.expiryDate).toLocaleDateString('ar-EG')
+                      ) : (
+                        <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                      )}
+                    </td>
                     <td>
                       <button 
                         onClick={() => openEditModal(product)} 
@@ -299,6 +344,24 @@ export default function Inventory() {
                   type="text"
                   value={editingProduct.description || ''}
                   onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label>الباركود</label>
+                <input
+                  type="text"
+                  value={editingProduct.barcode || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, barcode: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label>تاريخ الصلاحية</label>
+                <input
+                  type="date"
+                  value={editingProduct.expiryDate || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, expiryDate: e.target.value })}
                   style={styles.input}
                 />
               </div>

@@ -2,32 +2,42 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getAvailableModules } from '../../utils/modules';
 
-const navItems = [
-  { to: '/dashboard', icon: 'fas fa-th-large', label: 'الرئيسية' },
-  { to: '/companies', icon: 'fas fa-building', label: 'الشركات' },
-  { to: '/clients', icon: 'fas fa-user-friends', label: 'العملاء' },
-  { to: '/invoices', icon: 'fas fa-file-invoice', label: 'الفواتير' },
-  { to: '/inventory', icon: 'fas fa-boxes', label: 'المخزون' },
-  { to: '/tasks', icon: 'fas fa-tasks', label: 'المهام' },
-  { to: '/projects', icon: 'fas fa-project-diagram', label: 'المشاريع' },
+// كل الوحدات المتاحة مع بياناتها
+const ALL_NAV_ITEMS = [
+  { to: '/dashboard', icon: 'fas fa-th-large', label: 'الرئيسية', module: 'dashboard' },
+  { to: '/pos', icon: 'fas fa-cash-register', label: 'نقطة البيع', module: 'pos' },
+  { to: '/companies', icon: 'fas fa-building', label: 'الشركات', module: 'companies' },
+  { to: '/clients', icon: 'fas fa-user-friends', label: 'العملاء', module: 'clients' },
+  { to: '/invoices', icon: 'fas fa-file-invoice', label: 'الفواتير', module: 'invoices' },
+  { to: '/inventory', icon: 'fas fa-boxes', label: 'المخزون', module: 'inventory' },
+  { to: '/suppliers', icon: 'fas fa-truck', label: 'الموردين', module: 'suppliers' },
+  { to: '/expiry', icon: 'fas fa-calendar-times', label: 'تواريخ الصلاحية', module: 'expiry' },
+  { to: '/tasks', icon: 'fas fa-tasks', label: 'المهام', module: 'tasks' },
+  { to: '/projects', icon: 'fas fa-project-diagram', label: 'المشاريع', module: 'projects' },
 ];
 
-const secondaryItems = [
-  { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين' },
-  { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير' },
-  { to: '/aging',        icon: 'fas fa-clock',        label: 'أعمار الديون' },
-  { to: '/notifications',icon: 'fas fa-bell',         label: 'الإشعارات' },
-  { to: '/subscription', icon: 'fas fa-crown',        label: 'الاشتراك' },
-  { to: '/profile',      icon: 'fas fa-user-circle',  label: 'الملف الشخصي' },
-  { to: '/about',        icon: 'fas fa-info-circle',  label: 'حول النظام' },
+const ALL_SECONDARY_ITEMS = [
+  { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين', module: 'users' },
+  { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير', module: 'reports' },
+  { to: '/aging',        icon: 'fas fa-clock',        label: 'أعمار الديون', module: 'aging' },
+  { to: '/notifications',icon: 'fas fa-bell',         label: 'الإشعارات', module: 'notifications' },
+  { to: '/subscription', icon: 'fas fa-crown',        label: 'الاشتراك', module: 'subscription' },
+  { to: '/profile',      icon: 'fas fa-user-circle',  label: 'الملف الشخصي', module: 'profile' },
+  { to: '/about',        icon: 'fas fa-info-circle',  label: 'حول النظام', module: 'about' },
 ];
 
 export default function Sidebar() {
-  const { userRole, currentUser, logout } = useAuth();
+  const { userRole, currentUser, userIndustry, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // الوحدات المتاحة حسب المجال
+  const availableModules = getAvailableModules(userIndustry, userRole);
+  const navItems = ALL_NAV_ITEMS.filter((item) => availableModules.has(item.module));
+  const secondaryItems = ALL_SECONDARY_ITEMS.filter((item) => availableModules.has(item.module));
 
   // أغلق الـ sidebar لما يتنقل لصفحة تانية
   useEffect(() => {

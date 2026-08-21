@@ -131,5 +131,16 @@ service cloud.firestore {
       allow delete: if canAccessCompanyDoc();
     }
 
+    // ============================================================
+    // suppliers/{supplierId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /suppliers/{supplierId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
   }
 }

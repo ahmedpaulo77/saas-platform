@@ -6,7 +6,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore'; // ✅ استبدلنا getDoc بـ onSnapshot
+import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore'; // ✅ استبدلنا getDoc بـ onSnapshot
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -19,6 +19,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userCompanyId, setUserCompanyId] = useState(null);
+  const [userIndustry, setUserIndustry] = useState('general');
   const [loading, setLoading] = useState(true);
 
   async function signup(email, password, role = 'user', companyId = null) {
@@ -56,14 +57,29 @@ export function AuthProvider({ children }) {
       
       if (user) {
         // ✅ استماع لحظي لتغييرات مستند المستخدم (Role و CompanyId)
-        unsubUserDoc = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+        unsubUserDoc = onSnapshot(doc(db, "users", user.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data();
             setUserRole(userData.role || 'user');
             setUserCompanyId(userData.companyId || null);
+
+            // ✅ جلب مجال العمل (Industry) من الشركة
+            if (userData.companyId) {
+              try {
+                const companySnap = await getDoc(doc(db, "companies", userData.companyId));
+                const industry = companySnap.exists() ? companySnap.data().industry || 'general' : 'general';
+                setUserIndustry(industry);
+              } catch (e) {
+                console.error("Error fetching company industry:", e);
+                setUserIndustry('general');
+              }
+            } else {
+              setUserIndustry('general');
+            }
           } else {
             setUserRole(null);
             setUserCompanyId(null);
+            setUserIndustry('general');
           }
           setLoading(false);
         }, (error) => {
@@ -74,6 +90,7 @@ export function AuthProvider({ children }) {
       } else {
         setUserRole(null);
         setUserCompanyId(null);
+        setUserIndustry('general');
         setLoading(false);
       }
     });
@@ -88,6 +105,7 @@ export function AuthProvider({ children }) {
     currentUser,
     userRole,
     userCompanyId,
+    userIndustry,
     loading,
     signup,
     login,
