@@ -126,11 +126,11 @@ export default function Setup() {
                 outline: 'none',
               }}
             >
-              <option value="general">🏢 شركة / مكتب عام</option>
-              <option value="super_market">🏪 سوبر ماركت</option>
-              <option value="pharmacy">💊 صيدلية</option>
-              <option value="restaurant">🍽️ مطعم / كافيه</option>
-              <option value="clothing">👕 ملابس</option>
+              <option value="general" style={{ color: '#1e293b' }}>🏢 شركة / مكتب عام</option>
+              <option value="super_market" style={{ color: '#1e293b' }}>🏪 سوبر ماركت</option>
+              <option value="pharmacy" style={{ color: '#1e293b' }}>💊 صيدلية</option>
+              <option value="restaurant" style={{ color: '#1e293b' }}>🍽️ مطعم / كافيه</option>
+              <option value="clothing" style={{ color: '#1e293b' }}>👕 ملابس</option>
             </select>
             <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
               اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
