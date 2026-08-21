@@ -96,6 +96,7 @@ export function getAvailableModules(industry, userRole) {
       'tasks', 'projects', 'users', 'reports', 'aging', 'notifications',
       'subscription', 'profile', 'about', 'pos', 'suppliers', 'barcode',
       'expiry', 'batch', 'drug_categories', 'orders', 'tables', 'sizes_colors',
+      'my-company',
     ]);
   }
 
@@ -112,6 +113,7 @@ export function getAvailableModules(industry, userRole) {
   modules.add('subscription');
   modules.add('profile');
   modules.add('about');
+  modules.add('my-company');
 
   return modules;
 }

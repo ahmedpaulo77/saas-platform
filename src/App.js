@@ -25,6 +25,7 @@ import Profile from './pages/Profile';
 import Subscription from './pages/Subscription';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
+import MyCompany from './pages/MyCompany';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
 import { getAvailableModules } from './utils/modules';
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
       <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
       <Route path="/subscription" element={<ProtectedRoute><IndustryRoute moduleKey="subscription"><Subscription /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/my-company"   element={<ProtectedRoute><MyCompany /></ProtectedRoute>} />
 
       {/* Super Admin */}
       <Route path="/admin"       element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />

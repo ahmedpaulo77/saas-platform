@@ -19,6 +19,7 @@ const ALL_NAV_ITEMS = [
 ];
 
 const ALL_SECONDARY_ITEMS = [
+  { to: '/my-company',   icon: 'fas fa-store',        label: 'شركتي', module: 'my-company' },
   { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين', module: 'users' },
   { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير', module: 'reports' },
   { to: '/aging',        icon: 'fas fa-clock',        label: 'أعمار الديون', module: 'aging' },
