@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, doc, setDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { generateInviteCode } from '../utils/companyQuery';
 
@@ -37,13 +37,10 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // 1. إنشاء المستخدم في Authentication
-      const userCredential = await signup(formData.email, formData.password, 'user');
-      const user = userCredential.user;
-
-      // 2. التحقق من كود الانضمام (لو موجود)
+      // 1. التحقق من كود الانضمام أولاً (قبل إنشاء المستخدم)
       let companyId = null;
       let role = 'admin';
+      let joinCompanyName = '';
 
       if (formData.inviteCode.trim()) {
         // البحث عن الشركة بالكود
@@ -53,8 +50,6 @@ export default function Signup() {
         );
 
         if (companiesSnap.empty) {
-          // الكود غير صحيح — نحذف المستخدم ونرجع خطأ
-          await user.delete();
           setError('❌ كود الانضمام غير صحيح. تأكد من الكود وحاول مرة أخرى');
           setLoading(false);
           return;
@@ -63,9 +58,10 @@ export default function Signup() {
         // الكود صحيح — نربط المستخدم بالشركة
         const companyDoc = companiesSnap.docs[0];
         companyId = companyDoc.id;
+        joinCompanyName = companyDoc.data().name || '';
         role = 'user'; // الموظف المنضم بالكود يكون مستخدم عادي
       } else {
-        // 3. لا يوجد كود — إنشاء شركة جديدة
+        // 2. لا يوجد كود — إنشاء شركة جديدة أولاً
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
@@ -82,19 +78,15 @@ export default function Signup() {
         companyId = companyRef.id;
       }
 
-      // 4. ربط المستخدم بالشركة
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        email: user.email,
-        role: role,
-        companyId: companyId,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      });
+      // 3. إنشاء المستخدم في Authentication مع الربط المباشر بالشركة
+      // (هذا يتجنب مشكلة منع تحديث companyId في قواعد Firestore)
+      await signup(formData.email, formData.password, role, companyId);
+
+      console.log(`✅ User created and linked to company: ${companyId}`);
 
       alert(role === 'admin'
         ? '✅ تم إنشاء الحساب والشركة بنجاح!'
-        : '✅ تم الانضمام للشركة بنجاح!');
+        : `✅ تم الانضمام للشركة (${joinCompanyName}) بنجاح!`);
       navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);

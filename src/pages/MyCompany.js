@@ -3,17 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
+import { generateInviteCode } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
-
-function generateCode() {
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const digits = '0123456789';
-  let code = '';
-  for (let i = 0; i < 3; i++) code += letters[Math.floor(Math.random() * letters.length)];
-  code += '-';
-  for (let i = 0; i < 4; i++) code += digits[Math.floor(Math.random() * digits.length)];
-  return code;
-}
 
 const SUBSCRIPTION_LABELS = {
   trial: 'تجريبي',
@@ -51,7 +42,7 @@ export default function MyCompany() {
       }
       const data = snap.data();
       if (!data.inviteCode) {
-        const newCode = generateCode();
+        const newCode = generateInviteCode(data.name || '');
         await updateDoc(companyRef, { inviteCode: newCode });
         setCompany({ id: snap.id, ...data, inviteCode: newCode });
       } else {
@@ -73,7 +64,7 @@ export default function MyCompany() {
     if (!userCompanyId) return;
     setRegenerating(true);
     try {
-      const newCode = generateCode();
+      const newCode = generateInviteCode(company?.name || '');
       const companyRef = doc(db, 'companies', userCompanyId);
       await updateDoc(companyRef, { inviteCode: newCode });
       setCompany((prev) => ({ ...prev, inviteCode: newCode }));

@@ -36,10 +36,9 @@ export default function Setup() {
         isActive: true,
       });
 
-      // ربط المستخدم بالشركة
+      // ربط المستخدم بالشركة (فقط تحديث companyId — role يبقى كما هو)
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
-        role: 'admin',
       });
 
       // إعادة تحميل عشان الـ AuthContext ياخد الـ companyId الجديد
@@ -110,29 +109,53 @@ export default function Setup() {
           {/* مجال العمل */}
           <div className="form-group" style={{ marginBottom: 24 }}>
             <label>مجال العمل *</label>
-            <select
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '12px 42px 12px 12px',
-                borderRadius: 12,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.07)',
-                color: 'white',
-                fontSize: 14,
-                fontFamily: 'Cairo, sans-serif',
-                outline: 'none',
-              }}
-            >
-              <option value="general" style={{ color: '#1e293b' }}>🏢 شركة / مكتب عام</option>
-              <option value="super_market" style={{ color: '#1e293b' }}>🏪 سوبر ماركت</option>
-              <option value="pharmacy" style={{ color: '#1e293b' }}>💊 صيدلية</option>
-              <option value="restaurant" style={{ color: '#1e293b' }}>🍽️ مطعم / كافيه</option>
-              <option value="clothing" style={{ color: '#1e293b' }}>👕 ملابس</option>
-            </select>
-            <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[
+                { value: 'general', label: 'شركة / مكتب عام', icon: 'fas fa-building' },
+                { value: 'super_market', label: 'سوبر ماركت', icon: 'fas fa-store' },
+                { value: 'pharmacy', label: 'صيدلية', icon: 'fas fa-pills' },
+                { value: 'restaurant', label: 'مطعم / كافيه', icon: 'fas fa-utensils' },
+                { value: 'clothing', label: 'ملابس', icon: 'fas fa-tshirt' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setIndustry(opt.value)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '14px 12px',
+                    borderRadius: 12,
+                    border: industry === opt.value
+                      ? '2px solid #10b981'
+                      : '1px solid rgba(255,255,255,0.12)',
+                    background: industry === opt.value
+                      ? 'rgba(16,185,129,0.15)'
+                      : 'rgba(255,255,255,0.07)',
+                    color: 'white',
+                    fontSize: 13,
+                    fontFamily: 'Cairo, sans-serif',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    textAlign: 'right',
+                  }}
+                >
+                  <span style={{
+                    fontSize: 18,
+                    color: industry === opt.value ? '#10b981' : 'rgba(255,255,255,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}>
+                    <i className={opt.icon}></i>
+                  </span>
+                  <span style={{ fontWeight: industry === opt.value ? 700 : 500 }}>
+                    {opt.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 8 }}>
               اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
             </small>
           </div>

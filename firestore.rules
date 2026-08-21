@@ -52,12 +52,19 @@ service cloud.firestore {
         (!("isSuperAdmin" in request.resource.data) ||
          request.resource.data.isSuperAdmin == false);
 
-      // المستخدم يعدل نفسه فقط، وممنوع يغير الـ role أو الـ companyId
+      // المستخدم يعدل نفسه فقط، وممنوع يغير الـ role
+      // يُسمح بتغيير companyId فقط من null إلى قيمة (عند الانضمام بالكود)
       // (السوبر أدمن يقدر يعدل أي مستخدم)
       allow update: if isLoggedIn() &&
         (request.auth.uid == userId || isSuperAdmin()) &&
         (request.resource.data.role == resource.data.role) &&
-        (request.resource.data.companyId == resource.data.companyId);
+        (
+          // السوبر أدمن يقدر يغير أي حقل
+          isSuperAdmin() ||
+          // المستخدم العادي: companyId إما ثابت أو يتغير من null إلى قيمة (انضمام)
+          (request.resource.data.companyId == resource.data.companyId) ||
+          (resource.data.companyId == null && request.resource.data.companyId != null)
+        );
 
       allow delete: if isSuperAdmin();
     }
@@ -66,25 +73,13 @@ service cloud.firestore {
     // companies/{companyId}
     // ============================================================
     match /companies/{companyId} {
-      // أي مستخدم مسجل يقدر يقرأ شركة واحدة بمعرفها
+      // أي مستخدم مسجل يقدر يقرأ شركة (لأن كود الانضمام بيتشارك)
       allow get: if isLoggedIn();
-      // الـ list (جلب كل الشركات) للسوبر أدمن فقط
-      allow list: if isSuperAdmin();
-      allow create: if isLoggedIn();
-      // صاحب الشركة أو السوبر أدمن يقدر يعدل
+      // أي مستخدم مسجل يقدر يبحث عن الشركات بالكود (list) للانضمام
+      allow list: if isLoggedIn();
+      allow create: if true;
       allow update: if isSuperAdmin() || isCompanyUser(companyId);
       allow delete: if isSuperAdmin();
-    }
-
-    // ============================================================
-    // clients/{clientId} — عزل كامل حسب الشركة
-    // ============================================================
-    match /clients/{clientId} {
-      allow get: if canAccessCompanyDoc();
-      allow list: if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
-      allow delete: if canAccessCompanyDoc();
     }
 
     // ============================================================
