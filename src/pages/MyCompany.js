@@ -1,4 +1,4 @@
-    // src/pages/MyCompany.js
+// src/pages/MyCompany.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -115,7 +115,7 @@ export default function MyCompany() {
         <div className="header">
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>شركتي</h1>
-            <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
               معلومات شركتك وكود الدعوة
             </p>
           </div>
@@ -125,7 +125,7 @@ export default function MyCompany() {
           <div style={{
             background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
             borderRadius: 12, padding: '12px 16px', marginBottom: 20,
-            color: '#fca5a5', display: 'flex', alignItems: 'center', gap: 8,
+            color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <i className="fas fa-exclamation-circle"></i>
             {error}
@@ -133,7 +133,7 @@ export default function MyCompany() {
         )}
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)' }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
             <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, marginBottom: 12 }}></i>
             <p>جاري تحميل بيانات الشركة...</p>
           </div>
@@ -142,25 +142,25 @@ export default function MyCompany() {
 
             {/* Company Info Card */}
             <div className="card" style={{ padding: '24px 28px' }}>
-              <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1 }}>
+              <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
                 <i className="fas fa-building" style={{ marginLeft: 8, color: '#6366f1' }}></i>
                 معلومات الشركة
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>اسم الشركة</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>اسم الشركة</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>
                     {company.name || '—'}
                   </div>
                 </div>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>البريد الإلكتروني</div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.8)', wordBreak: 'break-all' }}>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>البريد الإلكتروني</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#334155', wordBreak: 'break-all' }}>
                     {company.email || '—'}
                   </div>
                 </div>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>حالة الاشتراك</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>حالة الاشتراك</div>
                   <div>
                     <span className="badge" style={{
                       background: `${statusColor}22`,
@@ -181,14 +181,14 @@ export default function MyCompany() {
             {/* Invite Code Card */}
             <div className="card" style={{
               padding: '28px 32px',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(139,92,246,0.12) 100%)',
-              border: '1px solid rgba(99,102,241,0.35)',
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.06) 100%)',
+              border: '1px solid rgba(99,102,241,0.25)',
             }}>
-              <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                <i className="fas fa-key" style={{ marginLeft: 8, color: '#818cf8' }}></i>
+              <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
+                <i className="fas fa-key" style={{ marginLeft: 8, color: '#6366f1' }}></i>
                 كود الدعوة
               </h2>
-              <p style={{ margin: '0 0 24px', color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
+              <p style={{ margin: '0 0 24px', color: '#64748b', fontSize: 13 }}>
                 شارك هذا الكود مع أي شخص تريده للانضمام لشركتك
               </p>
 
@@ -198,8 +198,8 @@ export default function MyCompany() {
                 flexWrap: 'wrap',
               }}>
                 <div style={{
-                  background: 'rgba(99,102,241,0.2)',
-                  border: '2px solid rgba(99,102,241,0.5)',
+                  background: 'rgba(99,102,241,0.1)',
+                  border: '2px solid rgba(99,102,241,0.4)',
                   borderRadius: 14,
                   padding: '14px 28px',
                   display: 'flex', alignItems: 'center', gap: 16,
@@ -210,7 +210,7 @@ export default function MyCompany() {
                     fontFamily: '"Courier New", Courier, monospace',
                     fontWeight: 800,
                     letterSpacing: 6,
-                    color: '#a5b4fc',
+                    color: '#4f46e5',
                     userSelect: 'all',
                   }}>
                     {company.inviteCode}
@@ -224,9 +224,9 @@ export default function MyCompany() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '12px 20px', fontSize: 14,
-                    background: copied ? 'rgba(16,185,129,0.25)' : undefined,
+                    background: copied ? 'rgba(16,185,129,0.15)' : undefined,
                     border: copied ? '1px solid rgba(16,185,129,0.5)' : undefined,
-                    color: copied ? '#6ee7b7' : undefined,
+                    color: copied ? '#047857' : undefined,
                     transition: 'all 0.2s',
                   }}
                 >
@@ -246,7 +246,7 @@ export default function MyCompany() {
                 </button>
               </div>
 
-              <p style={{ margin: '20px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6 }}>
+              <p style={{ margin: '20px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
                 <i className="fas fa-info-circle" style={{ marginLeft: 6, color: '#6366f1' }}></i>
                 عند توليد كود جديد، الكود القديم يصبح غير صالح. تأكد من مشاركة الكود الجديد مع من تريد.
               </p>
@@ -254,7 +254,7 @@ export default function MyCompany() {
 
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)' }}>
+          <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
             <i className="fas fa-building" style={{ fontSize: 40, marginBottom: 12 }}></i>
             <p>لم يتم العثور على بيانات الشركة</p>
           </div>
