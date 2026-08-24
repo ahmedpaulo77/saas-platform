@@ -1,4 +1,4 @@
-// src/pages/Tasks.js - مع عزل البيانات حسب الشركة
+// src/pages/Tasks.js - مع عزل البيانات حسب الشركة ودعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -12,8 +12,10 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Tasks() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,7 +36,7 @@ export default function Tasks() {
   const fetchTasks = useCallback(async () => {
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("tasks", userRole, userCompanyId),
+        getScopedQuery("tasks", userRole, userCompanyId)
       );
       const tasksData = [];
       querySnapshot.forEach((d) => {
@@ -43,11 +45,11 @@ export default function Tasks() {
       setTasks(tasksData);
     } catch (error) {
       console.error("Error fetching tasks:", error);
-      alert("حدث خطأ في جلب المهام");
+      alert(t("tk.fetchErr"));
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, t]);
 
   useEffect(() => {
     fetchTasks();
@@ -56,7 +58,7 @@ export default function Tasks() {
   async function addTask(e) {
     e.preventDefault();
     if (!newTask.title || !newTask.dueDate) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
+      alert(t("common.fillRequired"));
       return;
     }
 
@@ -75,10 +77,10 @@ export default function Tasks() {
         assignedTo: "",
       });
       await fetchTasks();
-      alert("✅ تم إضافة المهمة بنجاح");
+      alert(t("tk.addOk"));
     } catch (error) {
       console.error("Error adding task:", error);
-      alert("❌ حدث خطأ في إضافة المهمة");
+      alert(t("tk.addFail"));
     }
   }
 
@@ -95,7 +97,7 @@ export default function Tasks() {
   async function updateTask(e) {
     e.preventDefault();
     if (!editingTask.title || !editingTask.dueDate) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
+      alert(t("common.fillRequired"));
       return;
     }
 
@@ -111,26 +113,25 @@ export default function Tasks() {
       });
       await fetchTasks();
       closeEditModal();
-      alert("✅ تم تحديث المهمة بنجاح");
+      alert(t("tk.updOk"));
     } catch (error) {
       console.error("Error updating task:", error);
-      alert("❌ حدث خطأ في تحديث المهمة");
+      alert(t("tk.updFail"));
     }
   }
 
   async function deleteTask(id) {
-    if (!window.confirm("هل أنت متأكد من حذف هذه المهمة؟")) return;
+    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await deleteDoc(doc(db, "tasks", id));
       await fetchTasks();
-      alert("✅ تم حذف المهمة بنجاح");
+      alert(t("tk.delOk"));
     } catch (error) {
       console.error("Error deleting task:", error);
-      alert("❌ حدث خطأ في حذف المهمة");
+      alert(t("tk.delFail"));
     }
   }
 
-  // فلترة المهام حسب البحث والحالة
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,34 +142,34 @@ export default function Tasks() {
     return matchesSearch && matchesFilter;
   });
 
-  // ترتيب المهام حسب الأولوية
   const priorityOrder = { high: 0, medium: 1, low: 2 };
   const sortedTasks = [...filteredTasks].sort(
-    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority],
+    (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
   );
 
   if (loading) {
-    return <div className="loading">جاري تحميل المهام...</div>;
+    return <div className="loading">{t("common.loading")}</div>;
   }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        <h2 style={{ color: "#333", marginBottom: "20px" }}>📋 إدارة المهام</h2>
+        <h2 style={{ color: "#333", marginBottom: "20px" }}>
+          📋 {t("tk.title")}
+        </h2>
 
-        {/* نموذج الإضافة */}
         <form onSubmit={addTask} className="form-container">
           <input
             type="text"
-            placeholder="عنوان المهمة"
+            placeholder={t("tk.phTitle")}
             value={newTask.title}
             onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
             required
           />
           <input
             type="text"
-            placeholder="الوصف"
+            placeholder={t("tk.phDesc")}
             value={newTask.description}
             onChange={(e) =>
               setNewTask({ ...newTask, description: e.target.value })
@@ -180,17 +181,17 @@ export default function Tasks() {
               setNewTask({ ...newTask, priority: e.target.value })
             }
           >
-            <option value="high">عالية</option>
-            <option value="medium">متوسطة</option>
-            <option value="low">منخفضة</option>
+            <option value="high">{t("tk.high")}</option>
+            <option value="medium">{t("tk.medium")}</option>
+            <option value="low">{t("tk.low")}</option>
           </select>
           <select
             value={newTask.status}
             onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
           >
-            <option value="pending">قيد الانتظار</option>
-            <option value="in-progress">جاري التنفيذ</option>
-            <option value="completed">منجزة</option>
+            <option value="pending">{t("tk.pending")}</option>
+            <option value="in-progress">{t("tk.progress")}</option>
+            <option value="completed">{t("tk.done")}</option>
           </select>
           <input
             type="date"
@@ -202,18 +203,17 @@ export default function Tasks() {
           />
           <input
             type="text"
-            placeholder="المسؤول (اختياري)"
+            placeholder={t("tk.phAssignee")}
             value={newTask.assignedTo}
             onChange={(e) =>
               setNewTask({ ...newTask, assignedTo: e.target.value })
             }
           />
           <button type="submit" className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة مهمة
+            <i className="fas fa-plus"></i> {t("tk.add")}
           </button>
         </form>
 
-        {/* حقل البحث والفلتر */}
         <div
           style={{
             display: "flex",
@@ -224,7 +224,7 @@ export default function Tasks() {
         >
           <input
             type="text"
-            placeholder="🔍 ابحث عن مهمة..."
+            placeholder={t("tk.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -251,37 +251,36 @@ export default function Tasks() {
               backgroundColor: "white",
             }}
           >
-            <option value="all">جميع المهام</option>
-            <option value="pending">قيد الانتظار</option>
-            <option value="in-progress">جاري التنفيذ</option>
-            <option value="completed">منجزة</option>
+            <option value="all">{t("tk.all")}</option>
+            <option value="pending">{t("tk.pending")}</option>
+            <option value="in-progress">{t("tk.progress")}</option>
+            <option value="completed">{t("tk.done")}</option>
           </select>
         </div>
 
-        {/* جدول المهام */}
         <div className="table-container">
           <div className="table-header">
-            <h3>قائمة المهام</h3>
-            <span>{sortedTasks.length} مهمة</span>
+            <h3>{t("tk.list")}</h3>
+            <span>{sortedTasks.length} {t("tk.tasks")}</span>
           </div>
           {sortedTasks.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
               {searchTerm || filterStatus !== "all"
-                ? "❌ لا توجد نتائج مطابقة"
-                : "لا توجد مهام مسجلة حتى الآن"}
+                ? t("common.noResults")
+                : t("tk.empty")}
             </p>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>العنوان</th>
-                  <th>الوصف</th>
-                  <th>الأولوية</th>
-                  <th>الحالة</th>
-                  <th>تاريخ الاستحقاق</th>
-                  <th>المسؤول</th>
-                  <th>الإجراءات</th>
+                  <th>{t("tk.heading")}</th>
+                  <th>{t("common.description")}</th>
+                  <th>{t("tk.priority")}</th>
+                  <th>{t("common.status")}</th>
+                  <th>{t("tk.due")}</th>
+                  <th>{t("tk.assignee")}</th>
+                  <th>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,15 +295,15 @@ export default function Tasks() {
                           task.priority === "high"
                             ? "badge-expired"
                             : task.priority === "medium"
-                              ? "badge-pending"
-                              : "badge-active"
+                            ? "badge-pending"
+                            : "badge-active"
                         }`}
                       >
                         {task.priority === "high"
-                          ? "عالية"
+                          ? t("tk.high")
                           : task.priority === "medium"
-                            ? "متوسطة"
-                            : "منخفضة"}
+                          ? t("tk.medium")
+                          : t("tk.low")}
                       </span>
                     </td>
                     <td>
@@ -313,18 +312,18 @@ export default function Tasks() {
                           task.status === "completed"
                             ? "badge-paid"
                             : task.status === "in-progress"
-                              ? "badge-pending"
-                              : "badge-expired"
+                            ? "badge-pending"
+                            : "badge-expired"
                         }`}
                       >
                         {task.status === "completed"
-                          ? "منجزة"
+                          ? t("tk.done")
                           : task.status === "in-progress"
-                            ? "جاري التنفيذ"
-                            : "قيد الانتظار"}
+                          ? t("tk.progress")
+                          : t("tk.pending")}
                       </span>
                     </td>
-                    <td>{new Date(task.dueDate).toLocaleDateString()}</td>{" "}
+                    <td>{new Date(task.dueDate).toLocaleDateString()}</td>
                     <td>{task.assignedTo || "-"}</td>
                     <td>
                       <button
@@ -336,13 +335,13 @@ export default function Tasks() {
                           fontSize: "13px",
                         }}
                       >
-                        <i className="fas fa-edit"></i> تعديل
+                        <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
                       <button
                         onClick={() => deleteTask(task.id)}
                         className="btn-danger"
                       >
-                        <i className="fas fa-trash"></i> حذف
+                        <i className="fas fa-trash"></i> {t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -353,13 +352,12 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* مودال التعديل */}
       {showEditModal && editingTask && (
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3>
-                <i className="fas fa-edit"></i> تعديل المهمة
+                <i className="fas fa-edit"></i> {t("tk.editTitle")}
               </h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>
                 &times;
@@ -367,7 +365,7 @@ export default function Tasks() {
             </div>
             <form onSubmit={updateTask}>
               <div style={styles.formGroup}>
-                <label>عنوان المهمة</label>
+                <label>{t("tk.heading")}</label>
                 <input
                   type="text"
                   value={editingTask.title}
@@ -379,7 +377,7 @@ export default function Tasks() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الوصف</label>
+                <label>{t("common.description")}</label>
                 <input
                   type="text"
                   value={editingTask.description || ""}
@@ -393,7 +391,7 @@ export default function Tasks() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الأولوية</label>
+                <label>{t("tk.priority")}</label>
                 <select
                   value={editingTask.priority}
                   onChange={(e) =>
@@ -401,13 +399,13 @@ export default function Tasks() {
                   }
                   style={styles.input}
                 >
-                  <option value="high">عالية</option>
-                  <option value="medium">متوسطة</option>
-                  <option value="low">منخفضة</option>
+                  <option value="high">{t("tk.high")}</option>
+                  <option value="medium">{t("tk.medium")}</option>
+                  <option value="low">{t("tk.low")}</option>
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label>الحالة</label>
+                <label>{t("common.status")}</label>
                 <select
                   value={editingTask.status}
                   onChange={(e) =>
@@ -415,13 +413,13 @@ export default function Tasks() {
                   }
                   style={styles.input}
                 >
-                  <option value="pending">قيد الانتظار</option>
-                  <option value="in-progress">جاري التنفيذ</option>
-                  <option value="completed">منجزة</option>
+                  <option value="pending">{t("tk.pending")}</option>
+                  <option value="in-progress">{t("tk.progress")}</option>
+                  <option value="completed">{t("tk.done")}</option>
                 </select>
               </div>
               <div style={styles.formGroup}>
-                <label>تاريخ الاستحقاق</label>
+                <label>{t("tk.due")}</label>
                 <input
                   type="date"
                   value={editingTask.dueDate}
@@ -433,7 +431,7 @@ export default function Tasks() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>المسؤول</label>
+                <label>{t("tk.assignee")}</label>
                 <input
                   type="text"
                   value={editingTask.assignedTo || ""}
@@ -453,10 +451,10 @@ export default function Tasks() {
                   className="btn-danger"
                   style={{ marginLeft: "10px" }}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ التعديلات
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>

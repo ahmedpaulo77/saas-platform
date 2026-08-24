@@ -1,11 +1,13 @@
-// src/pages/Login.js - مع إضافة رابط التسجيل ونسيت كلمة المرور
+// src/pages/Login.js - نسخة مترجمة بالكامل
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function Login() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +16,7 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // نسيت كلمة المرور
+  // Reset password state
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
@@ -28,7 +30,7 @@ export default function Login() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+      setError(t('login.error'));
     }
     setLoading(false);
   }
@@ -40,14 +42,14 @@ export default function Login() {
     setResetMessage('');
     try {
       await sendPasswordResetEmail(auth, resetEmail);
-      setResetMessage('✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني');
+      setResetMessage(t('login.resetOk'));
       setTimeout(() => {
         setShowResetModal(false);
         setResetEmail('');
         setResetMessage('');
       }, 3000);
     } catch (err) {
-      setResetMessage('❌ حدث خطأ. تأكد من صحة البريد الإلكتروني');
+      setResetMessage(t('login.resetFail'));
     }
     setResetLoading(false);
   }
@@ -61,7 +63,7 @@ export default function Login() {
             <i className="fas fa-cube"></i>
           </div>
           <h1>SaaS PRO</h1>
-          <p>منصة إدارة الأعمال المتكاملة</p>
+          <p>{t('login.tagline')}</p>
         </div>
 
         {/* Error */}
@@ -75,7 +77,7 @@ export default function Login() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>البريد الإلكتروني</label>
+            <label>{t('login.email')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="email"
@@ -93,7 +95,7 @@ export default function Login() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 12 }}>
-            <label>كلمة المرور</label>
+            <label>{t('login.password')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -117,7 +119,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* نسيت كلمة المرور */}
+          {/* Forgot password */}
           <div style={{ textAlign: 'left', marginBottom: 20 }}>
             <button
               type="button"
@@ -132,7 +134,7 @@ export default function Login() {
                 fontFamily: 'Cairo', textDecoration: 'underline',
               }}
             >
-              نسيت كلمة المرور؟
+              {t('login.forgot')}
             </button>
           </div>
 
@@ -140,12 +142,12 @@ export default function Login() {
             {loading ? (
               <>
                 <i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>
-                جاري الدخول...
+                {t('login.submitting')}
               </>
             ) : (
               <>
                 <i className="fas fa-sign-in-alt" style={{ marginLeft: 8 }}></i>
-                تسجيل الدخول
+                {t('login.submit')}
               </>
             )}
           </button>
@@ -159,10 +161,10 @@ export default function Login() {
         }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
             <i className="fas fa-shield-alt" style={{ marginLeft: 6 }}></i>
-            جميع البيانات مشفرة ومحمية بالكامل
+            {t('login.secure')}
           </p>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
-            ليس لديك حساب؟ <Link to="/signup" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: '600' }}>إنشاء حساب جديد</Link>
+            {t('login.noAccount')} <Link to="/signup" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: '600' }}>{t('login.createAccount')}</Link>
           </p>
         </div>
       </div>
@@ -173,8 +175,7 @@ export default function Login() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <i className="fas fa-key" style={{ color: '#6366f1' }}></i>{" "}
-                استعادة كلمة المرور
+                <i className="fas fa-key" style={{ color: '#6366f1' }}></i> {t('login.resetTitle')}
               </h3>
               <button
                 className="modal-close"
@@ -186,10 +187,10 @@ export default function Login() {
             <form onSubmit={handleResetPassword}>
               <div className="modal-body">
                 <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
-                  أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور
+                  {t('login.resetHint')}
                 </p>
                 <div className="form-group">
-                  <label>البريد الإلكتروني</label>
+                  <label>{t('login.email')}</label>
                   <input
                     type="email"
                     value={resetEmail}
@@ -220,16 +221,16 @@ export default function Login() {
                   className="btn-secondary"
                   onClick={() => setShowResetModal(false)}
                 >
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-primary" disabled={resetLoading}>
                   {resetLoading ? (
                     <>
-                      <i className="fas fa-spinner fa-spin"></i> جاري الإرسال...
+                      <i className="fas fa-spinner fa-spin"></i> {t('login.sending')}
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-paper-plane"></i> إرسال الرابط
+                      <i className="fas fa-paper-plane"></i> {t('login.sendLink')}
                     </>
                   )}
                 </button>

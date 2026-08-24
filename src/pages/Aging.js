@@ -1,35 +1,32 @@
-// src/pages/Aging.js - تقرير أعمار الديون
+// src/pages/Aging.js - تقرير أعمار الديون مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
+import { useLanguage } from '../i18n/LanguageContext';
 
-// الشرائح: [لم يحن موعدها، <30، 30-59، 60-89، 90+]
 const BUCKETS = [
-  { label: 'لم يحن موعدها', min: -Infinity, max: 0, color: '#6366f1', bg: '#e0e7ff', textColor: '#3730a3' },
-  { label: 'أقل من 30 يوم', min: 0, max: 30, color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
-  { label: '30 - 60 يوم', min: 30, max: 60, color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
-  { label: '60 - 90 يوم', min: 60, max: 90, color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
-  { label: 'أكتر من 90 يوم', min: 90, max: Infinity, color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
+  { labelKey: 'ag.b0', color: '#6366f1', bg: '#e0e7ff', textColor: '#3730a3' },
+  { labelKey: 'ag.b1', color: '#10b981', bg: '#d1fae5', textColor: '#065f46' },
+  { labelKey: 'ag.b2', color: '#f59e0b', bg: '#fef3c7', textColor: '#92400e' },
+  { labelKey: 'ag.b3', color: '#f97316', bg: '#ffedd5', textColor: '#9a3412' },
+  { labelKey: 'ag.b4', color: '#ef4444', bg: '#fee2e2', textColor: '#991b1b' },
 ];
 
-// تحويل القيمة لتاريخ (يدعم Firestore Timestamp و string و Date)
 function parseDate(value) {
   if (!value) return new Date();
-  if (typeof value.toDate === 'function') return value.toDate(); // Firestore Timestamp
+  if (typeof value.toDate === 'function') return value.toDate();
   return new Date(value);
 }
 
-// بداية اليوم (منتصف الليل) لتجنب أخطاء الفروق الزمنية
 function startOfDay(d) {
   const copy = new Date(d);
   copy.setHours(0, 0, 0, 0);
   return copy;
 }
 
-// حساب أيام التأخير (سالب = لم يحن موعدها بعد)
 function getDaysPastDue(invoice) {
   const baseDate = invoice.dueDate
     ? parseDate(invoice.dueDate)
@@ -40,10 +37,15 @@ function getDaysPastDue(invoice) {
 }
 
 function getBucket(days) {
-  return BUCKETS.findIndex(b => days >= b.min && days < b.max);
+  if (days < 0) return 0;
+  if (days < 30) return 1;
+  if (days < 60) return 2;
+  if (days < 90) return 3;
+  return 4;
 }
 
 export default function Aging() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const superAdmin = userRole === 'super_admin';
 
@@ -57,7 +59,6 @@ export default function Aging() {
   const fetchAgingData = useCallback(async () => {
     if (!superAdmin && !userCompanyId) { setLoading(false); return; }
     try {
-      // جلب العملاء
       const clientsSnap = await getDocs(
         superAdmin
           ? collection(db, 'clients')
@@ -65,8 +66,6 @@ export default function Aging() {
       );
       const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // جلب الفواتير غير المدفوعة فقط
-      // (فلترة في الـ query للـ super_admin، وفي JS للشركة لتجنب فهارس مركبة)
       const invoicesSnap = await getDocs(
         superAdmin
           ? query(collection(db, 'invoices'), where('status', '!=', 'paid'))
@@ -74,9 +73,8 @@ export default function Aging() {
       );
       const invoices = invoicesSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(inv => inv.status !== 'paid'); // نشيل المدفوعة
+        .filter(inv => inv.status !== 'paid');
 
-      // بناء تقرير الأعمار لكل عميل
       const clientMap = {};
       clients.forEach(c => {
         clientMap[c.id] = {
@@ -90,14 +88,13 @@ export default function Aging() {
         };
       });
 
-      // توزيع الفواتير على الأعمار (المبلغ = المتبقي بعد الدفعات الجزئية)
       invoices.forEach(inv => {
         if (!inv.clientId || !clientMap[inv.clientId]) return;
 
         const amount = parseFloat(inv.amount) || 0;
         const paid = parseFloat(inv.paidAmount) || 0;
         const remaining = amount - paid;
-        if (remaining <= 0) return; // مدفوعة بالكامل
+        if (remaining <= 0) return;
 
         const days = getDaysPastDue(inv);
         const bucketIdx = getBucket(days);
@@ -110,11 +107,9 @@ export default function Aging() {
         }
       });
 
-      // فلترة العملاء اللي عندهم ديون بس
       const result = Object.values(clientMap).filter(c => c.total > 0);
       result.sort((a, b) => b.total - a.total);
 
-      // حساب الإجماليات
       const totalBuckets = BUCKETS.map(() => 0);
       let totalDebt = 0;
       let criticalClients = 0;
@@ -122,7 +117,6 @@ export default function Aging() {
       result.forEach(c => {
         totalDebt += c.total;
         c.buckets.forEach((v, i) => { totalBuckets[i] += v; });
-        // العملاء في خطر: عندهم دين في 60-90 أو 90+ (باستثناء "لم يحن موعدها")
         if (c.buckets[3] + c.buckets[4] > 0) criticalClients++;
       });
 
@@ -141,36 +135,35 @@ export default function Aging() {
   function exportToExcel() {
     setExporting(true);
     const rows = filtered.map(c => ({
-      'العميل': c.name,
-      'الهاتف': c.phone,
-      'عدد الفواتير': c.invoicesCount,
-      'لم يحن موعدها (ج.م)': c.buckets[0].toFixed(2),
-      'أقل من 30 يوم (ج.م)': c.buckets[1].toFixed(2),
-      '30-60 يوم (ج.م)': c.buckets[2].toFixed(2),
-      '60-90 يوم (ج.م)': c.buckets[3].toFixed(2),
-      'أكتر من 90 يوم (ج.م)': c.buckets[4].toFixed(2),
-      'إجمالي المديونية (ج.م)': c.total.toFixed(2),
-      'أقدم فاتورة (يوم)': c.oldestDays,
+      [t('ag.x.client')]: c.name,
+      [t('ag.x.phone')]: c.phone,
+      [t('ag.x.count')]: c.invoicesCount,
+      [t('ag.x.b0')]: c.buckets[0].toFixed(2),
+      [t('ag.x.b1')]: c.buckets[1].toFixed(2),
+      [t('ag.x.b2')]: c.buckets[2].toFixed(2),
+      [t('ag.x.b3')]: c.buckets[3].toFixed(2),
+      [t('ag.x.b4')]: c.buckets[4].toFixed(2),
+      [t('ag.x.total')]: c.total.toFixed(2),
+      [t('ag.x.oldest')]: c.oldestDays,
     }));
 
-    // إضافة صف الإجماليات
     rows.push({
-      'العميل': 'الإجمالي',
-      'الهاتف': '',
-      'عدد الفواتير': '',
-      'لم يحن موعدها (ج.م)': totals.buckets[0].toFixed(2),
-      'أقل من 30 يوم (ج.م)': totals.buckets[1].toFixed(2),
-      '30-60 يوم (ج.م)': totals.buckets[2].toFixed(2),
-      '60-90 يوم (ج.م)': totals.buckets[3].toFixed(2),
-      'أكتر من 90 يوم (ج.م)': totals.buckets[4].toFixed(2),
-      'إجمالي المديونية (ج.م)': totals.total.toFixed(2),
-      'أقدم فاتورة (يوم)': '',
+      [t('ag.x.client')]: t('ag.x.sum'),
+      [t('ag.x.phone')]: '',
+      [t('ag.x.count')]: '',
+      [t('ag.x.b0')]: totals.buckets[0].toFixed(2),
+      [t('ag.x.b1')]: totals.buckets[1].toFixed(2),
+      [t('ag.x.b2')]: totals.buckets[2].toFixed(2),
+      [t('ag.x.b3')]: totals.buckets[3].toFixed(2),
+      [t('ag.x.b4')]: totals.buckets[4].toFixed(2),
+      [t('ag.x.total')]: totals.total.toFixed(2),
+      [t('ag.x.oldest')]: '',
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'أعمار الديون');
-    XLSX.writeFile(wb, `تقرير-أعمار-الديون-${new Date().toLocaleDateString('ar-EG')}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, t('ag.x.sheet'));
+    XLSX.writeFile(wb, `${t('ag.x.file')}-${new Date().toLocaleDateString('ar-EG')}.xlsx`);
     setExporting(false);
   }
 
@@ -180,7 +173,7 @@ export default function Aging() {
   );
 
   if (loading) return (
-    <div className="loading"><div className="spinner"></div>جاري تحليل الديون...</div>
+    <div className="loading"><div className="spinner"></div>{t('ag.loading')}</div>
   );
 
   return (
@@ -188,43 +181,41 @@ export default function Aging() {
       <Sidebar />
       <div className="main-content">
 
-        {/* Header */}
         <div className="header">
           <div>
             <h1>
               <i className="fas fa-clock" style={{ color: '#ef4444', marginLeft: 10 }}></i>
-              تقرير أعمار الديون
+              {t('ag.title')}
             </h1>
-            <p className="subtitle">تحليل مديونيات العملاء حسب مدة الاستحقاق</p>
+            <p className="subtitle">{t('ag.subtitle')}</p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => { setLoading(true); fetchAgingData(); }} className="btn-secondary">
-              <i className="fas fa-sync-alt"></i> تحديث
+              <i className="fas fa-sync-alt"></i> {t('common.refresh')}
             </button>
             <button onClick={exportToExcel} className="btn-primary" disabled={exporting || filtered.length === 0}>
               {exporting
-                ? <><i className="fas fa-spinner fa-spin"></i> جاري التصدير...</>
-                : <><i className="fas fa-file-excel"></i> تصدير Excel</>}
+                ? <><i className="fas fa-spinner fa-spin"></i> {t('common.exporting')}</>
+                : <><i className="fas fa-file-excel"></i> {t('common.exportExcel')}</>}
             </button>
           </div>
         </div>
 
-        {/* Summary Stats */}
         <div className="stats-row" style={{ marginBottom: 24 }}>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-users"></i></div>
             <div className="stat-value">{summary.totalClients}</div>
-            <div className="stat-label">عملاء لديهم ديون</div>
+            <div className="stat-label">{t('ag.clientsDebt')}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
             <div className="stat-value" style={{ fontSize: 20 }}>{summary.totalDebt.toLocaleString()}</div>
-            <div className="stat-label">إجمالي المديونية (ج.م)</div>
+            <div className="stat-label">{t('ag.totalDebt')}</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div>
             <div className="stat-value">{summary.criticalClients}</div>
-            <div className="stat-label">عملاء في خطر (+60 يوم)</div>
+            <div className="stat-label">{t('ag.risk')}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
@@ -233,15 +224,14 @@ export default function Aging() {
                 ? Math.round((totals.buckets[1] / summary.totalDebt) * 100)
                 : 0}%
             </div>
-            <div className="stat-label">ديون أقل من 30 يوم</div>
+            <div className="stat-label">{t('ag.under30')}</div>
           </div>
         </div>
 
-        {/* Buckets Summary Bar */}
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 16 }}>
             <i className="fas fa-chart-bar" style={{ color: '#6366f1' }}></i>
-            توزيع الديون حسب العمر
+            {t('ag.distribution')}
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
             {BUCKETS.map((bucket, i) => (
@@ -253,17 +243,16 @@ export default function Aging() {
               }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: bucket.textColor, marginBottom: 6 }}>
                   <i className="fas fa-circle" style={{ fontSize: 8, marginLeft: 6 }}></i>
-                  {bucket.label}
+                  {t(bucket.labelKey)}
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: bucket.color }}>
                   {totals.buckets[i].toLocaleString()}
                 </div>
                 <div style={{ fontSize: 11, color: bucket.textColor, opacity: 0.7, marginTop: 2 }}>
-                  ج.م — {summary.totalDebt > 0
+                  {t('currency')} — {summary.totalDebt > 0
                     ? Math.round((totals.buckets[i] / summary.totalDebt) * 100)
                     : 0}% من الإجمالي
                 </div>
-                {/* Progress bar */}
                 <div style={{ height: 4, background: `${bucket.color}25`, borderRadius: 99, marginTop: 10, overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: 99,
@@ -279,22 +268,20 @@ export default function Aging() {
           </div>
         </div>
 
-        {/* Search */}
         <div className="search-wrapper" style={{ marginBottom: 20 }}>
           <i className="fas fa-search search-icon"></i>
           <input
             type="text"
-            placeholder="ابحث باسم العميل أو الهاتف..."
+            placeholder={t('ag.search')}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Table */}
         <div className="table-container">
           <div className="table-header">
-            <h3><i className="fas fa-table"></i> كشف أعمار الديون التفصيلي</h3>
-            <span className="table-count">{filtered.length} عميل</span>
+            <h3><i className="fas fa-table"></i> {t('ag.table')}</h3>
+            <span className="table-count">{filtered.length} {t('ag.nClients', { count: filtered.length })}</span>
           </div>
 
           {filtered.length === 0 ? (
@@ -302,8 +289,8 @@ export default function Aging() {
               <div className="empty-icon">
                 <i className="fas fa-check-circle" style={{ color: '#10b981' }}></i>
               </div>
-              <h3>ممتاز! لا توجد ديون مستحقة</h3>
-              <p>جميع الفواتير مدفوعة أو لا توجد فواتير معلقة</p>
+              <h3>{t('ag.okTitle')}</h3>
+              <p>{t('ag.okDesc')}</p>
             </div>
           ) : (
             <div className="table-wrapper">
@@ -311,21 +298,20 @@ export default function Aging() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>العميل</th>
-                    <th>الهاتف</th>
-                    <th>الفواتير</th>
+                    <th>{t('ag.client')}</th>
+                    <th>{t('common.phone')}</th>
+                    <th>{t('ag.invoices')}</th>
                     {BUCKETS.map((b, i) => (
                       <th key={i} style={{ color: b.color, whiteSpace: 'nowrap' }}>
-                        {b.label}
+                        {t(b.labelKey)}
                       </th>
                     ))}
-                    <th style={{ color: '#0f172a' }}>الإجمالي</th>
-                    <th>الحالة</th>
+                    <th style={{ color: '#0f172a' }}>{t('ag.total')}</th>
+                    <th>{t('common.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((client, i) => {
-                    // تحديد الحالة (باستثناء شريحة "لم يحن موعدها")
                     const isHighRisk = client.buckets[4] > 0;
                     const isMedRisk  = client.buckets[3] > 0 && !isHighRisk;
 
@@ -350,7 +336,7 @@ export default function Aging() {
                                 fontSize: 13,
                                 display: 'inline-block',
                               }}>
-                                {amount.toLocaleString()} ج
+                                {amount.toLocaleString()} {t('currency')}
                               </span>
                             ) : (
                               <span style={{ color: 'var(--gray-300)' }}>—</span>
@@ -358,20 +344,20 @@ export default function Aging() {
                           </td>
                         ))}
                         <td style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>
-                          {client.total.toLocaleString()} ج.م
+                          {client.total.toLocaleString()} {t('currency')}
                         </td>
                         <td>
                           {isHighRisk ? (
                             <span className="badge badge-expired">
-                              <i className="fas fa-skull-crossbones"></i> متأخر جداً ({client.oldestDays} يوم)
+                              <i className="fas fa-skull-crossbones"></i> {t('ag.critical', { n: client.oldestDays })}
                             </span>
                           ) : isMedRisk ? (
                             <span className="badge badge-pending">
-                              <i className="fas fa-exclamation-triangle"></i> تحذير ({client.oldestDays} يوم)
+                              <i className="fas fa-exclamation-triangle"></i> {t('ag.warn', { n: client.oldestDays })}
                             </span>
                           ) : (
                             <span className="badge badge-active">
-                              <i className="fas fa-check"></i> مقبول ({client.oldestDays} يوم)
+                              <i className="fas fa-check"></i> {t('ag.ok', { n: client.oldestDays })}
                             </span>
                           )}
                         </td>
@@ -380,19 +366,18 @@ export default function Aging() {
                   })}
                 </tbody>
 
-                {/* Totals Row */}
                 <tfoot>
                   <tr style={{ background: '#f8fafc', fontWeight: 800, borderTop: '2px solid var(--gray-200)' }}>
                     <td colSpan={4} style={{ fontWeight: 700, color: 'var(--gray-700)', padding: '14px 16px' }}>
-                      الإجمالي الكلي
+                      {t('ag.x.sum')}
                     </td>
                     {totals.buckets.map((total, i) => (
                       <td key={i} style={{ fontWeight: 800, color: BUCKETS[i].color, padding: '14px 16px' }}>
-                        {total.toLocaleString()} ج
+                        {total.toLocaleString()} {t('currency')}
                       </td>
                     ))}
                     <td style={{ fontWeight: 900, fontSize: 16, color: '#ef4444', padding: '14px 16px' }}>
-                      {totals.total.toLocaleString()} ج.م
+                      {totals.total.toLocaleString()} {t('currency')}
                     </td>
                     <td></td>
                   </tr>
@@ -402,25 +387,24 @@ export default function Aging() {
           )}
         </div>
 
-        {/* Legend */}
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ marginBottom: 12, fontSize: 14 }}>
             <i className="fas fa-info-circle" style={{ color: '#6366f1' }}></i>
-            دليل التفسير
+            {t('ag.legend')}
           </h3>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             {[
-              { color: '#6366f1', bg: '#e0e7ff', label: 'لم يحن موعدها', desc: 'تاريخ الاستحقاق في المستقبل' },
-              { color: '#10b981', bg: '#d1fae5', label: 'مقبول', desc: 'أقل من 30 يوم من تاريخ الاستحقاق' },
-              { color: '#f59e0b', bg: '#fef3c7', label: 'تحذير', desc: 'تجاوز 60 يوم — يحتاج متابعة' },
-              { color: '#ef4444', bg: '#fee2e2', label: 'متأخر جداً', desc: 'تجاوز 90 يوم — يستلزم إجراء فوري' },
+              { color: '#6366f1', bg: '#e0e7ff', labelKey: 'ag.l0', descKey: 'ag.d0' },
+              { color: '#10b981', bg: '#d1fae5', labelKey: 'ag.l1', descKey: 'ag.d1' },
+              { color: '#f59e0b', bg: '#fef3c7', labelKey: 'ag.l2', descKey: 'ag.d2' },
+              { color: '#ef4444', bg: '#fee2e2', labelKey: 'ag.l3', descKey: 'ag.d3' },
             ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div key={item.labelKey} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{
                   background: item.bg, color: item.color,
                   padding: '2px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700
-                }}>{item.label}</span>
-                <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>{item.desc}</span>
+                }}>{t(item.labelKey)}</span>
+                <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>{t(item.descKey)}</span>
               </div>
             ))}
           </div>

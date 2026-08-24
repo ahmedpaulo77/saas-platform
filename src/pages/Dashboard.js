@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/common/Sidebar";
 import { getAvailableModules } from "../utils/modules";
+import { useLanguage } from "../i18n/LanguageContext";
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [
@@ -14,8 +15,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-building",
     color: "#6366f1",
     bg: "#eef2ff",
-    title: "إدارة الشركات",
-    desc: "إضافة وتعديل الشركات المسجلة في النظام",
+    titleKey: "dash.c1.t",
+    descKey: "dash.c1.d",
     module: "companies",
   },
   {
@@ -23,8 +24,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-user-friends",
     color: "#10b981",
     bg: "#d1fae5",
-    title: "إدارة العملاء",
-    desc: "إدارة عملاء الشركات وإضافة عملاء جدد",
+    titleKey: "dash.c2.t",
+    descKey: "dash.c2.d",
     module: "clients",
   },
   {
@@ -32,8 +33,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-file-invoice",
     color: "#f59e0b",
     bg: "#fef3c7",
-    title: "إدارة الفواتير",
-    desc: "إنشاء وتتبع الفواتير مع تصدير PDF",
+    titleKey: "dash.c3.t",
+    descKey: "dash.c3.d",
     module: "invoices",
   },
   {
@@ -41,8 +42,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-boxes",
     color: "#8b5cf6",
     bg: "#f3e8ff",
-    title: "إدارة المخزون",
-    desc: "تتبع المنتجات والكميات والأسعار",
+    titleKey: "dash.c4.t",
+    descKey: "dash.c4.d",
     module: "inventory",
   },
   {
@@ -50,8 +51,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-tasks",
     color: "#ec4899",
     bg: "#fdf2f8",
-    title: "إدارة المهام",
-    desc: "توزيع ومتابعة المهام على الفريق",
+    titleKey: "dash.c5.t",
+    descKey: "dash.c5.d",
     module: "tasks",
   },
   {
@@ -59,8 +60,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-project-diagram",
     color: "#f43f5e",
     bg: "#ffe4e6",
-    title: "إدارة المشاريع",
-    desc: "إدارة المشاريع ومتابعة التقدم",
+    titleKey: "dash.c6.t",
+    descKey: "dash.c6.d",
     module: "projects",
   },
   {
@@ -68,8 +69,8 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-users",
     color: "#8b5cf6",
     bg: "#f3e8ff",
-    title: "إدارة المستخدمين",
-    desc: "إدارة المستخدمين والصلاحيات",
+    titleKey: "dash.c7.t",
+    descKey: "dash.c7.d",
     module: "users",
   },
   {
@@ -77,19 +78,22 @@ const ALL_FEATURE_CARDS = [
     icon: "fas fa-chart-pie",
     color: "#06b6d4",
     bg: "#ecfeff",
-    title: "التقارير والإحصائيات",
-    desc: "تقارير شاملة وتصدير Excel",
+    titleKey: "dash.c8.t",
+    descKey: "dash.c8.d",
     module: "reports",
   },
 ];
 
 export default function Dashboard() {
-  const { currentUser, userRole, userCompanyId, userIndustry, logout } = useAuth();
+  const { t } = useLanguage();
+  const { currentUser, userRole, userCompanyId, userIndustry, logout } =
+    useAuth();
   const navigate = useNavigate();
 
-  // الكروت المتاحة حسب المجال
   const availableModules = getAvailableModules(userIndustry, userRole);
-  const featureCards = ALL_FEATURE_CARDS.filter((card) => availableModules.has(card.module));
+  const featureCards = ALL_FEATURE_CARDS.filter((card) =>
+    availableModules.has(card.module)
+  );
   const [stats, setStats] = useState({
     companies: 0,
     clients: 0,
@@ -102,13 +106,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // التأكد من جاهزية صفتك وصلاحياتك قبل تنفيذ الاستعلام
     if (!currentUser) return;
     if (userRole !== "super_admin" && !userCompanyId) return;
 
     setLoading(true);
 
-    // بناء الاستعلامات حسب نوع المستخدم
     const compRef = collection(db, "companies");
     const cliRef = collection(db, "clients");
     const invRef = collection(db, "invoices");
@@ -137,33 +139,30 @@ export default function Dashboard() {
       ? usersRef
       : query(usersRef, where("companyId", "==", userCompanyId));
 
-    // إعداد المشرفين اللحظيين (Listeners)
     const unsubComp = onSnapshot(compQ, (snap) =>
-      setStats((prev) => ({ ...prev, companies: snap.size })),
+      setStats((prev) => ({ ...prev, companies: snap.size }))
     );
     const unsubCli = onSnapshot(cliQ, (snap) =>
-      setStats((prev) => ({ ...prev, clients: snap.size })),
+      setStats((prev) => ({ ...prev, clients: snap.size }))
     );
     const unsubTask = onSnapshot(taskQ, (snap) =>
-      setStats((prev) => ({ ...prev, tasks: snap.size })),
+      setStats((prev) => ({ ...prev, tasks: snap.size }))
     );
     const unsubProj = onSnapshot(projQ, (snap) =>
-      setStats((prev) => ({ ...prev, projects: snap.size })),
+      setStats((prev) => ({ ...prev, projects: snap.size }))
     );
     const unsubUsers = onSnapshot(usersQ, (snap) =>
-      setStats((prev) => ({ ...prev, users: snap.size })),
+      setStats((prev) => ({ ...prev, users: snap.size }))
     );
 
     const unsubInv = onSnapshot(invQ, (snap) => {
       let totalRevenue = 0;
       snap.forEach((doc) => {
         const inv = doc.data();
-        // الإيراد الحقيقي = المبالغ المدفوعة فقط
         if (inv.status === "paid") {
           const amount = parseFloat(inv.amount) || 0;
           totalRevenue += amount;
         } else {
-          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
           const paid = parseFloat(inv.paidAmount) || 0;
           totalRevenue += paid;
         }
@@ -176,7 +175,6 @@ export default function Dashboard() {
       setLoading(false);
     });
 
-    // إغلاق الاستماع عند مغادرة الصفحة لتجنب استهلاك الذاكرة
     return () => {
       unsubComp();
       unsubCli();
@@ -193,10 +191,8 @@ export default function Dashboard() {
       <div className="main-content">
         <div className="header">
           <div>
-            <h1>مرحباً بك 👋</h1>
-            <p className="subtitle">
-              لوحة تحكم SaaS PRO — نظرة عامة على أعمالك
-            </p>
+            <h1>{t("dash.welcome")}</h1>
+            <p className="subtitle">{t("dash.subtitle")}</p>
           </div>
           <div className="user-info">
             <div className="avatar">
@@ -206,7 +202,9 @@ export default function Dashboard() {
               {currentUser?.email}
             </span>
             <span className="role-badge">
-              {userRole === "super_admin" ? "👑 أدمن" : "👤 مستخدم"}
+              {userRole === "super_admin"
+                ? `👑 ${t("role.superAdmin")}`
+                : `👤 ${t("role.user")}`}
             </span>
             <button
               onClick={async () => {
@@ -228,57 +226,57 @@ export default function Dashboard() {
             <div className="stat-value">
               {loading ? "..." : stats.companies}
             </div>
-            <div className="stat-label">الشركات</div>
+            <div className="stat-label">{t("dash.companies")}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon">
               <i className="fas fa-user-friends"></i>
             </div>
             <div className="stat-value">{loading ? "..." : stats.clients}</div>
-            <div className="stat-label">العملاء</div>
+            <div className="stat-label">{t("dash.clients")}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon">
               <i className="fas fa-file-invoice"></i>
             </div>
             <div className="stat-value">{loading ? "..." : stats.invoices}</div>
-            <div className="stat-label">الفواتير</div>
+            <div className="stat-label">{t("dash.invoices")}</div>
           </div>
           <div className="stat-card pink">
             <div className="stat-icon">
               <i className="fas fa-tasks"></i>
             </div>
             <div className="stat-value">{loading ? "..." : stats.tasks}</div>
-            <div className="stat-label">المهام</div>
+            <div className="stat-label">{t("dash.tasks")}</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon">
               <i className="fas fa-project-diagram"></i>
             </div>
             <div className="stat-value">{loading ? "..." : stats.projects}</div>
-            <div className="stat-label">المشاريع</div>
+            <div className="stat-label">{t("dash.projects")}</div>
           </div>
           <div className="stat-card purple">
             <div className="stat-icon">
               <i className="fas fa-users"></i>
             </div>
             <div className="stat-value">{loading ? "..." : stats.users}</div>
-            <div className="stat-label">المستخدمين</div>
+            <div className="stat-label">{t("dash.users")}</div>
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon">
               <i className="fas fa-money-bill-wave"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 22 }}>
-              {loading ? "..." : stats.revenue.toLocaleString()}{" "}
+              {loading ? "..." : stats.revenue.toLocaleString()}
             </div>
-            <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
+            <div className="stat-label">{t("dash.revenue")}</div>
           </div>
         </div>
 
         <div style={{ marginBottom: 12 }}>
           <div className="section-title">
-            <i className="fas fa-th-large"></i> الوحدات الرئيسية
+            <i className="fas fa-th-large"></i> {t("dash.modules")}
           </div>
         </div>
         <div className="grid-3">
@@ -296,14 +294,14 @@ export default function Dashboard() {
                 <i className={card.icon}></i>
               </div>
               <div className="card-body">
-                <h3 style={{ color: "#1e293b" }}>{card.title}</h3>
-                <p>{card.desc}</p>
+                <h3 style={{ color: "#1e293b" }}>{t(card.titleKey)}</h3>
+                <p>{t(card.descKey)}</p>
               </div>
               <button
                 onClick={() => navigate(card.to)}
                 className="btn-primary btn-block"
               >
-                <i className="fas fa-arrow-left"></i> الانتقال
+                <i className="fas fa-arrow-left"></i> {t("dash.go")}
               </button>
             </div>
           ))}
@@ -319,11 +317,10 @@ export default function Dashboard() {
             }}
           >
             <h3 style={{ color: "white", marginBottom: 8 }}>
-              <i className="fas fa-crown"></i> ترقية الاشتراك
+              <i className="fas fa-crown"></i> {t("dash.upgrade")}
             </h3>
             <p style={{ color: "rgba(255,255,255,0.75)", marginBottom: 20 }}>
-              استفد من جميع الميزات المتقدمة — فواتير PDF، تقارير مفصلة، دعم
-              أولوية
+              {t("dash.upgradeDesc")}
             </p>
             <button
               onClick={() => navigate("/subscription")}
@@ -342,7 +339,7 @@ export default function Dashboard() {
                 gap: 8,
               }}
             >
-              <i className="fas fa-arrow-left"></i> عرض الباقات
+              <i className="fas fa-arrow-left"></i> {t("dash.viewPlans")}
             </button>
           </div>
           <div
@@ -354,10 +351,10 @@ export default function Dashboard() {
             }}
           >
             <h3 style={{ color: "white", marginBottom: 8 }}>
-              <i className="fas fa-chart-line"></i> التقارير والإحصائيات
+              <i className="fas fa-chart-line"></i> {t("dash.reports")}
             </h3>
             <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: 20 }}>
-              تصدير بياناتك إلى Excel وعرض تحليلات مفصلة عن أداء أعمالك
+              {t("dash.reportsDesc")}
             </p>
             <button
               onClick={() => navigate("/reports")}
@@ -376,7 +373,7 @@ export default function Dashboard() {
                 gap: 8,
               }}
             >
-              <i className="fas fa-arrow-left"></i> عرض التقارير
+              <i className="fas fa-arrow-left"></i> {t("dash.viewReports")}
             </button>
           </div>
         </div>

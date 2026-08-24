@@ -1,4 +1,4 @@
-// src/pages/Reports.js - نسخة مُصلحة (أسماء بدل IDs في تصدير الفواتير)
+// src/pages/Reports.js - مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -20,36 +20,16 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const exportItems = [
-  {
-    type: "companies",
-    label: "الشركات",
-    icon: "fas fa-building",
-    color: "#6366f1",
-  },
-  {
-    type: "clients",
-    label: "العملاء",
-    icon: "fas fa-user-friends",
-    color: "#10b981",
-  },
-  {
-    type: "invoices",
-    label: "الفواتير",
-    icon: "fas fa-file-invoice",
-    color: "#f59e0b",
-  },
-  {
-    type: "products",
-    label: "المنتجات",
-    icon: "fas fa-boxes",
-    color: "#8b5cf6",
-  },
-  { type: "tasks", label: "المهام", icon: "fas fa-tasks", color: "#ec4899" },
+  { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1" },
+  { type: "clients", labelKey: "rep.file.clients", icon: "fas fa-user-friends", color: "#10b981" },
+  { type: "invoices", labelKey: "rep.file.invoices", icon: "fas fa-file-invoice", color: "#f59e0b" },
+  { type: "products", labelKey: "rep.file.products", icon: "fas fa-boxes", color: "#8b5cf6" },
+  { type: "tasks", labelKey: "rep.file.tasks", icon: "fas fa-tasks", color: "#ec4899" },
 ];
 
-// Custom Tooltip للـ Charts
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -83,6 +63,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Reports() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const superAdmin = userRole === "super_admin";
 
@@ -108,7 +89,6 @@ export default function Reports() {
   const [exporting, setExporting] = useState(null);
   const [clientsMap, setClientsMap] = useState({});
 
-  // Chart data states
   const [monthlyRevenue, setMonthlyRevenue] = useState([]);
   const [invoiceStatusData, setInvoiceStatusData] = useState([]);
   const [taskStatusData, setTaskStatusData] = useState([]);
@@ -125,7 +105,6 @@ export default function Reports() {
         companiesData = snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
       }
 
-      // جلب البيانات
       let clientsData = [];
       let invoicesData = [];
       let productsData = [];
@@ -143,7 +122,6 @@ export default function Reports() {
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } else {
-        // استخدام queries مُفعّلة بـ where في Firestore نفسه (عزل كامل)
         const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
           getDocs(query(collection(db, "clients"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
@@ -168,17 +146,14 @@ export default function Reports() {
         overdue = 0;
       invoicesData.forEach((inv) => {
         const amount = parseFloat(inv.amount) || 0;
-        // الإيراد الحقيقي = المبالغ المدفوعة فقط
         if (inv.status === "paid") {
           revenue += amount;
           paid++;
         } else if (inv.status === "pending") {
           pending++;
-          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
           revenue += parseFloat(inv.paidAmount) || 0;
         } else if (inv.status === "overdue") {
           overdue++;
-          // لو فيه دفع جزئي — المدفوع جزء من الإيراد
           revenue += parseFloat(inv.paidAmount) || 0;
         }
       });
@@ -210,7 +185,6 @@ export default function Reports() {
         pendingTasks,
       });
 
-      // ── Chart 1: إيرادات آخر 6 شهور ──
       const monthNames = [
         "يناير",
         "فبراير",
@@ -228,7 +202,6 @@ export default function Reports() {
       const revenueMap = {};
       invoicesData.forEach((inv) => {
         if (!inv.date) return;
-        // الإيراد الشهري = المدفوع الفعلي فقط
         let paidAmount = 0;
         if (inv.status === "paid") {
           paidAmount = parseFloat(inv.amount) || 0;
@@ -252,29 +225,26 @@ export default function Reports() {
       }
       setMonthlyRevenue(last6);
 
-      // ── Chart 2: حالة الفواتير (Pie) ──
       setInvoiceStatusData(
         [
-          { name: "مدفوعة", value: paid, fill: "#10b981" },
-          { name: "قيد الانتظار", value: pending, fill: "#f59e0b" },
-          { name: "متأخرة", value: overdue, fill: "#ef4444" },
+          { name: t('rep.paid'), value: paid, fill: "#10b981" },
+          { name: t('rep.wait'), value: pending, fill: "#f59e0b" },
+          { name: t('rep.over'), value: overdue, fill: "#ef4444" },
         ].filter((d) => d.value > 0),
       );
 
-      // ── Chart 3: حالة المهام (Bar) ──
       setTaskStatusData([
-        { name: "منجزة", القيمة: completed, fill: "#10b981" },
-        { name: "جاري التنفيذ", القيمة: inProgress, fill: "#6366f1" },
-        { name: "قيد الانتظار", القيمة: pendingTasks, fill: "#f59e0b" },
+        { name: t('rep.done'), القيمة: completed, fill: "#10b981" },
+        { name: t('rep.progress'), القيمة: inProgress, fill: "#6366f1" },
+        { name: t('rep.wait'), القيمة: pendingTasks, fill: "#f59e0b" },
       ]);
 
-      // ── Chart 4: أعلى منتجات بالسعر ──
       const sorted = [...productsData]
         .sort((a, b) => (b.price || 0) - (a.price || 0))
         .slice(0, 6);
       setTopProducts(
         sorted.map((p) => ({
-          name: p.name?.slice(0, 12) || "منتج",
+          name: p.name?.slice(0, 12) || t('rep.product'),
           السعر: p.price || 0,
           الكمية: p.quantity || 0,
         })),
@@ -298,13 +268,12 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [userCompanyId, superAdmin]);
+  }, [userCompanyId, superAdmin, t]);
 
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // ✅ دالة تصدير Excel (مُصلحة: أسماء بدل IDs في الفواتير)
   async function exportToExcel(type) {
     setExporting(type);
     await new Promise((r) => setTimeout(r, 300));
@@ -316,26 +285,25 @@ export default function Reports() {
     switch (type) {
       case "companies":
         data = allData.companiesData || [];
-        fileName = "الشركات.xlsx";
+        fileName = t('rep.file.companies');
         headers = {
-          name: "اسم الشركة",
-          email: "البريد الإلكتروني",
-          plan: "الباقة",
-          isActive: "نشط",
+          name: t('rep.col.company'),
+          email: t('rep.col.email'),
+          plan: t('rep.col.plan'),
+          isActive: t('rep.col.active'),
         };
         break;
       case "clients":
         data = allData.clientsData || [];
-        fileName = "العملاء.xlsx";
+        fileName = t('rep.file.clients');
         headers = {
-          name: "اسم العميل",
-          email: "البريد الإلكتروني",
-          phone: "الهاتف",
-          companyId: "معرف الشركة",
+          name: t('rep.col.client'),
+          email: t('rep.col.email'),
+          phone: t('rep.col.phone'),
+          companyId: t('rep.col.companyId'),
         };
         break;
       case "invoices": {
-        // بناء خرائط سريعة لتحويل الـ IDs لأسماء
         const clientNameMap = {};
         (allData.clientsData || []).forEach((c) => {
           clientNameMap[c.id] = c.name;
@@ -347,44 +315,44 @@ export default function Reports() {
 
         data = (allData.invoicesData || []).map((inv) => ({
           ...inv,
-          clientId: clientNameMap[inv.clientId] || "غير محدد",
-          productId: productNameMap[inv.productId] || "غير محدد",
+          clientId: clientNameMap[inv.clientId] || t('common.unspecified'),
+          productId: productNameMap[inv.productId] || t('common.unspecified'),
         }));
 
-        fileName = "الفواتير.xlsx";
+        fileName = t('rep.file.invoices');
         headers = {
-          id: "رقم الفاتورة",
-          clientId: "اسم العميل",
-          productId: "اسم المنتج",
-          quantity: "الكمية",
-          amount: "المبلغ",
-          status: "الحالة",
-          date: "التاريخ",
-          description: "الوصف",
+          id: t('rep.col.invId'),
+          clientId: t('rep.col.client'),
+          productId: t('rep.col.product'),
+          quantity: t('rep.col.qty'),
+          amount: t('rep.col.amount'),
+          status: t('rep.col.status'),
+          date: t('rep.col.date'),
+          description: t('rep.col.desc'),
         };
         break;
       }
       case "products":
         data = allData.productsData || [];
-        fileName = "المنتجات.xlsx";
+        fileName = t('rep.file.products');
         headers = {
-          name: "اسم المنتج",
-          category: "الفئة",
-          quantity: "الكمية",
-          price: "السعر",
-          description: "الوصف",
+          name: t('rep.col.product'),
+          category: t('rep.col.cat'),
+          quantity: t('rep.col.qty'),
+          price: t('rep.col.price'),
+          description: t('rep.col.desc'),
         };
         break;
       case "tasks":
         data = allData.tasksData || [];
-        fileName = "المهام.xlsx";
+        fileName = t('rep.file.tasks');
         headers = {
-          title: "عنوان المهمة",
-          description: "الوصف",
-          priority: "الأولوية",
-          status: "الحالة",
-          dueDate: "تاريخ الاستحقاق",
-          assignedTo: "المسؤول",
+          title: t('rep.col.task'),
+          description: t('rep.col.desc'),
+          priority: t('rep.col.priority'),
+          status: t('rep.col.status'),
+          dueDate: t('rep.col.due'),
+          assignedTo: t('rep.col.assignee'),
         };
         break;
       default:
@@ -411,7 +379,7 @@ export default function Reports() {
   if (loading)
     return (
       <div className="loading">
-        <div className="spinner"></div>جاري تحميل التقارير...
+        <div className="spinner"></div>{t('rep.loading')}
       </div>
     );
 
@@ -428,7 +396,6 @@ export default function Reports() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        {/* Header */}
         <div className="header">
           <div>
             <h1>
@@ -436,9 +403,9 @@ export default function Reports() {
                 className="fas fa-chart-pie"
                 style={{ color: "#6366f1", marginLeft: 10 }}
               ></i>
-              التقارير والإحصائيات
+              {t('rep.title')}
             </h1>
-            <p className="subtitle">تحليلات شاملة وبيانية لأداء أعمالك</p>
+            <p className="subtitle">{t('rep.subtitle')}</p>
           </div>
           <button
             onClick={() => {
@@ -447,49 +414,18 @@ export default function Reports() {
             }}
             className="btn-secondary"
           >
-            <i className="fas fa-sync-alt"></i> تحديث
+            <i className="fas fa-sync-alt"></i> {t('common.refresh')}
           </button>
         </div>
 
-        {/* Stats Row */}
         <div className="stats-row">
           {[
-            {
-              label: "الشركات",
-              value: stats.companies,
-              icon: "fas fa-building",
-              cls: "indigo",
-            },
-            {
-              label: "العملاء",
-              value: stats.clients,
-              icon: "fas fa-user-friends",
-              cls: "green",
-            },
-            {
-              label: "الفواتير",
-              value: stats.invoices,
-              icon: "fas fa-file-invoice",
-              cls: "amber",
-            },
-            {
-              label: "المنتجات",
-              value: stats.products,
-              icon: "fas fa-boxes",
-              cls: "purple",
-            },
-            {
-              label: "المهام",
-              value: stats.tasks,
-              icon: "fas fa-tasks",
-              cls: "pink",
-            },
-            {
-              label: "الإيرادات",
-              value: stats.totalRevenue.toLocaleString() + " ج",
-              icon: "fas fa-money-bill-wave",
-              cls: "cyan",
-            },
+            { label: t('rep.companies'), value: stats.companies, icon: "fas fa-building", cls: "indigo" },
+            { label: t('rep.clients'), value: stats.clients, icon: "fas fa-user-friends", cls: "green" },
+            { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber" },
+            { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple" },
+            { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink" },
+            { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan" },
           ].map((s) => (
             <div key={s.label} className={`stat-card ${s.cls}`}>
               <div className="stat-icon">
@@ -497,7 +433,7 @@ export default function Reports() {
               </div>
               <div
                 className="stat-value"
-                style={{ fontSize: s.label === "الإيرادات" ? 18 : 30 }}
+                style={{ fontSize: s.label === t('rep.revenue') ? 18 : 30 }}
               >
                 {s.value}
               </div>
@@ -506,18 +442,17 @@ export default function Reports() {
           ))}
         </div>
 
-        {/* ── Chart 1: الإيرادات الشهرية ── */}
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 20 }}>
             <i className="fas fa-chart-area" style={{ color: "#6366f1" }}></i>
-            الإيرادات الشهرية — آخر 6 أشهر
+            {t('rep.monthly')}
           </h3>
           {monthlyRevenue.every((m) => m["الإيرادات"] === 0) ? (
             <div className="empty-state" style={{ padding: "30px 0" }}>
               <div className="empty-icon">
                 <i className="fas fa-chart-area"></i>
               </div>
-              <p>لا توجد بيانات إيرادات بعد</p>
+              <p>{t('rep.noRevenue')}</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
@@ -555,20 +490,18 @@ export default function Reports() {
           )}
         </div>
 
-        {/* ── Chart 2 + 3 ── */}
         <div className="grid-2" style={{ marginBottom: 24 }}>
-          {/* Pie — حالة الفواتير */}
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-chart-pie" style={{ color: "#f59e0b" }}></i>
-              توزيع حالات الفواتير
+              {t('rep.invDist')}
             </h3>
             {invoiceStatusData.length === 0 ? (
               <div className="empty-state" style={{ padding: "24px 0" }}>
                 <div className="empty-icon">
                   <i className="fas fa-file-invoice"></i>
                 </div>
-                <p>لا توجد فواتير بعد</p>
+                <p>{t('rep.noInv')}</p>
               </div>
             ) : (
               <>
@@ -614,7 +547,7 @@ export default function Reports() {
                       fontWeight: 600,
                     }}
                   >
-                    معدل السداد
+                    {t('rep.payRate')}
                   </span>
                   <span
                     style={{
@@ -630,18 +563,17 @@ export default function Reports() {
             )}
           </div>
 
-          {/* Bar — حالة المهام */}
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-chart-bar" style={{ color: "#8b5cf6" }}></i>
-              توزيع المهام حسب الحالة
+              {t('rep.taskDist')}
             </h3>
             {stats.tasks === 0 ? (
               <div className="empty-state" style={{ padding: "24px 0" }}>
                 <div className="empty-icon">
                   <i className="fas fa-tasks"></i>
                 </div>
-                <p>لا توجد مهام بعد</p>
+                <p>{t('rep.noTasks')}</p>
               </div>
             ) : (
               <>
@@ -685,7 +617,7 @@ export default function Reports() {
                   <span
                     style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}
                   >
-                    معدل الإنجاز
+                    {t('rep.taskRate')}
                   </span>
                   <span
                     style={{ fontSize: 16, fontWeight: 800, color: "#16a34a" }}
@@ -698,12 +630,11 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* ── Chart 4: أعلى المنتجات سعراً ── */}
         {topProducts.length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 20 }}>
               <i className="fas fa-boxes" style={{ color: "#8b5cf6" }}></i>
-              أعلى المنتجات سعراً
+              {t('rep.topPrice')}
             </h3>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart
@@ -739,7 +670,6 @@ export default function Reports() {
           </div>
         )}
 
-        {/* Inventory Alert + Task Progress */}
         <div className="grid-2" style={{ marginBottom: 24 }}>
           <div className="card">
             <h3 style={{ marginBottom: 14 }}>
@@ -749,7 +679,7 @@ export default function Reports() {
                   color: stats.lowStockProducts > 0 ? "#ef4444" : "#10b981",
                 }}
               ></i>
-              تنبيهات المخزون
+              {t('rep.stockAlert')}
             </h3>
             <div
               style={{
@@ -775,8 +705,8 @@ export default function Reports() {
                   }}
                 >
                   {stats.lowStockProducts > 0
-                    ? `${stats.lowStockProducts} منتج أقل من 5 وحدات`
-                    : "جميع المنتجات بمستويات جيدة ✓"}
+                    ? `${stats.lowStockProducts} ${t('rep.lowStock')}`
+                    : t('rep.stockOk')}
                 </span>
                 <span
                   style={{
@@ -805,7 +735,7 @@ export default function Reports() {
                 <span style={{ fontSize: 13, color: "var(--gray-700)" }}>
                   {p.name}
                 </span>
-                <span className="badge badge-expired">{p.quantity} متبقي</span>
+                <span className="badge badge-expired">{p.quantity} {t('rep.left')}</span>
               </div>
             ))}
           </div>
@@ -813,23 +743,23 @@ export default function Reports() {
           <div className="card">
             <h3 style={{ marginBottom: 14 }}>
               <i className="fas fa-tasks" style={{ color: "#6366f1" }}></i>
-              ملخص المهام
+              {t('rep.taskSummary')}
             </h3>
             {[
               {
-                label: "منجزة",
+                label: t('rep.done'),
                 value: stats.completedTasks,
                 total: stats.tasks,
                 color: "#10b981",
               },
               {
-                label: "جاري التنفيذ",
+                label: t('rep.progress'),
                 value: stats.inProgressTasks,
                 total: stats.tasks,
                 color: "#6366f1",
               },
               {
-                label: "قيد الانتظار",
+                label: t('rep.wait'),
                 value: stats.pendingTasks,
                 total: stats.tasks,
                 color: "#f59e0b",
@@ -888,11 +818,10 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Export */}
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 16 }}>
             <i className="fas fa-file-excel" style={{ color: "#10b981" }}></i>
-            تصدير البيانات إلى Excel
+            {t('common.exportExcel')}
           </h3>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {exportItems.map((item) => (
@@ -908,17 +837,16 @@ export default function Reports() {
                 ) : (
                   <i className={item.icon}></i>
                 )}
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Recent Invoices Table */}
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-history"></i> أحدث الفواتير
+              <i className="fas fa-history"></i> {t('rep.recent')}
             </h3>
             <span className="table-count">{recentInvoices.length}</span>
           </div>
@@ -926,17 +854,17 @@ export default function Reports() {
             {recentInvoices.length === 0 ? (
               <div className="table-empty">
                 <i className="fas fa-file-invoice"></i>
-                <p>لا توجد فواتير بعد</p>
+                <p>{t('rep.noInv')}</p>
               </div>
             ) : (
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>العميل</th>
-                    <th>المبلغ</th>
-                    <th>الحالة</th>
-                    <th>التاريخ</th>
+                    <th>{t('rep.col.client')}</th>
+                    <th>{t('rep.col.amount')}</th>
+                    <th>{t('rep.col.status')}</th>
+                    <th>{t('rep.col.date')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -946,20 +874,20 @@ export default function Reports() {
                         {i + 1}
                       </td>
                       <td style={{ fontWeight: 600 }}>
-                        {clientsMap[inv.clientId] || "غير محدد"}
+                        {clientsMap[inv.clientId] || t('common.unspecified')}
                       </td>
                       <td style={{ fontWeight: 700 }}>
-                        {(inv.amount || 0).toLocaleString()} ج.م
+                        {(inv.amount || 0).toLocaleString()} {t('currency')}
                       </td>
                       <td>
                         <span
                           className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}
                         >
                           {inv.status === "paid"
-                            ? "✓ مدفوعة"
+                            ? t('rep.statusPaid')
                             : inv.status === "pending"
-                              ? "⏳ انتظار"
-                              : "⚠ متأخرة"}
+                              ? t('rep.statusWait')
+                              : t('rep.statusOver')}
                         </span>
                       </td>
                       <td style={{ color: "var(--gray-500)", fontSize: 13 }}>

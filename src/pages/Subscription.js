@@ -1,35 +1,36 @@
-// src/pages/Subscription.js - نسخة مصححة (مع تحسين المظهر والنصوص)
+// src/pages/Subscription.js - مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { db } from "../firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 const PLANS = [
   {
     id: "standard",
-    name: "Standard",
-    nameAr: "الباقة الكاملة",
+    nameAr: "sub.planName",
     monthlyPrice: 1000,
     yearlyPrice: 10000,
     color: "#6366f1",
     featured: true,
-    description: "كل المميزات — بدون قيود",
-    features: [
-      "مستخدمون غير محدودون",
-      "عملاء غير محدودون",
-      "فواتير + تصدير PDF",
-      "إدارة مخزون كاملة",
-      "إدارة المهام",
-      "تقارير بيانية متقدمة",
-      "تصدير Excel",
-      "إشعارات ذكية",
-      "دعم فني 24/7",
+    descriptionKey: "sub.planDesc",
+    featuresKeys: [
+      "landing.pf1",
+      "landing.pf2",
+      "landing.pf3",
+      "landing.pf4",
+      "landing.pf5",
+      "landing.pf6",
+      "landing.pf7",
+      "landing.pf8",
+      "landing.pf9",
     ],
   },
 ];
 
 export default function Subscription() {
+  const { t } = useLanguage();
   const { userCompanyId } = useAuth();
   const [billing, setBilling] = useState("monthly");
   const [currentPlan, setCurrentPlan] = useState(null);
@@ -63,7 +64,6 @@ export default function Subscription() {
   async function handleSubscribe(plan) {
     setLoadingPlan(plan.id);
     try {
-      // Simulation (Demo)
       await new Promise((r) => setTimeout(r, 1500));
 
       if (userCompanyId) {
@@ -83,20 +83,17 @@ export default function Subscription() {
         setCurrentPlan(plan.id);
         setSubStatus("active");
         setSubEndDate(endDate.toISOString());
-        alert(`✅ تم تفعيل باقة ${plan.nameAr} بنجاح!`);
+        alert(t("sub.ok", { name: t(plan.nameAr) }));
       } else {
-        alert(
-          "✅ سيتم تحويلك لـ Stripe لإتمام الدفع.\n\nباقة: " +
-            plan.nameAr +
-            "\nالسعر: " +
-            (billing === "monthly" ? plan.monthlyPrice : plan.yearlyPrice) +
-            " ج.م/" +
-            (billing === "monthly" ? "شهر" : "سنة"),
-        );
+        alert(t("sub.stripe", {
+          name: t(plan.nameAr),
+          price: billing === "monthly" ? plan.monthlyPrice : plan.yearlyPrice,
+          period: billing === "monthly" ? t("common.month") : t("common.year"),
+        }));
       }
     } catch (e) {
       console.error(e);
-      alert("حدث خطأ. حاول مرة أخرى.");
+      alert(t("sub.fail"));
     } finally {
       setLoadingPlan(null);
     }
@@ -110,7 +107,7 @@ export default function Subscription() {
   if (fetching)
     return (
       <div className="loading">
-        <div className="spinner"></div>جاري التحميل...
+        <div className="spinner"></div>{t("sub.loading")}
       </div>
     );
 
@@ -118,21 +115,16 @@ export default function Subscription() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        {/* Header */}
         <div className="header">
           <div>
             <h1>
-              <i
-                className="fas fa-crown"
-                style={{ color: "#f59e0b", marginLeft: 10 }}
-              ></i>
-              إدارة الاشتراك
+              <i className="fas fa-crown" style={{ color: "#f59e0b", marginLeft: 10 }}></i>
+              {t("sub.title")}
             </h1>
-            <p className="subtitle">اختر الباقة المناسبة لأعمالك</p>
+            <p className="subtitle">{t("sub.subtitle")}</p>
           </div>
         </div>
 
-        {/* Current plan banner */}
         {currentPlan && (
           <div
             style={{
@@ -169,32 +161,31 @@ export default function Subscription() {
               </div>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 2 }}>
-                  الباقة الحالية: {activePlan?.nameAr || currentPlan}
+                  {t("sub.current", { name: activePlan ? t(activePlan.nameAr) : currentPlan })}
                 </div>
                 <div style={{ fontSize: 13, opacity: 0.85 }}>
                   {subStatus === "active"
-                    ? "✓ نشط"
+                    ? t("sub.active")
                     : subStatus === "trial"
-                      ? "⏱ تجريبي"
-                      : "✗ منتهي"}
-                  {daysLeft !== null && ` · ${daysLeft} يوم متبقي`}
+                      ? t("sub.trial")
+                      : t("sub.expired")}
+                  {daysLeft !== null && ` · ${t("sub.daysLeft", { n: daysLeft })}`}
                 </div>
               </div>
             </div>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: 4 }}>
-                تاريخ الانتهاء
+                {t("sub.endDate")}
               </div>
               <div style={{ fontSize: 16, fontWeight: 700 }}>
                 {subEndDate
                   ? new Date(subEndDate).toLocaleDateString()
-                  : "غير محدد"}{" "}
+                  : t("common.unspecified")}
               </div>
             </div>
           </div>
         )}
 
-        {/* Billing Toggle */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h2
             style={{
@@ -204,11 +195,10 @@ export default function Subscription() {
               marginBottom: 6,
             }}
           >
-            اختر باقتك
+            {t("sub.choose")}
           </h2>
           <p style={{ color: "#64748b", marginBottom: 20 }}>
-            ادفع سنوياً ووفر حتى{" "}
-            <strong style={{ color: "#4f46e5" }}>17%</strong>
+            {t("sub.saveYearly")} <strong style={{ color: "#4f46e5" }}>17%</strong>
           </p>
           <div
             style={{
@@ -238,7 +228,7 @@ export default function Subscription() {
                     billing === b ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                 }}
               >
-                {b === "monthly" ? "شهرية" : "سنوية"}
+                {b === "monthly" ? t("common.monthly") : t("common.yearly")}
                 {b === "yearly" && (
                   <span
                     style={{
@@ -250,7 +240,7 @@ export default function Subscription() {
                       fontSize: 10,
                     }}
                   >
-                    وفر 17%
+                    {t("landing.save17")}
                   </span>
                 )}
               </button>
@@ -258,7 +248,6 @@ export default function Subscription() {
           </div>
         </div>
 
-        {/* Pricing Cards */}
         <div
           style={{
             display: "grid",
@@ -309,7 +298,7 @@ export default function Subscription() {
                       letterSpacing: "0.5px",
                     }}
                   >
-                    الأكثر شيوعاً
+                    {t("landing.popular")}
                   </span>
                 )}
 
@@ -327,27 +316,23 @@ export default function Subscription() {
                       fontWeight: 700,
                     }}
                   >
-                    ✓ مفعّل
+                    ✓ {t("sub.currentPlan")}
                   </div>
                 )}
 
                 <div style={{ fontSize: 28, marginBottom: 8 }}>
-                  {plan.id === "starter"
-                    ? "🚀"
-                    : plan.id === "professional"
-                      ? "⚡"
-                      : "🏢"}
+                  ⚡
                 </div>
 
                 <div
                   style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}
                 >
-                  {plan.nameAr}
+                  {t(plan.nameAr)}
                 </div>
                 <div
                   style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}
                 >
-                  {plan.description}
+                  {t(plan.descriptionKey)}
                 </div>
 
                 <div style={{ margin: "16px 0" }}>
@@ -356,12 +341,12 @@ export default function Subscription() {
                   >
                     {price.toLocaleString()}
                   </span>
-                  <span style={{ color: "#64748b", fontSize: 14 }}> ج.م</span>
+                  <span style={{ color: "#64748b", fontSize: 14 }}> {t("currency")}</span>
                 </div>
                 <div
                   style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}
                 >
-                  /{billing === "monthly" ? "شهر" : "سنة"}
+                  /{billing === "monthly" ? t("common.month") : t("common.year")}
                 </div>
 
                 <ul
@@ -372,7 +357,7 @@ export default function Subscription() {
                     flex: 1,
                   }}
                 >
-                  {plan.features.map((f, i) => (
+                  {plan.featuresKeys.map((fKey, i) => (
                     <li
                       key={i}
                       style={{
@@ -388,7 +373,7 @@ export default function Subscription() {
                         className="fas fa-check-circle"
                         style={{ color: "#4f46e5" }}
                       ></i>
-                      {f}
+                      {t(fKey)}
                     </li>
                   ))}
                 </ul>
@@ -416,16 +401,15 @@ export default function Subscription() {
                 >
                   {isLoading ? (
                     <>
-                      <i className="fas fa-spinner fa-spin"></i> جاري
-                      المعالجة...
+                      <i className="fas fa-spinner fa-spin"></i> {t("sub.working")}
                     </>
                   ) : isActive ? (
                     <>
-                      <i className="fas fa-check"></i> الباقة الحالية
+                      <i className="fas fa-check"></i> {t("sub.currentPlan")}
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-arrow-left"></i> اشترك الآن
+                      <i className="fas fa-arrow-left"></i> {t("sub.subscribe")}
                     </>
                   )}
                 </button>
@@ -434,7 +418,6 @@ export default function Subscription() {
           })}
         </div>
 
-        {/* Stripe Notice */}
         <div
           className="card"
           style={{

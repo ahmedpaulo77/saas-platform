@@ -1,11 +1,13 @@
-// src/pages/Notifications.js - مع عزل البيانات حسب الشركة
+// src/pages/Notifications.js - مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { getDocs } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Notifications() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +18,7 @@ export default function Notifications() {
       const list = [];
 
       const productsSnap = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId),
+        getScopedQuery("inventory", userRole, userCompanyId)
       );
       productsSnap.forEach((d) => {
         const p = { id: d.id, ...d.data() };
@@ -25,15 +27,15 @@ export default function Notifications() {
             id: `stock-${p.id}`,
             type: "warning",
             icon: "fas fa-exclamation-triangle",
-            title: `تنبيه مخزون: ${p.name}`,
-            message: `الكمية المتبقية ${p.quantity} وحدة — أقل من الحد الأدنى (5)`,
+            title: t("nt.stockTitle", { name: p.name }),
+            message: t("nt.stockMsg", { qty: p.quantity }),
             date: new Date().toISOString(),
           });
         }
       });
 
       const invoicesSnap = await getDocs(
-        getScopedQuery("invoices", userRole, userCompanyId),
+        getScopedQuery("invoices", userRole, userCompanyId)
       );
       invoicesSnap.forEach((d) => {
         const inv = { id: d.id, ...d.data() };
@@ -42,15 +44,15 @@ export default function Notifications() {
             id: `inv-${inv.id}`,
             type: "danger",
             icon: "fas fa-file-invoice",
-            title: "فاتورة متأخرة السداد",
-            message: `فاتورة بمبلغ ${inv.amount?.toLocaleString()} ج.م تحتاج إلى مراجعة`,
+            title: t("nt.invTitle"),
+            message: t("nt.invMsg", { amount: inv.amount?.toLocaleString() }),
             date: inv.date || new Date().toISOString(),
           });
         }
       });
 
       const tasksSnap = await getDocs(
-        getScopedQuery("tasks", userRole, userCompanyId),
+        getScopedQuery("tasks", userRole, userCompanyId)
       );
       tasksSnap.forEach((d) => {
         const task = { id: d.id, ...d.data() };
@@ -58,12 +60,16 @@ export default function Notifications() {
           const due = new Date(task.dueDate);
           const diff = Math.ceil((due - new Date()) / 86400000);
           if (diff <= 3 && diff >= 0) {
+            const when = diff === 0 ? t("nt.taskToday") : t("nt.taskDays", { n: diff });
             list.push({
               id: `task-${task.id}`,
               type: "info",
               icon: "fas fa-tasks",
-              title: `مهمة تستحق قريباً: ${task.title}`,
-              message: `تاريخ الاستحقاق: ${due.toLocaleDateString()} — ${diff === 0 ? "اليوم!" : `بعد ${diff} أيام`}`,
+              title: t("nt.taskTitle", { title: task.title }),
+              message: t("nt.taskMsg", {
+                date: due.toLocaleDateString(),
+                when: when,
+              }),
               date: task.dueDate,
             });
           }
@@ -77,7 +83,7 @@ export default function Notifications() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, t]);
 
   useEffect(() => {
     fetchNotifications();
@@ -98,7 +104,7 @@ export default function Notifications() {
   if (loading)
     return (
       <div className="loading">
-        <div className="spinner"></div>جاري تحميل الإشعارات...
+        <div className="spinner"></div>{t("common.loading")}
       </div>
     );
 
@@ -113,9 +119,9 @@ export default function Notifications() {
                 className="fas fa-bell"
                 style={{ color: "#6366f1", marginLeft: 10 }}
               ></i>
-              الإشعارات
+              {t("nt.title")}
             </h1>
-            <p className="subtitle">مراقبة تنبيهات المخزون والفواتير والمهام</p>
+            <p className="subtitle">{t("nt.subtitle")}</p>
           </div>
           <button
             onClick={() => {
@@ -124,11 +130,10 @@ export default function Notifications() {
             }}
             className="btn-secondary"
           >
-            <i className="fas fa-sync-alt"></i> تحديث
+            <i className="fas fa-sync-alt"></i> {t("common.refresh")}
           </button>
         </div>
 
-        {/* Stats */}
         <div
           className="stats-row"
           style={{
@@ -141,32 +146,31 @@ export default function Notifications() {
               <i className="fas fa-bell"></i>
             </div>
             <div className="stat-value">{counts.all}</div>
-            <div className="stat-label">إجمالي الإشعارات</div>
+            <div className="stat-label">{t("nt.total")}</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon">
               <i className="fas fa-exclamation-circle"></i>
             </div>
             <div className="stat-value">{counts.danger}</div>
-            <div className="stat-label">عاجل</div>
+            <div className="stat-label">{t("nt.urgent")}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon">
               <i className="fas fa-exclamation-triangle"></i>
             </div>
             <div className="stat-value">{counts.warning}</div>
-            <div className="stat-label">تنبيهات</div>
+            <div className="stat-label">{t("nt.warn")}</div>
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon">
               <i className="fas fa-info-circle"></i>
             </div>
             <div className="stat-value">{counts.info}</div>
-            <div className="stat-label">معلومات</div>
+            <div className="stat-label">{t("nt.info")}</div>
           </div>
         </div>
 
-        {/* Filter tabs */}
         <div
           style={{
             display: "flex",
@@ -176,14 +180,10 @@ export default function Notifications() {
           }}
         >
           {[
-            { key: "all", label: "الكل", icon: "fas fa-list" },
-            { key: "danger", label: "عاجل", icon: "fas fa-exclamation-circle" },
-            {
-              key: "warning",
-              label: "تنبيهات",
-              icon: "fas fa-exclamation-triangle",
-            },
-            { key: "info", label: "معلومات", icon: "fas fa-info-circle" },
+            { key: "all", label: t("nt.all"), icon: "fas fa-list" },
+            { key: "danger", label: t("nt.urgent"), icon: "fas fa-exclamation-circle" },
+            { key: "warning", label: t("nt.warnOne"), icon: "fas fa-exclamation-triangle" },
+            { key: "info", label: t("nt.infoOne"), icon: "fas fa-info-circle" },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -217,7 +217,6 @@ export default function Notifications() {
           ))}
         </div>
 
-        {/* Notifications list */}
         {filtered.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">
@@ -226,8 +225,8 @@ export default function Notifications() {
                 style={{ color: "#10b981" }}
               ></i>
             </div>
-            <h3>كل شيء هادئ!</h3>
-            <p>لا توجد إشعارات في هذه الفئة</p>
+            <h3>{t("nt.quiet")}</h3>
+            <p>{t("nt.none")}</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -248,10 +247,10 @@ export default function Notifications() {
                   className={`badge ${n.type === "danger" ? "badge-expired" : n.type === "warning" ? "badge-pending" : "badge-info"}`}
                 >
                   {n.type === "danger"
-                    ? "عاجل"
+                    ? t("nt.urgent")
                     : n.type === "warning"
-                      ? "تنبيه"
-                      : "معلومة"}
+                      ? t("nt.warnOne")
+                      : t("nt.infoOne")}
                 </span>
               </div>
             ))}

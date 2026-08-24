@@ -1,12 +1,12 @@
-// src/pages/Expiry.js - متابعة تواريخ الصلاحية
+// src/pages/Expiry.js - متابعة تواريخ الصلاحية مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
-// دالة لتحويل التاريخ لأي صيغة
 function parseDate(value) {
   if (!value) return null;
   if (typeof value.toDate === "function") return value.toDate();
@@ -20,10 +20,11 @@ function startOfDay(d) {
 }
 
 export default function Expiry() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("all"); // all, expiring, expired, ok
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -44,25 +45,23 @@ export default function Expiry() {
     fetchProducts();
   }, [fetchProducts]);
 
-  // حساب حالة الصلاحية
   function getExpiryStatus(product) {
     const expDate = parseDate(product.expiryDate);
-    if (!expDate) return { label: "بدون صلاحية", color: "#94a3b8", bg: "#f1f5f9", daysLeft: null };
+    if (!expDate) return { label: t("exp.none"), color: "#94a3b8", bg: "#f1f5f9", daysLeft: null };
 
     const today = startOfDay(new Date());
     const exp = startOfDay(expDate);
     const daysLeft = Math.round((exp - today) / (1000 * 60 * 60 * 24));
 
     if (daysLeft < 0) {
-      return { label: `منتهي منذ ${Math.abs(daysLeft)} يوم`, color: "#dc2626", bg: "#fee2e2", daysLeft };
+      return { label: t("exp.expiredAgo", { n: Math.abs(daysLeft) }), color: "#dc2626", bg: "#fee2e2", daysLeft };
     } else if (daysLeft <= 30) {
-      return { label: `ينتهي خلال ${daysLeft} يوم`, color: "#d97706", bg: "#fef3c7", daysLeft };
+      return { label: t("exp.expiresIn", { n: daysLeft }), color: "#d97706", bg: "#fef3c7", daysLeft };
     } else {
-      return { label: `ساري حتى ${expDate.toLocaleDateString("ar-EG")}`, color: "#16a34a", bg: "#f0fdf4", daysLeft };
+      return { label: t("exp.validUntil", { date: expDate.toLocaleDateString("ar-EG") }), color: "#16a34a", bg: "#f0fdf4", daysLeft };
     }
   }
 
-  // حساب الإحصائيات
   const expiredCount = products.filter((p) => {
     const status = getExpiryStatus(p);
     return status.daysLeft !== null && status.daysLeft < 0;
@@ -75,7 +74,6 @@ export default function Expiry() {
 
   const noExpiryCount = products.filter((p) => !p.expiryDate).length;
 
-  // فلترة
   const filteredProducts = products.filter((p) => {
     const status = getExpiryStatus(p);
     const matchSearch =
@@ -90,7 +88,6 @@ export default function Expiry() {
     return matchSearch && matchFilter;
   });
 
-  // ترتيب: المنتجات المنتهية أولاً ثم القريبة من الانتهاء
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     const aDays = getExpiryStatus(a).daysLeft;
     const bDays = getExpiryStatus(b).daysLeft;
@@ -100,7 +97,6 @@ export default function Expiry() {
     return aDays - bDays;
   });
 
-  // تعديل تاريخ الصلاحية
   function openEditModal(product) {
     setEditingProduct({
       ...product,
@@ -119,7 +115,7 @@ export default function Expiry() {
   async function updateExpiry(e) {
     e.preventDefault();
     if (!editingProduct.expiryDateInput) {
-      alert("يرجى إدخال تاريخ الصلاحية");
+      alert(t("exp.needDate"));
       return;
     }
     try {
@@ -129,100 +125,96 @@ export default function Expiry() {
       });
       await fetchProducts();
       closeEditModal();
-      alert("✅ تم تحديث تاريخ الصلاحية بنجاح");
+      alert(t("exp.updOk"));
     } catch (error) {
       console.error(error);
-      alert("❌ حدث خطأ في تحديث تاريخ الصلاحية");
+      alert(t("exp.updFail"));
     }
   }
 
   if (loading) {
-    return <div className="loading">جاري تحميل تواريخ الصلاحية...</div>;
+    return <div className="loading">{t("exp.loading")}</div>;
   }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        {/* Header */}
         <div className="header">
           <div>
             <h1>
               <i className="fas fa-calendar-times" style={{ color: "#ef4444", marginLeft: 10 }}></i>
-              متابعة تواريخ الصلاحية
+              {t("exp.title")}
             </h1>
-            <p className="subtitle">راقب المنتجات القريبة من الانتهاء أو المنتهية</p>
+            <p className="subtitle">{t("exp.subtitle")}</p>
           </div>
           <button onClick={() => { setLoading(true); fetchProducts(); }} className="btn-secondary">
-            <i className="fas fa-sync-alt"></i> تحديث
+            <i className="fas fa-sync-alt"></i> {t("common.refresh")}
           </button>
         </div>
 
-        {/* Stats */}
         <div className="stats-row" style={{ marginBottom: 24 }}>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-times-circle"></i></div>
             <div className="stat-value">{expiredCount}</div>
-            <div className="stat-label">منتهية الصلاحية</div>
+            <div className="stat-label">{t("exp.expired")}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div>
             <div className="stat-value">{expiringCount}</div>
-            <div className="stat-label">قرب الانتهاء (30 يوم)</div>
+            <div className="stat-label">{t("exp.soon")}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
             <div className="stat-value">{products.length - expiredCount - expiringCount - noExpiryCount}</div>
-            <div className="stat-label">سارية الصلاحية</div>
+            <div className="stat-label">{t("exp.ok")}</div>
           </div>
           <div className="stat-card indigo">
             <div className="stat-icon"><i className="fas fa-box-open"></i></div>
             <div className="stat-value">{noExpiryCount}</div>
-            <div className="stat-label">بدون تاريخ صلاحية</div>
+            <div className="stat-label">{t("exp.none")}</div>
           </div>
         </div>
 
-        {/* Search & Filter */}
         <div className="filter-bar" style={{ marginBottom: 20 }}>
           <div className="search-wrapper" style={{ flex: 1 }}>
             <i className="fas fa-search search-icon"></i>
             <input
               type="text"
-              placeholder="ابحث عن منتج..."
+              placeholder={t("exp.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">جميع المنتجات</option>
-            <option value="expired">منتهية الصلاحية</option>
-            <option value="expiring">قرب الانتهاء</option>
-            <option value="ok">سارية</option>
+            <option value="all">{t("exp.all")}</option>
+            <option value="expired">{t("exp.filterExpired")}</option>
+            <option value="expiring">{t("exp.filterSoon")}</option>
+            <option value="ok">{t("exp.filterOk")}</option>
           </select>
         </div>
 
-        {/* Table */}
         <div className="table-container">
           <div className="table-header">
-            <h3><i className="fas fa-list"></i> قائمة المنتجات</h3>
+            <h3><i className="fas fa-list"></i> {t("exp.list")}</h3>
             <span className="table-count">{sortedProducts.length} منتج</span>
           </div>
           {sortedProducts.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon"><i className="fas fa-box-open"></i></div>
-              <p>{searchTerm || filter !== "all" ? "لا توجد نتائج مطابقة" : "لا توجد منتجات بعد"}</p>
+              <p>{searchTerm || filter !== "all" ? t("common.noResults") : t("exp.empty")}</p>
             </div>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>اسم المنتج</th>
-                  <th>الفئة</th>
-                  <th>تاريخ الصلاحية</th>
-                  <th>الحالة</th>
-                  <th>الكمية</th>
-                  <th>الإجراءات</th>
+                  <th>{t("inv.name")}</th>
+                  <th>{t("inv.category")}</th>
+                  <th>{t("exp.date")}</th>
+                  <th>{t("common.status")}</th>
+                  <th>{t("common.quantity")}</th>
+                  <th>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,7 +249,7 @@ export default function Expiry() {
                           className="btn-primary"
                           style={{ padding: "6px 14px", fontSize: 13 }}
                         >
-                          <i className="fas fa-edit"></i> تعديل الصلاحية
+                          <i className="fas fa-edit"></i> {t("exp.editBtn")}
                         </button>
                       </td>
                     </tr>
@@ -269,21 +261,20 @@ export default function Expiry() {
         </div>
       </div>
 
-      {/* Edit Modal */}
       {showEditModal && editingProduct && (
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3><i className="fas fa-calendar-edit"></i> تعديل تاريخ الصلاحية</h3>
+              <h3><i className="fas fa-calendar-edit"></i> {t("exp.editTitle")}</h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>&times;</button>
             </div>
             <form onSubmit={updateExpiry}>
               <div style={styles.formGroup}>
-                <label>اسم المنتج</label>
+                <label>{t("inv.name")}</label>
                 <input type="text" value={editingProduct.name} disabled style={styles.input} />
               </div>
               <div style={styles.formGroup}>
-                <label>تاريخ الصلاحية *</label>
+                <label>{t("exp.date")} *</label>
                 <input
                   type="date"
                   value={editingProduct.expiryDateInput}
@@ -294,10 +285,10 @@ export default function Expiry() {
               </div>
               <div style={styles.modalFooter}>
                 <button type="button" onClick={closeEditModal} className="btn-danger" style={{ marginLeft: "10px" }}>
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>

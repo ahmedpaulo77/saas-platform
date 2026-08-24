@@ -1,38 +1,48 @@
 // src/utils/modules.js - خريطة الوحدات حسب مجال العمل (Industry-Based Modules)
+// مع دعم الترجمة i18n
 
-// المجالات المتاحة
+// المجالات المتاحة - مع مفاتيح ترجمة
 export const INDUSTRIES = [
   {
     id: 'general',
-    label: '🏢 شركة / مكتب عام',
-    desc: 'إدارة عملاء وفواتير ومخزون ومهام ومشاريع',
+    labelKey: 'industries.general.label',
+    descKey: 'industries.general.desc',
+    icon: '🏢',
   },
   {
     id: 'super_market',
-    label: '🏪 سوبر ماركت',
-    desc: 'نقطة بيع، باركود، صلاحية، موردين، خصومات',
+    labelKey: 'industries.super_market.label',
+    descKey: 'industries.super_market.desc',
+    icon: '🏪',
   },
   {
     id: 'pharmacy',
-    label: '💊 صيدلية',
-    desc: 'نقطة بيع، باركود، صلاحية، تشغيلة، تصنيف أدوية',
+    labelKey: 'industries.pharmacy.label',
+    descKey: 'industries.pharmacy.desc',
+    icon: '💊',
   },
   {
     id: 'restaurant',
-    label: '🍽️ مطعم / كافيه',
-    desc: 'نقطة بيع، طلبات، طاولات، موردين',
+    labelKey: 'industries.restaurant.label',
+    descKey: 'industries.restaurant.desc',
+    icon: '🍽️',
   },
   {
     id: 'clothing',
-    label: '👕 ملابس',
-    desc: 'مخزون مقاسات وألوان، موردين، خصومات',
+    labelKey: 'industries.clothing.label',
+    descKey: 'industries.clothing.desc',
+    icon: '👕',
   },
 ];
 
-export const INDUSTRY_LABELS = INDUSTRIES.reduce((acc, ind) => {
-  acc[ind.id] = ind.label;
-  return acc;
-}, {});
+// للتوافق مع الكود القديم (مباشر)
+export const INDUSTRY_LABELS = {
+  general: '🏢 شركة / مكتب عام',
+  super_market: '🏪 سوبر ماركت',
+  pharmacy: '💊 صيدلية',
+  restaurant: '🍽️ مطعم / كافيه',
+  clothing: '👕 ملابس',
+};
 
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
 export const MODULE_MAP = {
@@ -50,6 +60,8 @@ export const MODULE_MAP = {
     'tasks',
     'projects',
     'aging',
+    'sellers',    // ✅ إضافة
+    'buyers',     // ✅ إضافة
   ],
 
   super_market: [
@@ -96,7 +108,7 @@ export function getAvailableModules(industry, userRole) {
       'tasks', 'projects', 'users', 'reports', 'aging', 'notifications',
       'subscription', 'profile', 'about', 'pos', 'suppliers', 'barcode',
       'expiry', 'batch', 'drug_categories', 'orders', 'tables', 'sizes_colors',
-      'my-company',
+      'my-company', 'sellers', 'buyers',  // ✅ إضافة
     ]);
   }
 
@@ -143,9 +155,11 @@ export const ROUTE_MODULE_MAP = {
   '/pos': 'pos',
   '/suppliers': 'suppliers',
   '/expiry': 'expiry',
+  '/sellers': 'sellers',   // ✅ إضافة
+  '/buyers': 'buyers',     // ✅ إضافة
 };
 
-// دالة تحويل كود المجال لاسم عربي مختصر
+// دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
 export function getIndustryShortLabel(industry) {
   const labels = {
     general: '🏢 عام',
@@ -155,4 +169,58 @@ export function getIndustryShortLabel(industry) {
     clothing: '👕 ملابس',
   };
   return labels[industry] || '🏢 عام';
+}
+
+// دالة جديدة للحصول على الاسم المترجم
+export function getIndustryLabel(industryId, t) {
+  const industry = INDUSTRIES.find(ind => ind.id === industryId);
+  if (industry && t) {
+    return `${industry.icon} ${t(industry.labelKey)}`;
+  }
+  return INDUSTRY_LABELS[industryId] || '🏢 عام';
+}
+
+// دالة للحصول على قائمة المجالات مع ترجمة
+export function getTranslatedIndustries(t) {
+  return INDUSTRIES.map(ind => ({
+    ...ind,
+    label: `${ind.icon} ${t(ind.labelKey)}`,
+    desc: t(ind.descKey),
+  }));
+}
+
+// أسماء الوحدات المترجمة (مفاتيح)
+export const MODULE_LABEL_KEYS = {
+  dashboard: 'modules.dashboard',
+  inventory: 'modules.inventory',
+  reports: 'modules.reports',
+  clients: 'modules.clients',
+  invoices: 'modules.invoices',
+  tasks: 'modules.tasks',
+  projects: 'modules.projects',
+  aging: 'modules.aging',
+  pos: 'modules.pos',
+  suppliers: 'modules.suppliers',
+  barcode: 'modules.barcode',
+  expiry: 'modules.expiry',
+  batch: 'modules.batch',
+  drug_categories: 'modules.drug_categories',
+  orders: 'modules.orders',
+  tables: 'modules.tables',
+  sizes_colors: 'modules.sizes_colors',
+  companies: 'modules.companies',
+  users: 'modules.users',
+  notifications: 'modules.notifications',
+  subscription: 'modules.subscription',
+  profile: 'modules.profile',
+  about: 'modules.about',
+  'my-company': 'modules.my_company',
+  sellers: 'modules.sellers',   // ✅ إضافة
+  buyers: 'modules.buyers',     // ✅ إضافة
+};
+
+// دالة للحصول على اسم وحدة مترجم
+export function getModuleLabel(moduleKey, t) {
+  const key = MODULE_LABEL_KEYS[moduleKey];
+  return key ? t(key) : moduleKey;
 }

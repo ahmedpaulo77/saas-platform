@@ -1,12 +1,14 @@
-// src/pages/Suppliers.js - إدارة الموردين
+// src/pages/Suppliers.js - إدارة الموردين مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Suppliers() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,7 +42,7 @@ export default function Suppliers() {
   async function addSupplier(e) {
     e.preventDefault();
     if (!newSupplier.name) {
-      alert("يرجى ملء اسم المورد");
+      alert(t("common.fillRequired"));
       return;
     }
     try {
@@ -51,10 +53,10 @@ export default function Suppliers() {
       });
       setNewSupplier({ name: "", phone: "", email: "", address: "", notes: "" });
       await fetchSuppliers();
-      alert("✅ تم إضافة المورد بنجاح");
+      alert(t("sup.addOk"));
     } catch (error) {
       console.error(error);
-      alert("❌ حدث خطأ في إضافة المورد");
+      alert(t("sup.addFail"));
     }
   }
 
@@ -71,7 +73,7 @@ export default function Suppliers() {
   async function updateSupplier(e) {
     e.preventDefault();
     if (!editingSupplier.name) {
-      alert("يرجى ملء اسم المورد");
+      alert(t("common.fillRequired"));
       return;
     }
     try {
@@ -85,22 +87,22 @@ export default function Suppliers() {
       });
       await fetchSuppliers();
       closeEditModal();
-      alert("✅ تم تحديث المورد بنجاح");
+      alert(t("sup.updOk"));
     } catch (error) {
       console.error(error);
-      alert("❌ حدث خطأ في تحديث المورد");
+      alert(t("sup.updFail"));
     }
   }
 
   async function deleteSupplier(id) {
-    if (!window.confirm("هل أنت متأكد من حذف هذا المورد؟")) return;
+    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await deleteDoc(doc(db, "suppliers", id));
       await fetchSuppliers();
-      alert("✅ تم حذف المورد بنجاح");
+      alert(t("sup.delOk"));
     } catch (error) {
       console.error(error);
-      alert("❌ حدث خطأ في حذف المورد");
+      alert(t("sup.delFail"));
     }
   }
 
@@ -111,7 +113,7 @@ export default function Suppliers() {
   );
 
   if (loading) {
-    return <div className="loading">جاري تحميل الموردين...</div>;
+    return <div className="loading">{t("sup.loading")}</div>;
   }
 
   return (
@@ -120,52 +122,50 @@ export default function Suppliers() {
       <div className="main-content">
         <h2 style={{ color: "#333", marginBottom: "20px" }}>
           <i className="fas fa-truck" style={{ color: "#f59e0b" }}></i>{" "}
-          إدارة الموردين
+          {t("sup.title")}
         </h2>
 
-        {/* نموذج الإضافة */}
         <form onSubmit={addSupplier} className="form-container">
           <input
             type="text"
-            placeholder="اسم المورد *"
+            placeholder={t("sup.phName")}
             value={newSupplier.name}
             onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
             required
           />
           <input
             type="text"
-            placeholder="الهاتف"
+            placeholder={t("common.phone")}
             value={newSupplier.phone}
             onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
           />
           <input
             type="email"
-            placeholder="البريد الإلكتروني"
+            placeholder={t("common.email")}
             value={newSupplier.email}
             onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
           />
           <input
             type="text"
-            placeholder="العنوان"
+            placeholder={t("sup.phAddr")}
             value={newSupplier.address}
             onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })}
           />
           <input
             type="text"
-            placeholder="ملاحظات"
+            placeholder={t("sup.phNotes")}
             value={newSupplier.notes}
             onChange={(e) => setNewSupplier({ ...newSupplier, notes: e.target.value })}
           />
           <button type="submit" className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة مورد
+            <i className="fas fa-plus"></i> {t("sup.add")}
           </button>
         </form>
 
-        {/* البحث */}
         <div style={{ marginBottom: "20px" }}>
           <input
             type="text"
-            placeholder="🔍 ابحث عن مورد بالاسم أو الهاتف أو البريد..."
+            placeholder={t("sup.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -180,27 +180,26 @@ export default function Suppliers() {
           />
         </div>
 
-        {/* جدول الموردين */}
         <div className="table-container">
           <div className="table-header">
-            <h3>قائمة الموردين</h3>
-            <span>{filteredSuppliers.length} مورد</span>
+            <h3>{t("sup.list")}</h3>
+            <span>{filteredSuppliers.length} {t("sup.suppliers")}</span>
           </div>
           {filteredSuppliers.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm ? "❌ لا توجد نتائج مطابقة للبحث" : "لا يوجد موردين مسجلين حتى الآن"}
+              {searchTerm ? t("common.noResults") : t("sup.empty")}
             </p>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>اسم المورد</th>
-                  <th>الهاتف</th>
-                  <th>البريد الإلكتروني</th>
-                  <th>العنوان</th>
-                  <th>ملاحظات</th>
-                  <th>الإجراءات</th>
+                  <th>{t("sup.name")}</th>
+                  <th>{t("common.phone")}</th>
+                  <th>{t("common.email")}</th>
+                  <th>{t("sup.address")}</th>
+                  <th>{t("sup.notes")}</th>
+                  <th>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -218,13 +217,13 @@ export default function Suppliers() {
                         className="btn-primary"
                         style={{ marginLeft: "8px", padding: "6px 14px", fontSize: "13px" }}
                       >
-                        <i className="fas fa-edit"></i> تعديل
+                        <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
                       <button
                         onClick={() => deleteSupplier(supplier.id)}
                         className="btn-danger"
                       >
-                        <i className="fas fa-trash"></i> حذف
+                        <i className="fas fa-trash"></i> {t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -235,17 +234,16 @@ export default function Suppliers() {
         </div>
       </div>
 
-      {/* مودال التعديل */}
       {showEditModal && editingSupplier && (
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3><i className="fas fa-edit"></i> تعديل المورد</h3>
+              <h3><i className="fas fa-edit"></i> {t("sup.editTitle")}</h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>&times;</button>
             </div>
             <form onSubmit={updateSupplier}>
               <div style={styles.formGroup}>
-                <label>اسم المورد</label>
+                <label>{t("sup.name")}</label>
                 <input
                   type="text"
                   value={editingSupplier.name}
@@ -255,7 +253,7 @@ export default function Suppliers() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الهاتف</label>
+                <label>{t("common.phone")}</label>
                 <input
                   type="text"
                   value={editingSupplier.phone || ""}
@@ -264,7 +262,7 @@ export default function Suppliers() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>البريد الإلكتروني</label>
+                <label>{t("common.email")}</label>
                 <input
                   type="email"
                   value={editingSupplier.email || ""}
@@ -273,7 +271,7 @@ export default function Suppliers() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>العنوان</label>
+                <label>{t("sup.address")}</label>
                 <input
                   type="text"
                   value={editingSupplier.address || ""}
@@ -282,7 +280,7 @@ export default function Suppliers() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>ملاحظات</label>
+                <label>{t("sup.notes")}</label>
                 <input
                   type="text"
                   value={editingSupplier.notes || ""}
@@ -292,10 +290,10 @@ export default function Suppliers() {
               </div>
               <div style={styles.modalFooter}>
                 <button type="button" onClick={closeEditModal} className="btn-danger" style={{ marginLeft: "10px" }}>
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ التعديلات
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>

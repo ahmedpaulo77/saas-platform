@@ -1,12 +1,14 @@
-// src/pages/POS.js - نقطة البيع (Point of Sale)
+// src/pages/POS.js - نقطة البيع مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function POS() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -42,20 +44,17 @@ export default function POS() {
     Promise.all([fetchProducts(), fetchClients()]);
   }, [fetchProducts, fetchClients]);
 
-  // فلترة المنتجات للبحث
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // إضافة منتج للسلة
   function addToCart(product) {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        // لو الكمية المضافة هتعدي الكمية المتاحة
         if (existing.quantity + 1 > product.quantity) {
-          alert("❌ الكمية المطلوبة أكبر من المتوفرة في المخزون!");
+          alert(t("pos.qtyOver"));
           return prev;
         }
         return prev.map((item) =>
@@ -63,10 +62,9 @@ export default function POS() {
         );
       } else {
         if (product.quantity < 1) {
-          alert("❌ المنتج غير متوفر في المخزون!");
+          alert(t("pos.notAvail"));
           return prev;
         }
-        // نحفظ الكمية المخزنية الأصلية في stockQty للمقارنة
         return [...prev, { ...product, quantity: 1, stockQty: product.quantity }];
       }
     });
@@ -83,7 +81,7 @@ export default function POS() {
         if (item.id !== productId) return item;
         const stockQty = item.stockQty || item.quantity;
         if (newQty > stockQty) {
-          alert("❌ الكمية المطلوبة أكبر من المتوفرة في المخزون!");
+          alert(t("pos.qtyOver"));
           return item;
         }
         return { ...item, quantity: newQty };
@@ -91,34 +89,28 @@ export default function POS() {
     );
   }
 
-  // حساب الإجمالي
   const subtotal = cart.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
-  const discount = 0; // يمكن إضافة خصم لاحقاً
+  const discount = 0;
   const total = subtotal - discount;
 
-  // إتمام البيع
   async function checkout(e) {
     e.preventDefault();
     if (cart.length === 0) {
-      alert("❌ أضف منتجات للسلة أولاً");
+      alert(t("pos.addFirst"));
       return;
     }
     setSubmitting(true);
 
     try {
-      // 1. خصم الكميات من المخزون
       for (const item of cart) {
         const productRef = doc(db, "inventory", item.id);
         const productDoc = await getDoc(productRef);
         if (productDoc.exists()) {
           const currentQty = productDoc.data().quantity || 0;
-          await updateDoc(productRef, {
-            quantity: currentQty - item.quantity,
-          });
+          await updateDoc(productRef, { quantity: currentQty - item.quantity });
         }
       }
 
-      // 2. إنشاء الفاتورة
       const invDoc = {
         companyId: userCompanyId,
         clientId: selectedClient || null,
@@ -143,10 +135,10 @@ export default function POS() {
       setCart([]);
       setSelectedClient("");
       await Promise.all([fetchProducts(), fetchClients()]);
-      alert("✅ تم إتمام البيع بنجاح!");
+      alert(t("pos.ok"));
     } catch (e) {
       console.error(e);
-      alert("❌ حدث خطأ أثناء إتمام البيع");
+      alert(t("pos.fail"));
     }
     setSubmitting(false);
   }
@@ -154,7 +146,7 @@ export default function POS() {
   if (loading) {
     return (
       <div className="loading">
-        <div className="spinner"></div>جاري تحميل نقطة البيع...
+        <div className="spinner"></div>{t("pos.loading")}
       </div>
     );
   }
@@ -163,33 +155,29 @@ export default function POS() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        {/* Header */}
         <div className="header">
           <div>
             <h1>
               <i className="fas fa-cash-register" style={{ color: "#10b981", marginLeft: 10 }}></i>
-              نقطة البيع (POS)
+              {t("pos.title")}
             </h1>
-            <p className="subtitle">بيع سريع متعدد المنتجات في فاتورة واحدة</p>
+            <p className="subtitle">{t("pos.subtitle")}</p>
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 20, alignItems: "start" }}>
-          {/* ── المنتجات ── */}
           <div>
-            {/* البحث */}
             <div className="search-wrapper" style={{ marginBottom: 16 }}>
               <i className="fas fa-search search-icon"></i>
               <input
                 type="text"
-                placeholder="ابحث عن منتج بالاسم أو الفئة..."
+                placeholder={t("pos.search")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 autoFocus
               />
             </div>
 
-            {/* شبكة المنتجات */}
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
@@ -200,7 +188,7 @@ export default function POS() {
                   <div className="empty-icon">
                     <i className="fas fa-box-open"></i>
                   </div>
-                  <p>{searchTerm ? "لا توجد نتائج مطابقة" : "لا توجد منتجات في المخزون"}</p>
+                  <p>{searchTerm ? t("common.noResults") : t("pos.noProducts")}</p>
                 </div>
               ) : (
                 filteredProducts.map((product) => (
@@ -237,11 +225,11 @@ export default function POS() {
                       {product.name}
                     </div>
                     <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {product.category || "بدون فئة"}
+                      {product.category || t("pos.noCat")}
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: 800, color: "#10b981" }}>
-                        {product.price} ج.م
+                        {product.price} {t("currency")}
                       </span>
                       <span
                         className="badge"
@@ -259,7 +247,6 @@ export default function POS() {
             </div>
           </div>
 
-          {/* ── السلة ── */}
           <div className="card" style={{ position: "sticky", top: 16 }}>
             <h3 style={{ marginBottom: 14 }}>
               <i className="fas fa-shopping-cart" style={{ color: "#10b981" }}></i>
@@ -274,15 +261,14 @@ export default function POS() {
               )}
             </h3>
 
-            {/* اختيار العميل */}
             <div className="form-group" style={{ marginBottom: 12 }}>
-              <label>العميل (اختياري)</label>
+              <label>{t("pos.client")}</label>
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
                 disabled={clients.length === 0}
               >
-                <option value="">بدون عميل (عميل نقدي)</option>
+                <option value="">{t("pos.walkIn")}</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.name}
@@ -291,14 +277,13 @@ export default function POS() {
               </select>
             </div>
 
-            {/* عناصر السلة */}
             <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
               {cart.length === 0 ? (
                 <div className="empty-state" style={{ padding: "30px 0" }}>
                   <div className="empty-icon">
                     <i className="fas fa-cart-plus"></i>
                   </div>
-                  <p>السلة فارغة — اضغط على منتج لإضافته</p>
+                  <p>{t("pos.emptyCart")}</p>
                 </div>
               ) : (
                 cart.map((item) => (
@@ -317,7 +302,7 @@ export default function POS() {
                         {item.name}
                       </div>
                       <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                        {item.price} ج.م × {item.quantity}
+                        {item.price} {t("currency")} × {item.quantity}
                       </div>
                     </div>
                     <button
@@ -350,7 +335,6 @@ export default function POS() {
               )}
             </div>
 
-            {/* الإجمالي */}
             <div style={{
               background: "#f8fafc",
               borderRadius: 10,
@@ -358,12 +342,12 @@ export default function POS() {
               marginBottom: 16,
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: "#64748b" }}>المجموع الفرعي</span>
-                <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} ج.م</span>
+                <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.subtotal")}</span>
+                <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} {t("currency")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: "#64748b" }}>الخصم</span>
-                <span style={{ fontWeight: 700, color: "#ef4444" }}>{discount.toFixed(2)} ج.م</span>
+                <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.discount")}</span>
+                <span style={{ fontWeight: 700, color: "#ef4444" }}>{discount.toFixed(2)} {t("currency")}</span>
               </div>
               <div style={{
                 display: "flex",
@@ -371,14 +355,13 @@ export default function POS() {
                 borderTop: "2px dashed #e2e8f0",
                 paddingTop: 10,
               }}>
-                <span style={{ fontWeight: 800, fontSize: 15, color: "#1e293b" }}>الإجمالي</span>
+                <span style={{ fontWeight: 800, fontSize: 15, color: "#1e293b" }}>{t("pos.total")}</span>
                 <span style={{ fontWeight: 900, fontSize: 20, color: "#10b981" }}>
-                  {total.toFixed(2)} ج.م
+                  {total.toFixed(2)} {t("currency")}
                 </span>
               </div>
             </div>
 
-            {/* زر إتمام البيع */}
             <button
               onClick={checkout}
               className="btn-primary btn-block"
@@ -391,11 +374,11 @@ export default function POS() {
             >
               {submitting ? (
                 <>
-                  <i className="fas fa-spinner fa-spin"></i> جاري إتمام البيع...
+                  <i className="fas fa-spinner fa-spin"></i> {t("pos.completing")}
                 </>
               ) : (
                 <>
-                  <i className="fas fa-check-circle"></i> إتمام البيع — {total.toFixed(2)} ج.م
+                  <i className="fas fa-check-circle"></i> {t("pos.complete", { amount: total.toFixed(2) })}
                 </>
               )}
             </button>

@@ -1,4 +1,4 @@
-// src/pages/Projects.js - مع عزل البيانات حسب الشركة
+// src/pages/Projects.js - مع عزل البيانات حسب الشركة ودعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -12,8 +12,10 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Projects() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [projects, setProjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,7 +35,7 @@ export default function Projects() {
   const fetchProjects = useCallback(async () => {
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("projects", userRole, userCompanyId),
+        getScopedQuery("projects", userRole, userCompanyId)
       );
       const projectsData = [];
       querySnapshot.forEach((d) => {
@@ -42,11 +44,11 @@ export default function Projects() {
       setProjects(projectsData);
     } catch (error) {
       console.error("Error fetching projects:", error);
-      alert("حدث خطأ في جلب المشاريع");
+      alert(t("pr.fetchErr"));
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, t]);
 
   useEffect(() => {
     fetchProjects();
@@ -55,7 +57,7 @@ export default function Projects() {
   async function addProject(e) {
     e.preventDefault();
     if (!newProject.name || !newProject.startDate || !newProject.endDate) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
+      alert(t("common.fillRequired"));
       return;
     }
 
@@ -75,10 +77,10 @@ export default function Projects() {
         status: "pending",
       });
       await fetchProjects();
-      alert("✅ تم إضافة المشروع بنجاح");
+      alert(t("pr.addOk"));
     } catch (error) {
       console.error("Error adding project:", error);
-      alert("❌ حدث خطأ في إضافة المشروع");
+      alert(t("pr.addFail"));
     }
   }
 
@@ -99,7 +101,7 @@ export default function Projects() {
       !editingProject.startDate ||
       !editingProject.endDate
     ) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
+      alert(t("common.fillRequired"));
       return;
     }
 
@@ -115,22 +117,22 @@ export default function Projects() {
       });
       await fetchProjects();
       closeEditModal();
-      alert("✅ تم تحديث المشروع بنجاح");
+      alert(t("pr.updOk"));
     } catch (error) {
       console.error("Error updating project:", error);
-      alert("❌ حدث خطأ في تحديث المشروع");
+      alert(t("pr.updFail"));
     }
   }
 
   async function deleteProject(id) {
-    if (!window.confirm("هل أنت متأكد من حذف هذا المشروع؟")) return;
+    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await deleteDoc(doc(db, "projects", id));
       await fetchProjects();
-      alert("✅ تم حذف المشروع بنجاح");
+      alert(t("pr.delOk"));
     } catch (error) {
       console.error("Error deleting project:", error);
-      alert("❌ حدث خطأ في حذف المشروع");
+      alert(t("pr.delFail"));
     }
   }
 
@@ -138,11 +140,11 @@ export default function Projects() {
     (project) =>
       project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (project.description &&
-        project.description.toLowerCase().includes(searchTerm.toLowerCase())),
+        project.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (loading) {
-    return <div className="loading">جاري تحميل المشاريع...</div>;
+    return <div className="loading">{t("common.loading")}</div>;
   }
 
   return (
@@ -150,17 +152,14 @@ export default function Projects() {
       <Sidebar />
       <div className="main-content">
         <h2 style={{ color: "#333", marginBottom: "20px" }}>
-          <i
-            className="fas fa-project-diagram"
-            style={{ color: "#4f46e5" }}
-          ></i>{" "}
-          إدارة المشاريع
+          <i className="fas fa-project-diagram" style={{ color: "#4f46e5" }}></i>{" "}
+          {t("pr.title")}
         </h2>
 
         <form onSubmit={addProject} className="form-container">
           <input
             type="text"
-            placeholder="اسم المشروع"
+            placeholder={t("pr.phName")}
             value={newProject.name}
             onChange={(e) =>
               setNewProject({ ...newProject, name: e.target.value })
@@ -169,7 +168,7 @@ export default function Projects() {
           />
           <input
             type="text"
-            placeholder="الوصف"
+            placeholder={t("pr.phDesc")}
             value={newProject.description}
             onChange={(e) =>
               setNewProject({ ...newProject, description: e.target.value })
@@ -193,7 +192,7 @@ export default function Projects() {
           />
           <input
             type="number"
-            placeholder="الميزانية"
+            placeholder={t("pr.phBudget")}
             value={newProject.budget}
             onChange={(e) =>
               setNewProject({ ...newProject, budget: e.target.value })
@@ -205,20 +204,20 @@ export default function Projects() {
               setNewProject({ ...newProject, status: e.target.value })
             }
           >
-            <option value="pending">قيد الانتظار</option>
-            <option value="in-progress">جاري التنفيذ</option>
-            <option value="completed">منجز</option>
-            <option value="on-hold">متوقف</option>
+            <option value="pending">{t("pr.pending")}</option>
+            <option value="in-progress">{t("pr.progress")}</option>
+            <option value="completed">{t("pr.done")}</option>
+            <option value="on-hold">{t("pr.hold")}</option>
           </select>
           <button type="submit" className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة مشروع
+            <i className="fas fa-plus"></i> {t("pr.add")}
           </button>
         </form>
 
         <div style={{ marginBottom: "20px" }}>
           <input
             type="text"
-            placeholder="🔍 ابحث عن مشروع..."
+            placeholder={t("pr.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -236,27 +235,25 @@ export default function Projects() {
 
         <div className="table-container">
           <div className="table-header">
-            <h3>قائمة المشاريع</h3>
-            <span>{filteredProjects.length} مشروع</span>
+            <h3>{t("pr.list")}</h3>
+            <span>{filteredProjects.length} {t("pr.projects")}</span>
           </div>
           {filteredProjects.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm
-                ? "❌ لا توجد نتائج مطابقة للبحث"
-                : "لا توجد مشاريع مسجلة حتى الآن"}
+              {searchTerm ? t("common.noResults") : t("pr.empty")}
             </p>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>اسم المشروع</th>
-                  <th>الوصف</th>
-                  <th>تاريخ البداية</th>
-                  <th>تاريخ النهاية</th>
-                  <th>الميزانية</th>
-                  <th>الحالة</th>
-                  <th>الإجراءات</th>
+                  <th>{t("pr.name")}</th>
+                  <th>{t("common.description")}</th>
+                  <th>{t("pr.start")}</th>
+                  <th>{t("pr.end")}</th>
+                  <th>{t("pr.budget")}</th>
+                  <th>{t("common.status")}</th>
+                  <th>{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -269,7 +266,7 @@ export default function Projects() {
                     <td>{new Date(project.endDate).toLocaleDateString()}</td>
                     <td>
                       {project.budget
-                        ? project.budget.toLocaleString() + " ج.م"
+                        ? project.budget.toLocaleString() + ` ${t("currency")}`
                         : "-"}
                     </td>
                     <td>
@@ -278,19 +275,19 @@ export default function Projects() {
                           project.status === "completed"
                             ? "badge-paid"
                             : project.status === "in-progress"
-                              ? "badge-pending"
-                              : project.status === "on-hold"
-                                ? "badge-expired"
-                                : "badge-active"
+                            ? "badge-pending"
+                            : project.status === "on-hold"
+                            ? "badge-expired"
+                            : "badge-active"
                         }`}
                       >
                         {project.status === "completed"
-                          ? "منجز"
+                          ? t("pr.done")
                           : project.status === "in-progress"
-                            ? "جاري التنفيذ"
-                            : project.status === "on-hold"
-                              ? "متوقف"
-                              : "قيد الانتظار"}
+                          ? t("pr.progress")
+                          : project.status === "on-hold"
+                          ? t("pr.hold")
+                          : t("pr.pending")}
                       </span>
                     </td>
                     <td>
@@ -303,13 +300,13 @@ export default function Projects() {
                           fontSize: "13px",
                         }}
                       >
-                        <i className="fas fa-edit"></i> تعديل
+                        <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
                       <button
                         onClick={() => deleteProject(project.id)}
                         className="btn-danger"
                       >
-                        <i className="fas fa-trash"></i> حذف
+                        <i className="fas fa-trash"></i> {t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -325,7 +322,7 @@ export default function Projects() {
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3>
-                <i className="fas fa-edit"></i> تعديل المشروع
+                <i className="fas fa-edit"></i> {t("pr.editTitle")}
               </h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>
                 &times;
@@ -333,7 +330,7 @@ export default function Projects() {
             </div>
             <form onSubmit={updateProject}>
               <div style={styles.formGroup}>
-                <label>اسم المشروع</label>
+                <label>{t("pr.name")}</label>
                 <input
                   type="text"
                   value={editingProject.name}
@@ -348,7 +345,7 @@ export default function Projects() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الوصف</label>
+                <label>{t("common.description")}</label>
                 <input
                   type="text"
                   value={editingProject.description || ""}
@@ -362,7 +359,7 @@ export default function Projects() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>تاريخ البداية</label>
+                <label>{t("pr.start")}</label>
                 <input
                   type="date"
                   value={editingProject.startDate}
@@ -377,7 +374,7 @@ export default function Projects() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>تاريخ النهاية</label>
+                <label>{t("pr.end")}</label>
                 <input
                   type="date"
                   value={editingProject.endDate}
@@ -392,7 +389,7 @@ export default function Projects() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الميزانية</label>
+                <label>{t("pr.budget")}</label>
                 <input
                   type="number"
                   value={editingProject.budget || ""}
@@ -406,7 +403,7 @@ export default function Projects() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>الحالة</label>
+                <label>{t("common.status")}</label>
                 <select
                   value={editingProject.status}
                   onChange={(e) =>
@@ -417,10 +414,10 @@ export default function Projects() {
                   }
                   style={styles.input}
                 >
-                  <option value="pending">قيد الانتظار</option>
-                  <option value="in-progress">جاري التنفيذ</option>
-                  <option value="completed">منجز</option>
-                  <option value="on-hold">متوقف</option>
+                  <option value="pending">{t("pr.pending")}</option>
+                  <option value="in-progress">{t("pr.progress")}</option>
+                  <option value="completed">{t("pr.done")}</option>
+                  <option value="on-hold">{t("pr.hold")}</option>
                 </select>
               </div>
               <div style={styles.modalFooter}>
@@ -430,10 +427,10 @@ export default function Projects() {
                   className="btn-danger"
                   style={{ marginLeft: "10px" }}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ التعديلات
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>

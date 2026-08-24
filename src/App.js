@@ -26,9 +26,10 @@ import Subscription from './pages/Subscription';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import MyCompany from './pages/MyCompany';
+import Sellers from './pages/Sellers';        // ✅ إضافة
+import Buyers from './pages/Buyers';          // ✅ إضافة
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
-import LanguageToggle from './components/common/LanguageToggle';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { getAvailableModules } from './utils/modules';
 import './App.css';
@@ -63,6 +64,8 @@ function AppRoutes() {
       } />
       <Route path="/companies"    element={<ProtectedRoute><IndustryRoute moduleKey="companies"><Companies /></IndustryRoute></ProtectedRoute>} />
       <Route path="/clients"      element={<ProtectedRoute><IndustryRoute moduleKey="clients"><Clients /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/sellers"      element={<ProtectedRoute><IndustryRoute moduleKey="sellers"><Sellers /></IndustryRoute></ProtectedRoute>} />        {/* ✅ إضافة */}
+      <Route path="/buyers"       element={<ProtectedRoute><IndustryRoute moduleKey="buyers"><Buyers /></IndustryRoute></ProtectedRoute>} />         {/* ✅ إضافة */}
       <Route path="/invoices"     element={<ProtectedRoute><IndustryRoute moduleKey="invoices"><Invoices /></IndustryRoute></ProtectedRoute>} />
       <Route path="/inventory"    element={<ProtectedRoute><IndustryRoute moduleKey="inventory"><Inventory /></IndustryRoute></ProtectedRoute>} />
       <Route path="/tasks"        element={<ProtectedRoute><IndustryRoute moduleKey="tasks"><Tasks /></IndustryRoute></ProtectedRoute>} />
@@ -91,7 +94,6 @@ function App() {
     <LanguageProvider>
       <Router>
         <AuthProvider>
-          <LanguageToggle />
           <AppRoutes />
         </AuthProvider>
       </Router>

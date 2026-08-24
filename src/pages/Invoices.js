@@ -14,7 +14,10 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
+import { useLanguage } from "../i18n/LanguageContext";
+
 export default function Invoices() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
@@ -56,7 +59,7 @@ export default function Invoices() {
   const fetchInvoices = useCallback(async () => {
     try {
       const snap = await getDocs(
-        getScopedQuery("invoices", userRole, userCompanyId),
+        getScopedQuery("invoices", userRole, userCompanyId)
       );
       const invoicesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setInvoices(invoicesData);
@@ -70,7 +73,7 @@ export default function Invoices() {
   const fetchClients = useCallback(async () => {
     try {
       const snap = await getDocs(
-        getScopedQuery("clients", userRole, userCompanyId),
+        getScopedQuery("clients", userRole, userCompanyId)
       );
       setClients(snap.docs.map((d) => ({ id: d.id, name: d.data().name })));
     } catch (e) {
@@ -81,7 +84,7 @@ export default function Invoices() {
   const fetchProducts = useCallback(async () => {
     try {
       const snap = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId),
+        getScopedQuery("inventory", userRole, userCompanyId)
       );
       setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
@@ -105,7 +108,7 @@ export default function Invoices() {
         const currentQty = productDoc.data().quantity || 0;
         const qty = parseInt(newInvoice.quantity) || 1;
         if (currentQty - qty < 0) {
-          alert("❌ الكمية المطلوبة أكبر من المتوفرة في المخزون!");
+          alert(t("in.qtyOver"));
           setSubmitting(false);
           return;
         }
@@ -136,7 +139,7 @@ export default function Invoices() {
       await Promise.all([fetchInvoices(), fetchProducts()]);
     } catch (e) {
       console.error(e);
-      alert("❌ حدث خطأ");
+      alert(t("common.errorGeneric"));
     }
     setSubmitting(false);
   }
@@ -160,7 +163,7 @@ export default function Invoices() {
   }
 
   async function deleteInvoice(id) {
-    if (!window.confirm("هل أنت متأكد من حذف هذه الفاتورة؟")) return;
+    if (!window.confirm(t("common.confirmDelete"))) return;
     await deleteDoc(doc(db, "invoices", id));
     await fetchInvoices();
   }
@@ -175,11 +178,11 @@ export default function Invoices() {
     const newPaid = currentPaid + amount;
 
     if (amount <= 0) {
-      alert("❌ أدخل مبلغ صحيح أكبر من صفر");
+      alert(t("in.badAmount"));
       return;
     }
     if (newPaid > total) {
-      alert(`❌ المبلغ المدفوع (${newPaid}) أكبر من قيمة الفاتورة (${total})`);
+      alert(t("in.payOver", { paid: newPaid, total: total }));
       return;
     }
 
@@ -188,26 +191,25 @@ export default function Invoices() {
       const isFullyPaid = newPaid >= total;
       await updateDoc(doc(db, "invoices", payingInvoice.id), {
         paidAmount: newPaid,
-        // لو اكتمل السداد — خلي الحالة مدفوعة تلقائياً
         status: isFullyPaid ? "paid" : payingInvoice.status,
       });
       await fetchInvoices();
       setShowPayModal(false);
       setPayAmount("");
       setPayingInvoice(null);
-      alert(isFullyPaid ? "✅ تم سداد الفاتورة بالكامل" : "✅ تم تسجيل الدفعة");
+      alert(isFullyPaid ? t("in.payFull") : t("in.payOk"));
     } catch (err) {
       console.error(err);
-      alert("❌ حدث خطأ أثناء تسجيل الدفعة");
+      alert(t("in.payFail"));
     }
     setPaying(false);
   }
 
   function handleExportPDF(invoice) {
     const clientName =
-      clients.find((c) => c.id === invoice.clientId)?.name || "غير محدد";
+      clients.find((c) => c.id === invoice.clientId)?.name || t("common.unspecified");
     const productName =
-      products.find((p) => p.id === invoice.productId)?.name || "غير محدد";
+      products.find((p) => p.id === invoice.productId)?.name || t("common.unspecified");
     exportInvoicePDF(invoice, clientName, productName);
   }
 
@@ -216,7 +218,6 @@ export default function Invoices() {
     if (inv.status === "paid") {
       return sum + (parseFloat(inv.amount) || 0);
     }
-    // لو فيه دفع جزئي — المدفوع جزء من الإيراد
     return sum + (parseFloat(inv.paidAmount) || 0);
   }, 0);
 
@@ -237,7 +238,7 @@ export default function Invoices() {
     return (
       <div className="loading">
         <div className="spinner"></div>
-        جاري تحميل الفواتير...
+        {t("common.loading")}
       </div>
     );
 
@@ -253,11 +254,9 @@ export default function Invoices() {
                 className="fas fa-file-invoice"
                 style={{ color: "#f59e0b", marginLeft: 10 }}
               ></i>
-              إدارة الفواتير
+              {t("in.title")}
             </h1>
-            <p className="subtitle">
-              إنشاء وتتبع الفواتير مع تصدير PDF احترافي
-            </p>
+            <p className="subtitle">{t("in.subtitle")}</p>
           </div>
         </div>
 
@@ -271,21 +270,21 @@ export default function Invoices() {
               <i className="fas fa-file-invoice"></i>
             </div>
             <div className="stat-value">{invoices.length}</div>
-            <div className="stat-label">إجمالي الفواتير</div>
+            <div className="stat-label">{t("in.statTotal")}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon">
               <i className="fas fa-check-circle"></i>
             </div>
             <div className="stat-value">{paidCount}</div>
-            <div className="stat-label">فواتير مدفوعة</div>
+            <div className="stat-label">{t("in.statPaid")}</div>
           </div>
           <div className="stat-card indigo">
             <div className="stat-icon">
               <i className="fas fa-clock"></i>
             </div>
             <div className="stat-value">{pendingCount}</div>
-            <div className="stat-label">قيد الانتظار</div>
+            <div className="stat-label">{t("in.statPending")}</div>
           </div>
           <div className="stat-card cyan">
             <div className="stat-icon">
@@ -294,7 +293,7 @@ export default function Invoices() {
             <div className="stat-value" style={{ fontSize: 20 }}>
               {totalRevenue.toLocaleString()}
             </div>
-            <div className="stat-label">إجمالي الإيرادات (ج.م)</div>
+            <div className="stat-label">{t("in.statRevenue")}</div>
           </div>
         </div>
 
@@ -302,7 +301,7 @@ export default function Invoices() {
         <div className="form-card">
           <h3>
             <i className="fas fa-plus-circle" style={{ color: "#6366f1" }}></i>
-            إضافة فاتورة جديدة
+            {t("in.add")}
           </h3>
           <form onSubmit={addInvoice}>
             <div
@@ -313,7 +312,7 @@ export default function Invoices() {
               }}
             >
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>العميل *</label>
+                <label>{t("in.clientReq")}</label>
                 <select
                   value={newInvoice.clientId}
                   onChange={(e) =>
@@ -321,7 +320,7 @@ export default function Invoices() {
                   }
                   required
                 >
-                  <option value="">اختر العميل</option>
+                  <option value="">{t("in.chooseClient")}</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -330,7 +329,7 @@ export default function Invoices() {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>المنتج *</label>
+                <label>{t("in.productReq")}</label>
                 <select
                   value={newInvoice.productId}
                   onChange={(e) => {
@@ -345,16 +344,16 @@ export default function Invoices() {
                   }}
                   required
                 >
-                  <option value="">اختر المنتج</option>
+                  <option value="">{t("in.chooseProduct")}</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.quantity} متبقي)
+                      {p.name} ({p.quantity} {t("in.remaining")})
                     </option>
                   ))}
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>الكمية *</label>
+                <label>{t("in.qtyReq")}</label>
                 <input
                   type="number"
                   min="1"
@@ -363,7 +362,7 @@ export default function Invoices() {
                     const quantity = parseInt(e.target.value) || 1;
                     const amount = calculateAmount(
                       newInvoice.productId,
-                      quantity,
+                      quantity
                     );
                     setNewInvoice({
                       ...newInvoice,
@@ -375,7 +374,7 @@ export default function Invoices() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>المبلغ (ج.م) *</label>
+                <label>{t("in.amountReq")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -388,23 +387,23 @@ export default function Invoices() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>الحالة</label>
+                <label>{t("common.status")}</label>
                 <select
                   value={newInvoice.status}
                   onChange={(e) =>
                     setNewInvoice({ ...newInvoice, status: e.target.value })
                   }
                 >
-                  <option value="pending">قيد الانتظار</option>
-                  <option value="paid">مدفوعة</option>
-                  <option value="overdue">متأخرة</option>
+                  <option value="pending">{t("in.statusWait")}</option>
+                  <option value="paid">{t("in.statusPaid")}</option>
+                  <option value="overdue">{t("in.statusOver")}</option>
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>الوصف</label>
+                <label>{t("common.description")}</label>
                 <input
                   type="text"
-                  placeholder="ملاحظات اختيارية"
+                  placeholder={t("in.notesPh")}
                   value={newInvoice.description}
                   onChange={(e) =>
                     setNewInvoice({ ...newInvoice, description: e.target.value })
@@ -412,7 +411,7 @@ export default function Invoices() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>تاريخ الاستحقاق (السداد)</label>
+                <label>{t("in.due")}</label>
                 <input
                   type="date"
                   value={newInvoice.dueDate}
@@ -430,11 +429,11 @@ export default function Invoices() {
               >
                 {submitting ? (
                   <>
-                    <i className="fas fa-spinner fa-spin"></i> جاري الإضافة...
+                    <i className="fas fa-spinner fa-spin"></i> {t("common.adding")}
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-plus"></i> إضافة فاتورة
+                    <i className="fas fa-plus"></i> {t("in.add")}
                   </>
                 )}
               </button>
@@ -448,7 +447,7 @@ export default function Invoices() {
             <i className="fas fa-search search-icon"></i>
             <input
               type="text"
-              placeholder="ابحث بالعميل أو المبلغ أو الوصف..."
+              placeholder={t("in.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -457,10 +456,10 @@ export default function Invoices() {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <option value="all">جميع الحالات</option>
-            <option value="paid">مدفوعة</option>
-            <option value="pending">قيد الانتظار</option>
-            <option value="overdue">متأخرة</option>
+            <option value="all">{t("in.allStatus")}</option>
+            <option value="paid">{t("in.statusPaid")}</option>
+            <option value="pending">{t("in.statusWait")}</option>
+            <option value="overdue">{t("in.statusOver")}</option>
           </select>
         </div>
 
@@ -468,9 +467,9 @@ export default function Invoices() {
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-list"></i> قائمة الفواتير
+              <i className="fas fa-list"></i> {t("in.list")}
             </h3>
-            <span className="table-count">{filtered.length} فاتورة</span>
+            <span className="table-count">{filtered.length} {t("in.invoices")}</span>
           </div>
           <div className="table-wrapper">
             {filtered.length === 0 ? (
@@ -478,8 +477,8 @@ export default function Invoices() {
                 <i className="fas fa-file-invoice"></i>
                 <p>
                   {searchTerm || filterStatus !== "all"
-                    ? "لا توجد نتائج مطابقة"
-                    : "لا توجد فواتير بعد"}
+                    ? t("common.noResults")
+                    : t("in.empty")}
                 </p>
               </div>
             ) : (
@@ -487,25 +486,25 @@ export default function Invoices() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>العميل</th>
-                    <th>المنتج</th>
-                    <th>الكمية</th>
-                    <th>المبلغ</th>
-                    <th>المدفوع</th>
-                    <th>المتبقي</th>
-                    <th>الحالة</th>
-                    <th>التاريخ</th>
-                    <th>الإجراءات</th>
+                    <th>{t("in.client")}</th>
+                    <th>{t("in.product")}</th>
+                    <th>{t("common.quantity")}</th>
+                    <th>{t("common.amount")}</th>
+                    <th>{t("in.paid")}</th>
+                    <th>{t("in.remaining")}</th>
+                    <th>{t("common.status")}</th>
+                    <th>{t("common.date")}</th>
+                    <th>{t("common.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((inv, i) => {
                     const clientName =
                       clients.find((c) => c.id === inv.clientId)?.name ||
-                      "غير محدد";
+                      t("common.unspecified");
                     const productName =
                       products.find((p) => p.id === inv.productId)?.name ||
-                      "غير محدد";
+                      t("common.unspecified");
                     const paid = parseFloat(inv.paidAmount) || 0;
                     const remaining = (parseFloat(inv.amount) || 0) - paid;
                     return (
@@ -521,23 +520,23 @@ export default function Invoices() {
                         <td
                           style={{ fontWeight: 700, color: "var(--gray-800)" }}
                         >
-                          {(inv.amount || 0).toLocaleString()} ج.م
+                          {(inv.amount || 0).toLocaleString()} {t("currency")}
                         </td>
                         <td style={{ color: "#10b981", fontWeight: 600 }}>
-                          {paid > 0 ? `${paid.toLocaleString()} ج.م` : "—"}
+                          {paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}
                         </td>
                         <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
-                          {remaining > 0 ? `${remaining.toLocaleString()} ج.م` : "✓"}
+                          {remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}
                         </td>
                         <td>
                           <span
                             className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}
                           >
                             {inv.status === "paid"
-                              ? "✓ مدفوعة"
+                              ? t("in.statusPaid")
                               : inv.status === "pending"
-                                ? "⏳ انتظار"
-                                : "⚠ متأخرة"}
+                                ? t("in.statusWait")
+                                : t("in.statusOver")}
                           </span>
                         </td>
                         <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
@@ -550,7 +549,7 @@ export default function Invoices() {
                             <button
                               onClick={() => handleExportPDF(inv)}
                               className="btn-primary btn-sm"
-                              title="تصدير PDF"
+                              title={t("in.pdf")}
                             >
                               <i className="fas fa-file-pdf"></i> PDF
                             </button>
@@ -562,7 +561,7 @@ export default function Invoices() {
                                   setShowPayModal(true);
                                 }}
                                 className="btn-success btn-sm"
-                                title="تسجيل دفعة"
+                                title={t("in.pay")}
                               >
                                 <i className="fas fa-money-bill-wave"></i>
                               </button>
@@ -573,14 +572,14 @@ export default function Invoices() {
                                 setShowEditModal(true);
                               }}
                               className="btn-secondary btn-sm"
-                              title="تعديل"
+                              title={t("common.edit")}
                             >
                               <i className="fas fa-edit"></i>
                             </button>
                             <button
                               onClick={() => deleteInvoice(inv.id)}
                               className="btn-danger btn-sm"
-                              title="حذف"
+                              title={t("common.delete")}
                             >
                               <i className="fas fa-trash"></i>
                             </button>
@@ -603,7 +602,7 @@ export default function Invoices() {
             <div className="modal-header">
               <h3>
                 <i className="fas fa-edit" style={{ color: "#6366f1" }}></i>{" "}
-                تعديل الفاتورة
+                {t("common.edit")}
               </h3>
               <button
                 className="modal-close"
@@ -615,7 +614,7 @@ export default function Invoices() {
             <form onSubmit={updateInvoice}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>العميل</label>
+                  <label>{t("in.client")}</label>
                   <select
                     value={editingInvoice.clientId}
                     onChange={(e) =>
@@ -626,7 +625,7 @@ export default function Invoices() {
                     }
                     required
                   >
-                    <option value="">اختر العميل</option>
+                    <option value="">{t("in.chooseClient")}</option>
                     {clients.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -635,7 +634,7 @@ export default function Invoices() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>المبلغ (ج.م)</label>
+                  <label>{t("common.amount")}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -650,7 +649,7 @@ export default function Invoices() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>الحالة</label>
+                  <label>{t("common.status")}</label>
                   <select
                     value={editingInvoice.status}
                     onChange={(e) =>
@@ -660,13 +659,13 @@ export default function Invoices() {
                       })
                     }
                   >
-                    <option value="pending">قيد الانتظار</option>
-                    <option value="paid">مدفوعة</option>
-                    <option value="overdue">متأخرة</option>
+                    <option value="pending">{t("in.statusWait")}</option>
+                    <option value="paid">{t("in.statusPaid")}</option>
+                    <option value="overdue">{t("in.statusOver")}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>الوصف</label>
+                  <label>{t("common.description")}</label>
                   <input
                     type="text"
                     value={editingInvoice.description || ""}
@@ -679,7 +678,7 @@ export default function Invoices() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>تاريخ الاستحقاق (السداد)</label>
+                  <label>{t("in.due")}</label>
                   <input
                     type="date"
                     value={editingInvoice.dueDate || ""}
@@ -698,10 +697,10 @@ export default function Invoices() {
                   className="btn-secondary"
                   onClick={() => setShowEditModal(false)}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ التعديلات
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>
@@ -709,14 +708,14 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* Pay Modal - تسجيل دفعة */}
+      {/* Pay Modal */}
       {showPayModal && payingInvoice && (
         <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
                 <i className="fas fa-money-bill-wave" style={{ color: "#10b981" }}></i>{" "}
-                تسجيل دفعة
+                {t("in.pay")}
               </h3>
               <button
                 className="modal-close"
@@ -735,24 +734,24 @@ export default function Invoices() {
                   marginBottom: 16,
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>قيمة الفاتورة</span>
-                    <span style={{ fontWeight: 800 }}>{(payingInvoice.amount || 0).toLocaleString()} ج.م</span>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.invoiceVal")}</span>
+                    <span style={{ fontWeight: 800 }}>{(payingInvoice.amount || 0).toLocaleString()} {t("currency")}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>المدفوع سابقاً</span>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.prevPaid")}</span>
                     <span style={{ fontWeight: 700, color: "#10b981" }}>
-                      {(parseFloat(payingInvoice.paidAmount) || 0).toLocaleString()} ج.م
+                      {(parseFloat(payingInvoice.paidAmount) || 0).toLocaleString()} {t("currency")}
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>المتبقي</span>
+                    <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.remaining")}</span>
                     <span style={{ fontWeight: 900, color: "#ef4444" }}>
-                      {((parseFloat(payingInvoice.amount) || 0) - (parseFloat(payingInvoice.paidAmount) || 0)).toLocaleString()} ج.م
+                      {((parseFloat(payingInvoice.amount) || 0) - (parseFloat(payingInvoice.paidAmount) || 0)).toLocaleString()} {t("currency")}
                     </span>
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>مبلغ الدفعة (ج.م) *</label>
+                  <label>{t("in.payAmount")}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -771,16 +770,16 @@ export default function Invoices() {
                   className="btn-secondary"
                   onClick={() => setShowPayModal(false)}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary" disabled={paying}>
                   {paying ? (
                     <>
-                      <i className="fas fa-spinner fa-spin"></i> جاري التسجيل...
+                      <i className="fas fa-spinner fa-spin"></i> {t("in.recording")}
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-check"></i> تأكيد الدفعة
+                      <i className="fas fa-check"></i> {t("in.confirmPay")}
                     </>
                   )}
                 </button>

@@ -1,12 +1,14 @@
-// src/pages/Setup.js - إكمال بيانات الشركة بعد التسجيل
+// src/pages/Setup.js - إكمال بيانات الشركة مع دعم الترجمة
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { generateInviteCode } from '../utils/companyQuery';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function Setup() {
+  const { t } = useLanguage();
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('');
@@ -21,7 +23,6 @@ export default function Setup() {
     setError('');
 
     try {
-      // إنشاء الشركة
       const companyRef = await addDoc(collection(db, 'companies'), {
         name: companyName.trim(),
         email: currentUser.email,
@@ -31,21 +32,19 @@ export default function Setup() {
           startDate: new Date().toISOString(),
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         },
-        inviteCode: generateInviteCode(companyName.trim()), // توليد كود تلقائي
+        inviteCode: generateInviteCode(companyName.trim()),
         createdAt: new Date().toISOString(),
         isActive: true,
       });
 
-      // ربط المستخدم بالشركة (فقط تحديث companyId — role يبقى كما هو)
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
       });
 
-      // إعادة تحميل عشان الـ AuthContext ياخد الـ companyId الجديد
       window.location.href = '/dashboard';
     } catch (e) {
       console.error(e);
-      setError('حدث خطأ، حاول مرة أخرى');
+      setError(t('setup.error'));
       setLoading(false);
     }
   }
@@ -57,27 +56,9 @@ export default function Setup() {
           <div className="logo-icon">
             <i className="fas fa-building"></i>
           </div>
-          <h1>أهلاً بك!</h1>
-          <p>خطوة أخيرة — أدخل اسم شركتك لتبدأ</p>
+          <h1>{t('setup.hello')}</h1>
+          <p>{t('setup.subtitle')}</p>
         </div>
-
-        {/* عرض كود الانضمام (لو موجود) */}
-        {companyName && (
-          <div style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 10, padding: '10px 16px', marginBottom: 24,
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            <i className="fas fa-key" style={{ color: '#10b981', fontSize: 18 }}></i>
-            <div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>كود انضمام الشركة</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'white', letterSpacing: 1 }}>
-                {companyName.trim().substring(0, 4).toUpperCase()}-{Math.random().toString(36).substring(2, 6).toUpperCase()}
-              </div>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="login-error">
@@ -87,11 +68,11 @@ export default function Setup() {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group" style={{ marginBottom: 24 }}>
-            <label>اسم الشركة *</label>
+            <label>{t('setup.company')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="مثال: شركة النجاح للتجارة"
+                placeholder={t('setup.companyPh')}
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 required
@@ -106,16 +87,15 @@ export default function Setup() {
             </div>
           </div>
 
-          {/* مجال العمل */}
           <div className="form-group" style={{ marginBottom: 24 }}>
-            <label>مجال العمل *</label>
+            <label>{t('setup.industry')}</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
-                { value: 'general', label: 'شركة / مكتب عام', icon: 'fas fa-building' },
-                { value: 'super_market', label: 'سوبر ماركت', icon: 'fas fa-store' },
-                { value: 'pharmacy', label: 'صيدلية', icon: 'fas fa-pills' },
-                { value: 'restaurant', label: 'مطعم / كافيه', icon: 'fas fa-utensils' },
-                { value: 'clothing', label: 'ملابس', icon: 'fas fa-tshirt' },
+                { value: 'general', label: t('industry.general'), icon: 'fas fa-building' },
+                { value: 'super_market', label: t('industry.super_market'), icon: 'fas fa-store' },
+                { value: 'pharmacy', label: t('industry.pharmacy'), icon: 'fas fa-pills' },
+                { value: 'restaurant', label: t('industry.restaurant'), icon: 'fas fa-utensils' },
+                { value: 'clothing', label: t('industry.clothing'), icon: 'fas fa-tshirt' },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -156,18 +136,18 @@ export default function Setup() {
               ))}
             </div>
             <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 8 }}>
-              اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
+              {t('setup.industryHint')}
             </small>
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>
             {loading ? (
               <>
-                <i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>جاري الإنشاء...
+                <i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>{t('setup.creating')}
               </>
             ) : (
               <>
-                <i className="fas fa-arrow-left" style={{ marginLeft: 8 }}></i>ابدأ الآن
+                <i className="fas fa-arrow-left" style={{ marginLeft: 8 }}></i>{t('setup.start')}
               </>
             )}
           </button>
@@ -182,7 +162,7 @@ export default function Setup() {
             color: 'rgba(255,255,255,0.3)', fontSize: 13,
             fontFamily: 'Cairo', textDecoration: 'underline',
           }}>
-            تسجيل خروج
+            {t('nav.logout')}
           </button>
         </div>
       </div>

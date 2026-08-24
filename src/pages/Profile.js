@@ -1,11 +1,13 @@
-// src/pages/Profile.js - تصميم احترافي
+// src/pages/Profile.js - مع دعم الترجمة
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { updatePassword } from "firebase/auth";
 import { auth } from "../firebase/config";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Profile() {
+  const { t } = useLanguage();
   const { currentUser, userRole } = useAuth();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,22 +22,22 @@ export default function Profile() {
     setMessage("");
     setError("");
     if (newPassword !== confirmPassword) {
-      setError("كلمات المرور غير متطابقة");
+      setError(t("pf.mismatch"));
       return;
     }
     if (newPassword.length < 6) {
-      setError("يجب أن تكون كلمة المرور 6 أحرف على الأقل");
+      setError(t("pf.short"));
       return;
     }
 
     setLoading(true);
     try {
       await updatePassword(auth.currentUser, newPassword);
-      setMessage("تم تغيير كلمة المرور بنجاح");
+      setMessage(t("pf.ok"));
       setNewPassword("");
       setConfirmPassword("");
     } catch (e) {
-      setError("حدث خطأ: " + e.message);
+      setError(t("pf.err", { msg: e.message }));
     }
     setLoading(false);
   }
@@ -43,9 +45,9 @@ export default function Profile() {
   const joinDate = currentUser?.metadata?.creationTime
     ? new Date(currentUser.metadata.creationTime).toLocaleDateString(
         undefined,
-        { year: "numeric", month: "long", day: "numeric" },
+        { year: "numeric", month: "long", day: "numeric" }
       )
-    : "غير محدد";
+    : t("common.unspecified");
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -58,9 +60,9 @@ export default function Profile() {
                 className="fas fa-user-circle"
                 style={{ color: "#6366f1", marginLeft: 10 }}
               ></i>
-              الملف الشخصي
+              {t("pf.title")}
             </h1>
-            <p className="subtitle">إدارة معلومات حسابك وأمان كلمة المرور</p>
+            <p className="subtitle">{t("pf.subtitle")}</p>
           </div>
         </div>
 
@@ -116,11 +118,11 @@ export default function Profile() {
                 <i
                   className={`fas ${userRole === "super_admin" ? "fa-crown" : "fa-user"}`}
                 ></i>
-                {userRole === "super_admin" ? "مدير النظام" : "مستخدم"}
+                {userRole === "super_admin" ? t("role.superAdmin") : t("role.user")}
               </span>
               <span className="badge badge-active">
                 <i className="fas fa-circle" style={{ fontSize: 7 }}></i>
-                نشط
+                {t("status.active")}
               </span>
             </div>
 
@@ -135,18 +137,18 @@ export default function Profile() {
               {[
                 {
                   icon: "fas fa-envelope",
-                  label: "البريد الإلكتروني",
+                  label: t("common.email"),
                   value: currentUser?.email,
                 },
                 {
                   icon: "fas fa-calendar-alt",
-                  label: "تاريخ التسجيل",
+                  label: t("pf.join"),
                   value: joinDate,
                 },
                 {
                   icon: "fas fa-shield-alt",
-                  label: "التحقق من البريد",
-                  value: currentUser?.emailVerified ? "مؤكد ✓" : "غير مؤكد",
+                  label: t("pf.verified"),
+                  value: currentUser?.emailVerified ? t("pf.yes") : t("pf.no"),
                 },
               ].map((item) => (
                 <div
@@ -198,7 +200,7 @@ export default function Profile() {
           <div className="card">
             <h3 style={{ marginBottom: 20 }}>
               <i className="fas fa-lock" style={{ color: "#6366f1" }}></i>
-              تغيير كلمة المرور
+              {t("pf.newPass")}
             </h3>
 
             {message && (
@@ -214,7 +216,7 @@ export default function Profile() {
 
             <form onSubmit={handlePasswordChange}>
               <div className="form-group">
-                <label>كلمة المرور الجديدة</label>
+                <label>{t("pf.newPass")}</label>
                 <div style={{ position: "relative" }}>
                   <input
                     type={showNew ? "text" : "password"}
@@ -247,7 +249,7 @@ export default function Profile() {
               </div>
 
               <div className="form-group">
-                <label>تأكيد كلمة المرور</label>
+                <label>{t("pf.confirm")}</label>
                 <div style={{ position: "relative" }}>
                   <input
                     type={showConfirm ? "text" : "password"}
@@ -279,7 +281,6 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Password strength */}
               {newPassword.length > 0 && (
                 <div style={{ marginBottom: 16 }}>
                   <div
@@ -289,7 +290,7 @@ export default function Profile() {
                       marginBottom: 6,
                     }}
                   >
-                    قوة كلمة المرور:
+                    {t("pf.strength")}:
                   </div>
                   <div style={{ display: "flex", gap: 4 }}>
                     {[1, 2, 3, 4].map((i) => (
@@ -322,12 +323,12 @@ export default function Profile() {
                     }}
                   >
                     {newPassword.length < 3
-                      ? "ضعيفة جداً"
+                      ? t("pf.weak2")
                       : newPassword.length < 6
-                        ? "ضعيفة"
+                        ? t("pf.weak")
                         : newPassword.length < 9
-                          ? "متوسطة"
-                          : "قوية"}
+                          ? t("pf.mid")
+                          : t("pf.strong")}
                   </div>
                 </div>
               )}
@@ -339,11 +340,11 @@ export default function Profile() {
               >
                 {loading ? (
                   <>
-                    <i className="fas fa-spinner fa-spin"></i> جاري الحفظ...
+                    <i className="fas fa-spinner fa-spin"></i> {t("pf.saving")}
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-save"></i> حفظ كلمة المرور
+                    <i className="fas fa-save"></i> {t("pf.savePass")}
                   </>
                 )}
               </button>
@@ -359,7 +360,7 @@ export default function Profile() {
             >
               <p style={{ fontSize: 12, color: "var(--info-dark)", margin: 0 }}>
                 <i className="fas fa-shield-alt" style={{ marginLeft: 6 }}></i>
-                تأكد من استخدام كلمة مرور قوية تحتوي على أحرف وأرقام ورموز
+                {t("pf.tip")}
               </p>
             </div>
           </div>

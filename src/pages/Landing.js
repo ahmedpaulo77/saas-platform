@@ -1,49 +1,51 @@
-// src/pages/Landing.js - Landing Page احترافية
+// src/pages/Landing.js - مع زر تبديل اللغة
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const features = [
-  { icon: 'fas fa-building',      color: '#6366f1', bg: '#eef2ff', title: 'إدارة الشركات',       desc: 'أضف وأدر شركاتك مع نظام اشتراكات متكامل وتحكم كامل' },
-  { icon: 'fas fa-user-friends',  color: '#10b981', bg: '#d1fae5', title: 'إدارة العملاء',        desc: 'قاعدة بيانات منظمة لعملائك مع ربط كامل بالشركة' },
-  { icon: 'fas fa-file-invoice',  color: '#f59e0b', bg: '#fef3c7', title: 'فواتير + PDF',         desc: 'أنشئ فواتير احترافية وصدّرها PDF بضغطة واحدة' },
-  { icon: 'fas fa-boxes',         color: '#8b5cf6', bg: '#f3e8ff', title: 'إدارة المخزون',        desc: 'تتبع المنتجات تلقائياً مع تحديث فوري عند كل فاتورة' },
-  { icon: 'fas fa-tasks',         color: '#ec4899', bg: '#fdf2f8', title: 'إدارة المهام',         desc: 'وزّع المهام بأولويات ومواعيد وتابع إنجاز فريقك' },
-  { icon: 'fas fa-chart-pie',     color: '#06b6d4', bg: '#ecfeff', title: 'تقارير بيانية',        desc: 'Charts تفاعلية وتصدير Excel لكل بياناتك' },
-  { icon: 'fas fa-bell',          color: '#f97316', bg: '#fff7ed', title: 'إشعارات ذكية',         desc: 'تنبيهات تلقائية للمخزون والفواتير والمهام المتأخرة' },
-  { icon: 'fas fa-crown',         color: '#eab308', bg: '#fefce8', title: 'نظام اشتراكات',        desc: '3 باقات مرنة مع دعم Stripe للدفع الآمن' },
-  { icon: 'fas fa-shield-alt',    color: '#14b8a6', bg: '#f0fdfa', title: 'أمان متقدم',           desc: 'عزل كامل للبيانات — كل شركة ترى بياناتها فقط' },
+  { icon: 'fas fa-building',      color: '#6366f1', bg: '#eef2ff', titleKey: 'landing.f1.t', descKey: 'landing.f1.d' },
+  { icon: 'fas fa-user-friends',  color: '#10b981', bg: '#d1fae5', titleKey: 'landing.f2.t', descKey: 'landing.f2.d' },
+  { icon: 'fas fa-file-invoice',  color: '#f59e0b', bg: '#fef3c7', titleKey: 'landing.f3.t', descKey: 'landing.f3.d' },
+  { icon: 'fas fa-boxes',         color: '#8b5cf6', bg: '#f3e8ff', titleKey: 'landing.f4.t', descKey: 'landing.f4.d' },
+  { icon: 'fas fa-tasks',         color: '#ec4899', bg: '#fdf2f8', titleKey: 'landing.f5.t', descKey: 'landing.f5.d' },
+  { icon: 'fas fa-chart-pie',     color: '#06b6d4', bg: '#ecfeff', titleKey: 'landing.f6.t', descKey: 'landing.f6.d' },
+  { icon: 'fas fa-bell',          color: '#f97316', bg: '#fff7ed', titleKey: 'landing.f7.t', descKey: 'landing.f7.d' },
+  { icon: 'fas fa-crown',         color: '#eab308', bg: '#fefce8', titleKey: 'landing.f8.t', descKey: 'landing.f8.d' },
+  { icon: 'fas fa-shield-alt',    color: '#14b8a6', bg: '#f0fdfa', titleKey: 'landing.f9.t', descKey: 'landing.f9.d' },
 ];
 
 const plans = [
   {
     id: 'standard',
-    nameAr: 'الباقة الكاملة',
+    nameKey: 'landing.planName',
     emoji: '⚡',
     monthlyPrice: 1000,
-    desc: 'كل المميزات — بدون قيود',
+    descKey: 'landing.planDesc',
     featured: true,
-    features: [
-      'مستخدمون غير محدودون',
-      'عملاء غير محدودون',
-      'فواتير + تصدير PDF',
-      'إدارة مخزون كاملة',
-      'إدارة المهام',
-      'تقارير بيانية متقدمة',
-      'تصدير Excel',
-      'إشعارات ذكية',
-      'دعم فني 24/7',
+    featuresKeys: [
+      'landing.pf1',
+      'landing.pf2',
+      'landing.pf3',
+      'landing.pf4',
+      'landing.pf5',
+      'landing.pf6',
+      'landing.pf7',
+      'landing.pf8',
+      'landing.pf9',
     ],
   },
 ];
 
 const stats = [
-  { value: '500+', label: 'شركة تستخدم المنصة' },
-  { value: '50K+', label: 'فاتورة صدرت' },
-  { value: '99.9%', label: 'uptime مضمون' },
-  { value: '24/7', label: 'دعم فني متاح' },
+  { value: '500+', labelKey: 'landing.stat.companies' },
+  { value: '50K+', labelKey: 'landing.stat.invoices' },
+  { value: '99.9%', labelKey: 'landing.stat.uptime' },
+  { value: '24/7', labelKey: 'landing.stat.support' },
 ];
 
 export default function Landing() {
+  const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [billing, setBilling] = useState('monthly');
@@ -53,6 +55,8 @@ export default function Landing() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const nextLang = lang === 'ar' ? 'EN' : 'عربي';
 
   return (
     <div style={{ direction: 'rtl', fontFamily: 'Cairo, sans-serif', background: '#fff', overflowX: 'hidden' }}>
@@ -83,13 +87,42 @@ export default function Landing() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {/* ✅ زر تبديل اللغة */}
+          <button
+            onClick={toggleLang}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 8,
+              border: scrolled ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.3)',
+              background: scrolled ? 'white' : 'rgba(255,255,255,0.08)',
+              cursor: 'pointer',
+              fontFamily: 'Cairo',
+              fontWeight: 600,
+              fontSize: 13,
+              color: scrolled ? '#334155' : 'white',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = scrolled ? '#f1f5f9' : 'rgba(255,255,255,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = scrolled ? 'white' : 'rgba(255,255,255,0.08)';
+            }}
+          >
+            <i className="fas fa-globe" style={{ fontSize: 14 }}></i>
+            <span>{nextLang}</span>
+          </button>
+
           <button onClick={() => navigate('/login')} style={{
             padding: '8px 20px', borderRadius: 8, border: scrolled ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.3)',
             background: 'transparent', cursor: 'pointer', fontFamily: 'Cairo',
             fontWeight: 600, fontSize: 14, color: scrolled ? '#334155' : 'white',
             transition: 'all 0.2s',
           }}>
-            تسجيل الدخول
+            {t('landing.ctaLogin')}
           </button>
           <button onClick={() => navigate('/signup')} style={{
             padding: '8px 22px', borderRadius: 8, border: 'none',
@@ -98,7 +131,7 @@ export default function Landing() {
             fontSize: 14, color: 'white',
             boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
           }}>
-            ابدأ الآن
+            {t('landing.ctaStart')}
           </button>
         </div>
       </nav>
@@ -131,7 +164,7 @@ export default function Landing() {
             borderRadius: 60, padding: '6px 18px', marginBottom: 28,
           }}>
             <i className="fas fa-star" style={{ color: '#fbbf24', fontSize: 12 }}></i>
-            <span style={{ fontSize: 13, color: '#a5b4fc', fontWeight: 600 }}>منصة إدارة الأعمال الكاملة</span>
+            <span style={{ fontSize: 13, color: '#a5b4fc', fontWeight: 600 }}>{t('landing.badge')}</span>
           </div>
 
           <h1 style={{
@@ -139,12 +172,12 @@ export default function Landing() {
             color: 'white', lineHeight: 1.15, marginBottom: 24,
             letterSpacing: '-1px',
           }}>
-            أدر أعمالك بذكاء<br />
+            {t('landing.hero1')}<br />
             <span style={{
               background: 'linear-gradient(135deg,#818cf8,#c084fc)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>
-              في مكان واحد
+              {t('landing.hero2')}
             </span>
           </h1>
 
@@ -152,8 +185,7 @@ export default function Landing() {
             fontSize: 18, color: 'rgba(255,255,255,0.6)',
             maxWidth: 580, margin: '0 auto 40px', lineHeight: 1.8,
           }}>
-            منصة SaaS متكاملة لإدارة الشركات والعملاء والفواتير والمخزون والمهام —
-            مع تقارير بيانية وتصدير PDF بضغطة واحدة.
+            {t('landing.heroDesc')}
           </p>
 
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -169,7 +201,7 @@ export default function Landing() {
               onMouseOut={e => e.target.style.transform = 'translateY(0)'}
             >
               <i className="fas fa-rocket" style={{ marginLeft: 10 }}></i>
-              ابدأ الآن
+              {t('landing.ctaStart')}
             </button>
             <button onClick={() => navigate('/login')} style={{
               padding: '16px 40px', borderRadius: 12,
@@ -182,13 +214,13 @@ export default function Landing() {
               onMouseOut={e => { e.target.style.background = 'rgba(255,255,255,0.06)'; }}
             >
               <i className="fas fa-sign-in-alt" style={{ marginLeft: 10 }}></i>
-              تسجيل الدخول
+              {t('landing.ctaLogin')}
             </button>
           </div>
 
           <p style={{ marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
             <i className="fas fa-check-circle" style={{ color: '#10b981', marginLeft: 6 }}></i>
-            اشترك الآن بباقة الاشتراك الشهري 1000 ج.م
+            {t('landing.trialNote')}
           </p>
         </div>
       </section>
@@ -204,9 +236,9 @@ export default function Landing() {
           gap: 32, maxWidth: 900, margin: '0 auto', textAlign: 'center',
         }}>
           {stats.map(s => (
-            <div key={s.label}>
+            <div key={s.labelKey}>
               <div style={{ fontSize: 36, fontWeight: 900, color: 'white', letterSpacing: -1 }}>{s.value}</div>
-              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{s.label}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{t(s.labelKey)}</div>
             </div>
           ))}
         </div>
@@ -219,12 +251,12 @@ export default function Landing() {
             <span style={{
               background: '#eef2ff', color: '#6366f1', padding: '4px 16px',
               borderRadius: 60, fontSize: 13, fontWeight: 700, display: 'inline-block', marginBottom: 16,
-            }}>المميزات</span>
+            }}>{t('landing.features')}</span>
             <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: '#0f172a', marginBottom: 14 }}>
-              كل ما تحتاجه في منصة واحدة
+              {t('landing.featuresTitle')}
             </h2>
             <p style={{ fontSize: 17, color: '#64748b', maxWidth: 520, margin: '0 auto' }}>
-              من إدارة العملاء حتى التقارير البيانية — كل شيء جاهز ومتكامل
+              {t('landing.featuresDesc')}
             </p>
           </div>
 
@@ -234,7 +266,7 @@ export default function Landing() {
             gap: 24,
           }}>
             {features.map(f => (
-              <div key={f.title} style={{
+              <div key={f.titleKey} style={{
                 background: 'white', borderRadius: 16, padding: '28px 24px',
                 border: '1px solid #e2e8f0', transition: 'all 0.3s',
                 cursor: 'default',
@@ -249,8 +281,8 @@ export default function Landing() {
                 }}>
                   <i className={f.icon}></i>
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>{f.title}</h3>
-                <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.7 }}>{f.desc}</p>
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>{t(f.titleKey)}</h3>
+                <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.7 }}>{t(f.descKey)}</p>
               </div>
             ))}
           </div>
@@ -264,12 +296,12 @@ export default function Landing() {
             <span style={{
               background: '#eef2ff', color: '#6366f1', padding: '4px 16px',
               borderRadius: 60, fontSize: 13, fontWeight: 700, display: 'inline-block', marginBottom: 16,
-            }}>الأسعار</span>
+            }}>{t('landing.pricing')}</span>
             <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: '#0f172a', marginBottom: 12 }}>
-              باقات مرنة لكل حجم
+              {t('landing.pricingTitle')}
             </h2>
             <p style={{ fontSize: 16, color: '#64748b', marginBottom: 28 }}>
-              ادفع سنوياً ووفر حتى 17%
+              {t('landing.pricingDesc')}
             </p>
             <div style={{
               display: 'inline-flex', background: '#f1f5f9',
@@ -283,10 +315,10 @@ export default function Landing() {
                   color: billing === b ? '#6366f1' : '#64748b',
                   boxShadow: billing === b ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
                 }}>
-                  {b === 'monthly' ? 'شهري' : 'سنوي'}
+                  {b === 'monthly' ? t('common.monthly') : t('common.yearly')}
                   {b === 'yearly' && (
                     <span style={{ marginRight: 6, background: '#10b981', color: 'white', padding: '1px 7px', borderRadius: 60, fontSize: 10 }}>
-                      وفر 17%
+                      {t('landing.save17')}
                     </span>
                   )}
                 </button>
@@ -314,21 +346,21 @@ export default function Landing() {
                       position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)',
                       background: '#6366f1', color: 'white', padding: '3px 18px',
                       borderRadius: 60, fontSize: 12, fontWeight: 700,
-                    }}>الأكثر شيوعاً</span>
+                    }}>{t('landing.popular')}</span>
                   )}
                   <div style={{ fontSize: 32, marginBottom: 8 }}>{plan.emoji}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{plan.nameAr}</div>
-                  <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16 }}>{plan.desc}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{t(plan.nameKey)}</div>
+                  <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16 }}>{t(plan.descKey)}</div>
                   <div style={{ marginBottom: 4 }}>
                     <span style={{ fontSize: 38, fontWeight: 900, color: '#0f172a' }}>{price.toLocaleString()}</span>
-                    <span style={{ fontSize: 14, color: '#64748b' }}> ج.م</span>
+                    <span style={{ fontSize: 14, color: '#64748b' }}> {t('currency')}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 24 }}>/{billing === 'monthly' ? 'شهر' : 'سنة'}</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 24 }}>/{billing === 'monthly' ? t('common.month') : t('common.year')}</div>
                   <ul style={{ listStyle: 'none', padding: 0, marginBottom: 28, textAlign: 'right' }}>
-                    {plan.features.map((f, i) => (
+                    {plan.featuresKeys.map((fKey, i) => (
                       <li key={i} style={{ padding: '7px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: '#334155' }}>
                         <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: 13, flexShrink: 0 }}></i>
-                        {f}
+                        {t(fKey)}
                       </li>
                     ))}
                   </ul>
@@ -339,7 +371,7 @@ export default function Landing() {
                     fontFamily: 'Cairo', fontWeight: 700, fontSize: 15,
                     cursor: 'pointer', transition: 'all 0.2s',
                   }}>
-                    ابدأ الآن
+                    {t('landing.ctaStart')}
                   </button>
                 </div>
               );
@@ -356,10 +388,10 @@ export default function Landing() {
       }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
           <h2 style={{ fontSize: 'clamp(28px,4vw,44px)', fontWeight: 900, color: 'white', marginBottom: 16 }}>
-            جاهز تبدأ؟
+            {t('landing.ctaTitle')}
           </h2>
           <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.6)', marginBottom: 36 }}>
-            انضم لمئات الشركات التي تثق في SaaS PRO لإدارة أعمالها
+            {t('landing.ctaDesc')}
           </p>
           <button onClick={() => navigate('/signup')} style={{
             padding: '18px 52px', borderRadius: 14, border: 'none',
@@ -373,10 +405,10 @@ export default function Landing() {
             onMouseOut={e => e.target.style.transform = 'translateY(0)'}
           >
             <i className="fas fa-rocket" style={{ marginLeft: 12 }}></i>
-            ابدأ الآن
+            {t('landing.ctaStart')}
           </button>
           <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
-            اشترك الآن واحصل على كل المميزات — بدون قيود
+            {t('landing.ctaFoot')}
           </p>
         </div>
       </section>
@@ -399,7 +431,7 @@ export default function Landing() {
           <span style={{ color: 'white', fontWeight: 700 }}>SaaS PRO</span>
         </div>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-          © 2026 SaaS PRO — جميع الحقوق محفوظة
+          {t('landing.rights')}
         </p>
         <div style={{ display: 'flex', gap: 16 }}>
           {['fas fa-envelope','fab fa-twitter','fab fa-linkedin'].map(ic => (

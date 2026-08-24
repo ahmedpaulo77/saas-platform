@@ -1,19 +1,21 @@
-// src/pages/Signup.js - مع دعم كود الانضمام للشركات
+// src/pages/Signup.js - مع دعم كود الانضمام والترجمة
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { generateInviteCode } from '../utils/companyQuery';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export default function Signup() {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     companyName: '',
     industry: 'general',
     email: '',
     password: '',
     confirmPassword: '',
-    inviteCode: '', // كود الانضمام (اختياري)
+    inviteCode: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,43 +27,39 @@ export default function Signup() {
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('كلمة المرور غير متطابقة');
+      setError(t('signup.mismatch'));
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setError(t('signup.shortPass'));
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. التحقق من كود الانضمام أولاً (قبل إنشاء المستخدم)
       let companyId = null;
       let role = 'admin';
       let joinCompanyName = '';
 
       if (formData.inviteCode.trim()) {
-        // البحث عن الشركة بالكود
         const code = formData.inviteCode.trim().toUpperCase();
         const companiesSnap = await getDocs(
           query(collection(db, 'companies'), where('inviteCode', '==', code))
         );
 
         if (companiesSnap.empty) {
-          setError('❌ كود الانضمام غير صحيح. تأكد من الكود وحاول مرة أخرى');
+          setError(t('signup.badCode'));
           setLoading(false);
           return;
         }
 
-        // الكود صحيح — نربط المستخدم بالشركة
         const companyDoc = companiesSnap.docs[0];
         companyId = companyDoc.id;
         joinCompanyName = companyDoc.data().name || '';
-        role = 'user'; // الموظف المنضم بالكود يكون مستخدم عادي
+        role = 'user';
       } else {
-        // 2. لا يوجد كود — إنشاء شركة جديدة أولاً
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
@@ -71,22 +69,18 @@ export default function Signup() {
             startDate: new Date().toISOString(),
             endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           },
-          inviteCode: generateInviteCode(formData.companyName), // توليد كود تلقائي
+          inviteCode: generateInviteCode(formData.companyName),
           createdAt: new Date().toISOString(),
           isActive: true,
         });
         companyId = companyRef.id;
       }
 
-      // 3. إنشاء المستخدم في Authentication مع الربط المباشر بالشركة
-      // (هذا يتجنب مشكلة منع تحديث companyId في قواعد Firestore)
       await signup(formData.email, formData.password, role, companyId);
 
-      console.log(`✅ User created and linked to company: ${companyId}`);
-
       alert(role === 'admin'
-        ? '✅ تم إنشاء الحساب والشركة بنجاح!'
-        : `✅ تم الانضمام للشركة (${joinCompanyName}) بنجاح!`);
+        ? t('signup.okCreate')
+        : t('signup.okJoin', { name: joinCompanyName }));
       navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
@@ -103,8 +97,8 @@ export default function Signup() {
           <div className="logo-icon">
             <i className="fas fa-cube"></i>
           </div>
-          <h1>إنشاء حساب</h1>
-          <p>سجل شركتك وابدأ في إدارة أعمالك</p>
+          <h1>{t('signup.title')}</h1>
+          <p>{t('signup.subtitle')}</p>
         </div>
 
         {error && (
@@ -115,13 +109,12 @@ export default function Signup() {
         )}
 
         <form onSubmit={handleSubmit} className="login-form">
-          {/* كود الانضمام (اختياري) */}
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>كود الانضمام للشركة (اختياري)</label>
+            <label>{t('signup.invite')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="مثال: NGAH-9K2D"
+                placeholder={t('signup.invitePh')}
                 value={formData.inviteCode}
                 onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
                 style={{ paddingRight: '42px' }}
@@ -132,17 +125,16 @@ export default function Signup() {
               }}></i>
             </div>
             <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
-              لو عندك كود من شركتك — اكتبه هنا للانضمام. لو مش عندك — سجل شركة جديدة
+              {t('signup.inviteHint')}
             </small>
           </div>
 
-          {/* اسم الشركة (مطلوب فقط لو مفيش كود) */}
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>اسم الشركة {!formData.inviteCode && '*'}</label>
+            <label>{t('signup.company')} {!formData.inviteCode && '*'}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="أدخل اسم الشركة"
+                placeholder={t('signup.companyPh')}
                 value={formData.companyName}
                 onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                 required={!formData.inviteCode}
@@ -156,9 +148,8 @@ export default function Signup() {
             </div>
           </div>
 
-          {/* مجال العمل (مطلوب فقط لو مفيش كود) */}
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>مجال العمل {!formData.inviteCode && '*'}</label>
+            <label>{t('signup.industry')} {!formData.inviteCode && '*'}</label>
             <select
               value={formData.industry}
               onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
@@ -177,19 +168,19 @@ export default function Signup() {
                 opacity: formData.inviteCode ? 0.5 : 1,
               }}
             >
-              <option value="general" style={{ color: '#1e293b' }}>🏢 شركة / مكتب عام</option>
-              <option value="super_market" style={{ color: '#1e293b' }}>🏪 سوبر ماركت</option>
-              <option value="pharmacy" style={{ color: '#1e293b' }}>💊 صيدلية</option>
-              <option value="restaurant" style={{ color: '#1e293b' }}>🍽️ مطعم / كافيه</option>
-              <option value="clothing" style={{ color: '#1e293b' }}>👕 ملابس</option>
+              <option value="general" style={{ color: '#1e293b' }}>🏢 {t('industry.general')}</option>
+              <option value="super_market" style={{ color: '#1e293b' }}>🏪 {t('industry.super_market')}</option>
+              <option value="pharmacy" style={{ color: '#1e293b' }}>💊 {t('industry.pharmacy')}</option>
+              <option value="restaurant" style={{ color: '#1e293b' }}>🍽️ {t('industry.restaurant')}</option>
+              <option value="clothing" style={{ color: '#1e293b' }}>👕 {t('industry.clothing')}</option>
             </select>
             <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
-              اختر مجال عملك — هتظهر ليك الوحدات المناسبة لمجالك فقط
+              {t('signup.industryHint')}
             </small>
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>البريد الإلكتروني</label>
+            <label>{t('login.email')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="email"
@@ -207,7 +198,7 @@ export default function Signup() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label>كلمة المرور</label>
+            <label>{t('login.password')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="password"
@@ -226,7 +217,7 @@ export default function Signup() {
           </div>
 
           <div className="form-group" style={{ marginBottom: 24 }}>
-            <label>تأكيد كلمة المرور</label>
+            <label>{t('signup.confirm')}</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="password"
@@ -247,12 +238,12 @@ export default function Signup() {
             {loading ? (
               <>
                 <i className="fas fa-spinner fa-spin" style={{ marginLeft: 8 }}></i>
-                جاري إنشاء الحساب...
+                {t('signup.creating')}
               </>
             ) : (
               <>
                 <i className="fas fa-user-plus" style={{ marginLeft: 8 }}></i>
-                {formData.inviteCode ? 'انضمام للشركة' : 'إنشاء حساب'}
+                {formData.inviteCode ? t('signup.join') : t('signup.create')}
               </>
             )}
           </button>
@@ -264,7 +255,7 @@ export default function Signup() {
           paddingTop: 20
         }}>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
-            لديك حساب بالفعل؟ <Link to="/login" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: '600' }}>تسجيل الدخول</Link>
+            {t('signup.hasAccount')} <Link to="/login" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: '600' }}>{t('login.submit')}</Link>
           </p>
         </div>
       </div>

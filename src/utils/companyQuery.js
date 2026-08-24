@@ -1,3 +1,4 @@
+// src/utils/companyQuery.js - مع دعم الترجمة (للرسائل)
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -66,3 +67,13 @@ export function generateInviteCode(companyName = '') {
 
   return `${letters}-${random}`.toUpperCase();
 }
+
+// رسائل خطأ مترجمة (مفاتيح)
+export const ERROR_MESSAGES = {
+  fetchUsers: 'errors.fetchUsers',
+  addUser: 'errors.addUser',
+  updateUser: 'errors.updateUser',
+  deleteUser: 'errors.deleteUser',
+  noAccess: 'errors.noAccess',
+  fillFields: 'errors.fillFields',
+};

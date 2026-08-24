@@ -1,26 +1,21 @@
-// src/pages/MyCompany.js
+// src/pages/MyCompany.js - مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { generateInviteCode } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
+import { useLanguage } from '../i18n/LanguageContext';
 
 const SUBSCRIPTION_LABELS = {
-  trial: 'تجريبي',
-  active: 'نشط',
-  expired: 'منتهي',
-  cancelled: 'ملغي',
-};
-
-const SUBSCRIPTION_COLORS = {
-  trial: '#f59e0b',
-  active: '#10b981',
-  expired: '#ef4444',
-  cancelled: '#6b7280',
+  trial: 'trial',
+  active: 'active',
+  expired: 'expired',
+  cancelled: 'cancelled',
 };
 
 export default function MyCompany() {
+  const { t } = useLanguage();
   const { userCompanyId } = useAuth();
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +31,7 @@ export default function MyCompany() {
       const companyRef = doc(db, 'companies', userCompanyId);
       const snap = await getDoc(companyRef);
       if (!snap.exists()) {
-        setError('لم يتم العثور على بيانات الشركة');
+        setError(t('mc.notFound'));
         setLoading(false);
         return;
       }
@@ -50,11 +45,11 @@ export default function MyCompany() {
       }
     } catch (err) {
       console.error('Error fetching company:', err);
-      setError('حدث خطأ أثناء جلب بيانات الشركة');
+      setError(t('mc.fetchErr'));
     } finally {
       setLoading(false);
     }
-  }, [userCompanyId]);
+  }, [userCompanyId, t]);
 
   useEffect(() => {
     fetchAndEnsureCode();
@@ -70,7 +65,7 @@ export default function MyCompany() {
       setCompany((prev) => ({ ...prev, inviteCode: newCode }));
     } catch (err) {
       console.error('Error regenerating code:', err);
-      setError('حدث خطأ أثناء تجديد الكود');
+      setError(t('mc.regenErr'));
     } finally {
       setRegenerating(false);
     }
@@ -83,7 +78,6 @@ export default function MyCompany() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback for older browsers
       const el = document.createElement('textarea');
       el.value = company.inviteCode;
       document.body.appendChild(el);
@@ -96,8 +90,7 @@ export default function MyCompany() {
   }
 
   const subscriptionStatus = company?.subscription?.status || 'trial';
-  const statusLabel = SUBSCRIPTION_LABELS[subscriptionStatus] || subscriptionStatus;
-  const statusColor = SUBSCRIPTION_COLORS[subscriptionStatus] || '#6b7280';
+  const statusLabel = t(`status.${SUBSCRIPTION_LABELS[subscriptionStatus] || subscriptionStatus}`) || subscriptionStatus;
 
   return (
     <div className="app-layout">
@@ -105,9 +98,9 @@ export default function MyCompany() {
       <div className="main-content">
         <div className="header">
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>شركتي</h1>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{t('mc.title')}</h1>
             <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
-              معلومات شركتك وكود الدعوة
+              {t('mc.subtitle')}
             </p>
           </div>
         </div>
@@ -126,7 +119,7 @@ export default function MyCompany() {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
             <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, marginBottom: 12 }}></i>
-            <p>جاري تحميل بيانات الشركة...</p>
+            <p>{t('mc.loading')}</p>
           </div>
         ) : company ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -135,28 +128,28 @@ export default function MyCompany() {
             <div className="card" style={{ padding: '24px 28px' }}>
               <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
                 <i className="fas fa-building" style={{ marginLeft: 8, color: '#6366f1' }}></i>
-                معلومات الشركة
+                {t('mc.title')}
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>اسم الشركة</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mc.name')}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>
                     {company.name || '—'}
                   </div>
                 </div>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>البريد الإلكتروني</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('common.email')}</div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: '#334155', wordBreak: 'break-all' }}>
                     {company.email || '—'}
                   </div>
                 </div>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>حالة الاشتراك</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mc.status')}</div>
                   <div>
                     <span className="badge" style={{
-                      background: `${statusColor}22`,
-                      color: statusColor,
-                      border: `1px solid ${statusColor}44`,
+                      background: `${company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444'}22`,
+                      color: company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444',
+                      border: `1px solid ${company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444'}44`,
                       borderRadius: 8,
                       padding: '4px 12px',
                       fontSize: 13,
@@ -177,13 +170,12 @@ export default function MyCompany() {
             }}>
               <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
                 <i className="fas fa-key" style={{ marginLeft: 8, color: '#6366f1' }}></i>
-                كود الدعوة
+                {t('co.invite')}
               </h2>
               <p style={{ margin: '0 0 24px', color: '#64748b', fontSize: 13 }}>
                 شارك هذا الكود مع أي شخص تريده للانضمام لشركتك
               </p>
 
-              {/* Big Code Display */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 flexWrap: 'wrap',
@@ -208,7 +200,6 @@ export default function MyCompany() {
                   </span>
                 </div>
 
-                {/* Copy Button */}
                 <button
                   className="btn-primary"
                   onClick={handleCopy}
@@ -222,10 +213,9 @@ export default function MyCompany() {
                   }}
                 >
                   <i className={copied ? 'fas fa-check' : 'fas fa-copy'}></i>
-                  {copied ? 'تم النسخ!' : 'نسخ الكود'}
+                  {copied ? t('common.copied') : t('co.copyCode')}
                 </button>
 
-                {/* Regenerate Button */}
                 <button
                   className="btn-secondary"
                   onClick={handleRegenerate}
@@ -233,7 +223,7 @@ export default function MyCompany() {
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontSize: 14 }}
                 >
                   <i className={`fas fa-sync-alt ${regenerating ? 'fa-spin' : ''}`}></i>
-                  {regenerating ? 'جاري التجديد...' : 'توليد كود جديد'}
+                  {regenerating ? t('mc.regening') : t('mc.regen')}
                 </button>
               </div>
 
@@ -247,7 +237,7 @@ export default function MyCompany() {
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
             <i className="fas fa-building" style={{ fontSize: 40, marginBottom: 12 }}></i>
-            <p>لم يتم العثور على بيانات الشركة</p>
+            <p>{t('mc.notFound')}</p>
           </div>
         )}
       </div>

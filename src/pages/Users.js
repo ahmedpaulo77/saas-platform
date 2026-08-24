@@ -1,4 +1,4 @@
-// src/pages/Users.js - إدارة المستخدمين
+// src/pages/Users.js - إدارة المستخدمين مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -13,8 +13,10 @@ import { db, auth } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Users() {
+  const { t } = useLanguage();
   const { currentUser, userRole, userCompanyId } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
   const hasAccess = isSuperAdmin(userRole);
@@ -39,11 +41,11 @@ export default function Users() {
       setUsers(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (error) {
       console.error("Error fetching users:", error);
-      alert("حدث خطأ في جلب المستخدمين");
+      alert(t("errors.fetchUsers"));
     } finally {
       setLoading(false);
     }
-  }, [hasAccess]);
+  }, [hasAccess, t]);
 
   useEffect(() => {
     fetchUsers();
@@ -52,7 +54,7 @@ export default function Users() {
   async function addUser(e) {
     e.preventDefault();
     if (!newUser.email || !newUser.password) {
-      alert("يرجى ملء جميع الحقول");
+      alert(t("errors.fillFields"));
       return;
     }
 
@@ -79,62 +81,64 @@ export default function Users() {
       setNewUser({ email: "", password: "", role: "user" });
       setShowAddModal(false);
       await fetchUsers();
-      alert("✅ تم إضافة المستخدم بنجاح");
+      alert(t("success.userAdded"));
     } catch (error) {
       console.error("Error adding user:", error);
-      alert("❌ حدث خطأ في إضافة المستخدم: " + error.message);
+      alert(t("errors.addUser") + ": " + error.message);
     }
   }
 
   async function updateUserRole(userId, newRole) {
     if (!superAdmin && newRole !== "user") {
-      alert('يمكنك تعيين دور "مستخدم" فقط');
+      alert(t("errors.roleRestricted"));
       return;
     }
-    if (!window.confirm(`هل أنت متأكد من تغيير دور المستخدم إلى ${newRole}؟`))
+    const roleLabels = {
+      user: t("users.roleUser"),
+      admin: t("users.roleAdmin"),
+      super_admin: t("users.roleSuperAdmin"),
+    };
+    if (!window.confirm(t("users.confirmRoleChange", { role: roleLabels[newRole] || newRole })))
       return;
 
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { role: newRole });
       await fetchUsers();
-      alert("✅ تم تحديث دور المستخدم بنجاح");
+      alert(t("success.roleUpdated"));
     } catch (error) {
       console.error("Error updating user role:", error);
-      alert("❌ حدث خطأ في تحديث دور المستخدم");
+      alert(t("errors.updateUser"));
     }
   }
 
   async function toggleUserStatus(userId, currentStatus) {
     const newStatus = !currentStatus;
-    if (
-      !window.confirm(
-        `هل أنت متأكد من ${newStatus ? "تفعيل" : "تعطيل"} هذا المستخدم؟`,
-      )
-    )
+    const action = newStatus ? t("users.activate") : t("users.deactivate");
+    if (!window.confirm(t("users.confirmStatusChange", { action })))
       return;
 
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { isActive: newStatus });
       await fetchUsers();
-      alert(`✅ تم ${newStatus ? "تفعيل" : "تعطيل"} المستخدم بنجاح`);
+      alert(t("success.statusChanged", { action }));
     } catch (error) {
       console.error("Error toggling user status:", error);
-      alert("❌ حدث خطأ في تغيير حالة المستخدم");
+      alert(t("errors.updateUser"));
     }
   }
 
   async function deleteUser(userId) {
-    if (!window.confirm("هل أنت متأكد من حذف هذا المستخدم؟")) return;
+    if (!window.confirm(t("users.confirmDelete"))) return;
 
     try {
       await deleteDoc(doc(db, "users", userId));
       await fetchUsers();
-      alert("✅ تم حذف المستخدم بنجاح");
+      alert(t("success.userDeleted"));
     } catch (error) {
       console.error("Error deleting user:", error);
-      alert("❌ حدث خطأ في حذف المستخدم");
+      alert(t("errors.deleteUser"));
     }
   }
 
@@ -143,6 +147,26 @@ export default function Users() {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.role && user.role.toLowerCase().includes(searchTerm.toLowerCase())),
   );
+
+  const getRoleBadgeClass = (role) => {
+    if (role === "super_admin") return "badge-paid";
+    if (role === "admin") return "badge-pending";
+    return "badge-active";
+  };
+
+  const getRoleLabel = (role) => {
+    if (role === "super_admin") return t("users.roleSuperAdmin");
+    if (role === "admin") return t("users.roleAdmin");
+    return t("users.roleUser");
+  };
+
+  const getStatusBadgeClass = (isActive) => {
+    return isActive !== false ? "badge-active" : "badge-expired";
+  };
+
+  const getStatusLabel = (isActive) => {
+    return isActive !== false ? t("users.statusActive") : t("users.statusInactive");
+  };
 
   if (!hasAccess) {
     return (
@@ -157,9 +181,9 @@ export default function Users() {
               className="fas fa-lock"
               style={{ fontSize: "48px", color: "#ef4444" }}
             ></i>
-            <h3 style={{ marginTop: "16px" }}>غير مصرح لك بالوصول</h3>
+            <h3 style={{ marginTop: "16px" }}>{t("errors.noAccessTitle")}</h3>
             <p style={{ color: "#64748b" }}>
-              هذه الصفحة متاحة لمدير الشركة ومدير النظام فقط
+              {t("errors.noAccessDesc")}
             </p>
           </div>
         </div>
@@ -168,7 +192,12 @@ export default function Users() {
   }
 
   if (loading) {
-    return <div className="loading">جاري تحميل المستخدمين...</div>;
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+        {t("users.loading")}
+      </div>
+    );
   }
 
   return (
@@ -184,18 +213,18 @@ export default function Users() {
           }}
         >
           <h2 style={{ color: "#333", margin: 0 }}>
-            <i className="fas fa-users" style={{ color: "#4f46e5" }}></i> إدارة
-            المستخدمين
+            <i className="fas fa-users" style={{ color: "#4f46e5" }}></i>{" "}
+            {t("users.title")}
           </h2>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">
-            <i className="fas fa-plus"></i> إضافة مستخدم
+            <i className="fas fa-plus"></i> {t("users.addUser")}
           </button>
         </div>
 
         <div style={{ marginBottom: "20px" }}>
           <input
             type="text"
-            placeholder="🔍 ابحث عن مستخدم..."
+            placeholder={t("users.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -213,25 +242,25 @@ export default function Users() {
 
         <div className="table-container">
           <div className="table-header">
-            <h3>قائمة المستخدمين</h3>
-            <span>{filteredUsers.length} مستخدم</span>
+            <h3>{t("users.userList")}</h3>
+            <span>{filteredUsers.length} {t("users.userCount")}</span>
           </div>
           {filteredUsers.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
               {searchTerm
-                ? "❌ لا توجد نتائج مطابقة للبحث"
-                : "لا يوجد مستخدمين مسجلين حتى الآن"}
+                ? "❌ " + t("users.noSearchResults")
+                : t("users.noUsers")}
             </p>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>البريد الإلكتروني</th>
-                  <th>الدور</th>
-                  <th>الحالة</th>
-                  <th>تاريخ الإنشاء</th>
-                  <th>الإجراءات</th>
+                  <th>{t("users.email")}</th>
+                  <th>{t("users.role")}</th>
+                  <th>{t("users.status")}</th>
+                  <th>{t("users.createdAt")}</th>
+                  <th>{t("users.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,34 +272,20 @@ export default function Users() {
                     <td>{index + 1}</td>
                     <td>{user.email}</td>
                     <td>
-                      <span
-                        className={`badge ${
-                          user.role === "super_admin"
-                            ? "badge-paid"
-                            : user.role === "admin"
-                              ? "badge-pending"
-                              : "badge-active"
-                        }`}
-                      >
-                        {user.role === "super_admin"
-                          ? "مدير النظام"
-                          : user.role === "admin"
-                            ? "مدير"
-                            : "مستخدم"}
+                      <span className={`badge ${getRoleBadgeClass(user.role)}`}>
+                        {getRoleLabel(user.role)}
                       </span>
                     </td>
                     <td>
-                      <span
-                        className={`badge ${user.isActive !== false ? "badge-active" : "badge-expired"}`}
-                      >
-                        {user.isActive !== false ? "نشط" : "معطل"}
+                      <span className={`badge ${getStatusBadgeClass(user.isActive)}`}>
+                        {getStatusLabel(user.isActive)}
                       </span>
                     </td>
                     <td>
                       {user.createdAt
                         ? new Date(user.createdAt).toLocaleDateString()
                         : "-"}
-                    </td>{" "}
+                    </td>
                     <td>
                       <select
                         onChange={(e) =>
@@ -285,10 +300,10 @@ export default function Users() {
                           marginLeft: "6px",
                         }}
                       >
-                        <option value="user">مستخدم</option>
-                        {superAdmin && <option value="admin">مدير</option>}
+                        <option value="user">{t("users.roleUser")}</option>
+                        {superAdmin && <option value="admin">{t("users.roleAdmin")}</option>}
                         {superAdmin && (
-                          <option value="super_admin">مدير النظام</option>
+                          <option value="super_admin">{t("users.roleSuperAdmin")}</option>
                         )}
                       </select>
 
@@ -308,7 +323,7 @@ export default function Users() {
                           color: "white",
                         }}
                       >
-                        {user.isActive !== false ? "تعطيل" : "تفعيل"}
+                        {user.isActive !== false ? t("users.deactivate") : t("users.activate")}
                       </button>
 
                       {user.id !== currentUser?.uid && (
@@ -338,7 +353,7 @@ export default function Users() {
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3>
-                <i className="fas fa-user-plus"></i> إضافة مستخدم جديد
+                <i className="fas fa-user-plus"></i> {t("users.addUserTitle")}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -349,7 +364,7 @@ export default function Users() {
             </div>
             <form onSubmit={addUser}>
               <div style={styles.formGroup}>
-                <label>البريد الإلكتروني</label>
+                <label>{t("users.email")}</label>
                 <input
                   type="email"
                   placeholder="example@email.com"
@@ -362,7 +377,7 @@ export default function Users() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>كلمة المرور</label>
+                <label>{t("users.password")}</label>
                 <input
                   type="password"
                   placeholder="********"
@@ -377,7 +392,7 @@ export default function Users() {
               </div>
               {superAdmin && (
                 <div style={styles.formGroup}>
-                  <label>الدور</label>
+                  <label>{t("users.role")}</label>
                   <select
                     value={newUser.role}
                     onChange={(e) =>
@@ -385,9 +400,9 @@ export default function Users() {
                     }
                     style={styles.input}
                   >
-                    <option value="user">مستخدم</option>
-                    <option value="admin">مدير</option>
-                    <option value="super_admin">مدير النظام</option>
+                    <option value="user">{t("users.roleUser")}</option>
+                    <option value="admin">{t("users.roleAdmin")}</option>
+                    <option value="super_admin">{t("users.roleSuperAdmin")}</option>
                   </select>
                 </div>
               )}
@@ -398,10 +413,10 @@ export default function Users() {
                   className="btn-danger"
                   style={{ marginLeft: "10px" }}
                 >
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> إضافة المستخدم
+                  <i className="fas fa-save"></i> {t("users.addUserBtn")}
                 </button>
               </div>
             </form>
