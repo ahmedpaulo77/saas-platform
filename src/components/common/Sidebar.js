@@ -2,35 +2,38 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../i18n/LanguageContext';
+import LanguageToggle from './LanguageToggle';
 import { getAvailableModules } from '../../utils/modules';
 
 // كل الوحدات المتاحة مع بياناتها
 const ALL_NAV_ITEMS = [
-  { to: '/dashboard', icon: 'fas fa-th-large', label: 'الرئيسية', module: 'dashboard' },
-  { to: '/pos', icon: 'fas fa-cash-register', label: 'نقطة البيع', module: 'pos' },
-  { to: '/companies', icon: 'fas fa-building', label: 'الشركات', module: 'companies' },
-  { to: '/clients', icon: 'fas fa-user-friends', label: 'العملاء', module: 'clients' },
-  { to: '/invoices', icon: 'fas fa-file-invoice', label: 'الفواتير', module: 'invoices' },
-  { to: '/inventory', icon: 'fas fa-boxes', label: 'المخزون', module: 'inventory' },
-  { to: '/suppliers', icon: 'fas fa-truck', label: 'الموردين', module: 'suppliers' },
-  { to: '/expiry', icon: 'fas fa-calendar-times', label: 'تواريخ الصلاحية', module: 'expiry' },
-  { to: '/tasks', icon: 'fas fa-tasks', label: 'المهام', module: 'tasks' },
-  { to: '/projects', icon: 'fas fa-project-diagram', label: 'المشاريع', module: 'projects' },
+  { to: '/dashboard', icon: 'fas fa-th-large', labelKey: 'nav.dashboard', module: 'dashboard' },
+  { to: '/pos', icon: 'fas fa-cash-register', labelKey: 'nav.pos', module: 'pos' },
+  { to: '/companies', icon: 'fas fa-building', labelKey: 'nav.companies', module: 'companies' },
+  { to: '/clients', icon: 'fas fa-user-friends', labelKey: 'nav.clients', module: 'clients' },
+  { to: '/invoices', icon: 'fas fa-file-invoice', labelKey: 'nav.invoices', module: 'invoices' },
+  { to: '/inventory', icon: 'fas fa-boxes', labelKey: 'nav.inventory', module: 'inventory' },
+  { to: '/suppliers', icon: 'fas fa-truck', labelKey: 'nav.suppliers', module: 'suppliers' },
+  { to: '/expiry', icon: 'fas fa-calendar-times', labelKey: 'nav.expiry', module: 'expiry' },
+  { to: '/tasks', icon: 'fas fa-tasks', labelKey: 'nav.tasks', module: 'tasks' },
+  { to: '/projects', icon: 'fas fa-project-diagram', labelKey: 'nav.projects', module: 'projects' },
 ];
 
 const ALL_SECONDARY_ITEMS = [
-  { to: '/my-company',   icon: 'fas fa-store',        label: 'شركتي', module: 'my-company' },
-  { to: '/users',        icon: 'fas fa-users',       label: 'المستخدمين', module: 'users' },
-  { to: '/reports',      icon: 'fas fa-chart-pie',   label: 'التقارير', module: 'reports' },
-  { to: '/aging',        icon: 'fas fa-clock',        label: 'أعمار الديون', module: 'aging' },
-  { to: '/notifications',icon: 'fas fa-bell',         label: 'الإشعارات', module: 'notifications' },
-  { to: '/subscription', icon: 'fas fa-crown',        label: 'الاشتراك', module: 'subscription' },
-  { to: '/profile',      icon: 'fas fa-user-circle',  label: 'الملف الشخصي', module: 'profile' },
-  { to: '/about',        icon: 'fas fa-info-circle',  label: 'حول النظام', module: 'about' },
+  { to: '/my-company',   icon: 'fas fa-store',       labelKey: 'nav.myCompany', module: 'my-company' },
+  { to: '/users',        icon: 'fas fa-users',        labelKey: 'nav.users', module: 'users' },
+  { to: '/reports',      icon: 'fas fa-chart-pie',    labelKey: 'nav.reports', module: 'reports' },
+  { to: '/aging',        icon: 'fas fa-clock',        labelKey: 'nav.aging', module: 'aging' },
+  { to: '/notifications',icon: 'fas fa-bell',         labelKey: 'nav.notifications', module: 'notifications' },
+  { to: '/subscription', icon: 'fas fa-crown',        labelKey: 'nav.subscription', module: 'subscription' },
+  { to: '/profile',      icon: 'fas fa-user-circle',  labelKey: 'nav.profile', module: 'profile' },
+  { to: '/about',        icon: 'fas fa-info-circle',  labelKey: 'nav.about', module: 'about' },
 ];
 
 export default function Sidebar() {
   const { userRole, currentUser, userIndustry, logout } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -77,36 +80,36 @@ export default function Sidebar() {
       </div>
 
       <nav>
-        <div className="nav-label">القائمة الرئيسية</div>
+        <div className="nav-label">{t('nav.main')}</div>
         {navItems.map((item) => (
           <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
             <span className="icon"><i className={item.icon}></i></span>
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         ))}
 
-        <div className="nav-label">الإعدادات والتقارير</div>
+        <div className="nav-label">{t('nav.settings')}</div>
         {secondaryItems.map((item) => (
           <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
             <span className="icon"><i className={item.icon}></i></span>
-            {item.label}
+            {t(item.labelKey)}
           </Link>
         ))}
 
         {userRole === 'super_admin' && (
           <>
-            <div className="nav-label">مدير النظام</div>
+            <div className="nav-label">{t('nav.admin')}</div>
             <Link to="/admin" className={isActive('/admin') ? 'active' : ''}>
               <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
                 <i className="fas fa-shield-alt" style={{ color: '#f59e0b' }}></i>
               </span>
-              <span style={{ color: '#fcd34d' }}>لوحة الأدمن</span>
+              <span style={{ color: '#fcd34d' }}>{t('nav.adminPanel')}</span>
             </Link>
             <Link to="/admin/users" className={isActive('/admin/users') ? 'active' : ''}>
               <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
                 <i className="fas fa-users-cog" style={{ color: '#f59e0b' }}></i>
               </span>
-              <span style={{ color: '#fcd34d' }}>إدارة المستخدمين</span>
+              <span style={{ color: '#fcd34d' }}>{t('nav.manageUsers')}</span>
             </Link>
           </>
         )}
@@ -136,15 +139,16 @@ export default function Sidebar() {
             {currentUser?.email}
           </div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>
-            {userRole === 'super_admin' ? '👑 مدير النظام' : '👤 مستخدم'}
+            {userRole === 'super_admin' ? `👑 ${t('role.superAdmin')}` : `👤 ${t('role.user')}`}
           </div>
         </div>
       </div>
 
       <button onClick={handleLogout} className="logout-btn">
         <i className="fas fa-sign-out-alt"></i>
-        تسجيل الخروج
+        {t('nav.logout')}
       </button>
+      <LanguageToggle variant="sidebar" />
     </>
   );
 
@@ -154,7 +158,7 @@ export default function Sidebar() {
       <button
         className="hamburger-btn"
         onClick={() => setMobileOpen(true)}
-        aria-label="فتح القائمة"
+        aria-label={t('nav.openMenu')}
       >
         <i className="fas fa-bars"></i>
       </button>
