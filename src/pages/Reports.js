@@ -1,4 +1,4 @@
-// src/pages/Reports.js - مع دعم الترجمة
+// src/pages/Reports.js - مع دعم الترجمة وإضافة Sellers & Buyers
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -25,6 +25,8 @@ import { useLanguage } from "../i18n/LanguageContext";
 const exportItems = [
   { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1" },
   { type: "clients", labelKey: "rep.file.clients", icon: "fas fa-user-friends", color: "#10b981" },
+  { type: "sellers", labelKey: "rep.file.sellers", icon: "fas fa-store", color: "#f59e0b" },
+  { type: "buyers", labelKey: "rep.file.buyers", icon: "fas fa-user-plus", color: "#ec4899" },
   { type: "invoices", labelKey: "rep.file.invoices", icon: "fas fa-file-invoice", color: "#f59e0b" },
   { type: "products", labelKey: "rep.file.products", icon: "fas fa-boxes", color: "#8b5cf6" },
   { type: "tasks", labelKey: "rep.file.tasks", icon: "fas fa-tasks", color: "#ec4899" },
@@ -70,6 +72,8 @@ export default function Reports() {
   const [stats, setStats] = useState({
     companies: 0,
     clients: 0,
+    sellers: 0,
+    buyers: 0,
     invoices: 0,
     products: 0,
     tasks: 0,
@@ -106,29 +110,39 @@ export default function Reports() {
       }
 
       let clientsData = [];
+      let sellersData = [];
+      let buyersData = [];
       let invoicesData = [];
       let productsData = [];
       let tasksData = [];
 
       if (superAdmin) {
-        const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap] = await Promise.all([
           getDocs(collection(db, "clients")),
+          getDocs(collection(db, "sellers")),
+          getDocs(collection(db, "buyers")),
           getDocs(collection(db, "invoices")),
           getDocs(collection(db, "inventory")),
           getDocs(collection(db, "tasks")),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        buyersData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } else {
-        const [clSnap, iSnap, pSnap, tSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap] = await Promise.all([
           getDocs(query(collection(db, "clients"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "sellers"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "buyers"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "inventory"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "tasks"), where("companyId", "==", userCompanyId))),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        buyersData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -172,6 +186,8 @@ export default function Reports() {
       setStats({
         companies: companiesData.length,
         clients: clientsData.length,
+        sellers: sellersData.length,
+        buyers: buyersData.length,
         invoices: invoicesData.length,
         products: productsData.length,
         tasks: tasksData.length,
@@ -259,6 +275,8 @@ export default function Reports() {
       setAllData({
         companiesData,
         clientsData,
+        sellersData,
+        buyersData,
         invoicesData,
         productsData,
         tasksData,
@@ -301,6 +319,39 @@ export default function Reports() {
           email: t('rep.col.email'),
           phone: t('rep.col.phone'),
           companyId: t('rep.col.companyId'),
+        };
+        break;
+      case "sellers":
+        data = allData.sellersData || [];
+        fileName = t('rep.file.sellers');
+        headers = {
+          name: t('sellers.name'),
+          phone: t('sellers.phone'),
+          email: t('sellers.email'),
+          developer: t('sellers.developer'),
+          project: t('sellers.project'),
+          major: t('sellers.major'),
+          propertyType: t('sellers.propertyType'),
+          builtUpArea: t('sellers.builtUpArea'),
+          plotArea: t('sellers.plotArea'),
+          bedrooms: t('sellers.bedrooms'),
+          bathrooms: t('sellers.bathrooms'),
+          price: t('sellers.price'),
+          commission: t('sellers.commission'),
+        };
+        break;
+      case "buyers":
+        data = allData.buyersData || [];
+        fileName = t('rep.file.buyers');
+        headers = {
+          name: t('buyers.name'),
+          phone: t('buyers.phone'),
+          interest: t('buyers.interest'),
+          followUp1: t('buyers.followUp1'),
+          followUp2: t('buyers.followUp2'),
+          followUp3: t('buyers.followUp3'),
+          lastCall: t('buyers.lastCall'),
+          agent: t('buyers.agent'),
         };
         break;
       case "invoices": {
@@ -378,8 +429,13 @@ export default function Reports() {
 
   if (loading)
     return (
-      <div className="loading">
-        <div className="spinner"></div>{t('rep.loading')}
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">
+            <div className="spinner"></div>{t('rep.loading')}
+          </div>
+        </div>
       </div>
     );
 
@@ -422,6 +478,8 @@ export default function Reports() {
           {[
             { label: t('rep.companies'), value: stats.companies, icon: "fas fa-building", cls: "indigo" },
             { label: t('rep.clients'), value: stats.clients, icon: "fas fa-user-friends", cls: "green" },
+            { label: t('sellers.title'), value: stats.sellers, icon: "fas fa-store", cls: "amber" },
+            { label: t('buyers.title'), value: stats.buyers, icon: "fas fa-user-plus", cls: "pink" },
             { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber" },
             { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple" },
             { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink" },

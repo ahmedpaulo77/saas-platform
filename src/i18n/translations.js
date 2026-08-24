@@ -884,6 +884,8 @@ export const translations = {
 // أضف تحت modules
 'modules.sellers': 'البائعين',
 'modules.buyers': 'المشترين',
+'rep.file.sellers': 'البائعين.xlsx',
+'rep.file.buyers': 'المشترين.xlsx',
   },
   en: {
     'lang.switch': 'العربية',
@@ -1768,5 +1770,7 @@ export const translations = {
 'dash.c9.d': 'Manage sellers, developers and properties',
 'dash.c10.t': 'Manage Buyers',
 'dash.c10.d': 'Manage clients, buyers and follow-ups',
+'rep.file.sellers': 'sellers.xlsx',
+'rep.file.buyers': 'buyers.xlsx',
   },
 };
