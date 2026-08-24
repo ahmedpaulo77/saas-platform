@@ -29,6 +29,24 @@ const ALL_FEATURE_CARDS = [
     module: "clients",
   },
   {
+    to: "/sellers", // ✅ إضافة Sellers
+    icon: "fas fa-store",
+    color: "#f59e0b",
+    bg: "#fef3c7",
+    titleKey: "dash.c9.t",
+    descKey: "dash.c9.d",
+    module: "sellers",
+  },
+  {
+    to: "/buyers", // ✅ إضافة Buyers
+    icon: "fas fa-user-plus",
+    color: "#ec4899",
+    bg: "#fdf2f8",
+    titleKey: "dash.c10.t",
+    descKey: "dash.c10.d",
+    module: "buyers",
+  },
+  {
     to: "/invoices",
     icon: "fas fa-file-invoice",
     color: "#f59e0b",

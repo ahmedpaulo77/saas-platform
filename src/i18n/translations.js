@@ -858,6 +858,10 @@ export const translations = {
 'buyers.emptyDesc': 'أضف أول مشتري لك الآن',
 'buyers.confirmDelete': 'هل أنت متأكد من حذف هذا المشتري؟',
 'buyers.followUps': 'المتابعات',
+'dash.c9.t': 'إدارة البائعين',
+'dash.c9.d': 'إدارة البائعين والمطورين والعقارات',
+'dash.c10.t': 'إدارة المشترين',
+'dash.c10.d': 'إدارة العملاء والمشترين ومتابعتهم',
 
 // أضف تحت errors
 'errors.fetchSellers': 'حدث خطأ في جلب البائعين',
@@ -1758,5 +1762,9 @@ export const translations = {
 
 'modules.sellers': 'Sellers',
 'modules.buyers': 'Buyers',
+'dash.c9.t': 'Manage Sellers',
+'dash.c9.d': 'Manage sellers, developers and properties',
+'dash.c10.t': 'Manage Buyers',
+'dash.c10.d': 'Manage clients, buyers and follow-ups',
   },
 };
