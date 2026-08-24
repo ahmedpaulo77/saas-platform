@@ -1,4 +1,4 @@
-// src/pages/Landing.js - مع زر تبديل اللغة
+// src/pages/Landing.js - مع زر تبديل اللغة (بدون زر ابدأ الآن مجانا)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -116,6 +116,7 @@ export default function Landing() {
             <span>{nextLang}</span>
           </button>
 
+          {/* ✅ زرار تسجيل الدخول فقط - تم إزالة زرار "ابدأ الآن مجانا" */}
           <button onClick={() => navigate('/login')} style={{
             padding: '8px 20px', borderRadius: 8, border: scrolled ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.3)',
             background: 'transparent', cursor: 'pointer', fontFamily: 'Cairo',
@@ -123,15 +124,6 @@ export default function Landing() {
             transition: 'all 0.2s',
           }}>
             {t('landing.ctaLogin')}
-          </button>
-          <button onClick={() => navigate('/signup')} style={{
-            padding: '8px 22px', borderRadius: 8, border: 'none',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            cursor: 'pointer', fontFamily: 'Cairo', fontWeight: 700,
-            fontSize: 14, color: 'white',
-            boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-          }}>
-            {t('landing.ctaStart')}
           </button>
         </div>
       </nav>
@@ -189,20 +181,6 @@ export default function Landing() {
           </p>
 
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/signup')} style={{
-              padding: '16px 40px', borderRadius: 12, border: 'none',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: 'white', fontFamily: 'Cairo', fontWeight: 800,
-              fontSize: 17, cursor: 'pointer',
-              boxShadow: '0 8px 32px rgba(99,102,241,0.45)',
-              transition: 'transform 0.2s',
-            }}
-              onMouseOver={e => e.target.style.transform = 'translateY(-2px)'}
-              onMouseOut={e => e.target.style.transform = 'translateY(0)'}
-            >
-              <i className="fas fa-rocket" style={{ marginLeft: 10 }}></i>
-              {t('landing.ctaStart')}
-            </button>
             <button onClick={() => navigate('/login')} style={{
               padding: '16px 40px', borderRadius: 12,
               border: '1px solid rgba(255,255,255,0.2)',
@@ -210,8 +188,8 @@ export default function Landing() {
               color: 'white', fontFamily: 'Cairo', fontWeight: 600,
               fontSize: 17, cursor: 'pointer', transition: 'all 0.2s',
             }}
-              onMouseOver={e => { e.target.style.background = 'rgba(255,255,255,0.12)'; }}
-              onMouseOut={e => { e.target.style.background = 'rgba(255,255,255,0.06)'; }}
+              onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+              onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             >
               <i className="fas fa-sign-in-alt" style={{ marginLeft: 10 }}></i>
               {t('landing.ctaLogin')}
@@ -364,14 +342,14 @@ export default function Landing() {
                       </li>
                     ))}
                   </ul>
-                  <button onClick={() => navigate('/signup')} style={{
+                  <button onClick={() => navigate('/login')} style={{
                     width: '100%', padding: '13px', borderRadius: 12, border: 'none',
                     background: plan.featured ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f1f5f9',
                     color: plan.featured ? 'white' : '#334155',
                     fontFamily: 'Cairo', fontWeight: 700, fontSize: 15,
                     cursor: 'pointer', transition: 'all 0.2s',
                   }}>
-                    {t('landing.ctaStart')}
+                    {t('landing.ctaLogin')}
                   </button>
                 </div>
               );
@@ -393,7 +371,7 @@ export default function Landing() {
           <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.6)', marginBottom: 36 }}>
             {t('landing.ctaDesc')}
           </p>
-          <button onClick={() => navigate('/signup')} style={{
+          <button onClick={() => navigate('/login')} style={{
             padding: '18px 52px', borderRadius: 14, border: 'none',
             background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
             color: 'white', fontFamily: 'Cairo', fontWeight: 800,
@@ -405,7 +383,7 @@ export default function Landing() {
             onMouseOut={e => e.target.style.transform = 'translateY(0)'}
           >
             <i className="fas fa-rocket" style={{ marginLeft: 12 }}></i>
-            {t('landing.ctaStart')}
+            {t('landing.ctaLogin')}
           </button>
           <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
             {t('landing.ctaFoot')}
