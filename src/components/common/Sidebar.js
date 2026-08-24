@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - نسخة معدلة مع Sellers & Buyers
+// src/components/common/Sidebar.js - نسخة محسنة للموبايل
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -45,9 +45,22 @@ export default function Sidebar() {
   const navItems = ALL_NAV_ITEMS.filter((item) => availableModules.has(item.module));
   const secondaryItems = ALL_SECONDARY_ITEMS.filter((item) => availableModules.has(item.module));
 
+  // ✅ إغلاق القائمة عند تغيير المسار
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // ✅ منع التمرير في الخلفية عند فتح القائمة
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileOpen]);
 
   async function handleLogout() {
     try {
@@ -60,6 +73,16 @@ export default function Sidebar() {
 
   const isActive = (path) => location.pathname === path;
 
+  // ✅ toggle function
+  const toggleSidebar = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
+  // ✅ close function
+  const closeSidebar = () => {
+    setMobileOpen(false);
+  };
+
   const sidebarContent = (
     <>
       <div className="logo">
@@ -70,7 +93,7 @@ export default function Sidebar() {
           <span className="logo-name">SaaS PRO</span>
           <span className="logo-badge">Business Platform</span>
         </div>
-        <button onClick={() => setMobileOpen(false)} className="sidebar-close-btn">
+        <button onClick={closeSidebar} className="sidebar-close-btn" aria-label="Close menu">
           <i className="fas fa-times"></i>
         </button>
       </div>
@@ -78,7 +101,7 @@ export default function Sidebar() {
       <nav>
         <div className="nav-label">{t('nav.main')}</div>
         {navItems.map((item) => (
-          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
+          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''} onClick={closeSidebar}>
             <span className="icon"><i className={item.icon}></i></span>
             {item.label}
           </Link>
@@ -86,7 +109,7 @@ export default function Sidebar() {
 
         <div className="nav-label">{t('nav.settings')}</div>
         {secondaryItems.map((item) => (
-          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''}>
+          <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''} onClick={closeSidebar}>
             <span className="icon"><i className={item.icon}></i></span>
             {item.label}
           </Link>
@@ -95,13 +118,13 @@ export default function Sidebar() {
         {userRole === 'super_admin' && (
           <>
             <div className="nav-label">{t('nav.admin')}</div>
-            <Link to="/admin" className={isActive('/admin') ? 'active' : ''}>
+            <Link to="/admin" className={isActive('/admin') ? 'active' : ''} onClick={closeSidebar}>
               <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
                 <i className="fas fa-shield-alt" style={{ color: '#f59e0b' }}></i>
               </span>
               <span style={{ color: '#fcd34d' }}>{t('nav.adminPanel')}</span>
             </Link>
-            <Link to="/admin/users" className={isActive('/admin/users') ? 'active' : ''}>
+            <Link to="/admin/users" className={isActive('/admin/users') ? 'active' : ''} onClick={closeSidebar}>
               <span className="icon" style={{ background: 'rgba(245,158,11,0.15)' }}>
                 <i className="fas fa-users-cog" style={{ color: '#f59e0b' }}></i>
               </span>
@@ -136,12 +159,21 @@ export default function Sidebar() {
 
   return (
     <>
-      <button className="hamburger-btn" onClick={() => setMobileOpen(true)} aria-label={t('nav.openMenu')}>
-        <i className="fas fa-bars"></i>
+      {/* ✅ Hamburger Button محسن */}
+      <button 
+        className="hamburger-btn" 
+        onClick={toggleSidebar} 
+        aria-label={t('nav.openMenu')}
+      >
+        <i className={`fas ${mobileOpen ? 'fa-times' : 'fa-bars'}`}></i>
       </button>
 
-      {mobileOpen && <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} />}
+      {/* ✅ Overlay محسن */}
+      {mobileOpen && (
+        <div className="sidebar-overlay active" onClick={closeSidebar} />
+      )}
 
+      {/* ✅ القائمة الجانبية */}
       <div className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         {sidebarContent}
       </div>
