@@ -1,4 +1,4 @@
-// src/pages/Reports.js - مع دعم الترجمة وإضافة Sellers & Buyers
+// src/pages/Reports.js - تعديل: User ميشوفش حاجة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -68,6 +68,7 @@ export default function Reports() {
   const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const superAdmin = userRole === "super_admin";
+  const isAdmin = userRole === "admin" || superAdmin;
 
   const [stats, setStats] = useState({
     companies: 0,
@@ -99,6 +100,17 @@ export default function Reports() {
   const [topProducts, setTopProducts] = useState([]);
 
   const fetchAllData = useCallback(async () => {
+    // ✅ لو مش Admin، ميجيبش حاجة
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    if (!superAdmin && !userCompanyId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       let companiesData = [];
       if (superAdmin) {
@@ -286,7 +298,7 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [userCompanyId, superAdmin, t]);
+  }, [userCompanyId, superAdmin, isAdmin, t]);
 
   useEffect(() => {
     fetchAllData();
@@ -425,6 +437,22 @@ export default function Reports() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
     XLSX.writeFile(workbook, fileName);
     setExporting(null);
+  }
+
+  // ✅ لو مش Admin، يظهر رسالة "غير مصرح"
+  if (!isAdmin) {
+    return (
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
+            <i className="fas fa-lock" style={{ fontSize: 48, color: "#ef4444", marginBottom: 16 }}></i>
+            <h3 style={{ color: "#1e293b" }}>غير مصرح لك بالوصول</h3>
+            <p style={{ color: "#64748b" }}>هذه الصفحة متاحة للمديرين فقط</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading)

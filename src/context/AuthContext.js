@@ -6,7 +6,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore'; // ✅ استبدلنا getDoc بـ onSnapshot
+import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 const AuthContext = createContext();
@@ -70,20 +70,22 @@ export function AuthProvider({ children }) {
                 const industry = companySnap.exists() ? companySnap.data().industry || 'general' : 'general';
                 setUserIndustry(industry);
               } catch (e) {
-                console.error("Error fetching company industry:", e);
+                console.warn("Error fetching company industry:", e.message);
                 setUserIndustry('general');
               }
             } else {
               setUserIndustry('general');
             }
           } else {
-            setUserRole(null);
+            // ✅ لو مفيش مستند، استخدم القيم الافتراضية
+            setUserRole('user');
             setUserCompanyId(null);
             setUserIndustry('general');
           }
           setLoading(false);
         }, (error) => {
-          console.error("Error listening to user doc:", error);
+          // ✅ منع ظهور الخطأ في الكونسول بشكل مزعج
+          console.warn("Error listening to user doc:", error.message);
           setLoading(false);
         });
 

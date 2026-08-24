@@ -1,4 +1,4 @@
-// src/pages/Clients.js - مع عزل البيانات حسب الشركة
+// src/pages/Clients.js - مع عزل البيانات حسب الشركة و createdBy
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -11,13 +11,13 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
+import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Clients() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,7 +35,7 @@ export default function Clients() {
   const fetchClients = useCallback(async () => {
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("clients", userRole, userCompanyId)
+        getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)
       );
       const clientsData = [];
       querySnapshot.forEach((d) => {
@@ -48,7 +48,7 @@ export default function Clients() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   const fetchCompanies = useCallback(async () => {
     try {
@@ -89,6 +89,7 @@ export default function Clients() {
         email: newClient.email,
         phone: newClient.phone,
         companyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         createdAt: new Date().toISOString(),
       });
       setNewClient({
@@ -158,8 +159,18 @@ export default function Clients() {
       (client.phone && client.phone.includes(searchTerm))
   );
 
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
+
   if (loading) {
-    return <div className="loading">{t("cli.loading")}</div>;
+    return (
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">{t("cli.loading")}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -279,12 +290,15 @@ export default function Clients() {
                         >
                           <i className="fas fa-edit"></i> {t("common.edit")}
                         </button>
-                        <button
-                          onClick={() => deleteClient(client.id)}
-                          className="btn-danger"
-                        >
-                          <i className="fas fa-trash"></i> {t("common.delete")}
-                        </button>
+                        {/* ✅ زر الحذف يظهر فقط للأدمن */}
+                        {userCanDelete && (
+                          <button
+                            onClick={() => deleteClient(client.id)}
+                            className="btn-danger"
+                          >
+                            <i className="fas fa-trash"></i> {t("common.delete")}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

@@ -1,4 +1,4 @@
-// src/pages/Invoices.js - مع حساب تلقائي للسعر (نسخة كاملة)
+// src/pages/Invoices.js - مع حساب تلقائي للسعر ودعم createdBy
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -11,14 +11,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Invoices() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -57,9 +57,16 @@ export default function Invoices() {
   };
 
   const fetchInvoices = useCallback(async () => {
+    // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
+    if (!userCompanyId) {
+      setInvoices([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const snap = await getDocs(
-        getScopedQuery("invoices", userRole, userCompanyId)
+        getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)
       );
       const invoicesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setInvoices(invoicesData);
@@ -68,29 +75,31 @@ export default function Invoices() {
       console.error(e);
       setLoading(false);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   const fetchClients = useCallback(async () => {
+    if (!userCompanyId) return;
     try {
       const snap = await getDocs(
-        getScopedQuery("clients", userRole, userCompanyId)
+        getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)
       );
       setClients(snap.docs.map((d) => ({ id: d.id, name: d.data().name })));
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   const fetchProducts = useCallback(async () => {
+    if (!userCompanyId) return;
     try {
       const snap = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId)
+        getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)
       );
       setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   useEffect(() => {
     Promise.all([fetchInvoices(), fetchClients(), fetchProducts()]);
@@ -120,6 +129,7 @@ export default function Invoices() {
       await addDoc(collection(db, "invoices"), {
         ...newInvoice,
         companyId: userCompanyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         amount: amount,
         quantity: parseInt(newInvoice.quantity) || 1,
         date: new Date().toISOString(),
@@ -213,6 +223,9 @@ export default function Invoices() {
     exportInvoicePDF(invoice, clientName, productName);
   }
 
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
+
   // الإيراد الحقيقي = المبالغ المدفوعة فقط
   const totalRevenue = invoices.reduce((sum, inv) => {
     if (inv.status === "paid") {
@@ -236,9 +249,14 @@ export default function Invoices() {
 
   if (loading)
     return (
-      <div className="loading">
-        <div className="spinner"></div>
-        {t("common.loading")}
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">
+            <div className="spinner"></div>
+            {t("common.loading")}
+          </div>
+        </div>
       </div>
     );
 
@@ -576,13 +594,15 @@ export default function Invoices() {
                             >
                               <i className="fas fa-edit"></i>
                             </button>
-                            <button
-                              onClick={() => deleteInvoice(inv.id)}
-                              className="btn-danger btn-sm"
-                              title={t("common.delete")}
-                            >
-                              <i className="fas fa-trash"></i>
-                            </button>
+                            {userCanDelete && (
+                              <button
+                                onClick={() => deleteInvoice(inv.id)}
+                                className="btn-danger btn-sm"
+                                title={t("common.delete")}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

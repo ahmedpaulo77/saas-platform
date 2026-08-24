@@ -785,6 +785,7 @@ export const translations = {
     'pdf.paid': 'مدفوعة',
     'pdf.pending': 'قيد الانتظار',
     'pdf.overdue': 'متأخرة',
+    
     // ========== sellers & buyers ==========
 'sellers.title': 'البائعين',
 'sellers.subtitle': 'إدارة البائعين والمطورين والعقارات',
@@ -881,6 +882,55 @@ export const translations = {
 'success.buyerDeleted': '✅ تم حذف المشتري بنجاح',
 'dash.sellers': 'البائعين',
 'dash.buyers': 'المشترين',
+ 'nav.messages': 'الرسائل',
+  'messages.title': 'الرسائل',
+  'messages.subtitle': 'إدارة الرسائل بين المدير والموظفين',
+  'messages.inbox': 'الوارد',
+  'messages.sent': 'المرسلة',
+  'messages.new': 'رسالة جديدة',
+  'messages.send': 'إرسال',
+  'messages.to': 'إلى',
+  'messages.from': 'من',
+  'messages.all': 'جميع الموظفين',
+  'messages.empty': 'لا توجد رسائل',
+  'messages.emptyInbox': 'لم تستلم أي رسائل بعد',
+  'messages.emptySent': 'لم ترسل أي رسائل بعد',
+  'messages.unread': 'جديد',
+  'messages.read': 'مقروءة',
+  'messages.forAll': '📢 للجميع',
+  'messages.placeholder': 'اكتب رسالتك هنا...',
+  'messages.sendSuccess': '✅ تم إرسال الرسالة بنجاح',
+  'messages.sendError': '❌ حدث خطأ في إرسال الرسالة',
+  
+
+  // ============================================================
+  // ========== أنواع الشركات (Industries) ==========
+  // ============================================================
+  'industries.general.label': 'شركة / مكتب عام',
+  'industries.general.desc': 'إدارة عملاء وفواتير ومخزون ومهام ومشاريع',
+  'industries.trader.label': 'تاجر / استيراد وتصدير',
+  'industries.trader.desc': 'إدارة العملاء والفواتير والموردين والمخزون',
+  'industries.contractor.label': 'مقاولات',
+  'industries.contractor.desc': 'إدارة العملاء والمشاريع والمهام والموردين',
+  'industries.real_estate.label': 'عقارات',
+  'industries.real_estate.desc': 'إدارة البائعين والمشترين والعقارات والعملاء',
+  'industries.services.label': 'خدمات',
+  'industries.services.desc': 'إدارة العملاء والفواتير والمهام والمشاريع',
+  'industries.super_market.label': 'سوبر ماركت',
+  'industries.super_market.desc': 'نقطة بيع، باركود، صلاحية، موردين، خصومات',
+  'industries.pharmacy.label': 'صيدلية',
+  'industries.pharmacy.desc': 'نقطة بيع، باركود، صلاحية، تشغيلة، تصنيف أدوية',
+  'industries.restaurant.label': 'مطعم / كافيه',
+  'industries.restaurant.desc': 'نقطة بيع، طلبات، طاولات، موردين',
+  'industries.clothing.label': 'ملابس',
+  'industries.clothing.desc': 'مخزون مقاسات وألوان، موردين، خصومات',
+
+  // ... باقي المفاتيح ...
+
+  // ============================================================
+  // ========== modules ==========
+  // ============================================================
+  'modules.messages': 'الرسائل',
 // أضف تحت modules
 'modules.sellers': 'البائعين',
 'modules.buyers': 'المشترين',
@@ -1772,5 +1822,47 @@ export const translations = {
 'dash.c10.d': 'Manage clients, buyers and follow-ups',
 'rep.file.sellers': 'sellers.xlsx',
 'rep.file.buyers': 'buyers.xlsx',
+  'nav.messages': 'Messages',
+  'messages.title': 'Messages',
+  'messages.subtitle': 'Manage messages between admin and employees',
+  'messages.inbox': 'Inbox',
+  'messages.sent': 'Sent',
+  'messages.new': 'New Message',
+  'messages.send': 'Send',
+  'messages.to': 'To',
+  'messages.from': 'From',
+  'messages.all': 'All Employees',
+  'messages.empty': 'No messages',
+  'messages.emptyInbox': 'You haven\'t received any messages yet',
+  'messages.emptySent': 'You haven\'t sent any messages yet',
+  'messages.unread': 'New',
+  'messages.read': 'Read',
+  'messages.forAll': '📢 For Everyone',
+  'messages.placeholder': 'Write your message here...',
+  'messages.sendSuccess': '✅ Message sent successfully',
+  'messages.sendError': '❌ Failed to send message',
+  'industries.trader.label': 'Trader / Import & Export',
+'industries.trader.desc': 'Manage clients, invoices, suppliers and inventory',
+'industries.contractor.label': 'Contractor',
+'industries.contractor.desc': 'Manage clients, projects, tasks and suppliers',
+'industries.real_estate.label': 'Real Estate',
+'industries.real_estate.desc': 'Manage sellers, buyers, properties and clients',
+'industries.services.label': 'Services',
+'industries.services.desc': 'Manage clients, invoices, tasks and projects',
+'industries.super_market.label': 'Supermarket',
+'industries.super_market.desc': 'POS, barcode, expiry, suppliers, discounts',
+'industries.pharmacy.label': 'Pharmacy',
+'industries.pharmacy.desc': 'POS, barcode, expiry, batches, drug categories',
+'industries.restaurant.label': 'Restaurant / Cafe',
+'industries.restaurant.desc': 'POS, orders, tables, suppliers',
+'industries.clothing.label': 'Clothing',
+'industries.clothing.desc': 'Sizes and colors, suppliers, discounts',
+'industries.general.label': 'Company / General Office',
+'industries.general.desc': 'Manage clients, invoices, inventory, tasks and projects',
+
+  // ============================================================
+  // ========== modules ==========
+  // ============================================================
+  'modules.messages': 'Messages',
   },
 };

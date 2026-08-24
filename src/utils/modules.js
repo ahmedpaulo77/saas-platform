@@ -10,6 +10,30 @@ export const INDUSTRIES = [
     icon: '🏢',
   },
   {
+    id: 'trader',
+    labelKey: 'industries.trader.label',
+    descKey: 'industries.trader.desc',
+    icon: '📦',
+  },
+  {
+    id: 'contractor',
+    labelKey: 'industries.contractor.label',
+    descKey: 'industries.contractor.desc',
+    icon: '🏗️',
+  },
+  {
+    id: 'real_estate',
+    labelKey: 'industries.real_estate.label',
+    descKey: 'industries.real_estate.desc',
+    icon: '🏠',
+  },
+  {
+    id: 'services',
+    labelKey: 'industries.services.label',
+    descKey: 'industries.services.desc',
+    icon: '💼',
+  },
+  {
     id: 'super_market',
     labelKey: 'industries.super_market.label',
     descKey: 'industries.super_market.desc',
@@ -38,6 +62,10 @@ export const INDUSTRIES = [
 // للتوافق مع الكود القديم (مباشر)
 export const INDUSTRY_LABELS = {
   general: '🏢 شركة / مكتب عام',
+  trader: '📦 تاجر / استيراد وتصدير',
+  contractor: '🏗️ مقاولات',
+  real_estate: '🏠 عقارات',
+  services: '💼 خدمات',
   super_market: '🏪 سوبر ماركت',
   pharmacy: '💊 صيدلية',
   restaurant: '🍽️ مطعم / كافيه',
@@ -53,6 +81,49 @@ export const MODULE_MAP = {
     'reports',
   ],
 
+  // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
+  trader: [
+    'clients',
+    'invoices',
+    'suppliers',
+    'tasks',
+    'aging',
+    'messages',
+  ],
+
+  // مقاولات (من غير Sellers و Buyers)
+  contractor: [
+    'clients',
+    'invoices',
+    'projects',
+    'tasks',
+    'suppliers',
+    'aging',
+    'messages',
+  ],
+
+  // ✅ عقارات (من غير Clients و Invoices)
+  real_estate: [
+    // 'clients',  // ❌ شيلنا العملاء
+    // 'invoices', // ❌ شيلنا الفواتير
+    'sellers',
+    'buyers',
+    'tasks',
+    'projects',
+    'aging',
+    'messages',
+  ],
+
+  // خدمات (من غير Sellers و Buyers و Suppliers)
+  services: [
+    'clients',
+    'invoices',
+    'tasks',
+    'projects',
+    'aging',
+    'messages',
+  ],
+
   // مجالات العمل
   general: [
     'clients',
@@ -60,8 +131,9 @@ export const MODULE_MAP = {
     'tasks',
     'projects',
     'aging',
-    'sellers',    // ✅ إضافة
-    'buyers',     // ✅ إضافة
+    'sellers',
+    'buyers',
+    'messages',
   ],
 
   super_market: [
@@ -108,7 +180,7 @@ export function getAvailableModules(industry, userRole) {
       'tasks', 'projects', 'users', 'reports', 'aging', 'notifications',
       'subscription', 'profile', 'about', 'pos', 'suppliers', 'barcode',
       'expiry', 'batch', 'drug_categories', 'orders', 'tables', 'sizes_colors',
-      'my-company', 'sellers', 'buyers',  // ✅ إضافة
+      'my-company', 'sellers', 'buyers', 'messages',
     ]);
   }
 
@@ -155,14 +227,19 @@ export const ROUTE_MODULE_MAP = {
   '/pos': 'pos',
   '/suppliers': 'suppliers',
   '/expiry': 'expiry',
-  '/sellers': 'sellers',   // ✅ إضافة
-  '/buyers': 'buyers',     // ✅ إضافة
+  '/sellers': 'sellers',
+  '/buyers': 'buyers',
+  '/messages': 'messages',
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
 export function getIndustryShortLabel(industry) {
   const labels = {
     general: '🏢 عام',
+    trader: '📦 تاجر',
+    contractor: '🏗️ مقاولات',
+    real_estate: '🏠 عقارات',
+    services: '💼 خدمات',
     super_market: '🏪 سوبر ماركت',
     pharmacy: '💊 صيدلية',
     restaurant: '🍽️ مطعم',
@@ -215,8 +292,9 @@ export const MODULE_LABEL_KEYS = {
   profile: 'modules.profile',
   about: 'modules.about',
   'my-company': 'modules.my_company',
-  sellers: 'modules.sellers',   // ✅ إضافة
-  buyers: 'modules.buyers',     // ✅ إضافة
+  sellers: 'modules.sellers',
+  buyers: 'modules.buyers',
+  messages: 'modules.messages',
 };
 
 // دالة للحصول على اسم وحدة مترجم

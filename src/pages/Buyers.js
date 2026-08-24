@@ -3,14 +3,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import AddBuyerModal from "../components/buyers/AddBuyerModal";
 
 export default function Buyers() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [buyers, setBuyers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,7 +20,7 @@ export default function Buyers() {
 
   const fetchBuyers = useCallback(async () => {
     try {
-      const q = getScopedQuery("buyers", userRole, userCompanyId);
+      const q = getScopedQuery("buyers", userRole, userCompanyId, currentUser?.uid);
       const snapshot = await getDocs(q);
       setBuyers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (error) {
@@ -29,7 +29,7 @@ export default function Buyers() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   useEffect(() => {
     fetchBuyers();
@@ -40,6 +40,7 @@ export default function Buyers() {
       await addDoc(collection(db, "buyers"), {
         ...data,
         companyId: userCompanyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         createdAt: new Date().toISOString(),
       });
       await fetchBuyers();
@@ -82,6 +83,9 @@ export default function Buyers() {
       b.interest?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       b.agent?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
 
   if (loading) {
     return (
@@ -178,12 +182,15 @@ export default function Buyers() {
                         >
                           <i className="fas fa-edit"></i>
                         </button>
-                        <button
-                          onClick={() => handleDelete(buyer.id)}
-                          className="btn-danger btn-sm"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
+                        {/* ✅ زر الحذف يظهر فقط للأدمن */}
+                        {userCanDelete && (
+                          <button
+                            onClick={() => handleDelete(buyer.id)}
+                            className="btn-danger btn-sm"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
                       </td>
                     </tr>
                     {expandedId === buyer.id && (

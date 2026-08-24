@@ -1,4 +1,4 @@
-// src/pages/Aging.js - تقرير أعمار الديون مع دعم الترجمة
+// src/pages/Aging.js - تعديل: User ميشوفش حاجة
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -48,6 +48,7 @@ export default function Aging() {
   const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const superAdmin = userRole === 'super_admin';
+  const isAdmin = userRole === 'admin' || superAdmin;
 
   const [agingData, setAgingData] = useState([]);
   const [totals, setTotals] = useState({ total: 0, buckets: BUCKETS.map(() => 0) });
@@ -57,7 +58,18 @@ export default function Aging() {
   const [summary, setSummary] = useState({ totalClients: 0, totalDebt: 0, criticalClients: 0 });
 
   const fetchAgingData = useCallback(async () => {
-    if (!superAdmin && !userCompanyId) { setLoading(false); return; }
+    // ✅ لو مش Admin، ميجبش حاجة
+    if (!isAdmin) {
+      setAgingData([]);
+      setLoading(false);
+      return;
+    }
+
+    if (!superAdmin && !userCompanyId) { 
+      setLoading(false); 
+      return; 
+    }
+
     try {
       const clientsSnap = await getDocs(
         superAdmin
@@ -128,7 +140,7 @@ export default function Aging() {
     } finally {
       setLoading(false);
     }
-  }, [superAdmin, userCompanyId]);
+  }, [superAdmin, userCompanyId, isAdmin]);
 
   useEffect(() => { fetchAgingData(); }, [fetchAgingData]);
 
@@ -172,8 +184,29 @@ export default function Aging() {
     c.phone.includes(searchTerm)
   );
 
+  // ✅ لو مش Admin، يظهر رسالة "غير مصرح"
+  if (!isAdmin) {
+    return (
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
+            <i className="fas fa-lock" style={{ fontSize: 48, color: "#ef4444", marginBottom: 16 }}></i>
+            <h3 style={{ color: "#1e293b" }}>غير مصرح لك بالوصول</h3>
+            <p style={{ color: "#64748b" }}>هذه الصفحة متاحة للمديرين فقط</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return (
-    <div className="loading"><div className="spinner"></div>{t('ag.loading')}</div>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      <Sidebar />
+      <div className="main-content">
+        <div className="loading"><div className="spinner"></div>{t('ag.loading')}</div>
+      </div>
+    </div>
   );
 
   return (

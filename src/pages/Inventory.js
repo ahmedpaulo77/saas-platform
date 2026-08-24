@@ -1,4 +1,4 @@
-// src/pages/Inventory.js - مع عزل البيانات حسب الشركة
+// src/pages/Inventory.js - مع عزل البيانات حسب الشركة و createdBy
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -10,13 +10,13 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Inventory() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newProduct, setNewProduct] = useState({
@@ -34,9 +34,16 @@ export default function Inventory() {
   const [showEditModal, setShowEditModal] = useState(false);
 
   const fetchProducts = useCallback(async () => {
+    // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
+    if (!userCompanyId) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId)
+        getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)
       );
       const productsData = [];
       querySnapshot.forEach((d) => {
@@ -49,7 +56,7 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   useEffect(() => {
     fetchProducts();
@@ -66,6 +73,7 @@ export default function Inventory() {
       await addDoc(collection(db, "inventory"), {
         ...newProduct,
         companyId: userCompanyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
         barcode: newProduct.barcode || "",
@@ -145,8 +153,18 @@ export default function Inventory() {
         product.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
+
   if (loading) {
-    return <div className="loading">{t("inv.loading")}</div>;
+    return (
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">{t("inv.loading")}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -319,12 +337,14 @@ export default function Inventory() {
                       >
                         <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
-                      <button
-                        onClick={() => deleteProduct(product.id)}
-                        className="btn-danger"
-                      >
-                        <i className="fas fa-trash"></i> {t("common.delete")}
-                      </button>
+                      {userCanDelete && (
+                        <button
+                          onClick={() => deleteProduct(product.id)}
+                          className="btn-danger"
+                        >
+                          <i className="fas fa-trash"></i> {t("common.delete")}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

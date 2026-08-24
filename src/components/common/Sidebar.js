@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - نسخة محسنة للموبايل
+// src/components/common/Sidebar.js - نسخة محسنة مع Messages
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -22,6 +22,7 @@ export default function Sidebar() {
     { to: '/clients', icon: 'fas fa-user-friends', label: t('nav.clients'), module: 'clients' },
     { to: '/sellers', icon: 'fas fa-store', label: t('sellers.title'), module: 'sellers' },
     { to: '/buyers', icon: 'fas fa-user-plus', label: t('buyers.title'), module: 'buyers' },
+    { to: '/messages', icon: 'fas fa-envelope', label: t('nav.messages'), module: 'messages' },
     { to: '/invoices', icon: 'fas fa-file-invoice', label: t('nav.invoices'), module: 'invoices' },
     { to: '/inventory', icon: 'fas fa-boxes', label: t('nav.inventory'), module: 'inventory' },
     { to: '/suppliers', icon: 'fas fa-truck', label: t('nav.suppliers'), module: 'suppliers' },
@@ -141,7 +142,7 @@ export default function Sidebar() {
         <div className="user-details">
           <div className="user-email">{currentUser?.email}</div>
           <div className="user-role">
-            {userRole === 'super_admin' ? `👑 ${t('role.superAdmin')}` : `👤 ${t('role.user')}`}
+            {userRole === 'super_admin' ? `👑 ${t('role.superAdmin')}` : userRole === 'admin' ? `⚡ ${t('role.admin')}` : `👤 ${t('role.user')}`}
           </div>
         </div>
       </div>

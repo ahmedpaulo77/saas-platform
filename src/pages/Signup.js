@@ -1,10 +1,11 @@
-// src/pages/Signup.js - مع دعم كود الانضمام والترجمة
+// src/pages/Signup.js - مع دعم كودين (Admin + User) وأنواع الشركات الجديدة
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { generateInviteCode } from '../utils/companyQuery';
+import { INDUSTRIES } from '../utils/modules';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export default function Signup() {
@@ -45,21 +46,37 @@ export default function Signup() {
 
       if (formData.inviteCode.trim()) {
         const code = formData.inviteCode.trim().toUpperCase();
-        const companiesSnap = await getDocs(
-          query(collection(db, 'companies'), where('inviteCode', '==', code))
+        
+        // ✅ 1- جرب كود Admin أولاً
+        let companiesSnap = await getDocs(
+          query(collection(db, 'companies'), where('adminInviteCode', '==', code))
         );
 
-        if (companiesSnap.empty) {
-          setError(t('signup.badCode'));
-          setLoading(false);
-          return;
+        if (!companiesSnap.empty) {
+          // ✅ ده كود Admin
+          role = 'admin';
+          const companyDoc = companiesSnap.docs[0];
+          companyId = companyDoc.id;
+          joinCompanyName = companyDoc.data().name || '';
+        } else {
+          // ✅ 2- جرب كود User
+          companiesSnap = await getDocs(
+            query(collection(db, 'companies'), where('userInviteCode', '==', code))
+          );
+          
+          if (!companiesSnap.empty) {
+            role = 'user';
+            const companyDoc = companiesSnap.docs[0];
+            companyId = companyDoc.id;
+            joinCompanyName = companyDoc.data().name || '';
+          } else {
+            setError(t('signup.badCode'));
+            setLoading(false);
+            return;
+          }
         }
-
-        const companyDoc = companiesSnap.docs[0];
-        companyId = companyDoc.id;
-        joinCompanyName = companyDoc.data().name || '';
-        role = 'user';
       } else {
+        // ✅ إنشاء شركة جديدة (أول مدير)
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
@@ -69,7 +86,8 @@ export default function Signup() {
             startDate: new Date().toISOString(),
             endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           },
-          inviteCode: generateInviteCode(formData.companyName),
+          adminInviteCode: generateInviteCode('ADMIN_' + formData.companyName),
+          userInviteCode: generateInviteCode('USER_' + formData.companyName),
           createdAt: new Date().toISOString(),
           isActive: true,
         });
@@ -79,7 +97,7 @@ export default function Signup() {
       await signup(formData.email, formData.password, role, companyId);
 
       alert(role === 'admin'
-        ? t('signup.okCreate')
+        ? t('signup.okCreate') 
         : t('signup.okJoin', { name: joinCompanyName }));
       navigate('/dashboard');
     } catch (error) {
@@ -168,11 +186,11 @@ export default function Signup() {
                 opacity: formData.inviteCode ? 0.5 : 1,
               }}
             >
-              <option value="general" style={{ color: '#1e293b' }}>🏢 {t('industry.general')}</option>
-              <option value="super_market" style={{ color: '#1e293b' }}>🏪 {t('industry.super_market')}</option>
-              <option value="pharmacy" style={{ color: '#1e293b' }}>💊 {t('industry.pharmacy')}</option>
-              <option value="restaurant" style={{ color: '#1e293b' }}>🍽️ {t('industry.restaurant')}</option>
-              <option value="clothing" style={{ color: '#1e293b' }}>👕 {t('industry.clothing')}</option>
+              {INDUSTRIES.map((ind) => (
+                <option key={ind.id} value={ind.id} style={{ color: '#1e293b' }}>
+                  {ind.icon} {t(ind.labelKey)}
+                </option>
+              ))}
             </select>
             <small style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, display: 'block', marginTop: 4 }}>
               {t('signup.industryHint')}

@@ -1,4 +1,4 @@
-// src/pages/Projects.js - مع عزل البيانات حسب الشركة ودعم الترجمة
+// src/pages/Projects.js - مع عزل البيانات حسب الشركة ودعم الترجمة و createdBy
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -10,13 +10,13 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Projects() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newProject, setNewProject] = useState({
@@ -33,9 +33,16 @@ export default function Projects() {
   const [showEditModal, setShowEditModal] = useState(false);
 
   const fetchProjects = useCallback(async () => {
+    // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
+    if (!userCompanyId) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("projects", userRole, userCompanyId)
+        getScopedQuery("projects", userRole, userCompanyId, currentUser?.uid)
       );
       const projectsData = [];
       querySnapshot.forEach((d) => {
@@ -48,7 +55,7 @@ export default function Projects() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   useEffect(() => {
     fetchProjects();
@@ -65,6 +72,7 @@ export default function Projects() {
       await addDoc(collection(db, "projects"), {
         ...newProject,
         companyId: userCompanyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         budget: parseFloat(newProject.budget) || 0,
         createdAt: new Date().toISOString(),
       });
@@ -143,8 +151,18 @@ export default function Projects() {
         project.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
+
   if (loading) {
-    return <div className="loading">{t("common.loading")}</div>;
+    return (
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">{t("common.loading")}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -302,12 +320,14 @@ export default function Projects() {
                       >
                         <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
-                      <button
-                        onClick={() => deleteProject(project.id)}
-                        className="btn-danger"
-                      >
-                        <i className="fas fa-trash"></i> {t("common.delete")}
-                      </button>
+                      {userCanDelete && (
+                        <button
+                          onClick={() => deleteProject(project.id)}
+                          className="btn-danger"
+                        >
+                          <i className="fas fa-trash"></i> {t("common.delete")}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

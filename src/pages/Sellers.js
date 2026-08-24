@@ -3,14 +3,14 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import AddSellerModal from "../components/sellers/AddSellerModal";
 
 export default function Sellers() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,7 +20,7 @@ export default function Sellers() {
 
   const fetchSellers = useCallback(async () => {
     try {
-      const q = getScopedQuery("sellers", userRole, userCompanyId);
+      const q = getScopedQuery("sellers", userRole, userCompanyId, currentUser?.uid);
       const snapshot = await getDocs(q);
       setSellers(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (error) {
@@ -29,7 +29,7 @@ export default function Sellers() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   useEffect(() => {
     fetchSellers();
@@ -40,6 +40,7 @@ export default function Sellers() {
       await addDoc(collection(db, "sellers"), {
         ...data,
         companyId: userCompanyId,
+        createdBy: currentUser?.uid, // ✅ إضافة createdBy
         createdAt: new Date().toISOString(),
       });
       await fetchSellers();
@@ -82,6 +83,9 @@ export default function Sellers() {
       s.project?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.phone?.includes(searchTerm)
   );
+
+  // ✅ التحقق من صلاحية الحذف
+  const userCanDelete = canDelete(userRole);
 
   if (loading) {
     return (
@@ -178,12 +182,15 @@ export default function Sellers() {
                         >
                           <i className="fas fa-edit"></i>
                         </button>
-                        <button
-                          onClick={() => handleDelete(seller.id)}
-                          className="btn-danger btn-sm"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
+                        {/* ✅ زر الحذف يظهر فقط للأدمن */}
+                        {userCanDelete && (
+                          <button
+                            onClick={() => handleDelete(seller.id)}
+                            className="btn-danger btn-sm"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
                       </td>
                     </tr>
                     {expandedId === seller.id && (

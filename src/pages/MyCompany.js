@@ -1,4 +1,4 @@
-// src/pages/MyCompany.js - مع دعم الترجمة
+// src/pages/MyCompany.js - مع دعم الترجمة وكودين
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -16,11 +16,11 @@ const SUBSCRIPTION_LABELS = {
 
 export default function MyCompany() {
   const { t } = useLanguage();
-  const { userCompanyId } = useAuth();
+  const { userCompanyId, userRole } = useAuth();
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
+  const [copied, setCopied] = useState({ admin: false, user: false });
+  const [regenerating, setRegenerating] = useState({ admin: false, user: false });
   const [error, setError] = useState('');
 
   const fetchAndEnsureCode = useCallback(async () => {
@@ -36,10 +36,19 @@ export default function MyCompany() {
         return;
       }
       const data = snap.data();
-      if (!data.inviteCode) {
-        const newCode = generateInviteCode(data.name || '');
-        await updateDoc(companyRef, { inviteCode: newCode });
-        setCompany({ id: snap.id, ...data, inviteCode: newCode });
+      
+      // التأكد من وجود الكودين
+      let updates = {};
+      if (!data.adminInviteCode) {
+        updates.adminInviteCode = generateInviteCode('ADMIN_' + (data.name || ''));
+      }
+      if (!data.userInviteCode) {
+        updates.userInviteCode = generateInviteCode('USER_' + (data.name || ''));
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(companyRef, updates);
+        setCompany({ id: snap.id, ...data, ...updates });
       } else {
         setCompany({ id: snap.id, ...data });
       }
@@ -55,39 +64,45 @@ export default function MyCompany() {
     fetchAndEnsureCode();
   }, [fetchAndEnsureCode]);
 
-  async function handleRegenerate() {
+  async function handleRegenerate(type) {
     if (!userCompanyId) return;
-    setRegenerating(true);
+    setRegenerating(prev => ({ ...prev, [type]: true }));
     try {
-      const newCode = generateInviteCode(company?.name || '');
+      const prefix = type === 'admin' ? 'ADMIN_' : 'USER_';
+      const newCode = generateInviteCode(prefix + (company?.name || ''));
       const companyRef = doc(db, 'companies', userCompanyId);
-      await updateDoc(companyRef, { inviteCode: newCode });
-      setCompany((prev) => ({ ...prev, inviteCode: newCode }));
+      const field = type === 'admin' ? 'adminInviteCode' : 'userInviteCode';
+      await updateDoc(companyRef, { [field]: newCode });
+      setCompany((prev) => ({ ...prev, [field]: newCode }));
     } catch (err) {
       console.error('Error regenerating code:', err);
       setError(t('mc.regenErr'));
     } finally {
-      setRegenerating(false);
+      setRegenerating(prev => ({ ...prev, [type]: false }));
     }
   }
 
-  async function handleCopy() {
-    if (!company?.inviteCode) return;
+  async function handleCopy(type) {
+    const code = type === 'admin' ? company?.adminInviteCode : company?.userInviteCode;
+    if (!code) return;
     try {
-      await navigator.clipboard.writeText(company.inviteCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(code);
+      setCopied(prev => ({ ...prev, [type]: true }));
+      setTimeout(() => setCopied(prev => ({ ...prev, [type]: false })), 2000);
     } catch {
       const el = document.createElement('textarea');
-      el.value = company.inviteCode;
+      el.value = code;
       document.body.appendChild(el);
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(prev => ({ ...prev, [type]: true }));
+      setTimeout(() => setCopied(prev => ({ ...prev, [type]: false })), 2000);
     }
   }
+
+  // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   const subscriptionStatus = company?.subscription?.status || 'trial';
   const statusLabel = t(`status.${SUBSCRIPTION_LABELS[subscriptionStatus] || subscriptionStatus}`) || subscriptionStatus;
@@ -162,76 +177,147 @@ export default function MyCompany() {
               </div>
             </div>
 
-            {/* Invite Code Card */}
-            <div className="card" style={{
-              padding: '28px 32px',
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.06) 100%)',
-              border: '1px solid rgba(99,102,241,0.25)',
-            }}>
-              <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
-                <i className="fas fa-key" style={{ marginLeft: 8, color: '#6366f1' }}></i>
-                {t('co.invite')}
-              </h2>
-              <p style={{ margin: '0 0 24px', color: '#64748b', fontSize: 13 }}>
-                شارك هذا الكود مع أي شخص تريده للانضمام لشركتك
-              </p>
-
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                flexWrap: 'wrap',
-              }}>
-                <div style={{
-                  background: 'rgba(99,102,241,0.1)',
-                  border: '2px solid rgba(99,102,241,0.4)',
-                  borderRadius: 14,
-                  padding: '14px 28px',
-                  display: 'flex', alignItems: 'center', gap: 16,
-                  flex: '0 0 auto',
+            {/* ✅ Invite Codes - يظهر فقط للأدمن */}
+            {isAdmin && (
+              <>
+                {/* Admin Code */}
+                <div className="card" style={{
+                  padding: '24px 28px',
+                  border: '2px solid rgba(245,158,11,0.3)',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(245,158,11,0.02) 100%)',
                 }}>
-                  <span style={{
-                    fontSize: 28,
-                    fontFamily: '"Courier New", Courier, monospace',
-                    fontWeight: 800,
-                    letterSpacing: 6,
-                    color: '#4f46e5',
-                    userSelect: 'all',
-                  }}>
-                    {company.inviteCode}
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                      <i className="fas fa-crown" style={{ color: '#f59e0b', marginLeft: 8 }}></i>
+                      كود المدير (Admin)
+                    </h3>
+                    <span className="badge" style={{
+                      background: '#fef3c7',
+                      color: '#d97706',
+                      padding: '2px 12px',
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}>
+                      صلاحيات كاملة
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                    استخدم هذا الكود لدعوة مديرين جدد للشركة (يتمتعون بصلاحيات كاملة)
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{
+                      background: 'rgba(245,158,11,0.1)',
+                      border: '2px solid rgba(245,158,11,0.3)',
+                      borderRadius: 10,
+                      padding: '10px 20px',
+                      flex: '0 0 auto',
+                    }}>
+                      <span style={{
+                        fontSize: 24,
+                        fontFamily: '"Courier New", Courier, monospace',
+                        fontWeight: 700,
+                        letterSpacing: 4,
+                        color: '#d97706',
+                      }}>
+                        {company.adminInviteCode || 'لم يتم التوليد'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleCopy('admin')}
+                      className="btn-secondary btn-sm"
+                      style={{ padding: '8px 16px' }}
+                    >
+                      <i className={copied.admin ? 'fas fa-check' : 'fas fa-copy'}></i>
+                      {copied.admin ? t('common.copied') : t('co.copyCode')}
+                    </button>
+                    <button
+                      onClick={() => handleRegenerate('admin')}
+                      className="btn-primary btn-sm"
+                      disabled={regenerating.admin}
+                      style={{ padding: '8px 16px' }}
+                    >
+                      <i className={`fas fa-sync-alt ${regenerating.admin ? 'fa-spin' : ''}`}></i>
+                      {regenerating.admin ? t('mc.regening') : t('mc.regen')}
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  className="btn-primary"
-                  onClick={handleCopy}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '12px 20px', fontSize: 14,
-                    background: copied ? 'rgba(16,185,129,0.15)' : undefined,
-                    border: copied ? '1px solid rgba(16,185,129,0.5)' : undefined,
-                    color: copied ? '#047857' : undefined,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <i className={copied ? 'fas fa-check' : 'fas fa-copy'}></i>
-                  {copied ? t('common.copied') : t('co.copyCode')}
-                </button>
+                {/* User Code */}
+                <div className="card" style={{
+                  padding: '24px 28px',
+                  border: '2px solid rgba(16,185,129,0.3)',
+                  background: 'linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0.02) 100%)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                      <i className="fas fa-user" style={{ color: '#10b981', marginLeft: 8 }}></i>
+                      كود الموظف (User)
+                    </h3>
+                    <span className="badge" style={{
+                      background: '#d1fae5',
+                      color: '#059669',
+                      padding: '2px 12px',
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}>
+                      صلاحيات محدودة
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                    استخدم هذا الكود لدعوة موظفين جدد (يتمتعون بصلاحيات محدودة - قراءة وإضافة فقط)
+                  </p>
 
-                <button
-                  className="btn-secondary"
-                  onClick={handleRegenerate}
-                  disabled={regenerating}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontSize: 14 }}
-                >
-                  <i className={`fas fa-sync-alt ${regenerating ? 'fa-spin' : ''}`}></i>
-                  {regenerating ? t('mc.regening') : t('mc.regen')}
-                </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{
+                      background: 'rgba(16,185,129,0.1)',
+                      border: '2px solid rgba(16,185,129,0.3)',
+                      borderRadius: 10,
+                      padding: '10px 20px',
+                      flex: '0 0 auto',
+                    }}>
+                      <span style={{
+                        fontSize: 24,
+                        fontFamily: '"Courier New", Courier, monospace',
+                        fontWeight: 700,
+                        letterSpacing: 4,
+                        color: '#059669',
+                      }}>
+                        {company.userInviteCode || 'لم يتم التوليد'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleCopy('user')}
+                      className="btn-secondary btn-sm"
+                      style={{ padding: '8px 16px' }}
+                    >
+                      <i className={copied.user ? 'fas fa-check' : 'fas fa-copy'}></i>
+                      {copied.user ? t('common.copied') : t('co.copyCode')}
+                    </button>
+                    <button
+                      onClick={() => handleRegenerate('user')}
+                      className="btn-primary btn-sm"
+                      disabled={regenerating.user}
+                      style={{ padding: '8px 16px' }}
+                    >
+                      <i className={`fas fa-sync-alt ${regenerating.user ? 'fa-spin' : ''}`}></i>
+                      {regenerating.user ? t('mc.regening') : t('mc.regen')}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* إذا كان المستخدم مش Admin يعرض رسالة */}
+            {!isAdmin && (
+              <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <i className="fas fa-lock" style={{ fontSize: 40, color: '#94a3b8', marginBottom: 12 }}></i>
+                <h3 style={{ color: '#64748b' }}>ليس لديك صلاحية لعرض أكواد الدعوة</h3>
+                <p style={{ color: '#94a3b8', fontSize: 14 }}>هذه الصفحة متاحة للمديرين فقط</p>
               </div>
-
-              <p style={{ margin: '20px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
-                <i className="fas fa-info-circle" style={{ marginLeft: 6, color: '#6366f1' }}></i>
-                عند توليد كود جديد، الكود القديم يصبح غير صالح. تأكد من مشاركة الكود الجديد مع من تريد.
-              </p>
-            </div>
+            )}
 
           </div>
         ) : (

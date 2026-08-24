@@ -1,15 +1,37 @@
-// src/utils/companyQuery.js - مع دعم الترجمة (للرسائل)
+// src/utils/companyQuery.js - مع دعم createdBy وكودين
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
-/** Returns a Firestore query scoped to the user's company, or the full collection for super_admin. */
-export function getScopedQuery(collectionName, userRole, userCompanyId) {
+/** ✅ Returns a Firestore query scoped to the user's company and role */
+export function getScopedQuery(collectionName, userRole, userCompanyId, userId) {
+  // ✅ لو مفيش companyId، ارجع query مش هيجيب حاجة
+  if (!userCompanyId) {
+    return query(collection(db, collectionName), where('companyId', '==', '__none__'));
+  }
+
   if (userRole === 'super_admin') {
     return collection(db, collectionName);
   }
-  if (userCompanyId) {
-    return query(collection(db, collectionName), where('companyId', '==', userCompanyId));
+  
+  if (userRole === 'admin') {
+    return query(
+      collection(db, collectionName), 
+      where('companyId', '==', userCompanyId)
+    );
   }
+  
+  if (userRole === 'user') {
+    // ✅ لو مفيش userId، ارجع query مش هيجيب حاجة
+    if (!userId) {
+      return query(collection(db, collectionName), where('companyId', '==', '__none__'));
+    }
+    return query(
+      collection(db, collectionName),
+      where('companyId', '==', userCompanyId),
+      where('createdBy', '==', userId)
+    );
+  }
+  
   return query(collection(db, collectionName), where('companyId', '==', '__none__'));
 }
 
@@ -30,45 +52,33 @@ export function canManageUsers(userRole) {
   return userRole === 'super_admin' || userRole === 'admin';
 }
 
+/** ✅ Whether the user can delete data (admin or super_admin only). */
+export function canDelete(userRole) {
+  return userRole === 'super_admin' || userRole === 'admin';
+}
+
+/** ✅ Whether the user can edit others' data (admin or super_admin only). */
+export function canEditOthers(userRole) {
+  return userRole === 'super_admin' || userRole === 'admin';
+}
+
 /** Scoped query for the users collection. */
 export function getUsersQuery(userRole, userCompanyId) {
   return getScopedQuery('users', userRole, userCompanyId);
 }
 
 /**
- * توليد كود انضمام للشركة
- * النمط: أول 4 حروف من اسم الشركة + 4 أحرف/أرقام عشوائية
- * مثال: شركة النجاح → NGAH-9K2D
+ * ✅ توليد كود انضمام للشركة مع بادئة
  */
-export function generateInviteCode(companyName = '') {
-  // استخراج الحروف الأولى من الكلمات (إنجليزي أو أرقام)
-  const words = companyName.toLowerCase().replace(/[^\u0600-\u065F\w\s]/g, '').trim().split(/\s+/);
-  let letters = '';
-  for (const word of words) {
-    // نحول الكلمات العربية لأحرف رومانية مبسطة (من الصوت) أو نأخذ أول حرف
-    const first = word.replace(/[^\w]/g, '')[0] || '';
-    if (first) letters += first.toUpperCase();
-  }
-  if (letters.length < 4) {
-    // لو اسم عربي كامل أو قصير — نستخدم أحرف عشوائية
-    const fallback = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    while (letters.length < 4) {
-      letters += fallback[Math.floor(Math.random() * fallback.length)];
-    }
-  }
-  letters = letters.slice(0, 4);
-
-  // 4 أحرف عشوائية
+export function generateInviteCode(prefix = '') {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let random = '';
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     random += chars[Math.floor(Math.random() * chars.length)];
   }
-
-  return `${letters}-${random}`.toUpperCase();
+  return `${prefix}${random}`.toUpperCase();
 }
 
-// رسائل خطأ مترجمة (مفاتيح)
 export const ERROR_MESSAGES = {
   fetchUsers: 'errors.fetchUsers',
   addUser: 'errors.addUser',
