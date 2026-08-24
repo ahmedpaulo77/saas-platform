@@ -45,7 +45,7 @@ export function LanguageProvider({ children }) {
     const setLang = (next) => setLangState(next === 'en' ? 'en' : 'ar');
 
     return { lang, dir, locale, t, toggleLang, setLang, isRTL: lang === 'ar' };
-  }, [lang]);
+  }, [lang, dir, locale]); // ✅ تمت إضافة dir و locale
 
   return (
     <LanguageContext.Provider value={value}>
