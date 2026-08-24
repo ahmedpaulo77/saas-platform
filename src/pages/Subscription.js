@@ -10,8 +10,8 @@ const PLANS = [
   {
     id: "standard",
     nameAr: "sub.planName",
-    monthlyPrice: 1000,
-    yearlyPrice: 10000,
+    monthlyPrice: 2000,
+    yearlyPrice: 20000,
     color: "#6366f1",
     featured: true,
     descriptionKey: "sub.planDesc",
