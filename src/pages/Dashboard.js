@@ -29,7 +29,7 @@ const ALL_FEATURE_CARDS = [
     module: "clients",
   },
   {
-    to: "/sellers", // ✅ إضافة Sellers
+    to: "/sellers",
     icon: "fas fa-store",
     color: "#f59e0b",
     bg: "#fef3c7",
@@ -38,7 +38,7 @@ const ALL_FEATURE_CARDS = [
     module: "sellers",
   },
   {
-    to: "/buyers", // ✅ إضافة Buyers
+    to: "/buyers",
     icon: "fas fa-user-plus",
     color: "#ec4899",
     bg: "#fdf2f8",
@@ -115,6 +115,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     companies: 0,
     clients: 0,
+    sellers: 0,      // ✅ إضافة
+    buyers: 0,       // ✅ إضافة
     invoices: 0,
     tasks: 0,
     projects: 0,
@@ -131,6 +133,8 @@ export default function Dashboard() {
 
     const compRef = collection(db, "companies");
     const cliRef = collection(db, "clients");
+    const sellerRef = collection(db, "sellers");   // ✅ إضافة
+    const buyerRef = collection(db, "buyers");     // ✅ إضافة
     const invRef = collection(db, "invoices");
     const taskRef = collection(db, "tasks");
     const projRef = collection(db, "projects");
@@ -144,6 +148,12 @@ export default function Dashboard() {
     const cliQ = isSuper
       ? cliRef
       : query(cliRef, where("companyId", "==", userCompanyId));
+    const sellerQ = isSuper
+      ? sellerRef
+      : query(sellerRef, where("companyId", "==", userCompanyId));   // ✅ إضافة
+    const buyerQ = isSuper
+      ? buyerRef
+      : query(buyerRef, where("companyId", "==", userCompanyId));     // ✅ إضافة
     const invQ = isSuper
       ? invRef
       : query(invRef, where("companyId", "==", userCompanyId));
@@ -162,6 +172,14 @@ export default function Dashboard() {
     );
     const unsubCli = onSnapshot(cliQ, (snap) =>
       setStats((prev) => ({ ...prev, clients: snap.size }))
+    );
+    // ✅ إضافة Sellers
+    const unsubSeller = onSnapshot(sellerQ, (snap) =>
+      setStats((prev) => ({ ...prev, sellers: snap.size }))
+    );
+    // ✅ إضافة Buyers
+    const unsubBuyer = onSnapshot(buyerQ, (snap) =>
+      setStats((prev) => ({ ...prev, buyers: snap.size }))
     );
     const unsubTask = onSnapshot(taskQ, (snap) =>
       setStats((prev) => ({ ...prev, tasks: snap.size }))
@@ -196,6 +214,8 @@ export default function Dashboard() {
     return () => {
       unsubComp();
       unsubCli();
+      unsubSeller();  // ✅ إضافة
+      unsubBuyer();   // ✅ إضافة
       unsubInv();
       unsubTask();
       unsubProj();
@@ -252,6 +272,22 @@ export default function Dashboard() {
             </div>
             <div className="stat-value">{loading ? "..." : stats.clients}</div>
             <div className="stat-label">{t("dash.clients")}</div>
+          </div>
+          {/* ✅ إضافة Sellers Card */}
+          <div className="stat-card amber">
+            <div className="stat-icon">
+              <i className="fas fa-store"></i>
+            </div>
+            <div className="stat-value">{loading ? "..." : stats.sellers}</div>
+            <div className="stat-label">{t("dash.sellers")}</div>
+          </div>
+          {/* ✅ إضافة Buyers Card */}
+          <div className="stat-card pink">
+            <div className="stat-icon">
+              <i className="fas fa-user-plus"></i>
+            </div>
+            <div className="stat-value">{loading ? "..." : stats.buyers}</div>
+            <div className="stat-label">{t("dash.buyers")}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon">

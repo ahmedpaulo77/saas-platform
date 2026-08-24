@@ -879,7 +879,8 @@ export const translations = {
 'success.buyerAdded': '✅ تم إضافة المشتري بنجاح',
 'success.buyerUpdated': '✅ تم تحديث المشتري بنجاح',
 'success.buyerDeleted': '✅ تم حذف المشتري بنجاح',
-
+'dash.sellers': 'البائعين',
+'dash.buyers': 'المشترين',
 // أضف تحت modules
 'modules.sellers': 'البائعين',
 'modules.buyers': 'المشترين',
@@ -1759,7 +1760,8 @@ export const translations = {
 'success.buyerAdded': '✅ Buyer added successfully',
 'success.buyerUpdated': '✅ Buyer updated successfully',
 'success.buyerDeleted': '✅ Buyer deleted successfully',
-
+'dash.sellers': 'Sellers',
+'dash.buyers': 'Buyers',
 'modules.sellers': 'Sellers',
 'modules.buyers': 'Buyers',
 'dash.c9.t': 'Manage Sellers',
