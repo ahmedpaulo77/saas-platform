@@ -1,4 +1,4 @@
-// src/pages/Landing.js - مع زر Sign Up جنب Login
+// src/pages/Landing.js - مع زر Login و Sign Up
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -117,34 +117,45 @@ export default function Landing() {
           </button>
 
           {/* ✅ زرار Login */}
-          <button onClick={() => navigate('/login')} style={{
-            padding: '8px 20px', borderRadius: 8, border: scrolled ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.3)',
-            background: 'transparent', cursor: 'pointer', fontFamily: 'Cairo',
-            fontWeight: 600, fontSize: 14, color: scrolled ? '#334155' : 'white',
-            transition: 'all 0.2s',
-          }}>
+          <button 
+            onClick={() => navigate('/login')} 
+            style={{
+              padding: '8px 20px',
+              borderRadius: 8,
+              border: scrolled ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.3)',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontFamily: 'Cairo',
+              fontWeight: 600,
+              fontSize: 14,
+              color: scrolled ? '#334155' : 'white',
+              transition: 'all 0.2s',
+            }}
+          >
             {t('landing.ctaLogin')}
           </button>
 
-          {/* ✅ ✅ ✅ زرار Sign Up - جديد */}
-          <button onClick={() => navigate('/signup')} style={{
-            padding: '8px 22px',
-            borderRadius: 8,
-            border: 'none',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            cursor: 'pointer',
-            fontFamily: 'Cairo',
-            fontWeight: 700,
-            fontSize: 14,
-            color: 'white',
-            boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
-            transition: 'transform 0.2s',
-          }}
+          {/* ✅ ✅ ✅ زرار Sign Up */}
+          <button 
+            onClick={() => navigate('/signup')} 
+            style={{
+              padding: '8px 22px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              cursor: 'pointer',
+              fontFamily: 'Cairo',
+              fontWeight: 700,
+              fontSize: 14,
+              color: 'white',
+              boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
+              transition: 'transform 0.2s',
+            }}
             onMouseOver={e => e.target.style.transform = 'scale(1.05)'}
             onMouseOut={e => e.target.style.transform = 'scale(1)'}
           >
             <i className="fas fa-user-plus" style={{ marginLeft: 8 }}></i>
-            {t('landing.ctaStart')}
+            {t('signup.title')}
           </button>
         </div>
       </nav>
@@ -202,32 +213,49 @@ export default function Landing() {
           </p>
 
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/login')} style={{
-              padding: '16px 40px', borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.06)',
-              color: 'white', fontFamily: 'Cairo', fontWeight: 600,
-              fontSize: 17, cursor: 'pointer', transition: 'all 0.2s',
-            }}
+            {/* ✅ Login */}
+            <button 
+              onClick={() => navigate('/login')} 
+              style={{
+                padding: '16px 40px',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.06)',
+                color: 'white',
+                fontFamily: 'Cairo',
+                fontWeight: 600,
+                fontSize: 17,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
               onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
               onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             >
               <i className="fas fa-sign-in-alt" style={{ marginLeft: 10 }}></i>
               {t('landing.ctaLogin')}
             </button>
-            <button onClick={() => navigate('/signup')} style={{
-              padding: '16px 40px', borderRadius: 12, border: 'none',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              color: 'white', fontFamily: 'Cairo', fontWeight: 800,
-              fontSize: 17, cursor: 'pointer',
-              boxShadow: '0 8px 32px rgba(99,102,241,0.45)',
-              transition: 'transform 0.2s',
-            }}
+
+            {/* ✅ Sign Up */}
+            <button 
+              onClick={() => navigate('/signup')} 
+              style={{
+                padding: '16px 40px',
+                borderRadius: 12,
+                border: 'none',
+                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: 'white',
+                fontFamily: 'Cairo',
+                fontWeight: 800,
+                fontSize: 17,
+                cursor: 'pointer',
+                boxShadow: '0 8px 32px rgba(99,102,241,0.45)',
+                transition: 'transform 0.2s',
+              }}
               onMouseOver={e => e.target.style.transform = 'translateY(-2px)'}
               onMouseOut={e => e.target.style.transform = 'translateY(0)'}
             >
-              <i className="fas fa-rocket" style={{ marginLeft: 10 }}></i>
-              {t('landing.ctaStart')}
+              <i className="fas fa-user-plus" style={{ marginLeft: 10 }}></i>
+              {t('signup.title')}
             </button>
           </div>
 
@@ -377,14 +405,23 @@ export default function Landing() {
                       </li>
                     ))}
                   </ul>
-                  <button onClick={() => navigate('/signup')} style={{
-                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-                    background: plan.featured ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f1f5f9',
-                    color: plan.featured ? 'white' : '#334155',
-                    fontFamily: 'Cairo', fontWeight: 700, fontSize: 15,
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}>
-                    {t('landing.ctaStart')}
+                  <button 
+                    onClick={() => navigate('/signup')} 
+                    style={{
+                      width: '100%',
+                      padding: '13px',
+                      borderRadius: 12,
+                      border: 'none',
+                      background: plan.featured ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f1f5f9',
+                      color: plan.featured ? 'white' : '#334155',
+                      fontFamily: 'Cairo',
+                      fontWeight: 700,
+                      fontSize: 15,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {t('signup.title')}
                   </button>
                 </div>
               );
@@ -406,19 +443,26 @@ export default function Landing() {
           <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.6)', marginBottom: 36 }}>
             {t('landing.ctaDesc')}
           </p>
-          <button onClick={() => navigate('/signup')} style={{
-            padding: '18px 52px', borderRadius: 14, border: 'none',
-            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            color: 'white', fontFamily: 'Cairo', fontWeight: 800,
-            fontSize: 18, cursor: 'pointer',
-            boxShadow: '0 8px 32px rgba(99,102,241,0.5)',
-            transition: 'transform 0.2s',
-          }}
+          <button 
+            onClick={() => navigate('/signup')} 
+            style={{
+              padding: '18px 52px',
+              borderRadius: 14,
+              border: 'none',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              color: 'white',
+              fontFamily: 'Cairo',
+              fontWeight: 800,
+              fontSize: 18,
+              cursor: 'pointer',
+              boxShadow: '0 8px 32px rgba(99,102,241,0.5)',
+              transition: 'transform 0.2s',
+            }}
             onMouseOver={e => e.target.style.transform = 'translateY(-3px)'}
             onMouseOut={e => e.target.style.transform = 'translateY(0)'}
           >
             <i className="fas fa-rocket" style={{ marginLeft: 12 }}></i>
-            {t('landing.ctaStart')}
+            {t('signup.title')}
           </button>
           <p style={{ marginTop: 16, fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
             {t('landing.ctaFoot')}
