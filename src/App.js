@@ -28,6 +28,8 @@ import ManageUsers from './pages/admin/ManageUsers';
 import MyCompany from './pages/MyCompany';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
+import LanguageToggle from './components/common/LanguageToggle';
+import { LanguageProvider } from './i18n/LanguageContext';
 import { getAvailableModules } from './utils/modules';
 import './App.css';
 
@@ -86,11 +88,14 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </Router>
+    <LanguageProvider>
+      <Router>
+        <AuthProvider>
+          <LanguageToggle />
+          <AppRoutes />
+        </AuthProvider>
+      </Router>
+    </LanguageProvider>
   );
 }
 
