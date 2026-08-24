@@ -8,7 +8,7 @@ import { useLanguage } from '../../i18n/LanguageContext';
 import './Sidebar.css';
 
 export default function Sidebar() {
-  const { t } = useLanguage(); // ✅ الترجمة جوه المكون
+  const { t } = useLanguage();
   const { userRole, currentUser, userIndustry, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -20,8 +20,8 @@ export default function Sidebar() {
     { to: '/pos', icon: 'fas fa-cash-register', label: t('nav.pos'), module: 'pos' },
     { to: '/companies', icon: 'fas fa-building', label: t('nav.companies'), module: 'companies' },
     { to: '/clients', icon: 'fas fa-user-friends', label: t('nav.clients'), module: 'clients' },
-    { to: '/sellers', icon: 'fas fa-store', label: t('sellers.title'), module: 'sellers' },        // ✅ إضافة
-    { to: '/buyers', icon: 'fas fa-user-plus', label: t('buyers.title'), module: 'buyers' },       // ✅ إضافة
+    { to: '/sellers', icon: 'fas fa-store', label: t('sellers.title'), module: 'sellers' },
+    { to: '/buyers', icon: 'fas fa-user-plus', label: t('buyers.title'), module: 'buyers' },
     { to: '/invoices', icon: 'fas fa-file-invoice', label: t('nav.invoices'), module: 'invoices' },
     { to: '/inventory', icon: 'fas fa-boxes', label: t('nav.inventory'), module: 'inventory' },
     { to: '/suppliers', icon: 'fas fa-truck', label: t('nav.suppliers'), module: 'suppliers' },
