@@ -18,6 +18,8 @@ export default function Suppliers() {
     email: "",
     address: "",
     notes: "",
+    balance: "",
+    taxNumber: "",
   });
   const [loading, setLoading] = useState(true);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -48,10 +50,11 @@ export default function Suppliers() {
     try {
       await addDoc(collection(db, "suppliers"), {
         ...newSupplier,
+        balance: newSupplier.balance ? parseFloat(newSupplier.balance) : 0,
         companyId: userCompanyId,
         createdAt: new Date().toISOString(),
       });
-      setNewSupplier({ name: "", phone: "", email: "", address: "", notes: "" });
+      setNewSupplier({ name: "", phone: "", email: "", address: "", notes: "", balance: "", taxNumber: "" });
       await fetchSuppliers();
       alert(t("sup.addOk"));
     } catch (error) {
@@ -84,6 +87,8 @@ export default function Suppliers() {
         email: editingSupplier.email || "",
         address: editingSupplier.address || "",
         notes: editingSupplier.notes || "",
+        balance: editingSupplier.balance ? parseFloat(editingSupplier.balance) : 0,
+        taxNumber: editingSupplier.taxNumber || "",
       });
       await fetchSuppliers();
       closeEditModal();
@@ -152,6 +157,18 @@ export default function Suppliers() {
             onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })}
           />
           <input
+            type="number"
+            placeholder={t("sup.phBalance")}
+            value={newSupplier.balance}
+            onChange={(e) => setNewSupplier({ ...newSupplier, balance: e.target.value })}
+          />
+          <input
+            type="text"
+            placeholder={t("sup.phTaxNumber")}
+            value={newSupplier.taxNumber}
+            onChange={(e) => setNewSupplier({ ...newSupplier, taxNumber: e.target.value })}
+          />
+          <input
             type="text"
             placeholder={t("sup.phNotes")}
             value={newSupplier.notes}
@@ -198,6 +215,8 @@ export default function Suppliers() {
                   <th>{t("common.phone")}</th>
                   <th>{t("common.email")}</th>
                   <th>{t("sup.address")}</th>
+                  <th>{t("sup.balance")}</th>
+                  <th>{t("sup.taxNumber")}</th>
                   <th>{t("sup.notes")}</th>
                   <th>{t("common.actions")}</th>
                 </tr>
@@ -210,6 +229,12 @@ export default function Suppliers() {
                     <td>{supplier.phone || "-"}</td>
                     <td>{supplier.email || "-"}</td>
                     <td>{supplier.address || "-"}</td>
+                    <td>
+                      {supplier.balance
+                        ? `${Number(supplier.balance).toLocaleString()} ${t("currency.short")}`
+                        : "-"}
+                    </td>
+                    <td>{supplier.taxNumber || "-"}</td>
                     <td>{supplier.notes || "-"}</td>
                     <td>
                       <button
@@ -276,6 +301,26 @@ export default function Suppliers() {
                   type="text"
                   value={editingSupplier.address || ""}
                   onChange={(e) => setEditingSupplier({ ...editingSupplier, address: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label>{t("sup.balance")} ({t("common.optional")})</label>
+                <input
+                  type="number"
+                  placeholder={t("sup.phBalance")}
+                  value={editingSupplier.balance ?? ""}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, balance: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label>{t("sup.taxNumber")} ({t("common.optional")})</label>
+                <input
+                  type="text"
+                  placeholder={t("sup.phTaxNumber")}
+                  value={editingSupplier.taxNumber || ""}
+                  onChange={(e) => setEditingSupplier({ ...editingSupplier, taxNumber: e.target.value })}
                   style={styles.input}
                 />
               </div>

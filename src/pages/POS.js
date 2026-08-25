@@ -1,4 +1,4 @@
-// src/pages/POS.js - نقطة البيع مع دعم الترجمة
+// src/pages/POS.js - نقطة البيع مع دعم الترجمة + عرض تفاصيل المنتج (نوع، مقاس، لون)
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -44,9 +44,13 @@ export default function POS() {
     Promise.all([fetchProducts(), fetchClients()]);
   }, [fetchProducts, fetchClients]);
 
+  // ✅ فلتر المنتجات يشمل النوع، المقاس، اللون
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase()))
+    (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.type && p.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.size && p.size.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.color && p.color.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   function addToCart(product) {
@@ -89,6 +93,23 @@ export default function POS() {
     );
   }
 
+  // ✅ دالة مساعدة لعرض تفاصيل المنتج
+  const getProductDetails = (product) => {
+    const details = [];
+    if (product.type) {
+      const typeMap = {
+        men: t('inv.typeMen'),
+        women: t('inv.typeWomen'),
+        kids: t('inv.typeKids'),
+        unisex: t('inv.typeUnisex'),
+      };
+      details.push(typeMap[product.type] || product.type);
+    }
+    if (product.size) details.push(product.size);
+    if (product.color) details.push(product.color);
+    return details.join(' - ');
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const discount = 0;
   const total = subtotal - discount;
@@ -119,6 +140,10 @@ export default function POS() {
           productName: item.name,
           quantity: item.quantity,
           price: item.price || 0,
+          // ✅ حفظ تفاصيل المنتج في الفاتورة
+          productType: item.type || '',
+          productSize: item.size || '',
+          productColor: item.color || '',
         })),
         subtotal: subtotal,
         discount: discount,
@@ -145,8 +170,13 @@ export default function POS() {
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>{t("pos.loading")}
+      <div style={{ display: "flex", minHeight: "100vh" }}>
+        <Sidebar />
+        <div className="main-content">
+          <div className="loading">
+            <div className="spinner"></div>{t("pos.loading")}
+          </div>
+        </div>
       </div>
     );
   }
@@ -191,58 +221,67 @@ export default function POS() {
                   <p>{searchTerm ? t("common.noResults") : t("pos.noProducts")}</p>
                 </div>
               ) : (
-                filteredProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    onClick={() => addToCart(product)}
-                    disabled={product.quantity < 1}
-                    style={{
-                      background: "white",
-                      border: `2px solid ${product.quantity < 1 ? "#e2e8f0" : "#e2e8f0"}`,
-                      borderRadius: 12,
-                      padding: "14px",
-                      cursor: product.quantity < 1 ? "not-allowed" : "pointer",
-                      opacity: product.quantity < 1 ? 0.5 : 1,
-                      transition: "border-color 0.2s, transform 0.2s",
-                      textAlign: "right",
-                      fontFamily: "Cairo, sans-serif",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (product.quantity >= 1) {
-                        e.currentTarget.style.borderColor = "#10b981";
-                        e.currentTarget.style.transform = "translateY(-2px)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "#e2e8f0";
-                      e.currentTarget.style.transform = "none";
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>
-                      {product.name}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {product.category || t("pos.noCat")}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontWeight: 800, color: "#10b981" }}>
-                        {product.price} {t("currency")}
-                      </span>
-                      <span
-                        className="badge"
-                        style={{
-                          background: product.quantity < 5 ? "#fef2f2" : "#f0fdf4",
-                          color: product.quantity < 5 ? "#dc2626" : "#16a34a",
-                        }}
-                      >
-                        {product.quantity} متبقي
-                      </span>
-                    </div>
-                  </button>
-                ))
+                filteredProducts.map((product) => {
+                  const details = getProductDetails(product);
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      disabled={product.quantity < 1}
+                      style={{
+                        background: "white",
+                        border: `2px solid ${product.quantity < 1 ? "#e2e8f0" : "#e2e8f0"}`,
+                        borderRadius: 12,
+                        padding: "14px",
+                        cursor: product.quantity < 1 ? "not-allowed" : "pointer",
+                        opacity: product.quantity < 1 ? 0.5 : 1,
+                        transition: "border-color 0.2s, transform 0.2s",
+                        textAlign: "right",
+                        fontFamily: "Cairo, sans-serif",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (product.quantity >= 1) {
+                          e.currentTarget.style.borderColor = "#10b981";
+                          e.currentTarget.style.transform = "translateY(-2px)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "#e2e8f0";
+                        e.currentTarget.style.transform = "none";
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>
+                        {product.name}
+                      </div>
+                      {/* ✅ عرض تفاصيل المنتج (نوع - مقاس - لون) */}
+                      {details && (
+                        <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 500 }}>
+                          {details}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                        {product.category || t("pos.noCat")}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 800, color: "#10b981" }}>
+                          {product.price} {t("currency")}
+                        </span>
+                        <span
+                          className="badge"
+                          style={{
+                            background: product.quantity < 5 ? "#fef2f2" : "#f0fdf4",
+                            color: product.quantity < 5 ? "#dc2626" : "#16a34a",
+                          }}
+                        >
+                          {product.quantity} متبقي
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>

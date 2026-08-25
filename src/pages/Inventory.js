@@ -1,4 +1,4 @@
-// src/pages/Inventory.js - مع عزل البيانات حسب الشركة و createdBy
+// src/pages/Inventory.js - مع دعم مقاسات ديناميكية (ملابس، أحذية، إلخ)
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -25,16 +25,83 @@ export default function Inventory() {
     quantity: "",
     price: "",
     description: "",
-    barcode: "",
+    // ✅ حقول جديدة
+    type: "",        // رجالي، حريمي، أطفال
+    size: "",        // المقاس (نص أو رقم)
+    color: "",       // اللون
+    brand: "",       // الماركة
     expiryDate: "",
   });
   const [loading, setLoading] = useState(true);
-
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // ✅ خيارات النوع
+  const types = [
+    { value: 'men', label: 'رجالي' },
+    { value: 'women', label: 'حريمي' },
+    { value: 'kids', label: 'أطفال' },
+    { value: 'unisex', label: 'يونيسكس' },
+  ];
+
+  // ✅ خيارات المقاسات - ثابتة
+  const sizeOptions = [
+    // مقاسات الملابس
+    { value: 'XS', label: 'XS', category: 'clothing' },
+    { value: 'S', label: 'S', category: 'clothing' },
+    { value: 'M', label: 'M', category: 'clothing' },
+    { value: 'L', label: 'L', category: 'clothing' },
+    { value: 'XL', label: 'XL', category: 'clothing' },
+    { value: 'XXL', label: 'XXL', category: 'clothing' },
+    { value: 'XXXL', label: 'XXXL', category: 'clothing' },
+    // مقاسات الأحذية (أرقام)
+    { value: '22', label: '22', category: 'shoes' },
+    { value: '23', label: '23', category: 'shoes' },
+    { value: '24', label: '24', category: 'shoes' },
+    { value: '25', label: '25', category: 'shoes' },
+    { value: '26', label: '26', category: 'shoes' },
+    { value: '27', label: '27', category: 'shoes' },
+    { value: '28', label: '28', category: 'shoes' },
+    { value: '29', label: '29', category: 'shoes' },
+    { value: '30', label: '30', category: 'shoes' },
+    { value: '31', label: '31', category: 'shoes' },
+    { value: '32', label: '32', category: 'shoes' },
+    { value: '33', label: '33', category: 'shoes' },
+    { value: '34', label: '34', category: 'shoes' },
+    { value: '35', label: '35', category: 'shoes' },
+    { value: '36', label: '36', category: 'shoes' },
+    { value: '37', label: '37', category: 'shoes' },
+    { value: '38', label: '38', category: 'shoes' },
+    { value: '39', label: '39', category: 'shoes' },
+    { value: '40', label: '40', category: 'shoes' },
+    { value: '41', label: '41', category: 'shoes' },
+    { value: '42', label: '42', category: 'shoes' },
+    { value: '43', label: '43', category: 'shoes' },
+    { value: '44', label: '44', category: 'shoes' },
+    { value: '45', label: '45', category: 'shoes' },
+    { value: '46', label: '46', category: 'shoes' },
+    { value: '47', label: '47', category: 'shoes' },
+    { value: '48', label: '48', category: 'shoes' },
+    { value: '49', label: '49', category: 'shoes' },
+    { value: '50', label: '50', category: 'shoes' },
+  ];
+
+  // ✅ خيارات الألوان
+  const colors = [
+    { value: 'أسود', label: '⚫ أسود' },
+    { value: 'أبيض', label: '⚪ أبيض' },
+    { value: 'أحمر', label: '🔴 أحمر' },
+    { value: 'أزرق', label: '🔵 أزرق' },
+    { value: 'أخضر', label: '🟢 أخضر' },
+    { value: 'أصفر', label: '🟡 أصفر' },
+    { value: 'رمادي', label: '⬜ رمادي' },
+    { value: 'بني', label: '🟤 بني' },
+    { value: 'برتقالي', label: '🟠 برتقالي' },
+    { value: 'وردي', label: '💗 وردي' },
+    { value: 'بنفسجي', label: '🟣 بنفسجي' },
+  ];
+
   const fetchProducts = useCallback(async () => {
-    // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
     if (!userCompanyId) {
       setProducts([]);
       setLoading(false);
@@ -73,10 +140,13 @@ export default function Inventory() {
       await addDoc(collection(db, "inventory"), {
         ...newProduct,
         companyId: userCompanyId,
-        createdBy: currentUser?.uid, // ✅ إضافة createdBy
+        createdBy: currentUser?.uid,
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
-        barcode: newProduct.barcode || "",
+        type: newProduct.type || "",
+        size: newProduct.size || "",
+        color: newProduct.color || "",
+        brand: newProduct.brand || "",
         expiryDate: newProduct.expiryDate || "",
         createdAt: new Date().toISOString(),
       });
@@ -86,7 +156,10 @@ export default function Inventory() {
         quantity: "",
         price: "",
         description: "",
-        barcode: "",
+        type: "",
+        size: "",
+        color: "",
+        brand: "",
         expiryDate: "",
       });
       await fetchProducts();
@@ -122,7 +195,10 @@ export default function Inventory() {
         quantity: parseInt(editingProduct.quantity),
         price: parseFloat(editingProduct.price),
         description: editingProduct.description || "",
-        barcode: editingProduct.barcode || "",
+        type: editingProduct.type || "",
+        size: editingProduct.size || "",
+        color: editingProduct.color || "",
+        brand: editingProduct.brand || "",
         expiryDate: editingProduct.expiryDate || "",
       });
       await fetchProducts();
@@ -146,14 +222,20 @@ export default function Inventory() {
     }
   }
 
+  // ✅ فلتر حسب الفئة (للبحث عن مقاس معين)
   const filteredProducts = products.filter(
     (product) =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.category &&
-        product.category.toLowerCase().includes(searchTerm.toLowerCase()))
+        product.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.type &&
+        product.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.brand &&
+        product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.size &&
+        product.size.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // ✅ التحقق من صلاحية الحذف
   const userCanDelete = canDelete(userRole);
 
   if (loading) {
@@ -176,71 +258,138 @@ export default function Inventory() {
         </h2>
 
         <form onSubmit={addProduct} className="form-container">
-          <input
-            type="text"
-            placeholder={t("inv.phName")}
-            value={newProduct.name}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, name: e.target.value })
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder={t("inv.phCat")}
-            value={newProduct.category}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, category: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder={t("inv.phQty")}
-            value={newProduct.quantity}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, quantity: e.target.value })
-            }
-            required
-          />
-          <input
-            type="number"
-            placeholder={t("inv.phPrice")}
-            value={newProduct.price}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, price: e.target.value })
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder={t("inv.phDesc")}
-            value={newProduct.description}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, description: e.target.value })
-            }
-          />
-          <input
-            type="text"
-            placeholder={t("inv.phBarcode")}
-            value={newProduct.barcode}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, barcode: e.target.value })
-            }
-          />
-          <input
-            type="date"
-            placeholder={t("inv.phExpiry")}
-            value={newProduct.expiryDate}
-            onChange={(e) =>
-              setNewProduct({ ...newProduct, expiryDate: e.target.value })
-            }
-          />
-          <button type="submit" className="btn-primary">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <input
+              type="text"
+              placeholder={t("inv.phName")}
+              value={newProduct.name}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, name: e.target.value })
+              }
+              required
+            />
+            <input
+              type="text"
+              placeholder={t("inv.phCat")}
+              value={newProduct.category}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, category: e.target.value })
+              }
+            />
+            <input
+              type="number"
+              placeholder={t("inv.phQty")}
+              value={newProduct.quantity}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, quantity: e.target.value })
+              }
+              required
+            />
+            <input
+              type="number"
+              placeholder={t("inv.phPrice")}
+              value={newProduct.price}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, price: e.target.value })
+              }
+              required
+            />
+            <input
+              type="text"
+              placeholder={t("inv.phDesc")}
+              value={newProduct.description}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, description: e.target.value })
+              }
+            />
+            
+            {/* ✅ النوع (رجالي/حريمي/أطفال) */}
+            <select
+              value={newProduct.type}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, type: e.target.value })
+              }
+              style={{
+                padding: "10px 14px",
+                border: "2px solid #e2e8f0",
+                borderRadius: "10px",
+                fontSize: "14px",
+                background: "white",
+              }}
+            >
+              <option value="">النوع</option>
+              {types.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+
+            {/* ✅ المقاس (كل الخيارات) */}
+            <select
+              value={newProduct.size}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, size: e.target.value })
+              }
+              style={{
+                padding: "10px 14px",
+                border: "2px solid #e2e8f0",
+                borderRadius: "10px",
+                fontSize: "14px",
+                background: "white",
+              }}
+            >
+              <option value="">المقاس</option>
+              {sizeOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                </option>
+              ))}
+            </select>
+
+            {/* ✅ اللون */}
+            <select
+              value={newProduct.color}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, color: e.target.value })
+              }
+              style={{
+                padding: "10px 14px",
+                border: "2px solid #e2e8f0",
+                borderRadius: "10px",
+                fontSize: "14px",
+                background: "white",
+              }}
+            >
+              <option value="">اللون</option>
+              {colors.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+
+            {/* ✅ الماركة */}
+            <input
+              type="text"
+              placeholder="الماركة (اختياري)"
+              value={newProduct.brand}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, brand: e.target.value })
+              }
+            />
+
+            <input
+              type="date"
+              placeholder={t("inv.phExpiry")}
+              value={newProduct.expiryDate}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, expiryDate: e.target.value })
+              }
+            />
+          </div>
+          <button type="submit" className="btn-primary" style={{ marginTop: 12 }}>
             <i className="fas fa-plus"></i> {t("inv.add")}
           </button>
         </form>
 
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "20px", marginTop: 20 }}>
           <input
             type="text"
             placeholder={t("inv.search")}
@@ -273,11 +422,12 @@ export default function Inventory() {
                   <th>#</th>
                   <th>{t("inv.name")}</th>
                   <th>{t("inv.category")}</th>
+                  <th>النوع</th>
+                  <th>المقاس</th>
+                  <th>اللون</th>
+                  <th>الماركة</th>
                   <th>{t("common.quantity")}</th>
                   <th>{t("inv.price")}</th>
-                  <th>{t("common.description")}</th>
-                  <th>{t("inv.barcode")}</th>
-                  <th>{t("inv.expiry")}</th>
                   <th>{t("common.actions")}</th>
                 </tr>
               </thead>
@@ -288,6 +438,15 @@ export default function Inventory() {
                     <td>{product.name}</td>
                     <td>{product.category || "-"}</td>
                     <td>
+                      {product.type === 'men' ? 'رجالي' :
+                       product.type === 'women' ? 'حريمي' :
+                       product.type === 'kids' ? 'أطفال' :
+                       product.type === 'unisex' ? 'يونيسكس' : '-'}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{product.size || "-"}</td>
+                    <td>{product.color || "-"}</td>
+                    <td>{product.brand || "-"}</td>
+                    <td>
                       <span
                         className={`badge ${
                           product.quantity < 5 ? "badge-expired" : "badge-active"
@@ -297,34 +456,6 @@ export default function Inventory() {
                       </span>
                     </td>
                     <td>{product.price} {t("currency")}</td>
-                    <td>{product.description || "-"}</td>
-                    <td>
-                      {product.barcode ? (
-                        <code
-                          style={{
-                            background: "#f1f5f9",
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#6366f1",
-                            direction: "ltr",
-                            display: "inline-block",
-                          }}
-                        >
-                          {product.barcode}
-                        </code>
-                      ) : (
-                        <span style={{ color: "#999", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      {product.expiryDate ? (
-                        new Date(product.expiryDate).toLocaleDateString()
-                      ) : (
-                        <span style={{ color: "#999", fontSize: 12 }}>—</span>
-                      )}
-                    </td>
                     <td>
                       <button
                         onClick={() => openEditModal(product)}
@@ -393,6 +524,67 @@ export default function Inventory() {
                 />
               </div>
               <div style={styles.formGroup}>
+                <label>النوع</label>
+                <select
+                  value={editingProduct.type || ""}
+                  onChange={(e) =>
+                    setEditingProduct({ ...editingProduct, type: e.target.value })
+                  }
+                  style={styles.input}
+                >
+                  <option value="">اختر النوع</option>
+                  {types.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>المقاس</label>
+                <select
+                  value={editingProduct.size || ""}
+                  onChange={(e) =>
+                    setEditingProduct({ ...editingProduct, size: e.target.value })
+                  }
+                  style={styles.input}
+                >
+                  <option value="">اختر المقاس</option>
+                  {sizeOptions.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>اللون</label>
+                <select
+                  value={editingProduct.color || ""}
+                  onChange={(e) =>
+                    setEditingProduct({ ...editingProduct, color: e.target.value })
+                  }
+                  style={styles.input}
+                >
+                  <option value="">اختر اللون</option>
+                  {colors.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>الماركة</label>
+                <input
+                  type="text"
+                  value={editingProduct.brand || ""}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      brand: e.target.value,
+                    })
+                  }
+                  style={styles.input}
+                />
+              </div>
+              <div style={styles.formGroup}>
                 <label>{t("common.quantity")}</label>
                 <input
                   type="number"
@@ -434,21 +626,7 @@ export default function Inventory() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>{t("inv.barcode")}</label>
-                <input
-                  type="text"
-                  value={editingProduct.barcode || ""}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      barcode: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label>{t("inv.expiry")}</label>
+                <label>تاريخ الصلاحية (اختياري)</label>
                 <input
                   type="date"
                   value={editingProduct.expiryDate || ""}

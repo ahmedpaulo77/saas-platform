@@ -1,4 +1,4 @@
-// src/pages/Clients.js - مع عزل البيانات حسب الشركة و createdBy
+// src/pages/Clients.js - مع عزل البيانات حسب الشركة و createdBy + نوع العميل
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -26,6 +26,7 @@ export default function Clients() {
     email: "",
     phone: "",
     companyId: "",
+    type: "",
   });
   const [companies, setCompanies] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
@@ -78,7 +79,7 @@ export default function Clients() {
   async function addClient(e) {
     e.preventDefault();
     const companyId = superAdmin ? newClient.companyId : userCompanyId;
-    if (!newClient.name || !newClient.email || !companyId) {
+    if (!newClient.name || !companyId) {
       alert(t("common.fillRequired"));
       return;
     }
@@ -86,10 +87,11 @@ export default function Clients() {
     try {
       await addDoc(collection(db, "clients"), {
         name: newClient.name,
-        email: newClient.email,
-        phone: newClient.phone,
+        email: newClient.email || "",
+        phone: newClient.phone || "",
         companyId,
-        createdBy: currentUser?.uid, // ✅ إضافة createdBy
+        type: newClient.type || "",
+        createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
       setNewClient({
@@ -97,6 +99,7 @@ export default function Clients() {
         email: "",
         phone: "",
         companyId: superAdmin ? "" : userCompanyId,
+        type: "",
       });
       await fetchClients();
       alert(t("cli.addOk"));
@@ -118,7 +121,7 @@ export default function Clients() {
 
   async function updateClient(e) {
     e.preventDefault();
-    if (!editingClient.name || !editingClient.email || !editingClient.companyId) {
+    if (!editingClient.name || !editingClient.companyId) {
       alert(t("common.fillRequired"));
       return;
     }
@@ -127,9 +130,10 @@ export default function Clients() {
       const clientRef = doc(db, "clients", editingClient.id);
       await updateDoc(clientRef, {
         name: editingClient.name,
-        email: editingClient.email,
+        email: editingClient.email || "",
         phone: editingClient.phone || "",
         companyId: editingClient.companyId,
+        type: editingClient.type || "",
       });
       await fetchClients();
       closeEditModal();
@@ -155,11 +159,11 @@ export default function Clients() {
   const filteredClients = clients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.phone && client.phone.includes(searchTerm))
+      (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (client.phone && client.phone.includes(searchTerm)) ||
+      (client.type && client.type.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // ✅ التحقق من صلاحية الحذف
   const userCanDelete = canDelete(userRole);
 
   if (loading) {
@@ -181,54 +185,86 @@ export default function Clients() {
           👥 {t("cli.title")}
         </h2>
 
+        {/* ✅ نموذج الإضافة - مع ترجمة كاملة */}
         <form onSubmit={addClient} className="form-container">
-          <input
-            type="text"
-            placeholder={t("cli.name")}
-            value={newClient.name}
-            onChange={(e) =>
-              setNewClient({ ...newClient, name: e.target.value })
-            }
-            required
-          />
-          <input
-            type="email"
-            placeholder={t("common.email")}
-            value={newClient.email}
-            onChange={(e) =>
-              setNewClient({ ...newClient, email: e.target.value })
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder={t("common.phone")}
-            value={newClient.phone}
-            onChange={(e) =>
-              setNewClient({ ...newClient, phone: e.target.value })
-            }
-          />
-          <select
-            value={superAdmin ? newClient.companyId : userCompanyId}
-            onChange={(e) =>
-              setNewClient({ ...newClient, companyId: e.target.value })
-            }
-            required
-            disabled={!superAdmin}
-          >
-            <option value="">{t("cli.chooseCompany")}</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="btn-primary">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+            <input
+              type="text"
+              placeholder={t("cli.name") + " *"}
+              value={newClient.name}
+              onChange={(e) =>
+                setNewClient({ ...newClient, name: e.target.value })
+              }
+              required
+            />
+            <input
+              type="email"
+              placeholder={t("common.email") + " (" + t("common.optional") + ")"}
+              value={newClient.email}
+              onChange={(e) =>
+                setNewClient({ ...newClient, email: e.target.value })
+              }
+            />
+            <input
+              type="text"
+              placeholder={t("common.phone") + " (" + t("common.optional") + ")"}
+              value={newClient.phone}
+              onChange={(e) =>
+                setNewClient({ ...newClient, phone: e.target.value })
+              }
+            />
+            
+            {/* ✅ حقل نوع العميل مترجم */}
+            <select
+              value={newClient.type}
+              onChange={(e) =>
+                setNewClient({ ...newClient, type: e.target.value })
+              }
+              style={{
+                padding: "10px 14px",
+                border: "2px solid #e2e8f0",
+                borderRadius: "10px",
+                fontSize: "14px",
+                background: "white",
+              }}
+            >
+              <option value="">{t("cli.type")} ({t("common.optional")})</option>
+              <option value="clothes">👕 {t("cli.typeClothes")}</option>
+              <option value="shoes">👟 {t("cli.typeShoes")}</option>
+              <option value="other">📦 {t("cli.typeOther")}</option>
+            </select>
+
+            {superAdmin && (
+              <select
+                value={newClient.companyId}
+                onChange={(e) =>
+                  setNewClient({ ...newClient, companyId: e.target.value })
+                }
+                required
+                style={{
+                  padding: "10px 14px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  background: "white",
+                }}
+              >
+                <option value="">{t("cli.chooseCompany")} *</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <button type="submit" className="btn-primary" style={{ marginTop: 12 }}>
             <i className="fas fa-plus"></i> {t("cli.add")}
           </button>
         </form>
 
-        <div style={{ marginBottom: "20px" }}>
+        {/* ✅ البحث */}
+        <div style={{ marginBottom: "20px", marginTop: 20 }}>
           <input
             type="text"
             placeholder={t("cli.search")}
@@ -245,6 +281,7 @@ export default function Clients() {
           />
         </div>
 
+        {/* ✅ الجدول - مرة واحدة بس */}
         <div className="table-container">
           <div className="table-header">
             <h3>{t("cli.list")}</h3>
@@ -260,6 +297,7 @@ export default function Clients() {
                 <tr>
                   <th>#</th>
                   <th>{t("cli.name")}</th>
+                  <th>{t("cli.type")}</th>
                   <th>{t("common.email")}</th>
                   <th>{t("common.phone")}</th>
                   <th>{t("cli.company")}</th>
@@ -271,11 +309,19 @@ export default function Clients() {
                   const companyName =
                     companies.find((c) => c.id === client.companyId)?.name ||
                     t("common.unspecified");
+                  
+                  // ✅ ترجمة نوع العميل
+                  let typeLabel = "-";
+                  if (client.type === 'clothes') typeLabel = `👕 ${t("cli.typeClothes")}`;
+                  else if (client.type === 'shoes') typeLabel = `👟 ${t("cli.typeShoes")}`;
+                  else if (client.type === 'other') typeLabel = `📦 ${t("cli.typeOther")}`;
+
                   return (
                     <tr key={client.id}>
                       <td>{index + 1}</td>
                       <td>{client.name}</td>
-                      <td>{client.email}</td>
+                      <td>{typeLabel}</td>
+                      <td>{client.email || "-"}</td>
                       <td>{client.phone || "-"}</td>
                       <td>{companyName}</td>
                       <td>
@@ -290,7 +336,6 @@ export default function Clients() {
                         >
                           <i className="fas fa-edit"></i> {t("common.edit")}
                         </button>
-                        {/* ✅ زر الحذف يظهر فقط للأدمن */}
                         {userCanDelete && (
                           <button
                             onClick={() => deleteClient(client.id)}
@@ -309,6 +354,7 @@ export default function Clients() {
         </div>
       </div>
 
+      {/* ✅ مودال التعديل */}
       {showEditModal && editingClient && (
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -322,7 +368,7 @@ export default function Clients() {
             </div>
             <form onSubmit={updateClient}>
               <div style={styles.formGroup}>
-                <label>{t("cli.name")}</label>
+                <label>{t("cli.name")} *</label>
                 <input
                   type="text"
                   value={editingClient.name}
@@ -334,19 +380,18 @@ export default function Clients() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>{t("common.email")}</label>
+                <label>{t("common.email")} ({t("common.optional")})</label>
                 <input
                   type="email"
-                  value={editingClient.email}
+                  value={editingClient.email || ""}
                   onChange={(e) =>
                     setEditingClient({ ...editingClient, email: e.target.value })
                   }
-                  required
                   style={styles.input}
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>{t("common.phone")}</label>
+                <label>{t("common.phone")} ({t("common.optional")})</label>
                 <input
                   type="text"
                   value={editingClient.phone || ""}
@@ -357,7 +402,22 @@ export default function Clients() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>{t("cli.company")}</label>
+                <label>{t("cli.type")} ({t("common.optional")})</label>
+                <select
+                  value={editingClient.type || ""}
+                  onChange={(e) =>
+                    setEditingClient({ ...editingClient, type: e.target.value })
+                  }
+                  style={styles.input}
+                >
+                  <option value="">{t("cli.type")} ({t("common.optional")})</option>
+                  <option value="clothes">👕 {t("cli.typeClothes")}</option>
+                  <option value="shoes">👟 {t("cli.typeShoes")}</option>
+                  <option value="other">📦 {t("cli.typeOther")}</option>
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>{t("cli.company")} *</label>
                 <select
                   value={editingClient.companyId}
                   onChange={(e) =>
