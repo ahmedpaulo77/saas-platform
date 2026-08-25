@@ -86,7 +86,7 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <>
-      <div className="logo">
+           <div className="logo">
         <div className="logo-icon">
           <i className="fas fa-cube"></i>
         </div>
@@ -97,6 +97,10 @@ export default function Sidebar() {
         <button onClick={closeSidebar} className="sidebar-close-btn" aria-label="Close menu">
           <i className="fas fa-times"></i>
         </button>
+      </div>
+
+      <div style={{ margin: '12px 12px 4px' }}>
+        <LanguageToggle variant="sidebar" />
       </div>
 
       <nav>
@@ -147,9 +151,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <div style={{ margin: '0 12px 12px' }}>
-        <LanguageToggle variant="sidebar" />
-      </div>
+      
 
       <button onClick={handleLogout} className="logout-btn">
         <i className="fas fa-sign-out-alt"></i>
