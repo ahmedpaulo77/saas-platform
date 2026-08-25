@@ -389,12 +389,13 @@ export const translations = {
     "cli.delConfirm": "هل أنت متأكد من حذف هذا العميل؟",
     "cli.delOk": "✅ تم حذف العميل بنجاح",
     "cli.delFail": "❌ حدث خطأ في حذف العميل",
-    "in.title": "الفواتير",
+    'in.statRevenue': 'الإيرادات المدفوعة (ج.م)',
+'in.statOverdueAmount': 'الإيرادات المتأخرة (ج.م)',
+     "in.title": "الفواتير",
     "in.statTotal": "إجمالي الفواتير",
     "in.statPaid": "فواتير مدفوعة",
     "in.statPending": "قيد الانتظار",
-    "in.statRevenue": "إجمالي الإيرادات (ج.م)",
-    "in.clientReq": "العميل *",
+     "in.clientReq": "العميل *",
     "in.chooseClient": "اختر العميل",
     "in.productReq": "المنتج *",
     "in.chooseProduct": "اختر المنتج",
@@ -1306,6 +1307,7 @@ export const translations = {
     "inv.delConfirm": "Are you sure you want to delete this product?",
     "inv.delOk": "✅ Product deleted successfully",
     "inv.delFail": "❌ Failed to delete product",
+    
     "sup.loading": "Loading suppliers...",
     "sup.title": "Suppliers",
     "sup.add": "Add supplier",
@@ -1842,6 +1844,7 @@ export const translations = {
     // ============================================================
     // ========== Inventory - New Fields ==========
     // ============================================================
+ 'in.statOverdueAmount': 'Overdue revenue (EGP)',
     "inv.type": "Type",
     "inv.size": "Size",
     "inv.color": "Color",

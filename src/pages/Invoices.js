@@ -236,6 +236,15 @@ export default function Invoices() {
 
   const paidCount = invoices.filter((i) => i.status === "paid").length;
   const pendingCount = invoices.filter((i) => i.status === "pending").length;
+    // إجمالي المبالغ المتأخرة (المتبقي من الفواتير Overdue بس)
+  const totalOverdue = invoices.reduce((sum, inv) => {
+    if (inv.status === "overdue") {
+      const total = parseFloat(inv.amount) || 0;
+      const paid = parseFloat(inv.paidAmount) || 0;
+      return sum + (total - paid);
+    }
+    return sum;
+  }, 0);
 
   const filtered = invoices.filter((inv) => {
     const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
@@ -304,7 +313,7 @@ export default function Invoices() {
             <div className="stat-value">{pendingCount}</div>
             <div className="stat-label">{t("in.statPending")}</div>
           </div>
-          <div className="stat-card cyan">
+                   <div className="stat-card cyan">
             <div className="stat-icon">
               <i className="fas fa-money-bill-wave"></i>
             </div>
@@ -312,6 +321,15 @@ export default function Invoices() {
               {totalRevenue.toLocaleString()}
             </div>
             <div className="stat-label">{t("in.statRevenue")}</div>
+          </div>
+          <div className="stat-card red">
+            <div className="stat-icon">
+              <i className="fas fa-exclamation-triangle"></i>
+            </div>
+            <div className="stat-value" style={{ fontSize: 20 }}>
+              {totalOverdue.toLocaleString()}
+            </div>
+            <div className="stat-label">{t("in.statOverdueAmount")}</div>
           </div>
         </div>
 
