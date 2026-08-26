@@ -290,75 +290,93 @@ export default function Dashboard() {
         </div>
 
         {/* ✅ Stats - تظهر فقط للأدمن */}
-        {isAdmin ? (
+                {isAdmin ? (
           <div className="stats-row">
-            <div className="stat-card indigo">
-              <div className="stat-icon">
-                <i className="fas fa-building"></i>
+            {availableModules.has("companies") && (
+              <div className="stat-card indigo">
+                <div className="stat-icon">
+                  <i className="fas fa-building"></i>
+                </div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.companies}
+                </div>
+                <div className="stat-label">{t("dash.companies")}</div>
               </div>
-              <div className="stat-value">
-                {loading ? "..." : stats.companies}
+            )}
+            {availableModules.has("clients") && (
+              <div className="stat-card green">
+                <div className="stat-icon">
+                  <i className="fas fa-user-friends"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.clients}</div>
+                <div className="stat-label">{t("dash.clients")}</div>
               </div>
-              <div className="stat-label">{t("dash.companies")}</div>
-            </div>
-            <div className="stat-card green">
-              <div className="stat-icon">
-                <i className="fas fa-user-friends"></i>
+            )}
+            {availableModules.has("sellers") && (
+              <div className="stat-card amber">
+                <div className="stat-icon">
+                  <i className="fas fa-store"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.sellers}</div>
+                <div className="stat-label">{t("dash.sellers")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.clients}</div>
-              <div className="stat-label">{t("dash.clients")}</div>
-            </div>
-            <div className="stat-card amber">
-              <div className="stat-icon">
-                <i className="fas fa-store"></i>
+            )}
+            {availableModules.has("buyers") && (
+              <div className="stat-card pink">
+                <div className="stat-icon">
+                  <i className="fas fa-user-plus"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.buyers}</div>
+                <div className="stat-label">{t("dash.buyers")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.sellers}</div>
-              <div className="stat-label">{t("dash.sellers")}</div>
-            </div>
-            <div className="stat-card pink">
-              <div className="stat-icon">
-                <i className="fas fa-user-plus"></i>
+            )}
+            {availableModules.has("invoices") && (
+              <div className="stat-card amber">
+                <div className="stat-icon">
+                  <i className="fas fa-file-invoice"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.invoices}</div>
+                <div className="stat-label">{t("dash.invoices")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.buyers}</div>
-              <div className="stat-label">{t("dash.buyers")}</div>
-            </div>
-            <div className="stat-card amber">
-              <div className="stat-icon">
-                <i className="fas fa-file-invoice"></i>
+            )}
+            {availableModules.has("tasks") && (
+              <div className="stat-card pink">
+                <div className="stat-icon">
+                  <i className="fas fa-tasks"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.tasks}</div>
+                <div className="stat-label">{t("dash.tasks")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.invoices}</div>
-              <div className="stat-label">{t("dash.invoices")}</div>
-            </div>
-            <div className="stat-card pink">
-              <div className="stat-icon">
-                <i className="fas fa-tasks"></i>
+            )}
+            {availableModules.has("projects") && (
+              <div className="stat-card red">
+                <div className="stat-icon">
+                  <i className="fas fa-project-diagram"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.projects}</div>
+                <div className="stat-label">{t("dash.projects")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.tasks}</div>
-              <div className="stat-label">{t("dash.tasks")}</div>
-            </div>
-            <div className="stat-card red">
-              <div className="stat-icon">
-                <i className="fas fa-project-diagram"></i>
+            )}
+            {availableModules.has("users") && (
+              <div className="stat-card purple">
+                <div className="stat-icon">
+                  <i className="fas fa-users"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.users}</div>
+                <div className="stat-label">{t("dash.users")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.projects}</div>
-              <div className="stat-label">{t("dash.projects")}</div>
-            </div>
-            <div className="stat-card purple">
-              <div className="stat-icon">
-                <i className="fas fa-users"></i>
+            )}
+            {availableModules.has("invoices") && (
+              <div className="stat-card cyan">
+                <div className="stat-icon">
+                  <i className="fas fa-money-bill-wave"></i>
+                </div>
+                <div className="stat-value" style={{ fontSize: 22 }}>
+                  {loading ? "..." : stats.revenue.toLocaleString()}
+                </div>
+                <div className="stat-label">{t("dash.revenue")}</div>
               </div>
-              <div className="stat-value">{loading ? "..." : stats.users}</div>
-              <div className="stat-label">{t("dash.users")}</div>
-            </div>
-            <div className="stat-card cyan">
-              <div className="stat-icon">
-                <i className="fas fa-money-bill-wave"></i>
-              </div>
-              <div className="stat-value" style={{ fontSize: 22 }}>
-                {loading ? "..." : stats.revenue.toLocaleString()}
-              </div>
-              <div className="stat-label">{t("dash.revenue")}</div>
-            </div>
+            )}
           </div>
         ) : (
           // ✅ لو مش Admin، يظهر رسالة
