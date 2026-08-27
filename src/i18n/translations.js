@@ -389,13 +389,14 @@ export const translations = {
     "cli.delConfirm": "هل أنت متأكد من حذف هذا العميل؟",
     "cli.delOk": "✅ تم حذف العميل بنجاح",
     "cli.delFail": "❌ حدث خطأ في حذف العميل",
-    'in.statRevenue': 'الإيرادات المدفوعة (ج.م)',
-'in.statOverdueAmount': 'الإيرادات المتأخرة (ج.م)',
-     "in.title": "الفواتير",
+    "in.invoices": "فاتورة",
+    "in.statRevenue": "الإيرادات المدفوعة (ج.م)",
+    "in.statOverdueAmount": "الإيرادات المتأخرة (ج.م)",
+    "in.title": "الفواتير",
     "in.statTotal": "إجمالي الفواتير",
     "in.statPaid": "فواتير مدفوعة",
     "in.statPending": "قيد الانتظار",
-     "in.clientReq": "العميل *",
+    "in.clientReq": "العميل *",
     "in.chooseClient": "اختر العميل",
     "in.productReq": "المنتج *",
     "in.chooseProduct": "اختر المنتج",
@@ -672,6 +673,7 @@ export const translations = {
     "rep.col.priority": "الأولوية",
     "rep.col.due": "تاريخ الاستحقاق",
     "rep.col.assignee": "المسؤول",
+    "rep.stockAlert": "تنبيه المخزون",
     "m.0": "يناير",
     "m.1": "فبراير",
     "m.2": "مارس",
@@ -820,6 +822,7 @@ export const translations = {
     // ============================================================
     // ========== المخزون - حقول جديدة ==========
     // ============================================================
+    "inv.products": "منتج",
     "inv.type": "النوع",
     "inv.size": "المقاس",
     "inv.color": "اللون",
@@ -1279,6 +1282,7 @@ export const translations = {
     "pos.addFirst": "❌ Add products to the cart first",
     "pos.ok": "✅ Sale completed successfully!",
     "pos.fail": "❌ Something went wrong while completing the sale",
+    "inv.products": "products",
     "inv.loading": "Loading products...",
     "inv.title": "Inventory",
     "inv.add": "Add product",
@@ -1307,7 +1311,7 @@ export const translations = {
     "inv.delConfirm": "Are you sure you want to delete this product?",
     "inv.delOk": "✅ Product deleted successfully",
     "inv.delFail": "❌ Failed to delete product",
-    
+
     "sup.loading": "Loading suppliers...",
     "sup.title": "Suppliers",
     "sup.add": "Add supplier",
@@ -1414,6 +1418,7 @@ export const translations = {
     "cli.typeOther": "Other",
     "cli.clients": "clients",
     "common.optional": "optional",
+    "in.invoices": "invoices",
     "in.title": "Invoices",
     "in.statTotal": "Total invoices",
     "in.statPaid": "Paid invoices",
@@ -1637,6 +1642,7 @@ export const translations = {
     "mc.notFound": "Company data was not found",
     "mc.fetchErr": "Failed to load company data",
     "mc.regenErr": "Failed to regenerate the code",
+    "rep.stockAlert": "Stock alert",
     "rep.loading": "Loading reports...",
     "rep.title": "Reports & statistics",
     "rep.subtitle": "Visual analytics for your business performance",
@@ -1844,7 +1850,7 @@ export const translations = {
     // ============================================================
     // ========== Inventory - New Fields ==========
     // ============================================================
- 'in.statOverdueAmount': 'Overdue revenue (EGP)',
+    "in.statOverdueAmount": "Overdue revenue (EGP)",
     "inv.type": "Type",
     "inv.size": "Size",
     "inv.color": "Color",
