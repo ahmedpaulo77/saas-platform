@@ -1,4 +1,4 @@
-// src/pages/Inventory.js - مع دعم مقاسات ديناميكية (ملابس، أحذية، إلخ)
+// src/pages/Inventory.js - مع دعم مقاسات ديناميكية (ملابس، أحذية، إلخ) - تظهر فقط لصناعة الملابس
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -16,7 +16,11 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Inventory() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
+
+  // ✅ الحقول الخاصة بالملابس/الأحذية تظهر بس لصناعة clothing
+  const isClothing = userIndustry === "clothing";
+
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newProduct, setNewProduct] = useState({
@@ -25,7 +29,7 @@ export default function Inventory() {
     quantity: "",
     price: "",
     description: "",
-    // ✅ حقول جديدة
+    // ✅ حقول خاصة بالملابس
     type: "",        // رجالي، حريمي، أطفال
     size: "",        // المقاس (نص أو رقم)
     color: "",       // اللون
@@ -143,10 +147,11 @@ export default function Inventory() {
         createdBy: currentUser?.uid,
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
-        type: newProduct.type || "",
-        size: newProduct.size || "",
-        color: newProduct.color || "",
-        brand: newProduct.brand || "",
+        // ✅ الحقول دي تتسجل بس لو صناعة ملابس، غير كده تتبعت فاضية
+        type: isClothing ? (newProduct.type || "") : "",
+        size: isClothing ? (newProduct.size || "") : "",
+        color: isClothing ? (newProduct.color || "") : "",
+        brand: isClothing ? (newProduct.brand || "") : "",
         expiryDate: newProduct.expiryDate || "",
         createdAt: new Date().toISOString(),
       });
@@ -195,10 +200,10 @@ export default function Inventory() {
         quantity: parseInt(editingProduct.quantity),
         price: parseFloat(editingProduct.price),
         description: editingProduct.description || "",
-        type: editingProduct.type || "",
-        size: editingProduct.size || "",
-        color: editingProduct.color || "",
-        brand: editingProduct.brand || "",
+        type: isClothing ? (editingProduct.type || "") : "",
+        size: isClothing ? (editingProduct.size || "") : "",
+        color: isClothing ? (editingProduct.color || "") : "",
+        brand: isClothing ? (editingProduct.brand || "") : "",
         expiryDate: editingProduct.expiryDate || "",
       });
       await fetchProducts();
@@ -302,78 +307,83 @@ export default function Inventory() {
                 setNewProduct({ ...newProduct, description: e.target.value })
               }
             />
-            
-            {/* ✅ النوع (رجالي/حريمي/أطفال) */}
-            <select
-              value={newProduct.type}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, type: e.target.value })
-              }
-              style={{
-                padding: "10px 14px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                background: "white",
-              }}
-            >
-              <option value="">النوع</option>
-              {types.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
 
-            {/* ✅ المقاس (كل الخيارات) */}
-            <select
-              value={newProduct.size}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, size: e.target.value })
-              }
-              style={{
-                padding: "10px 14px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                background: "white",
-              }}
-            >
-              <option value="">المقاس</option>
-              {sizeOptions.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
-                </option>
-              ))}
-            </select>
+            {/* ✅ الحقول دي تظهر بس لصناعة الملابس */}
+            {isClothing && (
+              <>
+                {/* النوع (رجالي/حريمي/أطفال) */}
+                <select
+                  value={newProduct.type}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, type: e.target.value })
+                  }
+                  style={{
+                    padding: "10px 14px",
+                    border: "2px solid #e2e8f0",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    background: "white",
+                  }}
+                >
+                  <option value="">النوع</option>
+                  {types.map((tp) => (
+                    <option key={tp.value} value={tp.value}>{tp.label}</option>
+                  ))}
+                </select>
 
-            {/* ✅ اللون */}
-            <select
-              value={newProduct.color}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, color: e.target.value })
-              }
-              style={{
-                padding: "10px 14px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                background: "white",
-              }}
-            >
-              <option value="">اللون</option>
-              {colors.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
+                {/* المقاس (كل الخيارات) */}
+                <select
+                  value={newProduct.size}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, size: e.target.value })
+                  }
+                  style={{
+                    padding: "10px 14px",
+                    border: "2px solid #e2e8f0",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    background: "white",
+                  }}
+                >
+                  <option value="">المقاس</option>
+                  {sizeOptions.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                    </option>
+                  ))}
+                </select>
 
-            {/* ✅ الماركة */}
-            <input
-              type="text"
-              placeholder="الماركة (اختياري)"
-              value={newProduct.brand}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, brand: e.target.value })
-              }
-            />
+                {/* اللون */}
+                <select
+                  value={newProduct.color}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, color: e.target.value })
+                  }
+                  style={{
+                    padding: "10px 14px",
+                    border: "2px solid #e2e8f0",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    background: "white",
+                  }}
+                >
+                  <option value="">اللون</option>
+                  {colors.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+
+                {/* الماركة */}
+                <input
+                  type="text"
+                  placeholder="الماركة (اختياري)"
+                  value={newProduct.brand}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, brand: e.target.value })
+                  }
+                />
+              </>
+            )}
 
             <input
               type="date"
@@ -422,10 +432,14 @@ export default function Inventory() {
                   <th>#</th>
                   <th>{t("inv.name")}</th>
                   <th>{t("inv.category")}</th>
-                  <th>النوع</th>
-                  <th>المقاس</th>
-                  <th>اللون</th>
-                  <th>الماركة</th>
+                  {isClothing && (
+                    <>
+                      <th>النوع</th>
+                      <th>المقاس</th>
+                      <th>اللون</th>
+                      <th>الماركة</th>
+                    </>
+                  )}
                   <th>{t("common.quantity")}</th>
                   <th>{t("inv.price")}</th>
                   <th>{t("common.actions")}</th>
@@ -437,15 +451,19 @@ export default function Inventory() {
                     <td>{index + 1}</td>
                     <td>{product.name}</td>
                     <td>{product.category || "-"}</td>
-                    <td>
-                      {product.type === 'men' ? 'رجالي' :
-                       product.type === 'women' ? 'حريمي' :
-                       product.type === 'kids' ? 'أطفال' :
-                       product.type === 'unisex' ? 'يونيسكس' : '-'}
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{product.size || "-"}</td>
-                    <td>{product.color || "-"}</td>
-                    <td>{product.brand || "-"}</td>
+                    {isClothing && (
+                      <>
+                        <td>
+                          {product.type === 'men' ? 'رجالي' :
+                           product.type === 'women' ? 'حريمي' :
+                           product.type === 'kids' ? 'أطفال' :
+                           product.type === 'unisex' ? 'يونيسكس' : '-'}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{product.size || "-"}</td>
+                        <td>{product.color || "-"}</td>
+                        <td>{product.brand || "-"}</td>
+                      </>
+                    )}
                     <td>
                       <span
                         className={`badge ${
@@ -523,67 +541,74 @@ export default function Inventory() {
                   style={styles.input}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label>النوع</label>
-                <select
-                  value={editingProduct.type || ""}
-                  onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, type: e.target.value })
-                  }
-                  style={styles.input}
-                >
-                  <option value="">اختر النوع</option>
-                  {types.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.formGroup}>
-                <label>المقاس</label>
-                <select
-                  value={editingProduct.size || ""}
-                  onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, size: e.target.value })
-                  }
-                  style={styles.input}
-                >
-                  <option value="">اختر المقاس</option>
-                  {sizeOptions.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.formGroup}>
-                <label>اللون</label>
-                <select
-                  value={editingProduct.color || ""}
-                  onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, color: e.target.value })
-                  }
-                  style={styles.input}
-                >
-                  <option value="">اختر اللون</option>
-                  {colors.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.formGroup}>
-                <label>الماركة</label>
-                <input
-                  type="text"
-                  value={editingProduct.brand || ""}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      brand: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                />
-              </div>
+
+              {/* ✅ الحقول دي تظهر بس لصناعة الملابس */}
+              {isClothing && (
+                <>
+                  <div style={styles.formGroup}>
+                    <label>النوع</label>
+                    <select
+                      value={editingProduct.type || ""}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, type: e.target.value })
+                      }
+                      style={styles.input}
+                    >
+                      <option value="">اختر النوع</option>
+                      {types.map((tp) => (
+                        <option key={tp.value} value={tp.value}>{tp.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label>المقاس</label>
+                    <select
+                      value={editingProduct.size || ""}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, size: e.target.value })
+                      }
+                      style={styles.input}
+                    >
+                      <option value="">اختر المقاس</option>
+                      {sizeOptions.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label>اللون</label>
+                    <select
+                      value={editingProduct.color || ""}
+                      onChange={(e) =>
+                        setEditingProduct({ ...editingProduct, color: e.target.value })
+                      }
+                      style={styles.input}
+                    >
+                      <option value="">اختر اللون</option>
+                      {colors.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label>الماركة</label>
+                    <input
+                      type="text"
+                      value={editingProduct.brand || ""}
+                      onChange={(e) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          brand: e.target.value,
+                        })
+                      }
+                      style={styles.input}
+                    />
+                  </div>
+                </>
+              )}
+
               <div style={styles.formGroup}>
                 <label>{t("common.quantity")}</label>
                 <input
