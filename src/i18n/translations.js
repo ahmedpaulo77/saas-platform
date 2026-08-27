@@ -235,6 +235,12 @@ export const translations = {
     "dash.reportsDesc":
       "تصدير بياناتك إلى Excel وعرض تحليلات مفصلة عن أداء أعمالك",
     "dash.viewReports": "عرض التقارير",
+    "dash.c9.t": "إدارة البائعين",
+    "dash.c9.d": "إدارة البائعين والمطورين والعقارات",
+    "dash.c10.t": "إدارة المشترين",
+    "dash.c10.d": "إدارة العملاء والمشترين ومتابعتهم",
+    "dash.sellers": "البائعين",
+    "dash.buyers": "المشترين",
     "pos.loading": "جاري تحميل نقطة البيع...",
     "pos.title": "نقطة البيع",
     "pos.subtitle": "بيع سريع متعدد المنتجات في فاتورة واحدة",
@@ -368,7 +374,6 @@ export const translations = {
     "cli.typeShoes": "أحذية",
     "cli.typeOther": "أخرى",
     "cli.clients": "عميل",
-    "common.optional": "اختياري",
     "cli.loading": "جاري تحميل العملاء...",
     "cli.title": "إدارة العملاء",
     "cli.add": "إضافة عميل",
@@ -389,7 +394,7 @@ export const translations = {
     "cli.delConfirm": "هل أنت متأكد من حذف هذا العميل؟",
     "cli.delOk": "✅ تم حذف العميل بنجاح",
     "cli.delFail": "❌ حدث خطأ في حذف العميل",
-    "in.invoices": "فاتورة",
+
     "in.statRevenue": "الإيرادات المدفوعة (ج.م)",
     "in.statOverdueAmount": "الإيرادات المتأخرة (ج.م)",
     "in.title": "الفواتير",
@@ -950,10 +955,6 @@ export const translations = {
     "buyers.emptyDesc": "أضف أول مشتري لك الآن",
     "buyers.confirmDelete": "هل أنت متأكد من حذف هذا المشتري؟",
     "buyers.followUps": "المتابعات",
-    "dash.c9.t": "إدارة البائعين",
-    "dash.c9.d": "إدارة البائعين والمطورين والعقارات",
-    "dash.c10.t": "إدارة المشترين",
-    "dash.c10.d": "إدارة العملاء والمشترين ومتابعتهم",
 
     // أضف تحت errors
     "errors.fetchSellers": "حدث خطأ في جلب البائعين",
@@ -971,8 +972,6 @@ export const translations = {
     "success.buyerAdded": "✅ تم إضافة المشتري بنجاح",
     "success.buyerUpdated": "✅ تم تحديث المشتري بنجاح",
     "success.buyerDeleted": "✅ تم حذف المشتري بنجاح",
-    "dash.sellers": "البائعين",
-    "dash.buyers": "المشترين",
     "nav.messages": "الرسائل",
     "messages.title": "الرسائل",
     "messages.subtitle": "إدارة الرسائل بين المدير والموظفين",
@@ -1021,8 +1020,9 @@ export const translations = {
     // ============================================================
     // ========== modules ==========
     // ============================================================
+
     "modules.messages": "الرسائل",
-    // أضف تحت modules
+
     "modules.sellers": "البائعين",
     "modules.buyers": "المشترين",
     "rep.file.sellers": "البائعين.xlsx",
@@ -1034,6 +1034,7 @@ export const translations = {
     "currency.short": "EGP",
     "common.loading": "Loading...",
     "common.save": "Save",
+    "common.optional": "Optional",
     "common.cancel": "Cancel",
     "common.edit": "Edit",
     "common.delete": "Delete",
@@ -1262,6 +1263,12 @@ export const translations = {
     "dash.reportsDesc":
       "Export your data to Excel and view detailed business analytics",
     "dash.viewReports": "View reports",
+    "dash.sellers": "Sellers",
+    "dash.buyers": "Buyers",
+    "dash.c9.t": "Manage Sellers",
+    "dash.c9.d": "Manage sellers, developers and properties",
+    "dash.c10.t": "Manage Buyers",
+    "dash.c10.d": "Manage clients, buyers and follow-ups",
     "pos.loading": "Loading point of sale...",
     "pos.title": "Point of sale",
     "pos.subtitle": "Fast multi-item sales in one invoice",
@@ -1417,7 +1424,6 @@ export const translations = {
     "cli.typeShoes": "Shoes",
     "cli.typeOther": "Other",
     "cli.clients": "clients",
-    "common.optional": "optional",
     "in.invoices": "invoices",
     "in.title": "Invoices",
     "in.statTotal": "Total invoices",
@@ -1458,6 +1464,7 @@ export const translations = {
     "in.payOver": "❌ Paid amount ({paid}) exceeds invoice total ({total})",
     "in.payFull": "✅ Invoice fully paid",
     "in.payOk": "✅ Payment recorded",
+    "in.statOverdueAmount": "Overdue revenue (EGP)",
     "in.payFail": "❌ Failed to record payment",
     "tk.loading": "Loading tasks...",
     "tk.title": "Tasks",
@@ -1702,6 +1709,8 @@ export const translations = {
     "rep.col.priority": "Priority",
     "rep.col.due": "Due date",
     "rep.col.assignee": "Assignee",
+    "rep.file.sellers": "sellers.xlsx",
+    "rep.file.buyers": "buyers.xlsx",
     "m.0": "January",
     "m.1": "February",
     "m.2": "March",
@@ -1850,7 +1859,6 @@ export const translations = {
     // ============================================================
     // ========== Inventory - New Fields ==========
     // ============================================================
-    "in.statOverdueAmount": "Overdue revenue (EGP)",
     "inv.type": "Type",
     "inv.size": "Size",
     "inv.color": "Color",
@@ -1993,16 +2001,7 @@ export const translations = {
     "success.buyerAdded": "✅ Buyer added successfully",
     "success.buyerUpdated": "✅ Buyer updated successfully",
     "success.buyerDeleted": "✅ Buyer deleted successfully",
-    "dash.sellers": "Sellers",
-    "dash.buyers": "Buyers",
-    "modules.sellers": "Sellers",
-    "modules.buyers": "Buyers",
-    "dash.c9.t": "Manage Sellers",
-    "dash.c9.d": "Manage sellers, developers and properties",
-    "dash.c10.t": "Manage Buyers",
-    "dash.c10.d": "Manage clients, buyers and follow-ups",
-    "rep.file.sellers": "sellers.xlsx",
-    "rep.file.buyers": "buyers.xlsx",
+
     "nav.messages": "Messages",
     "messages.title": "Messages",
     "messages.subtitle": "Manage messages between admin and employees",
@@ -2050,6 +2049,5 @@ export const translations = {
     // ============================================================
     // ========== modules ==========
     // ============================================================
-    "modules.messages": "Messages",
   },
 };
