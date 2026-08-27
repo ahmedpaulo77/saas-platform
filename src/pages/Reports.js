@@ -1,4 +1,4 @@
-// src/pages/Reports.js - تعديل: User ميشوفش حاجة
+// src/pages/Reports.js - تعديل: User ميشوفش حاجة + فلترة حسب الصناعة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -21,15 +21,16 @@ import {
   Area,
 } from "recharts";
 import { useLanguage } from "../i18n/LanguageContext";
+import { getAvailableModules } from "../utils/modules";
 
-const exportItems = [
-  { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1" },
-  { type: "clients", labelKey: "rep.file.clients", icon: "fas fa-user-friends", color: "#10b981" },
-  { type: "sellers", labelKey: "rep.file.sellers", icon: "fas fa-store", color: "#f59e0b" },
-  { type: "buyers", labelKey: "rep.file.buyers", icon: "fas fa-user-plus", color: "#ec4899" },
-  { type: "invoices", labelKey: "rep.file.invoices", icon: "fas fa-file-invoice", color: "#f59e0b" },
-  { type: "products", labelKey: "rep.file.products", icon: "fas fa-boxes", color: "#8b5cf6" },
-  { type: "tasks", labelKey: "rep.file.tasks", icon: "fas fa-tasks", color: "#ec4899" },
+const ALL_EXPORT_ITEMS = [
+  { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1", module: "companies" },
+  { type: "clients", labelKey: "rep.file.clients", icon: "fas fa-user-friends", color: "#10b981", module: "clients" },
+  { type: "sellers", labelKey: "rep.file.sellers", icon: "fas fa-store", color: "#f59e0b", module: "sellers" },
+  { type: "buyers", labelKey: "rep.file.buyers", icon: "fas fa-user-plus", color: "#ec4899", module: "buyers" },
+  { type: "invoices", labelKey: "rep.file.invoices", icon: "fas fa-file-invoice", color: "#f59e0b", module: "invoices" },
+  { type: "products", labelKey: "rep.file.products", icon: "fas fa-boxes", color: "#8b5cf6", module: "inventory" },
+  { type: "tasks", labelKey: "rep.file.tasks", icon: "fas fa-tasks", color: "#ec4899", module: "tasks" },
 ];
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -66,9 +67,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Reports() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, userIndustry } = useAuth();
   const superAdmin = userRole === "super_admin";
   const isAdmin = userRole === "admin" || superAdmin;
+
+  // ✅ الوحدات المتاحة حسب صناعة الشركة
+  const availableModules = getAvailableModules(userIndustry, userRole);
+  const exportItems = ALL_EXPORT_ITEMS.filter((item) =>
+    availableModules.has(item.module)
+  );
 
   const [stats, setStats] = useState({
     companies: 0,
@@ -476,6 +483,19 @@ export default function Reports() {
       ? Math.round((stats.completedTasks / stats.tasks) * 100)
       : 0;
 
+  // ✅ كروت الإحصائيات مفلترة حسب الموديولات المتاحة للصناعة
+  const ALL_STAT_CARDS = [
+    { label: t('rep.companies'), value: stats.companies, icon: "fas fa-building", cls: "indigo", module: "companies" },
+    { label: t('rep.clients'), value: stats.clients, icon: "fas fa-user-friends", cls: "green", module: "clients" },
+    { label: t('sellers.title'), value: stats.sellers, icon: "fas fa-store", cls: "amber", module: "sellers" },
+    { label: t('buyers.title'), value: stats.buyers, icon: "fas fa-user-plus", cls: "pink", module: "buyers" },
+    { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber", module: "invoices" },
+    { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple", module: "inventory" },
+    { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink", module: "tasks" },
+    { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
+  ];
+  const statCards = ALL_STAT_CARDS.filter((s) => availableModules.has(s.module));
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
@@ -503,16 +523,7 @@ export default function Reports() {
         </div>
 
         <div className="stats-row">
-          {[
-            { label: t('rep.companies'), value: stats.companies, icon: "fas fa-building", cls: "indigo" },
-            { label: t('rep.clients'), value: stats.clients, icon: "fas fa-user-friends", cls: "green" },
-            { label: t('sellers.title'), value: stats.sellers, icon: "fas fa-store", cls: "amber" },
-            { label: t('buyers.title'), value: stats.buyers, icon: "fas fa-user-plus", cls: "pink" },
-            { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber" },
-            { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple" },
-            { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink" },
-            { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan" },
-          ].map((s) => (
+          {statCards.map((s) => (
             <div key={s.label} className={`stat-card ${s.cls}`}>
               <div className="stat-icon">
                 <i className={s.icon}></i>
@@ -528,6 +539,7 @@ export default function Reports() {
           ))}
         </div>
 
+        {availableModules.has("invoices") && (
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 20 }}>
             <i className="fas fa-chart-area" style={{ color: "#6366f1" }}></i>
@@ -575,8 +587,11 @@ export default function Reports() {
             </ResponsiveContainer>
           )}
         </div>
+        )}
 
+        {(availableModules.has("invoices") || availableModules.has("tasks")) && (
         <div className="grid-2" style={{ marginBottom: 24 }}>
+          {availableModules.has("invoices") && (
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-chart-pie" style={{ color: "#f59e0b" }}></i>
@@ -648,7 +663,9 @@ export default function Reports() {
               </>
             )}
           </div>
+          )}
 
+          {availableModules.has("tasks") && (
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-chart-bar" style={{ color: "#8b5cf6" }}></i>
@@ -714,9 +731,11 @@ export default function Reports() {
               </>
             )}
           </div>
+          )}
         </div>
+        )}
 
-        {topProducts.length > 0 && (
+        {availableModules.has("inventory") && topProducts.length > 0 && (
           <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 20 }}>
               <i className="fas fa-boxes" style={{ color: "#8b5cf6" }}></i>
@@ -756,7 +775,9 @@ export default function Reports() {
           </div>
         )}
 
+        {(availableModules.has("inventory") || availableModules.has("tasks")) && (
         <div className="grid-2" style={{ marginBottom: 24 }}>
+          {availableModules.has("inventory") && (
           <div className="card">
             <h3 style={{ marginBottom: 14 }}>
               <i
@@ -825,7 +846,9 @@ export default function Reports() {
               </div>
             ))}
           </div>
+          )}
 
+          {availableModules.has("tasks") && (
           <div className="card">
             <h3 style={{ marginBottom: 14 }}>
               <i className="fas fa-tasks" style={{ color: "#6366f1" }}></i>
@@ -902,8 +925,11 @@ export default function Reports() {
               </div>
             ))}
           </div>
+          )}
         </div>
+        )}
 
+        {exportItems.length > 0 && (
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 16 }}>
             <i className="fas fa-file-excel" style={{ color: "#10b981" }}></i>
@@ -928,7 +954,9 @@ export default function Reports() {
             ))}
           </div>
         </div>
+        )}
 
+        {availableModules.has("invoices") && (
         <div className="table-container">
           <div className="table-header">
             <h3>
@@ -988,6 +1016,7 @@ export default function Reports() {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
