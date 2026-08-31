@@ -242,17 +242,7 @@ export default function ManageUsers() {
         </div>
 
         {/* Info card */}
-        <div className="card" style={{ background: 'var(--info-bg)', border: '1px solid #bfdbfe', marginTop: 8 }}>
-          <h3 style={{ color: 'var(--info-dark)', marginBottom: 8, justifyContent: 'flex-start' }}>
-            <i className="fas fa-info-circle"></i> كيفية عمل العزل
-          </h3>
-          <ul style={{ color: 'var(--info-dark)', fontSize: 13, paddingRight: 16, lineHeight: 2 }}>
-            <li>كل مستخدم مربوط بـ <strong>companyId</strong> واحد في Firestore</li>
-            <li>عند تسجيل الدخول، يشوف فقط بيانات شركته (عملاء، فواتير، مخزون، مهام)</li>
-            <li>السوبر أدمن يشوف <strong>كل</strong> البيانات</li>
-            <li>المستخدمين الغير مربوطين لن يشوفوا أي بيانات</li>
-          </ul>
-        </div>
+         
       </div>
 
       {/* Add User Modal */}

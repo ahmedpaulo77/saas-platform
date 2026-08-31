@@ -11,30 +11,8 @@ const features = [
   { icon: 'fas fa-tasks',         color: '#ec4899', bg: '#fdf2f8', titleKey: 'landing.f5.t', descKey: 'landing.f5.d' },
   { icon: 'fas fa-chart-pie',     color: '#06b6d4', bg: '#ecfeff', titleKey: 'landing.f6.t', descKey: 'landing.f6.d' },
   { icon: 'fas fa-bell',          color: '#f97316', bg: '#fff7ed', titleKey: 'landing.f7.t', descKey: 'landing.f7.d' },
-  { icon: 'fas fa-crown',         color: '#eab308', bg: '#fefce8', titleKey: 'landing.f8.t', descKey: 'landing.f8.d' },
+  { icon: 'fas fa-rocket',         color: '#eab308', bg: '#fefce8', titleKey: 'landing.f8.t', descKey: 'landing.f8.d' },
   { icon: 'fas fa-shield-alt',    color: '#14b8a6', bg: '#f0fdfa', titleKey: 'landing.f9.t', descKey: 'landing.f9.d' },
-];
-
-const plans = [
-  {
-    id: 'standard',
-    nameKey: 'landing.planName',
-    emoji: '⚡',
-    monthlyPrice: 1000,
-    descKey: 'landing.planDesc',
-    featured: true,
-    featuresKeys: [
-      'landing.pf1',
-      'landing.pf2',
-      'landing.pf3',
-      'landing.pf4',
-      'landing.pf5',
-      'landing.pf6',
-      'landing.pf7',
-      'landing.pf8',
-      'landing.pf9',
-    ],
-  },
 ];
 
 const stats = [
@@ -48,7 +26,6 @@ export default function Landing() {
   const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const [billing, setBilling] = useState('monthly');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -326,106 +303,6 @@ export default function Landing() {
                 <p style={{ fontSize: 14, color: '#64748b', lineHeight: 1.7 }}>{t(f.descKey)}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Pricing ── */}
-      <section style={{ padding: '96px 5%', background: 'white' }} id="pricing">
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <span style={{
-              background: '#eef2ff', color: '#6366f1', padding: '4px 16px',
-              borderRadius: 60, fontSize: 13, fontWeight: 700, display: 'inline-block', marginBottom: 16,
-            }}>{t('landing.pricing')}</span>
-            <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: '#0f172a', marginBottom: 12 }}>
-              {t('landing.pricingTitle')}
-            </h2>
-            <p style={{ fontSize: 16, color: '#64748b', marginBottom: 28 }}>
-              {t('landing.pricingDesc')}
-            </p>
-            <div style={{
-              display: 'inline-flex', background: '#f1f5f9',
-              borderRadius: 60, padding: 4, gap: 4,
-            }}>
-              {['monthly','yearly'].map(b => (
-                <button key={b} onClick={() => setBilling(b)} style={{
-                  padding: '8px 20px', borderRadius: 60, border: 'none', cursor: 'pointer',
-                  fontFamily: 'Cairo', fontWeight: 700, fontSize: 14, transition: 'all 0.2s',
-                  background: billing === b ? 'white' : 'transparent',
-                  color: billing === b ? '#6366f1' : '#64748b',
-                  boxShadow: billing === b ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                }}>
-                  {b === 'monthly' ? t('common.monthly') : t('common.yearly')}
-                  {b === 'yearly' && (
-                    <span style={{ marginRight: 6, background: '#10b981', color: 'white', padding: '1px 7px', borderRadius: 60, fontSize: 10 }}>
-                      {t('landing.save17')}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 24, maxWidth: 420, margin: '0 auto' }}>
-            {plans.map(plan => {
-              const price = billing === 'monthly' ? plan.monthlyPrice : plan.monthlyPrice * 10;
-              return (
-                <div key={plan.id} style={{
-                  background: 'white', borderRadius: 24, padding: '36px 28px',
-                  border: plan.featured ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                  boxShadow: plan.featured ? '0 8px 40px rgba(99,102,241,0.15)' : 'none',
-                  position: 'relative', transition: 'transform 0.3s',
-                  transform: plan.featured ? 'scale(1.02)' : 'scale(1)',
-                  textAlign: 'center',
-                }}
-                  onMouseOver={e => { if (!plan.featured) e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                  onMouseOut={e => { if (!plan.featured) e.currentTarget.style.transform = 'translateY(0)'; }}
-                >
-                  {plan.featured && (
-                    <span style={{
-                      position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)',
-                      background: '#6366f1', color: 'white', padding: '3px 18px',
-                      borderRadius: 60, fontSize: 12, fontWeight: 700,
-                    }}>{t('landing.popular')}</span>
-                  )}
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>{plan.emoji}</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{t(plan.nameKey)}</div>
-                  <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 16 }}>{t(plan.descKey)}</div>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ fontSize: 38, fontWeight: 900, color: '#0f172a' }}>{price.toLocaleString()}</span>
-                    <span style={{ fontSize: 14, color: '#64748b' }}> {t('currency')}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 24 }}>/{billing === 'monthly' ? t('common.month') : t('common.year')}</div>
-                  <ul style={{ listStyle: 'none', padding: 0, marginBottom: 28, textAlign: 'right' }}>
-                    {plan.featuresKeys.map((fKey, i) => (
-                      <li key={i} style={{ padding: '7px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 10, alignItems: 'center', fontSize: 14, color: '#334155' }}>
-                        <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: 13, flexShrink: 0 }}></i>
-                        {t(fKey)}
-                      </li>
-                    ))}
-                  </ul>
-                  <button 
-                    onClick={() => navigate('/signup')} 
-                    style={{
-                      width: '100%',
-                      padding: '13px',
-                      borderRadius: 12,
-                      border: 'none',
-                      background: plan.featured ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f1f5f9',
-                      color: plan.featured ? 'white' : '#334155',
-                      fontFamily: 'Cairo',
-                      fontWeight: 700,
-                      fontSize: 15,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {t('signup.title')}
-                  </button>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>

@@ -87,10 +87,15 @@ export default function Setup() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
                 { value: 'general', label: t('industry.general'), icon: 'fas fa-building' },
+                { value: 'trader', label: t('industry.trader'), icon: 'fas fa-box-open' },
+                { value: 'contractor', label: t('industry.contractor'), icon: 'fas fa-hard-hat' },
+                { value: 'real_estate', label: t('industry.real_estate'), icon: 'fas fa-home' },
+                { value: 'services', label: t('industry.services'), icon: 'fas fa-briefcase' },
                 { value: 'super_market', label: t('industry.super_market'), icon: 'fas fa-store' },
                 { value: 'pharmacy', label: t('industry.pharmacy'), icon: 'fas fa-pills' },
                 { value: 'restaurant', label: t('industry.restaurant'), icon: 'fas fa-utensils' },
                 { value: 'clothing', label: t('industry.clothing'), icon: 'fas fa-tshirt' },
+                { value: 'clinic', label: t('industry.clinic'), icon: 'fas fa-user-md' },
               ].map((opt) => (
                 <button
                   key={opt.value}

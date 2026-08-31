@@ -100,6 +100,78 @@ const ALL_FEATURE_CARDS = [
     descKey: "dash.c8.d",
     module: "reports",
   },
+  {
+    to: "/pos",
+    icon: "fas fa-cash-register",
+    color: "#10b981",
+    bg: "#d1fae5",
+    titleKey: "dash.c11.t",
+    descKey: "dash.c11.d",
+    module: "pos",
+  },
+  {
+    to: "/suppliers",
+    icon: "fas fa-truck",
+    color: "#0891b2",
+    bg: "#cffafe",
+    titleKey: "dash.c12.t",
+    descKey: "dash.c12.d",
+    module: "suppliers",
+  },
+  {
+    to: "/expiry",
+    icon: "fas fa-calendar-times",
+    color: "#f97316",
+    bg: "#ffedd5",
+    titleKey: "dash.c13.t",
+    descKey: "dash.c13.d",
+    module: "expiry",
+  },
+  {
+    to: "/appointments",
+    icon: "fas fa-calendar-alt",
+    color: "#6366f1",
+    bg: "#eef2ff",
+    titleKey: "dash.c14.t",
+    descKey: "dash.c14.d",
+    module: "appointments",
+  },
+  {
+    to: "/prescriptions",
+    icon: "fas fa-prescription",
+    color: "#ec4899",
+    bg: "#fdf2f8",
+    titleKey: "dash.c15.t",
+    descKey: "dash.c15.d",
+    module: "prescriptions",
+  },
+  {
+    to: "/aging",
+    icon: "fas fa-clock",
+    color: "#f59e0b",
+    bg: "#fef3c7",
+    titleKey: "dash.c16.t",
+    descKey: "dash.c16.d",
+    module: "aging",
+  },
+  {
+    to: "/messages",
+    icon: "fas fa-envelope",
+    color: "#8b5cf6",
+    bg: "#f3e8ff",
+    titleKey: "dash.c17.t",
+    descKey: "dash.c17.d",
+    module: "messages",
+  },
+  {
+    to: "/patients",
+    icon: "fas fa-hospital-user",
+    color: "#10b981",
+    bg: "#d1fae5",
+    titleKey: "dash.c18.t",
+    descKey: "dash.c18.d",
+    module: "patients",
+  },
 ];
 
 export default function Dashboard() {
@@ -124,6 +196,11 @@ export default function Dashboard() {
     tasks: 0,
     projects: 0,
     users: 0,
+    suppliers: 0,
+    appointments: 0,
+    prescriptions: 0,
+    messages: 0,
+    patients: 0,
     revenue: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -165,6 +242,11 @@ export default function Dashboard() {
     const taskRef = collection(db, "tasks");
     const projRef = collection(db, "projects");
     const usersRef = collection(db, "users");
+    const suppRef = collection(db, "suppliers");
+    const apptRef = collection(db, "appointments");
+    const rxRef = collection(db, "prescriptions");
+    const msgRef = collection(db, "messages");
+    const patRef = collection(db, "patients");
 
     const isSuper = userRole === "super_admin";
 
@@ -192,7 +274,21 @@ export default function Dashboard() {
     const usersQ = isSuper
       ? usersRef
       : query(usersRef, where("companyId", "==", userCompanyId));
-
+    const suppQ = isSuper
+      ? suppRef
+      : query(suppRef, where("companyId", "==", userCompanyId));
+    const apptQ = isSuper
+      ? apptRef
+      : query(apptRef, where("companyId", "==", userCompanyId));
+    const rxQ = isSuper
+      ? rxRef
+      : query(rxRef, where("companyId", "==", userCompanyId));
+    const msgQ = isSuper
+      ? msgRef
+      : query(msgRef, where("companyId", "==", userCompanyId));
+    const patQ = isSuper
+      ? patRef
+      : query(patRef, where("companyId", "==", userCompanyId));
     const unsubComp = onSnapshot(compQ, (snap) =>
       setStats((prev) => ({ ...prev, companies: snap.size }))
     );
@@ -213,6 +309,21 @@ export default function Dashboard() {
     );
     const unsubUsers = onSnapshot(usersQ, (snap) =>
       setStats((prev) => ({ ...prev, users: snap.size }))
+    );
+    const unsubSupp = onSnapshot(suppQ, (snap) =>
+      setStats((prev) => ({ ...prev, suppliers: snap.size }))
+    );
+    const unsubAppt = onSnapshot(apptQ, (snap) =>
+      setStats((prev) => ({ ...prev, appointments: snap.size }))
+    );
+    const unsubRx = onSnapshot(rxQ, (snap) =>
+      setStats((prev) => ({ ...prev, prescriptions: snap.size }))
+    );
+    const unsubMsg = onSnapshot(msgQ, (snap) =>
+      setStats((prev) => ({ ...prev, messages: snap.size }))
+    );
+    const unsubPat = onSnapshot(patQ, (snap) =>
+      setStats((prev) => ({ ...prev, patients: snap.size }))
     );
 
     const unsubInv = onSnapshot(invQ, (snap) => {
@@ -244,6 +355,11 @@ export default function Dashboard() {
       unsubTask();
       unsubProj();
       unsubUsers();
+      unsubSupp();
+      unsubAppt();
+      unsubRx();
+      unsubMsg();
+      unsubPat();
     };
   }, [currentUser, userRole, userCompanyId, isAdmin]);
 
@@ -364,6 +480,51 @@ export default function Dashboard() {
                 </div>
                 <div className="stat-value">{loading ? "..." : stats.users}</div>
                 <div className="stat-label">{t("dash.users")}</div>
+              </div>
+            )}
+            {availableModules.has("suppliers") && (
+              <div className="stat-card cyan">
+                <div className="stat-icon">
+                  <i className="fas fa-truck"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.suppliers}</div>
+                <div className="stat-label">{t("nav.suppliers")}</div>
+              </div>
+            )}
+            {availableModules.has("appointments") && (
+              <div className="stat-card indigo">
+                <div className="stat-icon">
+                  <i className="fas fa-calendar-alt"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.appointments}</div>
+                <div className="stat-label">{t("modules.appointments")}</div>
+              </div>
+            )}
+            {availableModules.has("patients") && (
+              <div className="stat-card green">
+                <div className="stat-icon">
+                  <i className="fas fa-hospital-user"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.patients}</div>
+                <div className="stat-label">{t("modules.patients")}</div>
+              </div>
+            )}
+            {availableModules.has("prescriptions") && (
+              <div className="stat-card pink">
+                <div className="stat-icon">
+                  <i className="fas fa-prescription"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.prescriptions}</div>
+                <div className="stat-label">{t("modules.prescriptions")}</div>
+              </div>
+            )}
+            {availableModules.has("messages") && (
+              <div className="stat-card purple">
+                <div className="stat-icon">
+                  <i className="fas fa-envelope"></i>
+                </div>
+                <div className="stat-value">{loading ? "..." : stats.messages}</div>
+                <div className="stat-label">{t("modules.messages")}</div>
               </div>
             )}
             {availableModules.has("invoices") && (

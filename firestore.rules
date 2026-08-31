@@ -137,5 +137,82 @@ service cloud.firestore {
       allow delete: if canAccessCompanyDoc();
     }
 
+    // ============================================================
+    // clients/{clientId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /clients/{clientId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // sellers/{sellerId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /sellers/{sellerId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // buyers/{buyerId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /buyers/{buyerId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // messages/{messageId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /messages/{messageId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // patients/{patientId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /patients/{patientId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // appointments/{appointmentId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /appointments/{appointmentId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // prescriptions/{prescriptionId} — عزل كامل حسب الشركة
+    // ============================================================
+    match /prescriptions/{prescriptionId} {
+      allow get: if canAccessCompanyDoc();
+      allow list: if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
   }
 }

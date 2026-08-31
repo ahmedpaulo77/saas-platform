@@ -89,7 +89,7 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <>
-           <div className="logo">
+           <div className="logo" style={{ cursor: 'pointer' }} onClick={() => { navigate('/dashboard'); closeSidebar(); }}>
         <div className="logo-icon">
           <i className="fas fa-cube"></i>
         </div>

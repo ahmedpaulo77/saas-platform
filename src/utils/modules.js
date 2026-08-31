@@ -202,15 +202,12 @@ export const MODULE_MAP = {
 
 // الوحدات المتاحة لكل مستخدم
 export function getAvailableModules(industry, userRole) {
-  // السوبر أدمن يشوف كل حاجة
+  // السوبر أدمن يشوف بس أدوات إدارة النظام (الشركات والمستخدمين والتقارير)
+  // من غير الوحدات التشغيلية الخاصة بالشركات المشتركين
   if (userRole === 'super_admin') {
     return new Set([
-      'dashboard', 'companies', 'clients', 'invoices', 'inventory',
-      'tasks', 'projects', 'users', 'reports', 'aging', 'notifications',
-      'profile', 'about', 'pos', 'suppliers', 'barcode',
-      'expiry', 'batch', 'drug_categories', 'orders', 'tables', 'sizes_colors',
-      'my-company', 'sellers', 'buyers', 'messages',
-      'patients', 'appointments', 'prescriptions',
+      'dashboard', 'companies', 'users', 'reports',
+      'notifications', 'profile', 'about', 'my-company',
     ]);
   }
 

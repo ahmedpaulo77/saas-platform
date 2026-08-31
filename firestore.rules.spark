@@ -55,5 +55,54 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // ============================================================
+    // suppliers/{supplierId}
+    // ============================================================
+    match /suppliers/{supplierId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // sellers/{sellerId}
+    // ============================================================
+    match /sellers/{sellerId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // buyers/{buyerId}
+    // ============================================================
+    match /buyers/{buyerId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // messages/{messageId}
+    // ============================================================
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // patients/{patientId}
+    // ============================================================
+    match /patients/{patientId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // appointments/{appointmentId}
+    // ============================================================
+    match /appointments/{appointmentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ============================================================
+    // prescriptions/{prescriptionId}
+    // ============================================================
+    match /prescriptions/{prescriptionId} {
+      allow read, write: if request.auth != null;
+    }
+
   }
 }
