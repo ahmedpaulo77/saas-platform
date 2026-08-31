@@ -20,19 +20,21 @@
 /* ✅ في الموبايل، القائمة تبدأ من برا الشاشة */
 @media (max-width: 768px) {
   .sidebar {
-    right: -320px !important;
-    width: 300px !important;
+    width: min(300px, 84vw) !important;
     padding: 20px 16px !important;
     border-left: 1px solid rgba(255,255,255,0.08) !important;
     z-index: 1000 !important;
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    right: -320px !important;
     transform: none !important;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .sidebar.mobile-open {
     right: 0 !important;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.5);
   }
 
   .sidebar-close-btn {
@@ -71,7 +73,7 @@
 @media (max-width: 480px) {
   .sidebar {
     right: -300px !important;
-    width: 280px !important;
+    width: min(280px, 88vw) !important;
   }
 
   .hamburger-btn {
@@ -433,86 +435,8 @@ nav a.active .icon i {
 }
 
 /* ============================================================
-   Responsive
-   ============================================================ */
-
-@media (max-width: 768px) {
-  .hamburger-btn {
-    display: flex;
-  }
-
-  .sidebar {
-    transform: translateX(100%);
-    width: 300px;
-    padding: 20px 16px;
-    border-left: 1px solid rgba(255,255,255,0.08);
-  }
-
-  .sidebar.mobile-open {
-    transform: translateX(0);
-  }
-
-  .sidebar-overlay {
-    display: block;
-  }
-
-  .sidebar-overlay.active {
-    display: block;
-  }
-
-  .sidebar-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .logo {
-    padding-bottom: 16px;
-    margin-bottom: 16px;
-  }
-
-  nav a {
-    padding: 12px 14px;
-    font-size: 15px;
-  }
-}
-
-/* Small screens (phones under 480px) */
-@media (max-width: 480px) {
-  .sidebar {
-    width: 280px;
-  }
-
-  .hamburger-btn {
-    top: 12px;
-    right: 12px;
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-  }
-}
-
-/* ============================================================
    Animations
    ============================================================ */
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideOut {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
 
 @keyframes fadeIn {
   from {
@@ -521,14 +445,6 @@ nav a.active .icon i {
   to {
     opacity: 1;
   }
-}
-
-.sidebar.mobile-open {
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.sidebar:not(.mobile-open) {
-  animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .sidebar-overlay.active {

@@ -1718,9 +1718,9 @@ tbody tr:last-child td {
     justify-content: flex-end;
   }
 
-  /* الـ grid */
+  /* الـ grid - عمودين على التابلت */
   .grid-3, .grid-2 {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 
   /* الـ pricing */
@@ -1743,5 +1743,115 @@ tbody tr:last-child td {
   .table-actions {
     flex-wrap: wrap;
     gap: 4px;
+  }
+
+  /* زر الإضافة في رأس الصفحة */
+  .page-header-right .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* كروت المميزات dashboards عمودين (مشترك مع grid-3 أعلاه) */
+  .card, .stat-card {
+    border-radius: 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 20px;
+  }
+}
+
+/* ============================================================
+   Mobile Small (phones 414px and under)
+   ============================================================ */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 64px 12px 20px !important;
+  }
+
+  /* كروت المميزات تصير عمود واحد */
+  .grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* الـ stats تصير عمود واحد للشاشات الضيقة جداً */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+
+  /* رأس الصفحة */
+  .page-header {
+    margin-bottom: 20px;
+    gap: 12px;
+  }
+
+  .page-header-left h1 {
+    font-size: 22px;
+  }
+
+  .page-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* الأزرار تمتد بالكامل */
+  .btn {
+    white-space: nowrap;
+  }
+
+  /* الجداول - تجربة لمس أفضل */
+  .table-wrapper th, .table-wrapper td {
+    padding: 8px 6px !important;
+    font-size: 11px !important;
+  }
+
+  /* الأزرار داخل الجداول */
+  .table-actions .btn {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  /* الفورم - حقول أكبر للمس */
+  .form-card input, .form-card select, .form-card textarea {
+    font-size: 15px;
+    padding: 12px;
+  }
+
+  /* المودال ياخد مساحة أكتر */
+  .modal-content {
+    margin: 6px;
+    max-height: 96vh;
+    border-radius: 14px;
+  }
+
+  /* الـ filter bar */
+  .filter-bar {
+    gap: 8px;
+  }
+
+  /* أداء لمسي أكبر للأزرار الرئيسية */
+  .btn:not(.btn-sm) {
+    min-height: 42px;
+  }
+}
+
+/* الشاشات الصغيرة جداً (مثل iPhone SE 360px) */
+@media (max-width: 380px) {
+  .main-content {
+    padding: 60px 10px 16px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 18px;
+  }
+
+  .page-header-left h1 {
+    font-size: 20px;
   }
 }
