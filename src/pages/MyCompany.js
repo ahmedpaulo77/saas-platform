@@ -7,13 +7,6 @@ import { generateInviteCode } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const SUBSCRIPTION_LABELS = {
-  trial: 'trial',
-  active: 'active',
-  expired: 'expired',
-  cancelled: 'cancelled',
-};
-
 export default function MyCompany() {
   const { t } = useLanguage();
   const { userCompanyId, userRole } = useAuth();
@@ -104,9 +97,6 @@ export default function MyCompany() {
   // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
-  const subscriptionStatus = company?.subscription?.status || 'trial';
-  const statusLabel = t(`status.${SUBSCRIPTION_LABELS[subscriptionStatus] || subscriptionStatus}`) || subscriptionStatus;
-
   return (
     <div className="app-layout">
       <Sidebar />
@@ -162,15 +152,15 @@ export default function MyCompany() {
                   <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mc.status')}</div>
                   <div>
                     <span className="badge" style={{
-                      background: `${company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444'}22`,
-                      color: company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444',
-                      border: `1px solid ${company.subscription?.status === 'active' ? '#10b981' : company.subscription?.status === 'trial' ? '#f59e0b' : '#ef4444'}44`,
+                      background: `${company.isActive ? '#10b981' : '#ef4444'}22`,
+                      color: company.isActive ? '#10b981' : '#ef4444',
+                      border: `1px solid ${company.isActive ? '#10b981' : '#ef4444'}44`,
                       borderRadius: 8,
                       padding: '4px 12px',
                       fontSize: 13,
                       fontWeight: 700,
                     }}>
-                      {statusLabel}
+                      {company.isActive ? t('status.active') : t('status.expired')}
                     </span>
                   </div>
                 </div>

@@ -420,41 +420,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="grid-2" style={{ marginTop: 4 }}>
-          <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-              color: "white",
-              border: "none",
-            }}
-          >
-            <h3 style={{ color: "white", marginBottom: 8 }}>
-              <i className="fas fa-crown"></i> {t("dash.upgrade")}
-            </h3>
-            <p style={{ color: "rgba(255,255,255,0.75)", marginBottom: 20 }}>
-              {t("dash.upgradeDesc")}
-            </p>
-            <button
-              onClick={() => navigate("/subscription")}
-              style={{
-                background: "white",
-                color: "#6366f1",
-                border: "none",
-                padding: "10px 22px",
-                borderRadius: 10,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontSize: 14,
-                fontFamily: "Cairo, sans-serif",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <i className="fas fa-arrow-left"></i> {t("dash.viewPlans")}
-            </button>
-          </div>
+        <div style={{ marginTop: 4 }}>
           <div
             className="card"
             style={{

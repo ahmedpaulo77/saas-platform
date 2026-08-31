@@ -19,6 +19,9 @@ export default function Sidebar() {
     { to: '/dashboard', icon: 'fas fa-th-large', label: t('nav.dashboard'), module: 'dashboard' },
     { to: '/pos', icon: 'fas fa-cash-register', label: t('nav.pos'), module: 'pos' },
     { to: '/companies', icon: 'fas fa-building', label: t('nav.companies'), module: 'companies' },
+    { to: '/patients', icon: 'fas fa-hospital-user', label: t('nav.patients'), module: 'patients' },
+    { to: '/appointments', icon: 'fas fa-calendar-alt', label: t('nav.appointments'), module: 'appointments' },
+    { to: '/prescriptions', icon: 'fas fa-prescription', label: t('nav.prescriptions'), module: 'prescriptions' },
     { to: '/clients', icon: 'fas fa-user-friends', label: t('nav.clients'), module: 'clients' },
     { to: '/sellers', icon: 'fas fa-store', label: t('sellers.title'), module: 'sellers' },
     { to: '/buyers', icon: 'fas fa-user-plus', label: t('buyers.title'), module: 'buyers' },
@@ -37,7 +40,7 @@ export default function Sidebar() {
     { to: '/reports', icon: 'fas fa-chart-pie', label: t('nav.reports'), module: 'reports' },
     { to: '/aging', icon: 'fas fa-clock', label: t('nav.aging'), module: 'aging' },
     { to: '/notifications', icon: 'fas fa-bell', label: t('nav.notifications'), module: 'notifications' },
-    { to: '/subscription', icon: 'fas fa-crown', label: t('nav.subscription'), module: 'subscription' },
+
     { to: '/profile', icon: 'fas fa-user-circle', label: t('nav.profile'), module: 'profile' },
     { to: '/about', icon: 'fas fa-info-circle', label: t('nav.about'), module: 'about' },
   ];

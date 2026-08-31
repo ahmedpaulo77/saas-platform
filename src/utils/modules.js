@@ -57,6 +57,12 @@ export const INDUSTRIES = [
     descKey: 'industries.clothing.desc',
     icon: '👕',
   },
+  {
+    id: 'clinic',
+    labelKey: 'industries.clinic.label',
+    descKey: 'industries.clinic.desc',
+    icon: '🩺',
+  },
 ];
 
 // للتوافق مع الكود القديم (مباشر)
@@ -70,6 +76,7 @@ export const INDUSTRY_LABELS = {
   pharmacy: '💊 صيدلية',
   restaurant: '🍽️ مطعم / كافيه',
   clothing: '👕 ملابس',
+  clinic: '🩺 طبيب / عيادة',
 };
 
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
@@ -102,19 +109,16 @@ export const MODULE_MAP = {
     'messages',
   ],
 
-  // ✅ عقارات (من غير Clients و Invoices)
+  // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
   real_estate: [
-    // 'clients',  // ❌ شيلنا العملاء
-    // 'invoices', // ❌ شيلنا الفواتير
     'sellers',
     'buyers',
     'tasks',
     'projects',
-    'aging',
     'messages',
   ],
 
-  // خدمات (من غير Sellers و Buyers و Suppliers)
+  // خدمات (عملاء، فواتير، مشاريع، مهام - بدون موردين وبائعين ومشترين)
   services: [
     'clients',
     'invoices',
@@ -124,7 +128,7 @@ export const MODULE_MAP = {
     'messages',
   ],
 
-  // مجالات العمل
+  // عام - كل الوحدات المتاحة
   general: [
     'clients',
     'invoices',
@@ -133,9 +137,11 @@ export const MODULE_MAP = {
     'aging',
     'sellers',
     'buyers',
+    'suppliers',
     'messages',
   ],
 
+  // سوبر ماركت - نقطة بيع + صلاحية + مهام ورسائل للفريق
   super_market: [
     'pos',
     'clients',
@@ -143,8 +149,11 @@ export const MODULE_MAP = {
     'suppliers',
     'barcode',
     'expiry',
+    'tasks',
+    'messages',
   ],
 
+  // صيدلية - نقطة بيع + تشغيلة + تصنيف أدوية + مهام ورسائل
   pharmacy: [
     'pos',
     'clients',
@@ -154,20 +163,40 @@ export const MODULE_MAP = {
     'expiry',
     'batch',
     'drug_categories',
+    'tasks',
+    'messages',
   ],
 
+  // مطعم / كافيه - طلبات وطاولات وصلاحيات طعام + مهام ورسائل
   restaurant: [
     'pos',
     'orders',
     'tables',
     'suppliers',
+    'expiry',
+    'tasks',
+    'messages',
   ],
 
+  // ملابس - مقاسات وألوان + مهام ورسائل للموظفين
   clothing: [
     'clients',
     'invoices',
     'suppliers',
     'sizes_colors',
+    'tasks',
+    'messages',
+  ],
+
+  // طبيب / عيادة - مرضى ومواعيد وروشتات فقط (بدون أعمار ديون)
+  clinic: [
+    'patients',
+    'appointments',
+    'prescriptions',
+    'invoices',
+    'tasks',
+    'expiry',
+    'messages',
   ],
 };
 
@@ -178,9 +207,10 @@ export function getAvailableModules(industry, userRole) {
     return new Set([
       'dashboard', 'companies', 'clients', 'invoices', 'inventory',
       'tasks', 'projects', 'users', 'reports', 'aging', 'notifications',
-      'subscription', 'profile', 'about', 'pos', 'suppliers', 'barcode',
+      'profile', 'about', 'pos', 'suppliers', 'barcode',
       'expiry', 'batch', 'drug_categories', 'orders', 'tables', 'sizes_colors',
       'my-company', 'sellers', 'buyers', 'messages',
+      'patients', 'appointments', 'prescriptions',
     ]);
   }
 
@@ -194,7 +224,6 @@ export function getAvailableModules(industry, userRole) {
 
   // صفحات ثابتة للجميع
   modules.add('notifications');
-  modules.add('subscription');
   modules.add('profile');
   modules.add('about');
   modules.add('my-company');
@@ -221,7 +250,7 @@ export const ROUTE_MODULE_MAP = {
   '/reports': 'reports',
   '/aging': 'aging',
   '/notifications': 'notifications',
-  '/subscription': 'subscription',
+
   '/profile': 'profile',
   '/about': 'about',
   '/pos': 'pos',
@@ -230,6 +259,9 @@ export const ROUTE_MODULE_MAP = {
   '/sellers': 'sellers',
   '/buyers': 'buyers',
   '/messages': 'messages',
+  '/patients': 'patients',
+  '/appointments': 'appointments',
+  '/prescriptions': 'prescriptions',
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
@@ -243,8 +275,9 @@ export function getIndustryShortLabel(industry) {
     super_market: '🏪 سوبر ماركت',
     pharmacy: '💊 صيدلية',
     restaurant: '🍽️ مطعم',
-    clothing: '👕 ملابس',
-  };
+  clothing: '👕 ملابس',
+  clinic: '🩺 عيادة',
+};
   return labels[industry] || '🏢 عام';
 }
 
@@ -288,13 +321,16 @@ export const MODULE_LABEL_KEYS = {
   companies: 'modules.companies',
   users: 'modules.users',
   notifications: 'modules.notifications',
-  subscription: 'modules.subscription',
+
   profile: 'modules.profile',
   about: 'modules.about',
   'my-company': 'modules.my_company',
   sellers: 'modules.sellers',
   buyers: 'modules.buyers',
   messages: 'modules.messages',
+  patients: 'modules.patients',
+  appointments: 'modules.appointments',
+  prescriptions: 'modules.prescriptions',
 };
 
 // دالة للحصول على اسم وحدة مترجم

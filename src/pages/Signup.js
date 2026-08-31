@@ -81,11 +81,6 @@ export default function Signup() {
           name: formData.companyName,
           email: formData.email,
           industry: formData.industry,
-          subscription: {
-            status: 'trial',
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          },
           adminInviteCode: generateInviteCode('ADMIN_' + formData.companyName),
           userInviteCode: generateInviteCode('USER_' + formData.companyName),
           createdAt: new Date().toISOString(),

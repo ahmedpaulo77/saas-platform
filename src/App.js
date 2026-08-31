@@ -22,13 +22,16 @@ import Expiry from './pages/Expiry';
 import Notifications from './pages/Notifications';
 import About from './pages/About';
 import Profile from './pages/Profile';
-import Subscription from './pages/Subscription';
+
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
 import MyCompany from './pages/MyCompany';
 import Sellers from './pages/Sellers';
 import Buyers from './pages/Buyers';
 import Messages from './pages/Messages';
+import Patients from './pages/Patients';
+import Appointments from './pages/Appointments';
+import Prescriptions from './pages/Prescriptions';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
 import { LanguageProvider } from './i18n/LanguageContext';
@@ -81,7 +84,11 @@ function AppRoutes() {
       <Route path="/notifications" element={<ProtectedRoute><IndustryRoute moduleKey="notifications"><Notifications /></IndustryRoute></ProtectedRoute>} />
       <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
       <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/subscription" element={<ProtectedRoute><IndustryRoute moduleKey="subscription"><Subscription /></IndustryRoute></ProtectedRoute>} />
+
+      <Route path="/patients"     element={<ProtectedRoute><IndustryRoute moduleKey="patients"><Patients /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/appointments" element={<ProtectedRoute><IndustryRoute moduleKey="appointments"><Appointments /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />
+
       <Route path="/my-company"   element={<ProtectedRoute><MyCompany /></ProtectedRoute>} />
 
       {/* Super Admin */}

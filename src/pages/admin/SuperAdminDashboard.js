@@ -1,4 +1,4 @@
-// src/pages/admin/SuperAdminDashboard.js - تصميم احترافي
+// src/pages/admin/SuperAdminDashboard.js - تصميم احترافي (بدون اشتراكات)
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -19,8 +19,7 @@ export default function SuperAdminDashboard() {
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
-    expired: 0,
-    trial: 0,
+    inactive: 0,
   });
   const { currentUser } = useAuth();
 
@@ -33,16 +32,13 @@ export default function SuperAdminDashboard() {
       const snap = await getDocs(collection(db, "companies"));
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       let active = 0,
-        expired = 0,
-        trial = 0;
+        inactive = 0;
       data.forEach((c) => {
-        const s = c.subscription?.status;
-        if (s === "active") active++;
-        else if (s === "expired") expired++;
-        else if (s === "trial") trial++;
+        if (c.isActive) active++;
+        else inactive++;
       });
       setCompanies(data);
-      setStats({ total: data.length, active, expired, trial });
+      setStats({ total: data.length, active, inactive });
     } catch (e) {
       console.error(e);
     } finally {
@@ -50,17 +46,18 @@ export default function SuperAdminDashboard() {
     }
   }
 
-  async function updateSubscription(companyId, newStatus) {
+  async function toggleActive(companyId, currentStatus) {
+    const newStatus = !currentStatus;
     if (
       !window.confirm(
-        `تغيير الحالة إلى "${newStatus === "active" ? "نشط" : newStatus === "trial" ? "تجريبي" : "منتهي"}"؟`,
+        newStatus ? "تفعيل هذه الشركة؟" : "إيقاف تفعيل هذه الشركة؟",
       )
     )
       return;
     try {
       await updateDoc(doc(db, "companies", companyId), {
-        "subscription.status": newStatus,
-        "subscription.updatedAt": new Date().toISOString(),
+        isActive: newStatus,
+        updatedAt: new Date().toISOString(),
       });
       await fetchCompanies();
     } catch (e) {
@@ -83,7 +80,9 @@ export default function SuperAdminDashboard() {
       (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.email || "").toLowerCase().includes(search.toLowerCase());
     const matchStatus =
-      filterStatus === "all" || c.subscription?.status === filterStatus;
+      filterStatus === "all" ||
+      (filterStatus === "active" && c.isActive) ||
+      (filterStatus === "inactive" && !c.isActive);
     return matchSearch && matchStatus;
   });
 
@@ -159,21 +158,14 @@ export default function SuperAdminDashboard() {
               <i className="fas fa-check-circle"></i>
             </div>
             <div className="stat-value">{stats.active}</div>
-            <div className="stat-label">اشتراك نشط</div>
-          </div>
-          <div className="stat-card amber">
-            <div className="stat-icon">
-              <i className="fas fa-clock"></i>
-            </div>
-            <div className="stat-value">{stats.trial}</div>
-            <div className="stat-label">فترة تجريبية</div>
+            <div className="stat-label">شركة نشطة</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon">
               <i className="fas fa-ban"></i>
             </div>
-            <div className="stat-value">{stats.expired}</div>
-            <div className="stat-label">اشتراك منتهي</div>
+            <div className="stat-value">{stats.inactive}</div>
+            <div className="stat-label">شركة غير نشطة</div>
           </div>
         </div>
 
@@ -194,8 +186,7 @@ export default function SuperAdminDashboard() {
           >
             <option value="all">كل الحالات</option>
             <option value="active">نشط</option>
-            <option value="trial">تجريبي</option>
-            <option value="expired">منتهي</option>
+            <option value="inactive">غير نشط</option>
           </select>
         </div>
 
@@ -220,9 +211,8 @@ export default function SuperAdminDashboard() {
                     <th>#</th>
                     <th>اسم الشركة</th>
                     <th>البريد الإلكتروني</th>
-                    <th>الباقة</th>
                     <th>الحالة</th>
-                    <th>انتهاء الاشتراك</th>
+                    <th>تاريخ الإنشاء</th>
                     <th>الإجراءات</th>
                   </tr>
                 </thead>
@@ -239,65 +229,40 @@ export default function SuperAdminDashboard() {
                         {company.email}
                       </td>
                       <td>
-                        <span className="badge badge-info">
-                          {company.subscription?.plan === "professional"
-                            ? "⚡ احترافي"
-                            : company.subscription?.plan === "enterprise"
-                              ? "🏢 مؤسسي"
-                              : company.subscription?.plan === "starter"
-                                ? "🚀 مبتدئ"
-                                : company.plan === "monthly"
-                                  ? "📅 شهري"
-                                  : company.plan === "yearly"
-                                    ? "📅 سنوي"
-                                    : "تجريبي"}
-                        </span>
-                      </td>
-                      <td>
                         <span
                           className={`badge ${
-                            company.subscription?.status === "active"
-                              ? "badge-active"
-                              : company.subscription?.status === "trial"
-                                ? "badge-trial"
-                                : "badge-expired"
+                            company.isActive ? "badge-active" : "badge-expired"
                           }`}
                         >
-                          {company.subscription?.status === "active"
-                            ? "✓ نشط"
-                            : company.subscription?.status === "trial"
-                              ? "⏱ تجريبي"
-                              : "✗ منتهي"}
+                          {company.isActive ? "✓ نشط" : "✗ غير نشط"}
                         </span>
                       </td>
                       <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                        {company.subscription?.endDate
-                          ? new Date(
-                              company.subscription.endDate,
-                            ).toLocaleDateString()
+                        {company.createdAt
+                          ? new Date(company.createdAt).toLocaleDateString()
                           : "غير محدد"}
                       </td>
                       <td>
                         <div className="table-actions">
-                          <select
-                            onChange={(e) =>
-                              updateSubscription(company.id, e.target.value)
+                          <button
+                            onClick={() =>
+                              toggleActive(company.id, company.isActive)
                             }
-                            value={company.subscription?.status || "trial"}
-                            style={{
-                              padding: "5px 10px",
-                              borderRadius: "var(--radius-xs)",
-                              border: "1px solid var(--gray-200)",
-                              fontSize: 12,
-                              background: "white",
-                              cursor: "pointer",
-                              fontFamily: "Cairo, sans-serif",
-                            }}
+                            className={`btn-sm ${
+                              company.isActive
+                                ? "btn-secondary"
+                                : "btn-primary"
+                            }`}
                           >
-                            <option value="active">✓ تفعيل</option>
-                            <option value="trial">⏱ تجريبي</option>
-                            <option value="expired">✗ إلغاء</option>
-                          </select>
+                            <i
+                              className={`fas ${
+                                company.isActive
+                                  ? "fa-pause-circle"
+                                  : "fa-play-circle"
+                              }`}
+                            ></i>
+                            {company.isActive ? "إيقاف" : "تفعيل"}
+                          </button>
                           <button
                             onClick={() => deleteCompany(company.id)}
                             className="btn-danger btn-sm"

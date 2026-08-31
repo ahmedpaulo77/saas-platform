@@ -27,11 +27,6 @@ export default function Setup() {
         name: companyName.trim(),
         email: currentUser.email,
         industry: industry,
-        subscription: {
-          status: 'trial',
-          startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
         inviteCode: generateInviteCode(companyName.trim()),
         createdAt: new Date().toISOString(),
         isActive: true,

@@ -24,7 +24,6 @@ export default function Companies() {
   const [newCompany, setNewCompany] = useState({
     name: "",
     email: "",
-    plan: "monthly",
     industry: "general",
   });
   const [editingCompany, setEditingCompany] = useState(null);
@@ -78,11 +77,6 @@ export default function Companies() {
       const docRef = await addDoc(collection(db, "companies"), {
         ...newCompany,
         industry: newCompany.industry || "general",
-        subscription: {
-          status: "trial",
-          startDate: new Date().toISOString(),
-          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
         inviteCode: generateInviteCode(newCompany.name),
         createdAt: new Date().toISOString(),
         isActive: true,
@@ -97,7 +91,6 @@ export default function Companies() {
       setNewCompany({
         name: "",
         email: "",
-        plan: "monthly",
         industry: "general",
       });
       alert(t("co.addOk"));
@@ -129,7 +122,6 @@ export default function Companies() {
       await updateDoc(companyRef, {
         name: editingCompany.name,
         email: editingCompany.email,
-        plan: editingCompany.plan,
         industry: editingCompany.industry || "general",
       });
       closeEditModal();
@@ -196,15 +188,6 @@ export default function Companies() {
               required
             />
             <select
-              value={newCompany.plan}
-              onChange={(e) =>
-                setNewCompany({ ...newCompany, plan: e.target.value })
-              }
-            >
-              <option value="monthly">{t("common.monthly")}</option>
-              <option value="yearly">{t("common.yearly")}</option>
-            </select>
-            <select
               value={newCompany.industry}
               onChange={(e) =>
                 setNewCompany({ ...newCompany, industry: e.target.value })
@@ -260,7 +243,6 @@ export default function Companies() {
                   <th>{t("common.email")}</th>
                   <th>{t("co.industry")}</th>
                   <th>{t("co.invite")}</th>
-                  <th>{t("co.plan")}</th>
                   <th>{t("common.status")}</th>
                   <th>{t("common.actions")}</th>
                 </tr>
@@ -321,24 +303,15 @@ export default function Companies() {
                       )}
                     </td>
                     <td>
-                      {company.plan === "monthly"
-                        ? t("common.monthly")
-                        : t("common.yearly")}
-                    </td>
-                    <td>
                       <span
                         className={`badge ${
-                          company.subscription?.status === "active"
+                          company.isActive
                             ? "badge-active"
-                            : company.subscription?.status === "trial"
-                            ? "badge-trial"
                             : "badge-expired"
                         }`}
                       >
-                        {company.subscription?.status === "active"
+                        {company.isActive
                           ? t("status.active")
-                          : company.subscription?.status === "trial"
-                          ? t("status.trial")
                           : t("status.expired")}
                       </span>
                     </td>
@@ -412,22 +385,6 @@ export default function Companies() {
                   required
                   style={styles.input}
                 />
-              </div>
-              <div style={styles.formGroup}>
-                <label>{t("co.plan")}</label>
-                <select
-                  value={editingCompany.plan}
-                  onChange={(e) =>
-                    setEditingCompany({
-                      ...editingCompany,
-                      plan: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                >
-                  <option value="monthly">{t("common.monthly")}</option>
-                  <option value="yearly">{t("common.yearly")}</option>
-                </select>
               </div>
               <div style={styles.formGroup}>
                 <label>{t("co.industry")}</label>
