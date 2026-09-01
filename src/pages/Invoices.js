@@ -31,7 +31,7 @@ export default function Invoices() {
   const [newInvoice, setNewInvoice] = useState({
     clientId: "",
     productId: "",
-    quantity: 1,
+    quantity: "",
     amount: "",
     status: "pending",
     description: "",
@@ -144,7 +144,7 @@ export default function Invoices() {
       setNewInvoice({
         clientId: "",
         productId: "",
-        quantity: 1,
+        quantity: "",
         amount: "",
         status: "pending",
         description: "",
