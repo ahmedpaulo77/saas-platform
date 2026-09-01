@@ -394,6 +394,8 @@ export default function Invoices() {
                   min="0.001"
                   step="0.001"
                   value={newInvoice.quantity}
+                  style={{ MozAppearance: 'textfield' }}
+                  onWheel={(e) => e.target.blur()}
                   onChange={(e) => {
                     const quantity = parseFloat(e.target.value) || 0.001;
                     const amount = calculateAmount(
