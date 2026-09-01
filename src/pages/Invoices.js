@@ -56,7 +56,6 @@ export default function Invoices() {
     }
     return 0;
   };
-
   const fetchInvoices = useCallback(async () => {
     // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
     if (!userCompanyId) {
@@ -120,7 +119,7 @@ export default function Invoices() {
       const productDoc = await getDoc(productRef);
       if (productDoc.exists()) {
         const currentQty = productDoc.data().quantity || 0;
-        const qty = parseInt(newInvoice.quantity) || 1;
+        const qty = parseFloat(newInvoice.quantity) || 0.001;
         if (currentQty - qty < 0) {
           alert(t("in.qtyOver"));
           setSubmitting(false);
@@ -136,7 +135,7 @@ export default function Invoices() {
         companyId: userCompanyId,
         createdBy: currentUser?.uid, // ✅ إضافة createdBy
         amount: amount,
-        quantity: parseInt(newInvoice.quantity) || 1,
+        quantity: parseFloat(newInvoice.quantity) || 0.001,
         date: new Date().toISOString(),
         dueDate: newInvoice.dueDate || null,
         createdAt: new Date().toISOString(),
@@ -376,7 +375,7 @@ export default function Invoices() {
                   }))}
                   value={newInvoice.productId}
                   onChange={(productId) => {
-                    const quantity = parseInt(newInvoice.quantity) || 1;
+                    const quantity = parseFloat(newInvoice.quantity) || 0.001;
                     const amount = calculateAmount(productId, quantity);
                     setNewInvoice({
                       ...newInvoice,
@@ -392,10 +391,11 @@ export default function Invoices() {
                 <label>{t("in.qtyReq")}</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.001"
+                  step="0.001"
                   value={newInvoice.quantity}
                   onChange={(e) => {
-                    const quantity = parseInt(e.target.value) || 1;
+                    const quantity = parseFloat(e.target.value) || 0.001;
                     const amount = calculateAmount(
                       newInvoice.productId,
                       quantity
