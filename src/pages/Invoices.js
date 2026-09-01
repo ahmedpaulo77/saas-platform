@@ -15,6 +15,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { useLanguage } from "../i18n/LanguageContext";
+import AutocompleteInput from "../components/common/AutocompleteInput";
 
 export default function Invoices() {
   const { t } = useLanguage();
@@ -83,7 +84,11 @@ export default function Invoices() {
       const snap = await getDocs(
         getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)
       );
-      setClients(snap.docs.map((d) => ({ id: d.id, name: d.data().name })));
+      setClients(snap.docs.map((d) => ({
+        id: d.id,
+        name: d.data().name,
+        phone: d.data().phone || '',
+      })));
     } catch (e) {
       console.error(e);
     }
@@ -349,44 +354,39 @@ export default function Invoices() {
             >
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("in.clientReq")}</label>
-                <select
+                <AutocompleteInput
+                  items={clients.map(c => ({
+                    id: c.id,
+                    label: c.name,
+                    sublabel: c.phone ? `📞 ${c.phone}` : '',
+                  }))}
                   value={newInvoice.clientId}
-                  onChange={(e) =>
-                    setNewInvoice({ ...newInvoice, clientId: e.target.value })
-                  }
+                  onChange={(id) => setNewInvoice({ ...newInvoice, clientId: id })}
+                  placeholder={t("in.chooseClient")}
                   required
-                >
-                  <option value="">{t("in.chooseClient")}</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("in.productReq")}</label>
-                <select
+                <AutocompleteInput
+                  items={products.map(p => ({
+                    id: p.id,
+                    label: p.name,
+                    sublabel: `${t("currency")} ${p.price || 0} — ${p.quantity || 0} ${t("in.remaining")}`,
+                  }))}
                   value={newInvoice.productId}
-                  onChange={(e) => {
-                    const productId = e.target.value;
+                  onChange={(productId) => {
                     const quantity = parseInt(newInvoice.quantity) || 1;
                     const amount = calculateAmount(productId, quantity);
                     setNewInvoice({
                       ...newInvoice,
-                      productId: productId,
-                      amount: amount > 0 ? amount.toString() : "",
+                      productId,
+                      amount: amount > 0 ? amount.toString() : '',
                     });
                   }}
+                  placeholder={t("in.chooseProduct")}
                   required
-                >
-                  <option value="">{t("in.chooseProduct")}</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.quantity} {t("in.remaining")})
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("in.qtyReq")}</label>
@@ -653,23 +653,17 @@ export default function Invoices() {
               <div className="modal-body">
                 <div className="form-group">
                   <label>{t("in.client")}</label>
-                  <select
+                  <AutocompleteInput
+                    items={clients.map(c => ({
+                      id: c.id,
+                      label: c.name,
+                      sublabel: c.phone ? `📞 ${c.phone}` : '',
+                    }))}
                     value={editingInvoice.clientId}
-                    onChange={(e) =>
-                      setEditingInvoice({
-                        ...editingInvoice,
-                        clientId: e.target.value,
-                      })
-                    }
+                    onChange={(id) => setEditingInvoice({ ...editingInvoice, clientId: id })}
+                    placeholder={t("in.chooseClient")}
                     required
-                  >
-                    <option value="">{t("in.chooseClient")}</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div className="form-group">
                   <label>{t("common.amount")}</label>

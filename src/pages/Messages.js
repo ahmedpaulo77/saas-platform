@@ -10,7 +10,6 @@ export default function Messages() {
   const { t } = useLanguage();
   const { currentUser, userRole, userCompanyId } = useAuth();
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
-  const canSend = true; // ✅ كل المستخدمين يقدروا يبعتوا رسايل
   
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
