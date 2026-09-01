@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, query, where, doc, updateDoc, onSnapshot, orderBy } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -11,13 +10,14 @@ export default function Messages() {
   const { t } = useLanguage();
   const { currentUser, userRole, userCompanyId } = useAuth();
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const canSend = true; // ✅ كل المستخدمين يقدروا يبعتوا رسايل
   
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState({
-    to: "all",
+    to: "all",   // الأدمن: "all" — المستخدم العادي هنضبطه بعد ما يتحمل المستخدمين
     text: "",
   });
   const [activeTab, setActiveTab] = useState("inbox");
@@ -32,11 +32,14 @@ export default function Messages() {
     }
   }, []);
 
-  // ✅ جلب المستخدمين (للعرض في قائمة الإرسال)
+  // ✅ جلب المستخدمين (للعرض في قائمة الإرسال - للجميع)
   const fetchUsers = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!userCompanyId) return;
     try {
-      const q = getScopedQuery("users", userRole, userCompanyId, currentUser?.uid);
+      const q = query(
+        collection(db, "users"),
+        where("companyId", "==", userCompanyId)
+      );
       const snap = await getDocs(q);
       const usersList = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
@@ -45,7 +48,7 @@ export default function Messages() {
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  }, [isAdmin, userRole, userCompanyId, currentUser?.uid]);
+  }, [userCompanyId, currentUser?.uid]);
 
   // ✅ جلب الرسائل والإشعارات
   const fetchMessages = useCallback(() => {
@@ -153,6 +156,13 @@ export default function Messages() {
     };
   }, [fetchUsers, fetchMessages]);
 
+  // ✅ لو المستخدم مش أدمن، ضبط المستلم الافتراضي على أول شخص في القايمة
+  useEffect(() => {
+    if (!isAdmin && users.length > 0 && newMessage.to === "all") {
+      setNewMessage(prev => ({ ...prev, to: users[0].id }));
+    }
+  }, [isAdmin, users, newMessage.to]);
+
   // ✅ إرسال رسالة
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -253,14 +263,12 @@ export default function Messages() {
             </h1>
             <p className="subtitle">{t("messages.subtitle")}</p>
           </div>
-          {isAdmin && (
-            <button
-              onClick={() => setActiveTab("new")}
-              className="btn-primary"
-            >
-              <i className="fas fa-plus"></i> {t("messages.new")}
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab("new")}
+            className="btn-primary"
+          >
+            <i className="fas fa-plus"></i> {t("messages.new")}
+          </button>
         </div>
 
         {/* ✅ تبويبات */}
@@ -275,7 +283,7 @@ export default function Messages() {
           {[
             { key: "inbox", label: `📥 ${t("messages.inbox")} (${unreadCount})` },
             { key: "sent", label: `📤 ${t("messages.sent")}` },
-            ...(isAdmin ? [{ key: "new", label: `✏️ ${t("messages.new")}` }] : []),
+            { key: "new", label: `✏️ ${t("messages.new")}` },
           ].map(tab => (
             <button
               key={tab.key}
@@ -316,8 +324,8 @@ export default function Messages() {
           </div>
         )}
 
-        {/* ✅ نموذج إرسال رسالة جديدة */}
-        {activeTab === "new" && isAdmin && (
+        {/* ✅ نموذج إرسال رسالة جديدة - للجميع */}
+        {activeTab === "new" && (
           <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-pen" style={{ color: "#6366f1" }}></i>
@@ -337,7 +345,8 @@ export default function Messages() {
                     fontSize: 14,
                   }}
                 >
-                  <option value="all">📢 {t("messages.all")}</option>
+                  {/* ✅ خيار "للجميع" للأدمن فقط */}
+                  {isAdmin && <option value="all">📢 {t("messages.all")}</option>}
                   {users.map(u => (
                     <option key={u.id} value={u.id}>
                       👤 {u.email}
