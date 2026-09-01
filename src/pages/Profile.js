@@ -5,6 +5,7 @@ import { updatePassword } from "firebase/auth";
 import { auth } from "../firebase/config";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
 
 export default function Profile() {
   const { t } = useLanguage();
@@ -27,6 +28,15 @@ export default function Profile() {
     }
     if (newPassword.length < 6) {
       setError(t("pf.short"));
+      return;
+    }
+    const { checks } = getPasswordStrength(newPassword);
+    if (!checks.uppercase) {
+      setError(t("signup.needUppercase"));
+      return;
+    }
+    if (!checks.symbol) {
+      setError(t("signup.needSymbol"));
       return;
     }
 
@@ -282,55 +292,7 @@ export default function Profile() {
               </div>
 
               {newPassword.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--gray-500)",
-                      marginBottom: 6,
-                    }}
-                  >
-                    {t("pf.strength")}:
-                  </div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {[1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          flex: 1,
-                          height: 4,
-                          borderRadius: 2,
-                          background:
-                            newPassword.length >= i * 3
-                              ? i <= 1
-                                ? "#ef4444"
-                                : i === 2
-                                  ? "#f59e0b"
-                                  : i === 3
-                                    ? "#10b981"
-                                    : "#6366f1"
-                              : "var(--gray-200)",
-                          transition: "background 0.3s",
-                        }}
-                      ></div>
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "var(--gray-400)",
-                      marginTop: 4,
-                    }}
-                  >
-                    {newPassword.length < 3
-                      ? t("pf.weak2")
-                      : newPassword.length < 6
-                        ? t("pf.weak")
-                        : newPassword.length < 9
-                          ? t("pf.mid")
-                          : t("pf.strong")}
-                  </div>
-                </div>
+                <PasswordStrengthMeter password={newPassword} />
               )}
 
               <button

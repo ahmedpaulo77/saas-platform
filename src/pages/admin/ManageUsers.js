@@ -4,6 +4,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '../../firebase/config';
 import Sidebar from '../../components/common/Sidebar';
+import PasswordStrengthMeter, { getPasswordStrength } from '../../components/common/PasswordStrengthMeter';
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
@@ -38,6 +39,16 @@ export default function ManageUsers() {
     e.preventDefault();
     if (!newUser.email || !newUser.password || !newUser.companyId) {
       alert('يرجى ملء جميع الحقول');
+      return;
+    }
+
+    const { checks } = getPasswordStrength(newUser.password);
+    if (!checks.uppercase) {
+      alert('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل');
+      return;
+    }
+    if (!checks.symbol) {
+      alert('كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل (!@#$...)');
       return;
     }
     setSubmitting(true);
@@ -266,6 +277,7 @@ export default function ManageUsers() {
                   <input type="password" value={newUser.password}
                     onChange={e => setNewUser({ ...newUser, password: e.target.value })}
                     placeholder="6 أحرف على الأقل" required minLength={6} />
+                  <PasswordStrengthMeter password={newUser.password} />
                 </div>
                 <div className="form-group">
                   <label>الشركة *</label>

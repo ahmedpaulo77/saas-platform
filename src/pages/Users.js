@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
 
 export default function Users() {
   const { t } = useLanguage();
@@ -55,6 +56,16 @@ export default function Users() {
     e.preventDefault();
     if (!newUser.email || !newUser.password) {
       alert(t("errors.fillFields"));
+      return;
+    }
+
+    const { checks } = getPasswordStrength(newUser.password);
+    if (!checks.uppercase) {
+      alert(t("signup.needUppercase"));
+      return;
+    }
+    if (!checks.symbol) {
+      alert(t("signup.needSymbol"));
       return;
     }
 
@@ -389,6 +400,7 @@ export default function Users() {
                   minLength="6"
                   style={styles.input}
                 />
+                <PasswordStrengthMeter password={newUser.password} />
               </div>
               {superAdmin && (
                 <div style={styles.formGroup}>

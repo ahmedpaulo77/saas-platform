@@ -53,17 +53,20 @@ service cloud.firestore {
          request.resource.data.isSuperAdmin == false);
 
       // المستخدم يعدل نفسه فقط، وممنوع يغير الـ role
-      // يُسمح بتغيير companyId فقط من null إلى قيمة (عند الانضمام بالكود)
-      // (السوبر أدمن يقدر يعدل أي مستخدم)
-      allow update: if isLoggedIn() &&
-        (request.auth.uid == userId || isSuperAdmin()) &&
-        (request.resource.data.role == resource.data.role) &&
-        (
-          // السوبر أدمن يقدر يغير أي حقل
+      // السوبر أدمن يقدر يغير أي حقل على أي مستخدم (بما في ذلك الـ role والـ companyId)
+      // المستخدم العادي: ممنوع يغير الـ role، و companyId إما ثابت أو يتغير من null إلى قيمة
+      allow update: if isLoggedIn() && (
+          // ✅ السوبر أدمن: صلاحية كاملة بدون قيود
           isSuperAdmin() ||
-          // المستخدم العادي: companyId إما ثابت أو يتغير من null إلى قيمة (انضمام)
-          (request.resource.data.companyId == resource.data.companyId) ||
-          (resource.data.companyId == null && request.resource.data.companyId != null)
+          // المستخدم العادي: يعدل نفسه فقط، بدون تغيير الـ role
+          (
+            request.auth.uid == userId &&
+            request.resource.data.role == resource.data.role &&
+            (
+              (request.resource.data.companyId == resource.data.companyId) ||
+              (resource.data.companyId == null && request.resource.data.companyId != null)
+            )
+          )
         );
 
       allow delete: if isSuperAdmin();
@@ -77,7 +80,7 @@ service cloud.firestore {
       allow get: if isLoggedIn();
       // أي مستخدم مسجل يقدر يبحث عن الشركات بالكود (list) للانضمام
       allow list: if isLoggedIn();
-      allow create: if true;
+      allow create: if isLoggedIn();
       allow update: if isSuperAdmin() || isCompanyUser(companyId);
       allow delete: if isSuperAdmin();
     }

@@ -128,15 +128,13 @@ export const MODULE_MAP = {
     'messages',
   ],
 
-  // عام - كل الوحدات المتاحة
+  // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
   general: [
     'clients',
     'invoices',
     'tasks',
     'projects',
     'aging',
-    'sellers',
-    'buyers',
     'suppliers',
     'messages',
   ],

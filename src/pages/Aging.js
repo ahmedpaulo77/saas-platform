@@ -284,7 +284,7 @@ export default function Aging() {
                 <div style={{ fontSize: 11, color: bucket.textColor, opacity: 0.7, marginTop: 2 }}>
                   {t('currency')} — {summary.totalDebt > 0
                     ? Math.round((totals.buckets[i] / summary.totalDebt) * 100)
-                    : 0}% من الإجمالي
+                    : 0}% {t('ag.ofTotal')}
                 </div>
                 <div style={{ height: 4, background: `${bucket.color}25`, borderRadius: 99, marginTop: 10, overflow: 'hidden' }}>
                   <div style={{
@@ -314,7 +314,7 @@ export default function Aging() {
         <div className="table-container">
           <div className="table-header">
             <h3><i className="fas fa-table"></i> {t('ag.table')}</h3>
-            <span className="table-count">{filtered.length} {t('ag.nClients', { count: filtered.length })}</span>
+            <span className="table-count">{t('ag.nClients', { n: filtered.length })}</span>
           </div>
 
           {filtered.length === 0 ? (

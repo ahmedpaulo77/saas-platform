@@ -9,7 +9,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 export default function POS() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
   const [cart, setCart] = useState([]);
@@ -20,7 +20,7 @@ export default function POS() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const snap = await getDocs(getScopedQuery("inventory", userRole, userCompanyId));
+      const snap = await getDocs(getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid));
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setProducts(data);
     } catch (e) {
@@ -28,17 +28,17 @@ export default function POS() {
     } finally {
       setLoading(false);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   const fetchClients = useCallback(async () => {
     try {
-      const snap = await getDocs(getScopedQuery("clients", userRole, userCompanyId));
+      const snap = await getDocs(getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid));
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setClients(data);
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId]);
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   useEffect(() => {
     Promise.all([fetchProducts(), fetchClients()]);
@@ -276,7 +276,7 @@ export default function POS() {
                             color: product.quantity < 5 ? "#dc2626" : "#16a34a",
                           }}
                         >
-                          {product.quantity} متبقي
+                          {product.quantity} {t("pos.remaining")}
                         </span>
                       </div>
                     </button>
@@ -289,7 +289,7 @@ export default function POS() {
           <div className="card" style={{ position: "sticky", top: 16 }}>
             <h3 style={{ marginBottom: 14 }}>
               <i className="fas fa-shopping-cart" style={{ color: "#10b981" }}></i>
-              سلة البيع
+              {t("pos.cart")}
               {cart.length > 0 && (
                 <span
                   className="badge"

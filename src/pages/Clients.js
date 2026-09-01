@@ -17,8 +17,9 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Clients() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
+  const isClothing = userIndustry === 'clothing' || superAdmin;
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newClient, setNewClient] = useState({
@@ -214,25 +215,27 @@ export default function Clients() {
               }
             />
             
-            {/* ✅ حقل نوع العميل مترجم */}
-            <select
-              value={newClient.type}
-              onChange={(e) =>
-                setNewClient({ ...newClient, type: e.target.value })
-              }
-              style={{
-                padding: "10px 14px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "10px",
-                fontSize: "14px",
-                background: "white",
-              }}
-            >
-              <option value="">{t("cli.type")} ({t("common.optional")})</option>
-              <option value="clothes">👕 {t("cli.typeClothes")}</option>
-              <option value="shoes">👟 {t("cli.typeShoes")}</option>
-              <option value="other">📦 {t("cli.typeOther")}</option>
-            </select>
+            {/* ✅ حقل نوع العميل — للملابس فقط */}
+            {isClothing && (
+              <select
+                value={newClient.type}
+                onChange={(e) =>
+                  setNewClient({ ...newClient, type: e.target.value })
+                }
+                style={{
+                  padding: "10px 14px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  background: "white",
+                }}
+              >
+                <option value="">{t("cli.type")} ({t("common.optional")})</option>
+                <option value="clothes">👕 {t("cli.typeClothes")}</option>
+                <option value="shoes">👟 {t("cli.typeShoes")}</option>
+                <option value="other">📦 {t("cli.typeOther")}</option>
+              </select>
+            )}
 
             {superAdmin && (
               <select
@@ -297,7 +300,7 @@ export default function Clients() {
                 <tr>
                   <th>#</th>
                   <th>{t("cli.name")}</th>
-                  <th>{t("cli.type")}</th>
+                  {isClothing && <th>{t("cli.type")}</th>}
                   <th>{t("common.email")}</th>
                   <th>{t("common.phone")}</th>
                   <th>{t("cli.company")}</th>
@@ -320,7 +323,7 @@ export default function Clients() {
                     <tr key={client.id}>
                       <td>{index + 1}</td>
                       <td>{client.name}</td>
-                      <td>{typeLabel}</td>
+                      {isClothing && <td>{typeLabel}</td>}
                       <td>{client.email || "-"}</td>
                       <td>{client.phone || "-"}</td>
                       <td>{companyName}</td>

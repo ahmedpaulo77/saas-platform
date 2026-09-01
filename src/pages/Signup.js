@@ -7,6 +7,7 @@ import { db } from '../firebase/config';
 import { generateInviteCode } from '../utils/companyQuery';
 import { INDUSTRIES } from '../utils/modules';
 import { useLanguage } from '../i18n/LanguageContext';
+import PasswordStrengthMeter, { getPasswordStrength } from '../components/common/PasswordStrengthMeter';
 
 export default function Signup() {
   const { t } = useLanguage();
@@ -34,6 +35,16 @@ export default function Signup() {
 
     if (formData.password.length < 6) {
       setError(t('signup.shortPass'));
+      return;
+    }
+
+    const { checks } = getPasswordStrength(formData.password);
+    if (!checks.uppercase) {
+      setError(t('signup.needUppercase'));
+      return;
+    }
+    if (!checks.symbol) {
+      setError(t('signup.needSymbol'));
       return;
     }
 
@@ -227,6 +238,7 @@ export default function Signup() {
                 transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)', fontSize: 14
               }}></i>
             </div>
+            <PasswordStrengthMeter password={formData.password} />
           </div>
 
           <div className="form-group" style={{ marginBottom: 24 }}>
