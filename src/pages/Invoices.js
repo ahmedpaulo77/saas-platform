@@ -119,7 +119,7 @@ export default function Invoices() {
       const productDoc = await getDoc(productRef);
       if (productDoc.exists()) {
         const currentQty = productDoc.data().quantity || 0;
-        const qty = parseFloat(newInvoice.quantity) || 0.001;
+        const qty = parseFloat(newInvoice.quantity);
         if (currentQty - qty < 0) {
           alert(t("in.qtyOver"));
           setSubmitting(false);
@@ -135,7 +135,7 @@ export default function Invoices() {
         companyId: userCompanyId,
         createdBy: currentUser?.uid, // ✅ إضافة createdBy
         amount: amount,
-        quantity: parseFloat(newInvoice.quantity) || 0.001,
+        quantity: parseFloat(newInvoice.quantity) || 0,
         date: new Date().toISOString(),
         dueDate: newInvoice.dueDate || null,
         createdAt: new Date().toISOString(),
@@ -375,8 +375,10 @@ export default function Invoices() {
                   }))}
                   value={newInvoice.productId}
                   onChange={(productId) => {
-                    const quantity = parseFloat(newInvoice.quantity) || 0.001;
-                    const amount = calculateAmount(productId, quantity);
+                    const numQty = parseFloat(newInvoice.quantity);
+                    const amount = !isNaN(numQty) && numQty > 0
+                      ? calculateAmount(productId, numQty)
+                      : 0;
                     setNewInvoice({
                       ...newInvoice,
                       productId,
@@ -397,15 +399,17 @@ export default function Invoices() {
                   style={{ MozAppearance: 'textfield' }}
                   onWheel={(e) => e.target.blur()}
                   onChange={(e) => {
-                    const quantity = parseFloat(e.target.value) || 0.001;
-                    const amount = calculateAmount(
-                      newInvoice.productId,
-                      quantity
-                    );
+                    const raw = e.target.value;
+                    // ✅ خلي النص يتحفظ كما هو — متحولوش لـ number إلا وقت الحساب
+                    const quantity = raw === '' ? '' : raw;
+                    const numQty = parseFloat(raw);
+                    const amount = !isNaN(numQty) && numQty > 0
+                      ? calculateAmount(newInvoice.productId, numQty)
+                      : 0;
                     setNewInvoice({
                       ...newInvoice,
                       quantity: quantity,
-                      amount: amount > 0 ? amount.toString() : "",
+                      amount: amount > 0 ? amount.toString() : newInvoice.amount,
                     });
                   }}
                   required
