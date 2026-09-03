@@ -1,10 +1,11 @@
-// src/pages/Notifications.js - مع دعم الترجمة
+// src/pages/Notifications.js - مع دعم الترجمة وإشعارات Push الحقيقية
 import React, { useState, useEffect, useCallback } from "react";
 import { getDocs } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { requestNotificationPermission } from "../firebase/config";
 
 export default function Notifications() {
   const { t } = useLanguage();
@@ -12,7 +13,7 @@ export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-
+const [, setPushStatus] = useState("");
   const fetchNotifications = useCallback(async () => {
     try {
       const list = [];
@@ -89,6 +90,18 @@ export default function Notifications() {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  const handleEnablePush = async () => {
+    setPushStatus("jari...");
+    const token = await requestNotificationPermission();
+    if (token) {
+      alert("تم تفعيل إشعارات Push بنجاح! ستصلك التنبيهات في الخلفية حتى عند إغلاق التطبيق.");
+      setPushStatus("active");
+    } else {
+      alert("تعذر تفعيل الإشعارات. يرجى التأكد من السماح بالإشعارات في المتصفح.");
+      setPushStatus("failed");
+    }
+  };
+
   const filtered =
     filter === "all"
       ? notifications
@@ -112,7 +125,7 @@ export default function Notifications() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        <div className="header">
+        <div className="header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
             <h1>
               <i
@@ -123,15 +136,27 @@ export default function Notifications() {
             </h1>
             <p className="subtitle">{t("nt.subtitle")}</p>
           </div>
-          <button
-            onClick={() => {
-              setLoading(true);
-              fetchNotifications();
-            }}
-            className="btn-secondary"
-          >
-            <i className="fas fa-sync-alt"></i> {t("common.refresh")}
-          </button>
+          
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={handleEnablePush}
+              className="btn-primary"
+              style={{ background: "#10b981", borderColor: "#10b981" }}
+            >
+              <i className="fas fa-satellite-dish" style={{ marginLeft: 6 }}></i>
+              تفعيل إشعارات Push في الخلفية
+            </button>
+
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchNotifications();
+              }}
+              className="btn-secondary"
+            >
+              <i className="fas fa-sync-alt"></i> {t("common.refresh")}
+            </button>
+          </div>
         </div>
 
         <div

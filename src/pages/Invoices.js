@@ -16,6 +16,7 @@ import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { useLanguage } from "../i18n/LanguageContext";
 import AutocompleteInput from "../components/common/AutocompleteInput";
+import Pagination from "../components/common/Pagination";
 
 export default function Invoices() {
   const { t } = useLanguage();
@@ -111,21 +112,25 @@ export default function Invoices() {
 
   async function addInvoice(e) {
     e.preventDefault();
-    if (!newInvoice.clientId || !newInvoice.amount || !newInvoice.productId)
-      return;
+    if (!newInvoice.clientId || !newInvoice.amount) return;
     setSubmitting(true);
     try {
-      const productRef = doc(db, "inventory", newInvoice.productId);
-      const productDoc = await getDoc(productRef);
-      if (productDoc.exists()) {
-        const currentQty = productDoc.data().quantity || 0;
-        const qty = parseFloat(newInvoice.quantity);
-        if (currentQty - qty < 0) {
-          alert(t("in.qtyOver"));
-          setSubmitting(false);
-          return;
+      // ✅ خصم من المخزون بس لو اتاختار منتج
+      if (newInvoice.productId) {
+        const productRef = doc(db, "inventory", newInvoice.productId);
+        const productDoc = await getDoc(productRef);
+        if (productDoc.exists()) {
+          const currentQty = productDoc.data().quantity || 0;
+          const qty = parseFloat(newInvoice.quantity) || 0;
+          if (qty > 0 && currentQty - qty < 0) {
+            alert(t("in.qtyOver"));
+            setSubmitting(false);
+            return;
+          }
+          if (qty > 0) {
+            await updateDoc(productRef, { quantity: currentQty - qty });
+          }
         }
-        await updateDoc(productRef, { quantity: currentQty - qty });
       }
 
       const amount = parseFloat(newInvoice.amount) || 0;
@@ -366,7 +371,7 @@ export default function Invoices() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("in.productReq")}</label>
+                <label>{t("in.productOpt")}</label>
                 <AutocompleteInput
                   items={products.map(p => ({
                     id: p.id,
@@ -382,39 +387,39 @@ export default function Invoices() {
                     setNewInvoice({
                       ...newInvoice,
                       productId,
-                      amount: amount > 0 ? amount.toString() : '',
-                    });
-                  }}
-                  placeholder={t("in.chooseProduct")}
-                  required
-                />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("in.qtyReq")}</label>
-                <input
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  value={newInvoice.quantity}
-                  style={{ MozAppearance: 'textfield' }}
-                  onWheel={(e) => e.target.blur()}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    // ✅ خلي النص يتحفظ كما هو — متحولوش لـ number إلا وقت الحساب
-                    const quantity = raw === '' ? '' : raw;
-                    const numQty = parseFloat(raw);
-                    const amount = !isNaN(numQty) && numQty > 0
-                      ? calculateAmount(newInvoice.productId, numQty)
-                      : 0;
-                    setNewInvoice({
-                      ...newInvoice,
-                      quantity: quantity,
                       amount: amount > 0 ? amount.toString() : newInvoice.amount,
                     });
                   }}
-                  required
+                  placeholder={t("in.chooseProduct")}
                 />
               </div>
+              {/* ✅ الكمية تظهر بس لو اتاختار منتج */}
+              {newInvoice.productId && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>{t("in.qtyReq")}</label>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={newInvoice.quantity}
+                    style={{ MozAppearance: 'textfield' }}
+                    onWheel={(e) => e.target.blur()}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const quantity = raw === '' ? '' : raw;
+                      const numQty = parseFloat(raw);
+                      const amount = !isNaN(numQty) && numQty > 0
+                        ? calculateAmount(newInvoice.productId, numQty)
+                        : 0;
+                      setNewInvoice({
+                        ...newInvoice,
+                        quantity: quantity,
+                        amount: amount > 0 ? amount.toString() : newInvoice.amount,
+                      });
+                    }}
+                  />
+                </div>
+              )}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("in.amountReq")}</label>
                 <input
@@ -505,7 +510,7 @@ export default function Invoices() {
           </select>
         </div>
 
-        {/* Table */}
+        {/* Table + Pagination */}
         <div className="table-container">
           <div className="table-header">
             <h3>
@@ -514,127 +519,133 @@ export default function Invoices() {
             <span className="table-count">{filtered.length} {t("in.invoices")}</span>
           </div>
           <div className="table-wrapper">
-            {filtered.length === 0 ? (
-              <div className="table-empty">
-                <i className="fas fa-file-invoice"></i>
-                <p>
-                  {searchTerm || filterStatus !== "all"
-                    ? t("common.noResults")
-                    : t("in.empty")}
-                </p>
-              </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>{t("in.client")}</th>
-                    <th>{t("in.product")}</th>
-                    <th>{t("common.quantity")}</th>
-                    <th>{t("common.amount")}</th>
-                    <th>{t("in.paid")}</th>
-                    <th>{t("in.remaining")}</th>
-                    <th>{t("common.status")}</th>
-                    <th>{t("common.date")}</th>
-                    <th>{t("common.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((inv, i) => {
-                    const clientName =
-                      clients.find((c) => c.id === inv.clientId)?.name ||
-                      t("common.unspecified");
-                    const productName =
-                      products.find((p) => p.id === inv.productId)?.name ||
-                      t("common.unspecified");
-                    const paid = parseFloat(inv.paidAmount) || 0;
-                    const remaining = (parseFloat(inv.amount) || 0) - paid;
-                    return (
-                      <tr key={inv.id}>
-                        <td
-                          style={{ color: "var(--gray-400)", fontWeight: 600 }}
-                        >
-                          {i + 1}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{clientName}</td>
-                        <td>{productName}</td>
-                        <td>{inv.quantity || 1}</td>
-                        <td
-                          style={{ fontWeight: 700, color: "var(--gray-800)" }}
-                        >
-                          {(inv.amount || 0).toLocaleString()} {t("currency")}
-                        </td>
-                        <td style={{ color: "#10b981", fontWeight: 600 }}>
-                          {paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}
-                        </td>
-                        <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
-                          {remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}
+            <Pagination
+              data={filtered}
+              pageSize={20}
+              resetKey={searchTerm + filterStatus}
+              empty={
+                <div className="table-empty">
+                  <i className="fas fa-file-invoice"></i>
+                  <p>
+                    {searchTerm || filterStatus !== "all"
+                      ? t("common.noResults")
+                      : t("in.empty")}
+                  </p>
+                </div>
+              }
+              render={(pageItems, total, start) => (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{t("in.client")}</th>
+                      <th>{t("in.product")}</th>
+                      <th>{t("common.quantity")}</th>
+                      <th>{t("common.amount")}</th>
+                      <th>{t("in.paid")}</th>
+                      <th>{t("in.remaining")}</th>
+                      <th>{t("common.status")}</th>
+                      <th>{t("common.date")}</th>
+                      <th>{t("common.actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((inv, i) => {
+                      const clientName =
+                        clients.find((c) => c.id === inv.clientId)?.name ||
+                        t("common.unspecified");
+                      const productName =
+                        products.find((p) => p.id === inv.productId)?.name ||
+                        t("common.unspecified");
+                      const paid = parseFloat(inv.paidAmount) || 0;
+                      const remaining = (parseFloat(inv.amount) || 0) - paid;
+                      return (
+                        <tr key={inv.id}>
+                          <td
+                            style={{ color: "var(--gray-400)", fontWeight: 600 }}
                           >
-                            {inv.status === "paid"
-                              ? t("in.statusPaid")
-                              : inv.status === "pending"
-                                ? t("in.statusWait")
-                                : t("in.statusOver")}
-                          </span>
-                        </td>
-                        <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                          {inv.date
-                            ? new Date(inv.date).toLocaleDateString()
-                            : "-"}
-                        </td>
-                        <td>
-                          <div className="table-actions">
-                            <button
-                              onClick={() => handleExportPDF(inv)}
-                              className="btn-primary btn-sm"
-                              title={t("in.pdf")}
+                            {start + i + 1}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{clientName}</td>
+                          <td>{productName}</td>
+                          <td>{inv.quantity || 1}</td>
+                          <td
+                            style={{ fontWeight: 700, color: "var(--gray-800)" }}
+                          >
+                            {(inv.amount || 0).toLocaleString()} {t("currency")}
+                          </td>
+                          <td style={{ color: "#10b981", fontWeight: 600 }}>
+                            {paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}
+                          </td>
+                          <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
+                            {remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}
+                          </td>
+                          <td>
+                            <span
+                              className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}
                             >
-                              <i className="fas fa-file-pdf"></i> PDF
-                            </button>
-                            {inv.status !== "paid" && (
+                              {inv.status === "paid"
+                                ? t("in.statusPaid")
+                                : inv.status === "pending"
+                                  ? t("in.statusWait")
+                                  : t("in.statusOver")}
+                            </span>
+                          </td>
+                          <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
+                            {inv.date
+                              ? new Date(inv.date).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                onClick={() => handleExportPDF(inv)}
+                                className="btn-primary btn-sm"
+                                title={t("in.pdf")}
+                              >
+                                <i className="fas fa-file-pdf"></i> PDF
+                              </button>
+                              {inv.status !== "paid" && (
+                                <button
+                                  onClick={() => {
+                                    setPayingInvoice(inv);
+                                    setPayAmount("");
+                                    setShowPayModal(true);
+                                  }}
+                                  className="btn-success btn-sm"
+                                  title={t("in.pay")}
+                                >
+                                  <i className="fas fa-money-bill-wave"></i>
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
-                                  setPayingInvoice(inv);
-                                  setPayAmount("");
-                                  setShowPayModal(true);
+                                  setEditingInvoice(inv);
+                                  setShowEditModal(true);
                                 }}
-                                className="btn-success btn-sm"
-                                title={t("in.pay")}
+                                className="btn-secondary btn-sm"
+                                title={t("common.edit")}
                               >
-                                <i className="fas fa-money-bill-wave"></i>
+                                <i className="fas fa-edit"></i>
                               </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                setEditingInvoice(inv);
-                                setShowEditModal(true);
-                              }}
-                              className="btn-secondary btn-sm"
-                              title={t("common.edit")}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            {userCanDelete && (
-                              <button
-                                onClick={() => deleteInvoice(inv.id)}
-                                className="btn-danger btn-sm"
-                                title={t("common.delete")}
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+                              {userCanDelete && (
+                                <button
+                                  onClick={() => deleteInvoice(inv.id)}
+                                  className="btn-danger btn-sm"
+                                  title={t("common.delete")}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            />
           </div>
         </div>
       </div>

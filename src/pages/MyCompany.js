@@ -15,6 +15,7 @@ export default function MyCompany() {
   const [copied, setCopied] = useState({ admin: false, user: false });
   const [regenerating, setRegenerating] = useState({ admin: false, user: false });
   const [error, setError] = useState('');
+  const [contact, setContact] = useState({ email: '', phone: '', name: '' });
 
   const fetchAndEnsureCode = useCallback(async () => {
     if (!userCompanyId) return;
@@ -29,6 +30,12 @@ export default function MyCompany() {
         return;
       }
       const data = snap.data();
+
+      setContact({
+        email: data.contactEmail || '',
+        phone: data.contactPhone || '',
+        name: data.contactName || '',
+      });
       
       // التأكد من وجود الكودين
       let updates = {};
@@ -96,6 +103,22 @@ export default function MyCompany() {
 
   // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
+  async function handleSaveContact(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    try {
+      await updateDoc(doc(db, 'companies', userCompanyId), {
+        contactEmail: contact.email.trim(),
+        contactPhone: contact.phone.trim(),
+        contactName: contact.name.trim(),
+      });
+      alert(t('mc.saved'));
+    } catch (err) {
+      console.error('Error saving contact:', err);
+      alert(t('mc.saveErr'));
+    }
+  }
 
   return (
     <div className="app-layout">
@@ -167,7 +190,66 @@ export default function MyCompany() {
               </div>
             </div>
 
-            {/* ✅ Invite Codes - يظهر فقط للأدمن */}
+            {/* ✅ بيانات التواصل القابلة للتخصيص - للأدمن */}
+            {isAdmin && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-headset" style={{ color: '#6366f1', marginLeft: 8 }}></i>
+                  {t('mc.contactTitle')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#94a3b8', fontSize: 13 }}>
+                  {t('mc.contactHint')}
+                </p>
+                <form onSubmit={handleSaveContact}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                    <div>
+                      <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>
+                        <i className="fas fa-user-tie" style={{ marginLeft: 4 }}></i>
+                        {t('mc.contactName')}
+                      </label>
+                      <input
+                        type="text"
+                        value={contact.name}
+                        onChange={(e) => setContact({ ...contact, name: e.target.value })}
+                        placeholder="اسم جهة الاتصال"
+                        style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>
+                        <i className="fas fa-envelope" style={{ marginLeft: 4 }}></i>
+                        {t('common.email')}
+                      </label>
+                      <input
+                        type="email"
+                        value={contact.email}
+                        onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                        placeholder="example@email.com"
+                        style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>
+                        <i className="fas fa-phone" style={{ marginLeft: 4 }}></i>
+                        {t('mc.contactPhone')}
+                      </label>
+                      <input
+                        type="text"
+                        value={contact.phone}
+                        onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                        placeholder="01xxxxxxxxx"
+                        style={{ width: '100%', padding: '10px 14px', border: '2px solid #e2e8f0', borderRadius: 10, fontSize: 14 }}
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ marginTop: 16 }}>
+                    <i className="fas fa-save"></i> {t('common.save')}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* ✅ دعوة - يظهر فقط للأدمن */}
             {isAdmin && (
               <>
                 {/* Admin Code */}

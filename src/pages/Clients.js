@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import Pagination from "../components/common/Pagination";
 
 export default function Clients() {
   const { t } = useLanguage();
@@ -284,76 +285,82 @@ export default function Clients() {
           />
         </div>
 
-        {/* ✅ الجدول - مرة واحدة بس */}
+        {/* ✅ الجدول - مرة واحدة بس + Pagination */}
         <div className="table-container">
           <div className="table-header">
             <h3>{t("cli.list")}</h3>
             <span>{filteredClients.length} {t("cli.clients")}</span>
           </div>
-          {filteredClients.length === 0 ? (
-            <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm ? t("common.noResults") : t("cli.empty")}
-            </p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>{t("cli.name")}</th>
-                  {isClothing && <th>{t("cli.type")}</th>}
-                  <th>{t("common.email")}</th>
-                  <th>{t("common.phone")}</th>
-                  <th>{t("cli.company")}</th>
-                  <th>{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredClients.map((client, index) => {
-                  const companyName =
-                    companies.find((c) => c.id === client.companyId)?.name ||
-                    t("common.unspecified");
-                  
-                  // ✅ ترجمة نوع العميل
-                  let typeLabel = "-";
-                  if (client.type === 'clothes') typeLabel = `👕 ${t("cli.typeClothes")}`;
-                  else if (client.type === 'shoes') typeLabel = `👟 ${t("cli.typeShoes")}`;
-                  else if (client.type === 'other') typeLabel = `📦 ${t("cli.typeOther")}`;
+          <Pagination
+            data={filteredClients}
+            pageSize={20}
+            resetKey={searchTerm}
+            empty={
+              <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
+                {searchTerm ? t("common.noResults") : t("cli.empty")}
+              </p>
+            }
+            render={(pageItems, total, start) => (
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{t("cli.name")}</th>
+                    {isClothing && <th>{t("cli.type")}</th>}
+                    <th>{t("common.email")}</th>
+                    <th>{t("common.phone")}</th>
+                    <th>{t("cli.company")}</th>
+                    <th>{t("common.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map((client, i) => {
+                    const companyName =
+                      companies.find((c) => c.id === client.companyId)?.name ||
+                      t("common.unspecified");
 
-                  return (
-                    <tr key={client.id}>
-                      <td>{index + 1}</td>
-                      <td>{client.name}</td>
-                      {isClothing && <td>{typeLabel}</td>}
-                      <td>{client.email || "-"}</td>
-                      <td>{client.phone || "-"}</td>
-                      <td>{companyName}</td>
-                      <td>
-                        <button
-                          onClick={() => openEditModal(client)}
-                          className="btn-primary"
-                          style={{
-                            marginLeft: "8px",
-                            padding: "6px 14px",
-                            fontSize: "13px",
-                          }}
-                        >
-                          <i className="fas fa-edit"></i> {t("common.edit")}
-                        </button>
-                        {userCanDelete && (
+                    // ✅ ترجمة نوع العميل
+                    let typeLabel = "-";
+                    if (client.type === 'clothes') typeLabel = `👕 ${t("cli.typeClothes")}`;
+                    else if (client.type === 'shoes') typeLabel = `👟 ${t("cli.typeShoes")}`;
+                    else if (client.type === 'other') typeLabel = `📦 ${t("cli.typeOther")}`;
+
+                    return (
+                      <tr key={client.id}>
+                        <td>{start + i + 1}</td>
+                        <td>{client.name}</td>
+                        {isClothing && <td>{typeLabel}</td>}
+                        <td>{client.email || "-"}</td>
+                        <td>{client.phone || "-"}</td>
+                        <td>{companyName}</td>
+                        <td>
                           <button
-                            onClick={() => deleteClient(client.id)}
-                            className="btn-danger"
+                            onClick={() => openEditModal(client)}
+                            className="btn-primary"
+                            style={{
+                              marginLeft: "8px",
+                              padding: "6px 14px",
+                              fontSize: "13px",
+                            }}
                           >
-                            <i className="fas fa-trash"></i> {t("common.delete")}
+                            <i className="fas fa-edit"></i> {t("common.edit")}
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                          {userCanDelete && (
+                            <button
+                              onClick={() => deleteClient(client.id)}
+                              className="btn-danger"
+                            >
+                              <i className="fas fa-trash"></i> {t("common.delete")}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          />
         </div>
       </div>
 

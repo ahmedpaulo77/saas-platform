@@ -1,4 +1,4 @@
-// src/pages/admin/SuperAdminDashboard.js - تصميم احترافي (بدون اشتراكات)
+// src/pages/admin/SuperAdminDashboard.js
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -20,27 +20,61 @@ export default function SuperAdminDashboard() {
     total: 0,
     active: 0,
     inactive: 0,
+    totalRevenue: 0, // إجمالي إيرادات المنصة
   });
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    fetchCompanies();
+    fetchCompaniesAndRevenue();
   }, []);
 
-  async function fetchCompanies() {
+  async function fetchCompaniesAndRevenue() {
     try {
+      // 1. جلب الشركات
       const snap = await getDocs(collection(db, "companies"));
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const companiesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // 2. جلب جميع الفواتير للحصول على الإيرادات
+      const invoicesSnap = await getDocs(collection(db, "invoices"));
+      const invoices = invoicesSnap.docs.map((d) => d.data());
+
+      // خريطة لتجميع الإيرادات لكل شركة
+      const revenuePerCompany = {};
+      let platformTotalRevenue = 0;
+
+      invoices.forEach((inv) => {
+        const amount = Number(inv.totalAmount || inv.total || inv.amount || 0);
+        const companyId = inv.companyId;
+
+        if (companyId) {
+          revenuePerCompany[companyId] = (revenuePerCompany[companyId] || 0) + amount;
+        }
+        platformTotalRevenue += amount;
+      });
+
       let active = 0,
         inactive = 0;
-      data.forEach((c) => {
+
+      // 3. دمج إيراد كل شركة مع بياناتها
+      const enrichedCompanies = companiesData.map((c) => {
         if (c.isActive) active++;
         else inactive++;
+
+        return {
+          ...c,
+          revenue: revenuePerCompany[c.id] || 0,
+        };
       });
-      setCompanies(data);
-      setStats({ total: data.length, active, inactive });
+
+      setCompanies(enrichedCompanies);
+      setStats({
+        total: companiesData.length,
+        active,
+        inactive,
+        totalRevenue: platformTotalRevenue,
+      });
     } catch (e) {
-      console.error(e);
+      console.error("Error fetching data:", e);
     } finally {
       setLoading(false);
     }
@@ -50,7 +84,7 @@ export default function SuperAdminDashboard() {
     const newStatus = !currentStatus;
     if (
       !window.confirm(
-        newStatus ? "تفعيل هذه الشركة؟" : "إيقاف تفعيل هذه الشركة؟",
+        newStatus ? "تفعيل هذه الشركة؟" : "إيقاف تفعيل هذه الشركة؟"
       )
     )
       return;
@@ -59,7 +93,7 @@ export default function SuperAdminDashboard() {
         isActive: newStatus,
         updatedAt: new Date().toISOString(),
       });
-      await fetchCompanies();
+      await fetchCompaniesAndRevenue();
     } catch (e) {
       console.error(e);
     }
@@ -69,7 +103,7 @@ export default function SuperAdminDashboard() {
     if (!window.confirm("حذف هذه الشركة نهائياً؟ لا يمكن التراجع.")) return;
     try {
       await deleteDoc(doc(db, "companies", id));
-      await fetchCompanies();
+      await fetchCompaniesAndRevenue();
     } catch (e) {
       console.error(e);
     }
@@ -124,7 +158,7 @@ export default function SuperAdminDashboard() {
               }}
             >
               <span style={{ fontSize: 24 }}>👑</span>
-              لوحة تحكم مدير النظام
+              لوحة تحكم مدير النظام والإيرادات
             </h1>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
               {currentUser?.email}
@@ -144,7 +178,7 @@ export default function SuperAdminDashboard() {
           </span>
         </div>
 
-        {/* Stats */}
+        {/* Stats Row Including Total Revenue */}
         <div className="stats-row">
           <div className="stat-card indigo">
             <div className="stat-icon">
@@ -166,6 +200,16 @@ export default function SuperAdminDashboard() {
             </div>
             <div className="stat-value">{stats.inactive}</div>
             <div className="stat-label">شركة غير نشطة</div>
+          </div>
+          {/* كارت إيرادات المنصة الإجمالية */}
+          <div className="stat-card blue" style={{ borderRight: "4px solid #10b981" }}>
+            <div className="stat-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "#10b981" }}>
+              <i className="fas fa-wallet"></i>
+            </div>
+            <div className="stat-value" style={{ color: "#10b981" }}>
+              {stats.totalRevenue.toLocaleString()} ج.م
+            </div>
+            <div className="stat-label">إجمالي إيرادات المنصة</div>
           </div>
         </div>
 
@@ -194,7 +238,7 @@ export default function SuperAdminDashboard() {
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-list"></i> قائمة الشركات
+              <i className="fas fa-list"></i> قائمة الشركات والإيرادات
             </h3>
             <span className="table-count">{filtered.length} شركة</span>
           </div>
@@ -212,6 +256,7 @@ export default function SuperAdminDashboard() {
                     <th>اسم الشركة</th>
                     <th>البريد الإلكتروني</th>
                     <th>الحالة</th>
+                    <th>إجمالي الإيرادات</th>
                     <th>تاريخ الإنشاء</th>
                     <th>الإجراءات</th>
                   </tr>
@@ -236,6 +281,9 @@ export default function SuperAdminDashboard() {
                         >
                           {company.isActive ? "✓ نشط" : "✗ غير نشط"}
                         </span>
+                      </td>
+                      <td style={{ fontWeight: 700, color: "#10b981" }}>
+                        {company.revenue ? company.revenue.toLocaleString() : 0} ج.م
                       </td>
                       <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                         {company.createdAt

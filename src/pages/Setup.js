@@ -27,16 +27,18 @@ export default function Setup() {
         name: companyName.trim(),
         email: currentUser.email,
         industry: industry,
-        inviteCode: generateInviteCode(companyName.trim()),
+        adminInviteCode: generateInviteCode('ADM'),
+        userInviteCode: generateInviteCode('USR'),
         createdAt: new Date().toISOString(),
         isActive: true,
       });
 
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
+        role: 'admin',
       });
 
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (e) {
       console.error(e);
       setError(t('setup.error'));

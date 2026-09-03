@@ -1,5 +1,8 @@
-// src/pages/About.js - من غير جملة "صُممت خصيصاً..."
-import React from 'react';
+// src/pages/About.js - بيانات التواصل قابلة للتخصيص من سجل الشركة
+import React, { useState, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/common/Sidebar';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -15,13 +18,37 @@ const featuresKeys = [
   { icon: 'fas fa-shield-alt', color: '#14b8a6', bg: '#f0fdfa', titleKey: 'ab.f9.t', descKey: 'ab.f9.d' },
 ];
 
-const contactItems = [
-  { icon: 'fas fa-envelope', labelKey: 'ab.email', value: 'p638599@gmail.com', color: '#6366f1' },
-  { icon: 'fas fa-phone', labelKey: 'ab.phone', value: '01220811060', color: '#10b981' },
-];
-
 export default function About() {
   const { t } = useLanguage();
+  const { userCompanyId } = useAuth();
+  const [contact, setContact] = useState({ email: '', phone: '', name: '' });
+
+  useEffect(() => {
+    let active = true;
+    async function loadContact() {
+      if (!userCompanyId) return;
+      try {
+        const snap = await getDoc(doc(db, 'companies', userCompanyId));
+        if (active && snap.exists()) {
+          const d = snap.data();
+          setContact({
+            email: d.contactEmail || '',
+            phone: d.contactPhone || '',
+            name: d.contactName || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error loading contact info:', err);
+      }
+    }
+    loadContact();
+    return () => { active = false; };
+  }, [userCompanyId]);
+
+  const contactItems = [
+    { icon: 'fas fa-envelope', labelKey: 'ab.email', value: contact.email || 'p638599@gmail.com', color: '#6366f1' },
+    { icon: 'fas fa-phone', labelKey: 'ab.phone', value: contact.phone || '01220811060', color: '#10b981' },
+  ];
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
