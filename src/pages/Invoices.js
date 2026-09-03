@@ -1,13 +1,13 @@
-// src/pages/Invoices.js - مع حساب تلقائي للسعر ودعم createdBy
-import React, { useState, useEffect, useCallback } from "react";
+// src/pages/Invoices.js - مع Server-side Pagination و دعم المجالات الخدمية
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
   addDoc,
-  getDocs,
   deleteDoc,
   doc,
   updateDoc,
   getDoc,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -15,18 +15,23 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { useLanguage } from "../i18n/LanguageContext";
+import { getAvailableModules } from "../utils/modules";
+import { logActivity } from "../utils/auditLogger";
 import AutocompleteInput from "../components/common/AutocompleteInput";
-import Pagination from "../components/common/Pagination";
+import Pagination from "../components/common/PaginationV2";
+import { useFirestorePagination } from "../hooks/useFirestorePagination";
+const PAGE_SIZE = 25;
 
 export default function Invoices() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
-  const [invoices, setInvoices] = useState([]);
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
+  const hasInventory = getAvailableModules(userIndustry, userRole).has('inventory');
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [newInvoice, setNewInvoice] = useState({
@@ -57,27 +62,34 @@ export default function Invoices() {
     }
     return 0;
   };
-  const fetchInvoices = useCallback(async () => {
-    // ✅ تأكد من وجود userCompanyId قبل جلب البيانات
-    if (!userCompanyId) {
-      setInvoices([]);
-      setLoading(false);
-      return;
-    }
 
-    try {
-      const snap = await getDocs(
-        getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)
-      );
-      const invoicesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setInvoices(invoicesData);
-      setLoading(false);
-    } catch (e) {
-      console.error(e);
-      setLoading(false);
+  // Build filters for Firestore query - useMemo لضمان استقرار المرجع
+  const filters = useMemo(() => {
+    const f = [];
+    if (filterStatus !== "all") {
+      f.push(['status', '==', filterStatus]);
     }
-  }, [userRole, userCompanyId, currentUser?.uid]);
+    return f;
+  }, [filterStatus]);
 
+  // Server-side pagination hook
+  const {
+    data: invoices,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    loadMore,
+    reset: resetPagination,
+  } = useFirestorePagination('invoices', userRole, userCompanyId, currentUser?.uid, {
+    pageSize: PAGE_SIZE,
+    orderByField: 'createdAt',
+    orderDirection: 'desc',
+    filters,
+    enabled: !!userCompanyId,
+  });
+
+  // Fetch clients (needed for autocomplete - small dataset, client-side OK)
   const fetchClients = useCallback(async () => {
     if (!userCompanyId) return;
     try {
@@ -94,8 +106,9 @@ export default function Invoices() {
     }
   }, [userRole, userCompanyId, currentUser?.uid]);
 
+  // Fetch products (needed for autocomplete)
   const fetchProducts = useCallback(async () => {
-    if (!userCompanyId) return;
+    if (!userCompanyId || !hasInventory) return;
     try {
       const snap = await getDocs(
         getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)
@@ -104,11 +117,33 @@ export default function Invoices() {
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId, currentUser?.uid]);
+  }, [userRole, userCompanyId, currentUser?.uid, hasInventory]);
 
   useEffect(() => {
-    Promise.all([fetchInvoices(), fetchClients(), fetchProducts()]);
-  }, [fetchInvoices, fetchClients, fetchProducts]);
+    fetchClients();
+    fetchProducts();
+  }, [fetchClients, fetchProducts]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    resetPagination();
+  }, [filterStatus, resetPagination]);
+
+  // Client-side search filter (on loaded data)
+  const filteredInvoices = useMemo(() => {
+    if (!searchTerm.trim()) return invoices;
+    const term = searchTerm.toLowerCase();
+    return invoices.filter((inv) => {
+      const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
+      const productName = products.find((p) => p.id === inv.productId)?.name || "";
+      return (
+        clientName.toLowerCase().includes(term) ||
+        productName.toLowerCase().includes(term) ||
+        String(inv.amount).includes(term) ||
+        (inv.description || "").toLowerCase().includes(term)
+      );
+    });
+  }, [invoices, searchTerm, clients, products]);
 
   async function addInvoice(e) {
     e.preventDefault();
@@ -116,7 +151,7 @@ export default function Invoices() {
     setSubmitting(true);
     try {
       // ✅ خصم من المخزون بس لو اتاختار منتج
-      if (newInvoice.productId) {
+      if (hasInventory && newInvoice.productId) {
         const productRef = doc(db, "inventory", newInvoice.productId);
         const productDoc = await getDoc(productRef);
         if (productDoc.exists()) {
@@ -134,16 +169,26 @@ export default function Invoices() {
       }
 
       const amount = parseFloat(newInvoice.amount) || 0;
-
-      await addDoc(collection(db, "invoices"), {
+      const invoiceData = {
         ...newInvoice,
         companyId: userCompanyId,
-        createdBy: currentUser?.uid, // ✅ إضافة createdBy
+        createdBy: currentUser?.uid,
         amount: amount,
-        quantity: parseFloat(newInvoice.quantity) || 0,
+        quantity: hasInventory ? (parseFloat(newInvoice.quantity) || 0) : 0,
         date: new Date().toISOString(),
         dueDate: newInvoice.dueDate || null,
         createdAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(collection(db, "invoices"), invoiceData);
+
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'invoices',
+        itemId: docRef.id,
+        details: `Created invoice for client ${newInvoice.clientId}, amount ${amount}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
       setNewInvoice({
@@ -155,7 +200,7 @@ export default function Invoices() {
         description: "",
         dueDate: "",
       });
-      await Promise.all([fetchInvoices(), fetchProducts()]);
+      await Promise.all([resetPagination(), fetchProducts()]);
     } catch (e) {
       console.error(e);
       alert(t("common.errorGeneric"));
@@ -174,7 +219,17 @@ export default function Invoices() {
         description: editingInvoice.description || "",
         dueDate: editingInvoice.dueDate || null,
       });
-      await fetchInvoices();
+
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'invoices',
+        itemId: editingInvoice.id,
+        details: `Updated invoice amount to ${amount}, status to ${editingInvoice.status}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
+      await resetPagination();
       setShowEditModal(false);
     } catch (e) {
       console.error(e);
@@ -183,8 +238,22 @@ export default function Invoices() {
 
   async function deleteInvoice(id) {
     if (!window.confirm(t("common.confirmDelete"))) return;
-    await deleteDoc(doc(db, "invoices", id));
-    await fetchInvoices();
+    try {
+      await deleteDoc(doc(db, "invoices", id));
+
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'invoices',
+        itemId: id,
+        details: `Deleted invoice`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
+      await resetPagination();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   // تسجيل دفعة جزئية أو كاملة
@@ -212,7 +281,17 @@ export default function Invoices() {
         paidAmount: newPaid,
         status: isFullyPaid ? "paid" : payingInvoice.status,
       });
-      await fetchInvoices();
+
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'invoices',
+        itemId: payingInvoice.id,
+        details: `Recorded payment of ${amount}, new paid total ${newPaid}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
+      await resetPagination();
       setShowPayModal(false);
       setPayAmount("");
       setPayingInvoice(null);
@@ -235,18 +314,17 @@ export default function Invoices() {
   // ✅ التحقق من صلاحية الحذف
   const userCanDelete = canDelete(userRole);
 
-  // الإيراد الحقيقي = المبالغ المدفوعة فقط
-  const totalRevenue = invoices.reduce((sum, inv) => {
+  // الإحصائيات على البيانات المحملة (للصفحة الأولى فقط - تقديرية)
+  const totalRevenue = filteredInvoices.reduce((sum, inv) => {
     if (inv.status === "paid") {
       return sum + (parseFloat(inv.amount) || 0);
     }
     return sum + (parseFloat(inv.paidAmount) || 0);
   }, 0);
 
-  const paidCount = invoices.filter((i) => i.status === "paid").length;
-  const pendingCount = invoices.filter((i) => i.status === "pending").length;
-    // إجمالي المبالغ المتأخرة (المتبقي من الفواتير Overdue بس)
-  const totalOverdue = invoices.reduce((sum, inv) => {
+  const paidCount = filteredInvoices.filter((i) => i.status === "paid").length;
+  const pendingCount = filteredInvoices.filter((i) => i.status === "pending").length;
+  const totalOverdue = filteredInvoices.reduce((sum, inv) => {
     if (inv.status === "overdue") {
       const total = parseFloat(inv.amount) || 0;
       const paid = parseFloat(inv.paidAmount) || 0;
@@ -254,16 +332,6 @@ export default function Invoices() {
     }
     return sum;
   }, 0);
-
-  const filtered = invoices.filter((inv) => {
-    const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
-    const matchSearch =
-      clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(inv.amount).includes(searchTerm) ||
-      (inv.description || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = filterStatus === "all" || inv.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
 
   if (loading)
     return (
@@ -296,51 +364,81 @@ export default function Invoices() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div
-          className="stats-row"
-          style={{ gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))" }}
-        >
-          <div className="stat-card amber">
-            <div className="stat-icon">
-              <i className="fas fa-file-invoice"></i>
-            </div>
-            <div className="stat-value">{invoices.length}</div>
-            <div className="stat-label">{t("in.statTotal")}</div>
+        {/* ✅ رسالة خطأ لو فشل تحميل الفواتير من السيرفر */}
+        {error && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#dc2626",
+              padding: "12px 16px",
+              borderRadius: 10,
+              marginBottom: 16,
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <i className="fas fa-exclamation-circle"></i>
+            {error.message || t("common.errorGeneric")}
           </div>
-          <div className="stat-card green">
-            <div className="stat-icon">
-              <i className="fas fa-check-circle"></i>
+        )}
+
+        {/* Stats - تظهر فقط للأدمن */}
+        {isAdmin ? (
+          <div
+            className="stats-row"
+            style={{ gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))" }}
+          >
+            <div className="stat-card amber">
+              <div className="stat-icon">
+                <i className="fas fa-file-invoice"></i>
+              </div>
+              <div className="stat-value">{filteredInvoices.length}</div>
+              <div className="stat-label">{t("in.statTotal")}</div>
             </div>
-            <div className="stat-value">{paidCount}</div>
-            <div className="stat-label">{t("in.statPaid")}</div>
+            <div className="stat-card green">
+              <div className="stat-icon">
+                <i className="fas fa-check-circle"></i>
+              </div>
+              <div className="stat-value">{paidCount}</div>
+              <div className="stat-label">{t("in.statPaid")}</div>
+            </div>
+            <div className="stat-card indigo">
+              <div className="stat-icon">
+                <i className="fas fa-clock"></i>
+              </div>
+              <div className="stat-value">{pendingCount}</div>
+              <div className="stat-label">{t("in.statPending")}</div>
+            </div>
+            <div className="stat-card cyan">
+              <div className="stat-icon">
+                <i className="fas fa-money-bill-wave"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 20 }}>
+                {totalRevenue.toLocaleString()}
+              </div>
+              <div className="stat-label">{t("in.statRevenue")}</div>
+            </div>
+            <div className="stat-card red">
+              <div className="stat-icon">
+                <i className="fas fa-exclamation-triangle"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 20 }}>
+                {totalOverdue.toLocaleString()}
+              </div>
+              <div className="stat-label">{t("in.statOverdueAmount")}</div>
+            </div>
           </div>
-          <div className="stat-card indigo">
-            <div className="stat-icon">
-              <i className="fas fa-clock"></i>
-            </div>
-            <div className="stat-value">{pendingCount}</div>
-            <div className="stat-label">{t("in.statPending")}</div>
+        ) : (
+          <div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}>
+            <i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i>
+            <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
+              {t("in.statsAdminOnly")}
+            </p>
           </div>
-                   <div className="stat-card cyan">
-            <div className="stat-icon">
-              <i className="fas fa-money-bill-wave"></i>
-            </div>
-            <div className="stat-value" style={{ fontSize: 20 }}>
-              {totalRevenue.toLocaleString()}
-            </div>
-            <div className="stat-label">{t("in.statRevenue")}</div>
-          </div>
-          <div className="stat-card red">
-            <div className="stat-icon">
-              <i className="fas fa-exclamation-triangle"></i>
-            </div>
-            <div className="stat-value" style={{ fontSize: 20 }}>
-              {totalOverdue.toLocaleString()}
-            </div>
-            <div className="stat-label">{t("in.statOverdueAmount")}</div>
-          </div>
-        </div>
+        )}
 
         {/* Add Form */}
         <div className="form-card">
@@ -370,31 +468,33 @@ export default function Invoices() {
                   required
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("in.productOpt")}</label>
-                <AutocompleteInput
-                  items={products.map(p => ({
-                    id: p.id,
-                    label: p.name,
-                    sublabel: `${t("currency")} ${p.price || 0} — ${p.quantity || 0} ${t("in.remaining")}`,
-                  }))}
-                  value={newInvoice.productId}
-                  onChange={(productId) => {
-                    const numQty = parseFloat(newInvoice.quantity);
-                    const amount = !isNaN(numQty) && numQty > 0
-                      ? calculateAmount(productId, numQty)
-                      : 0;
-                    setNewInvoice({
-                      ...newInvoice,
-                      productId,
-                      amount: amount > 0 ? amount.toString() : newInvoice.amount,
-                    });
-                  }}
-                  placeholder={t("in.chooseProduct")}
-                />
-              </div>
+              {hasInventory && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>{t("in.productOpt")}</label>
+                  <AutocompleteInput
+                    items={products.map(p => ({
+                      id: p.id,
+                      label: p.name,
+                      sublabel: `${t("currency")} ${p.price || 0} — ${p.quantity || 0} ${t("in.remaining")}`,
+                    }))}
+                    value={newInvoice.productId}
+                    onChange={(productId) => {
+                      const numQty = parseFloat(newInvoice.quantity);
+                      const amount = !isNaN(numQty) && numQty > 0
+                        ? calculateAmount(productId, numQty)
+                        : 0;
+                      setNewInvoice({
+                        ...newInvoice,
+                        productId,
+                        amount: amount > 0 ? amount.toString() : newInvoice.amount,
+                      });
+                    }}
+                    placeholder={t("in.chooseProduct")}
+                  />
+                </div>
+              )}
               {/* ✅ الكمية تظهر بس لو اتاختار منتج */}
-              {newInvoice.productId && (
+              {hasInventory && newInvoice.productId && (
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>{t("in.qtyReq")}</label>
                   <input
@@ -516,13 +616,17 @@ export default function Invoices() {
             <h3>
               <i className="fas fa-list"></i> {t("in.list")}
             </h3>
-            <span className="table-count">{filtered.length} {t("in.invoices")}</span>
+            <span className="table-count">{filteredInvoices.length} {t("in.invoices")}</span>
           </div>
           <div className="table-wrapper">
             <Pagination
-              data={filtered}
-              pageSize={20}
-              resetKey={searchTerm + filterStatus}
+              data={filteredInvoices}
+              loading={loading}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              onLoadMore={loadMore}
+              onRefresh={resetPagination}
+              pageSize={PAGE_SIZE}
               empty={
                 <div className="table-empty">
                   <i className="fas fa-file-invoice"></i>
@@ -533,14 +637,14 @@ export default function Invoices() {
                   </p>
                 </div>
               }
-              render={(pageItems, total, start) => (
+              render={(pageItems) => (
                 <table>
                   <thead>
                     <tr>
                       <th>#</th>
                       <th>{t("in.client")}</th>
-                      <th>{t("in.product")}</th>
-                      <th>{t("common.quantity")}</th>
+                      {hasInventory && <th>{t("in.product")}</th>}
+                      {hasInventory && <th>{t("common.quantity")}</th>}
                       <th>{t("common.amount")}</th>
                       <th>{t("in.paid")}</th>
                       <th>{t("in.remaining")}</th>
@@ -564,11 +668,11 @@ export default function Invoices() {
                           <td
                             style={{ color: "var(--gray-400)", fontWeight: 600 }}
                           >
-                            {start + i + 1}
+                            {i + 1}
                           </td>
                           <td style={{ fontWeight: 600 }}>{clientName}</td>
-                          <td>{productName}</td>
-                          <td>{inv.quantity || 1}</td>
+                          {hasInventory && <td>{productName}</td>}
+                          {hasInventory && <td>{inv.quantity || 1}</td>}
                           <td
                             style={{ fontWeight: 700, color: "var(--gray-800)" }}
                           >
@@ -587,8 +691,8 @@ export default function Invoices() {
                               {inv.status === "paid"
                                 ? t("in.statusPaid")
                                 : inv.status === "pending"
-                                  ? t("in.statusWait")
-                                  : t("in.statusOver")}
+                                ? t("in.statusWait")
+                                : t("in.statusOver")}
                             </span>
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
@@ -753,8 +857,8 @@ export default function Invoices() {
                 </button>
               </div>
             </form>
-          </div>
         </div>
+      </div>
       )}
 
       {/* Pay Modal */}
@@ -813,7 +917,7 @@ export default function Invoices() {
                   />
                 </div>
               </div>
-              <div className="modal-footer">
+            <div className="modal-footer">
                 <button
                   type="button"
                   className="btn-secondary"

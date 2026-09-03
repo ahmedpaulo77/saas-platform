@@ -7,11 +7,13 @@ import {
   updateDoc,
   deleteDoc,
   onSnapshot,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin, generateInviteCode } from "../utils/companyQuery";
 import { INDUSTRIES, INDUSTRY_LABELS } from "../utils/modules";
+import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -77,7 +79,8 @@ export default function Companies() {
       const docRef = await addDoc(collection(db, "companies"), {
         ...newCompany,
         industry: newCompany.industry || "general",
-        inviteCode: generateInviteCode(newCompany.name),
+        adminInviteCode: generateInviteCode('ADMIN_' + newCompany.name),
+        userInviteCode: generateInviteCode('USER_' + newCompany.name),
         createdAt: new Date().toISOString(),
         isActive: true,
       });
@@ -87,6 +90,15 @@ export default function Companies() {
           companyId: docRef.id,
         });
       }
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'companies',
+        itemId: docRef.id,
+        details: `Created company: ${newCompany.name} (${newCompany.industry || 'general'})`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
 
       setNewCompany({
         name: "",
@@ -124,6 +136,16 @@ export default function Companies() {
         email: editingCompany.email,
         industry: editingCompany.industry || "general",
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'companies',
+        itemId: editingCompany.id,
+        details: `Updated company: ${editingCompany.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       closeEditModal();
       alert(t("co.updOk"));
     } catch (error) {
@@ -135,7 +157,21 @@ export default function Companies() {
   async function deleteCompany(id) {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
+      // Get company name before deletion for audit log
+      const companyDoc = await getDoc(doc(db, "companies", id));
+      const companyName = companyDoc.exists() ? companyDoc.data().name : 'Unknown';
+      
       await deleteDoc(doc(db, "companies", id));
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'companies',
+        itemId: id,
+        details: `Deleted company: ${companyName}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       alert(t("co.delOk"));
     } catch (error) {
       console.error("Error deleting company:", error);

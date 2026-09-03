@@ -12,6 +12,7 @@ import {
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery";
+import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import Pagination from "../components/common/Pagination";
@@ -87,7 +88,7 @@ export default function Clients() {
     }
 
     try {
-      await addDoc(collection(db, "clients"), {
+      const docRef = await addDoc(collection(db, "clients"), {
         name: newClient.name,
         email: newClient.email || "",
         phone: newClient.phone || "",
@@ -96,6 +97,16 @@ export default function Clients() {
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'clients',
+        itemId: docRef.id,
+        details: `Created client: ${newClient.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
       setNewClient({
         name: "",
         email: "",
@@ -137,6 +148,16 @@ export default function Clients() {
         companyId: editingClient.companyId,
         type: editingClient.type || "",
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'clients',
+        itemId: editingClient.id,
+        details: `Updated client: ${editingClient.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchClients();
       closeEditModal();
       alert(t("cli.updOk"));
@@ -149,7 +170,21 @@ export default function Clients() {
   async function deleteClient(id) {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
+      // Get client name before deletion for audit log
+      const clientDoc = await getDoc(doc(db, "clients", id));
+      const clientName = clientDoc.exists() ? clientDoc.data().name : 'Unknown';
+      
       await deleteDoc(doc(db, "clients", id));
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'clients',
+        itemId: id,
+        details: `Deleted client: ${clientName}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchClients();
       alert(t("cli.delOk"));
     } catch (error) {

@@ -138,6 +138,12 @@ export default function Sidebar() {
               </span>
               <span style={{ color: '#fcd34d' }}>{t('nav.manageUsers')}</span>
             </Link>
+            <Link to="/audit-log" className={isActive('/audit-log') ? 'active' : ''} onClick={closeSidebar}>
+              <span className="icon" style={{ background: 'rgba(99,102,241,0.15)' }}>
+                <i className="fas fa-history" style={{ color: '#6366f1' }}></i>
+              </span>
+              <span style={{ color: '#a5b4fc' }}>{t('audit.title')}</span>
+            </Link>
           </>
         )}
       </nav>

@@ -7,10 +7,12 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
+import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -141,7 +143,7 @@ export default function Inventory() {
     }
 
     try {
-      await addDoc(collection(db, "inventory"), {
+      const docRef = await addDoc(collection(db, "inventory"), {
         ...newProduct,
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
@@ -155,6 +157,16 @@ export default function Inventory() {
         expiryDate: newProduct.expiryDate || "",
         createdAt: new Date().toISOString(),
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'inventory',
+        itemId: docRef.id,
+        details: `Created product: ${newProduct.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
       setNewProduct({
         name: "",
         category: "",
@@ -206,6 +218,16 @@ export default function Inventory() {
         brand: isClothing ? (editingProduct.brand || "") : "",
         expiryDate: editingProduct.expiryDate || "",
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'inventory',
+        itemId: editingProduct.id,
+        details: `Updated product: ${editingProduct.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchProducts();
       closeEditModal();
       alert(t("inv.updOk"));
@@ -218,7 +240,21 @@ export default function Inventory() {
   async function deleteProduct(id) {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
+      // Get product name before deletion for audit log
+      const productDoc = await getDoc(doc(db, "inventory", id));
+      const productName = productDoc.exists() ? productDoc.data().name : 'Unknown';
+      
       await deleteDoc(doc(db, "inventory", id));
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'inventory',
+        itemId: id,
+        details: `Deleted product: ${productName}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchProducts();
       alert(t("inv.delOk"));
     } catch (error) {

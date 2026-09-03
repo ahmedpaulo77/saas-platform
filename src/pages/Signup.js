@@ -21,7 +21,7 @@ export default function Signup() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signupAuth, createUserDoc } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -51,30 +51,39 @@ export default function Signup() {
     setLoading(true);
 
     try {
+      // ============================================================
+      // ✅ خطوة 1: إنشاء حساب Auth أولاً — لازم قبل أي عملية Firestore
+      // عشان request.auth يبقى موجود وقت التحقق من الـ Security Rules
+      // ============================================================
+      const user = await signupAuth(formData.email, formData.password);
+
+      // ============================================================
+      // ✅ خطوة 2: دلوقتي المستخدم مسجل دخول فعلياً — نقدر نبحث
+      // عن الشركة بالكود أو ننشئ شركة جديدة من غير ما الـ Rules ترفض
+      // ============================================================
       let companyId = null;
       let role = 'admin';
       let joinCompanyName = '';
 
       if (formData.inviteCode.trim()) {
         const code = formData.inviteCode.trim().toUpperCase();
-        
-        // ✅ 1- جرب كود Admin أولاً
+
+        // جرب كود Admin أولاً
         let companiesSnap = await getDocs(
           query(collection(db, 'companies'), where('adminInviteCode', '==', code))
         );
 
         if (!companiesSnap.empty) {
-          // ✅ ده كود Admin
           role = 'admin';
           const companyDoc = companiesSnap.docs[0];
           companyId = companyDoc.id;
           joinCompanyName = companyDoc.data().name || '';
         } else {
-          // ✅ 2- جرب كود User
+          // جرب كود User
           companiesSnap = await getDocs(
             query(collection(db, 'companies'), where('userInviteCode', '==', code))
           );
-          
+
           if (!companiesSnap.empty) {
             role = 'user';
             const companyDoc = companiesSnap.docs[0];
@@ -87,7 +96,7 @@ export default function Signup() {
           }
         }
       } else {
-        // ✅ إنشاء شركة جديدة (أول مدير)
+        // إنشاء شركة جديدة (أول مدير)
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
@@ -100,10 +109,14 @@ export default function Signup() {
         companyId = companyRef.id;
       }
 
-      await signup(formData.email, formData.password, role, companyId);
+      // ============================================================
+      // ✅ خطوة 3: كتابة مستند المستخدم بعد ما بقى عندنا الـ companyId
+      // الصحيح والـ role الصحيح
+      // ============================================================
+      await createUserDoc(user.uid, user.email, role, companyId);
 
       alert(role === 'admin'
-        ? t('signup.okCreate') 
+        ? t('signup.okCreate')
         : t('signup.okJoin', { name: joinCompanyName }));
       navigate('/dashboard');
     } catch (error) {

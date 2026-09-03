@@ -25,6 +25,7 @@ import Profile from './pages/Profile';
 
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import ManageUsers from './pages/admin/ManageUsers';
+import AuditLog from './pages/AuditLog';
 import MyCompany from './pages/MyCompany';
 import Sellers from './pages/Sellers';
 import Buyers from './pages/Buyers';
@@ -90,6 +91,7 @@ function AppRoutes() {
       <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />
 
       <Route path="/my-company"   element={<ProtectedRoute><MyCompany /></ProtectedRoute>} />
+      <Route path="/audit-log"    element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
 
       {/* Super Admin */}
       <Route path="/admin"       element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />

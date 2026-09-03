@@ -7,11 +7,13 @@ import {
   updateDoc,
   deleteDoc,
   setDoc,
+  getDoc,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin } from "../utils/companyQuery";
+import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
@@ -88,6 +90,15 @@ export default function Users() {
         isActive: true,
         createdAt: new Date().toISOString(),
       });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'users',
+        itemId: user.uid,
+        details: `Created user: ${user.email} (${role})`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
 
       setNewUser({ email: "", password: "", role: "user" });
       setShowAddModal(false);
@@ -115,6 +126,16 @@ export default function Users() {
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { role: newRole });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `Updated user role to ${newRole}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchUsers();
       alert(t("success.roleUpdated"));
     } catch (error) {
@@ -132,6 +153,16 @@ export default function Users() {
     try {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { isActive: newStatus });
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `${newStatus ? 'Activated' : 'Deactivated'} user`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchUsers();
       alert(t("success.statusChanged", { action }));
     } catch (error) {
@@ -144,7 +175,21 @@ export default function Users() {
     if (!window.confirm(t("users.confirmDelete"))) return;
 
     try {
+      // Get user email before deletion for audit log
+      const userDoc = await getDoc(doc(db, "users", userId));
+      const userEmail = userDoc.exists() ? userDoc.data().email : 'Unknown';
+      
       await deleteDoc(doc(db, "users", userId));
+      
+      // ✅ Audit Log
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `Deleted user: ${userEmail}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      
       await fetchUsers();
       alert(t("success.userDeleted"));
     } catch (error) {

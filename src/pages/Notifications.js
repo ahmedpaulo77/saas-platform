@@ -5,15 +5,17 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
-import { requestNotificationPermission } from "../firebase/config";
+import { initializePushNotifications, onForegroundMessage } from "../firebase/config";
 
 export default function Notifications() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-const [, setPushStatus] = useState("");
+const [pushStatus, setPushStatus] = useState("");
+const [pushSupported, setPushSupported] = useState(false);
+
   const fetchNotifications = useCallback(async () => {
     try {
       const list = [];
@@ -90,9 +92,35 @@ const [, setPushStatus] = useState("");
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Check push support on mount
+  useEffect(() => {
+    const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'Notification' in window;
+    setPushSupported(supported);
+  }, []);
+
+  // Listen for foreground push messages
+  useEffect(() => {
+    const unsubscribe = onForegroundMessage((payload) => {
+      console.log('Push notification received:', payload);
+      // Add to notifications list
+      if (payload.notification) {
+        const newNotif = {
+          id: `push-${Date.now()}`,
+          type: 'info',
+          icon: 'fas fa-bell',
+          title: payload.notification.title,
+          message: payload.notification.body,
+          date: new Date().toISOString(),
+        };
+        setNotifications(prev => [newNotif, ...prev]);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   const handleEnablePush = async () => {
-    setPushStatus("jari...");
-    const token = await requestNotificationPermission();
+    setPushStatus("جاري التفعيل...");
+    const token = await initializePushNotifications(currentUser?.uid, userCompanyId);
     if (token) {
       alert("تم تفعيل إشعارات Push بنجاح! ستصلك التنبيهات في الخلفية حتى عند إغلاق التطبيق.");
       setPushStatus("active");
@@ -137,15 +165,31 @@ const [, setPushStatus] = useState("");
             <p className="subtitle">{t("nt.subtitle")}</p>
           </div>
           
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              onClick={handleEnablePush}
-              className="btn-primary"
-              style={{ background: "#10b981", borderColor: "#10b981" }}
-            >
-              <i className="fas fa-satellite-dish" style={{ marginLeft: 6 }}></i>
-              تفعيل إشعارات Push في الخلفية
-            </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {pushSupported && (
+              <>
+                <button
+                  onClick={handleEnablePush}
+                  className="btn-primary"
+                  style={{ background: pushStatus === 'active' ? '#10b981' : '#6366f1', borderColor: pushStatus === 'active' ? '#10b981' : '#6366f1' }}
+                  disabled={pushStatus === 'جاري التفعيل...'}
+                >
+                  <i className="fas fa-satellite-dish" style={{ marginLeft: 6 }}></i>
+                  {pushStatus === 'active' ? '✅ مفعل' : pushStatus || 'تفعيل إشعارات Push'}
+                </button>
+                {pushStatus && (
+                  <span style={{ fontSize: 12, color: pushStatus === 'active' ? '#10b981' : '#ef4444' }}>
+                    {pushStatus}
+                  </span>
+                )}
+              </>
+            )}
+            {!pushSupported && (
+              <span style={{ color: 'var(--gray-500)', fontSize: 13 }}>
+                <i className="fas fa-exclamation-triangle" style={{ marginLeft: 6 }}></i>
+                المتصفح لا يدعم Push Notifications
+              </span>
+            )}
 
             <button
               onClick={() => {

@@ -46,8 +46,8 @@ export default function About() {
   }, [userCompanyId]);
 
   const contactItems = [
-    { icon: 'fas fa-envelope', labelKey: 'ab.email', value: contact.email || 'p638599@gmail.com', color: '#6366f1' },
-    { icon: 'fas fa-phone', labelKey: 'ab.phone', value: contact.phone || '01220811060', color: '#10b981' },
+    { icon: 'fas fa-envelope', labelKey: 'ab.email', value: contact.email || '', color: '#6366f1' },
+    { icon: 'fas fa-phone', labelKey: 'ab.phone', value: contact.phone || '', color: '#10b981' },
   ];
 
   return (

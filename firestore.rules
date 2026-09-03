@@ -44,8 +44,7 @@ service cloud.firestore {
     // ============================================================
     match /users/{userId} {
       // المستخدم يقرأ نفسه بس — السوبر أدمن يقرأ الكل
-      allow get:  if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
-      allow list: if isSuperAdmin();
+      allow get, list:  if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
 
       // المستخدم يعمل مستنده بس عند التسجيل، وممنوع يرفع نفسه سوبر أدمن
       allow create: if isLoggedIn() && request.auth.uid == userId &&
