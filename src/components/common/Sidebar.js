@@ -1,7 +1,8 @@
-// src/components/common/Sidebar.js - نسخة محسنة مع Messages
+// src/components/common/Sidebar.js - نسخة محسنة مع Messages + Badge للإشعارات
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationsContext';
 import { getAvailableModules } from '../../utils/modules';
 import LanguageToggle from './LanguageToggle';
 import { useLanguage } from '../../i18n/LanguageContext';
@@ -10,6 +11,8 @@ import './Sidebar.css';
 export default function Sidebar() {
   const { t } = useLanguage();
   const { userRole, currentUser, userIndustry, logout } = useAuth();
+  // ✅ عدد التنبيهات غير المقروءة - جاي من الـ Context المشترك
+  const { unreadCount } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -39,7 +42,7 @@ export default function Sidebar() {
     { to: '/users', icon: 'fas fa-users', label: t('nav.users'), module: 'users' },
     { to: '/reports', icon: 'fas fa-chart-pie', label: t('nav.reports'), module: 'reports' },
     { to: '/aging', icon: 'fas fa-clock', label: t('nav.aging'), module: 'aging' },
-    { to: '/notifications', icon: 'fas fa-bell', label: t('nav.notifications'), module: 'notifications' },
+    { to: '/notifications', icon: 'fas fa-bell', label: t('nav.notifications'), module: 'notifications', badge: unreadCount },
 
     { to: '/profile', icon: 'fas fa-user-circle', label: t('nav.profile'), module: 'profile' },
     { to: '/about', icon: 'fas fa-info-circle', label: t('nav.about'), module: 'about' },
@@ -120,6 +123,27 @@ export default function Sidebar() {
           <Link key={item.to} to={item.to} className={isActive(item.to) ? 'active' : ''} onClick={closeSidebar}>
             <span className="icon"><i className={item.icon}></i></span>
             {item.label}
+            {/* ✅ Badge رقمي - بيظهر بس لو فيه تنبيهات غير مقروءة */}
+            {!!item.badge && (
+              <span
+                style={{
+                  marginRight: 'auto',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 5px',
+                }}
+              >
+                {item.badge > 99 ? '99+' : item.badge}
+              </span>
+            )}
           </Link>
         ))}
 

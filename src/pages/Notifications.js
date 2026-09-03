@@ -1,96 +1,20 @@
 // src/pages/Notifications.js - مع دعم الترجمة وإشعارات Push الحقيقية
-import React, { useState, useEffect, useCallback } from "react";
-import { getDocs } from "firebase/firestore";
+// ✅ الحساب دلوقتي مركزي في NotificationsContext، والصفحة دي بس بتعرض
+// نفس الداتا اللي بيشوفها الـ Sidebar (رقم واحد متطابق في كل مكان)
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
+import { useNotifications } from "../context/NotificationsContext";import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { initializePushNotifications, onForegroundMessage } from "../firebase/config";
 
 export default function Notifications() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, userCompanyId } = useAuth();
+  // ✅ نفس المصدر اللي بيقرا منه الـ Sidebar
+  const { notifications, loading, refresh } = useNotifications();
   const [filter, setFilter] = useState("all");
-const [pushStatus, setPushStatus] = useState("");
-const [pushSupported, setPushSupported] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const list = [];
-
-      const productsSnap = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId)
-      );
-      productsSnap.forEach((d) => {
-        const p = { id: d.id, ...d.data() };
-        if (p.quantity < 5) {
-          list.push({
-            id: `stock-${p.id}`,
-            type: "warning",
-            icon: "fas fa-exclamation-triangle",
-            title: t("nt.stockTitle", { name: p.name }),
-            message: t("nt.stockMsg", { qty: p.quantity }),
-            date: new Date().toISOString(),
-          });
-        }
-      });
-
-      const invoicesSnap = await getDocs(
-        getScopedQuery("invoices", userRole, userCompanyId)
-      );
-      invoicesSnap.forEach((d) => {
-        const inv = { id: d.id, ...d.data() };
-        if (inv.status === "overdue") {
-          list.push({
-            id: `inv-${inv.id}`,
-            type: "danger",
-            icon: "fas fa-file-invoice",
-            title: t("nt.invTitle"),
-            message: t("nt.invMsg", { amount: inv.amount?.toLocaleString() }),
-            date: inv.date || new Date().toISOString(),
-          });
-        }
-      });
-
-      const tasksSnap = await getDocs(
-        getScopedQuery("tasks", userRole, userCompanyId)
-      );
-      tasksSnap.forEach((d) => {
-        const task = { id: d.id, ...d.data() };
-        if (task.dueDate && task.status !== "completed") {
-          const due = new Date(task.dueDate);
-          const diff = Math.ceil((due - new Date()) / 86400000);
-          if (diff <= 3 && diff >= 0) {
-            const when = diff === 0 ? t("nt.taskToday") : t("nt.taskDays", { n: diff });
-            list.push({
-              id: `task-${task.id}`,
-              type: "info",
-              icon: "fas fa-tasks",
-              title: t("nt.taskTitle", { title: task.title }),
-              message: t("nt.taskMsg", {
-                date: due.toLocaleDateString(),
-                when: when,
-              }),
-              date: task.dueDate,
-            });
-          }
-        }
-      });
-
-      list.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setNotifications(list);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [userRole, userCompanyId, t]);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+  const [pushStatus, setPushStatus] = useState("");
+  const [pushSupported, setPushSupported] = useState(false);
 
   // Check push support on mount
   useEffect(() => {
@@ -102,21 +26,14 @@ const [pushSupported, setPushSupported] = useState(false);
   useEffect(() => {
     const unsubscribe = onForegroundMessage((payload) => {
       console.log('Push notification received:', payload);
-      // Add to notifications list
+      // ✅ التنبيه اللحظي (Push) بيتضاف في الوقت الفعلي، لحد ما refresh() الجاي
+      // من الـ Context يجيب النسخة المحدثة من قاعدة البيانات
       if (payload.notification) {
-        const newNotif = {
-          id: `push-${Date.now()}`,
-          type: 'info',
-          icon: 'fas fa-bell',
-          title: payload.notification.title,
-          message: payload.notification.body,
-          date: new Date().toISOString(),
-        };
-        setNotifications(prev => [newNotif, ...prev]);
+        refresh();
       }
     });
     return unsubscribe;
-  }, []);
+  }, [refresh]);
 
   const handleEnablePush = async () => {
     setPushStatus("جاري التفعيل...");
@@ -192,10 +109,7 @@ const [pushSupported, setPushSupported] = useState(false);
             )}
 
             <button
-              onClick={() => {
-                setLoading(true);
-                fetchNotifications();
-              }}
+              onClick={refresh}
               className="btn-secondary"
             >
               <i className="fas fa-sync-alt"></i> {t("common.refresh")}

@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -105,7 +106,12 @@ function App() {
     <LanguageProvider>
       <Router>
         <AuthProvider>
-          <AppRoutes />
+          {/* ✅ NotificationsProvider لازم يكون جوه AuthProvider عشان ياخد
+              userCompanyId و userRole، وبرا AppRoutes عشان Sidebar (اللي
+              بيتعرض جوه أي صفحة) يقدر يقرا unreadCount في أي وقت */}
+          <NotificationsProvider>
+            <AppRoutes />
+          </NotificationsProvider>
         </AuthProvider>
       </Router>
     </LanguageProvider>
