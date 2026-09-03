@@ -1,4 +1,4 @@
-// src/pages/Invoices.js - مع Server-side Pagination و دعم المجالات الخدمية
+// src/pages/Invoices.js - مع Server-side Pagination ودعم المجالات الخدمية (عيادات/عملاء)
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
@@ -27,6 +27,30 @@ export default function Invoices() {
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const hasInventory = getAvailableModules(userIndustry, userRole).has('inventory');
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
+  // ✅ الإصلاح الأساسي: صناعة "clinic" بتستخدم collection اسمها patients
+  // مش clients زي باقي الصناعات. هنا بنحدد اسم الـ collection ولابيل العرض
+  // بناءً على الصناعة، عشان الاستعلام يدور في المكان الصح.
+  const isClinic = userIndustry === 'clinic';
+  const entityCollection = isClinic ? 'patients' : 'clients';
+  const entityLabel = isClinic ? (t('in.patient') || 'المريض') : (t('in.clientLabel') || t('common.client') || 'العميل');
+  const entityLabelReq = isClinic
+    ? (t('in.patientReq') || `${entityLabel} *`)
+    : (t('in.clientReq') || `${entityLabel} *`);
+  const chooseEntityPlaceholder = isClinic
+    ? (t('in.choosePatient') || 'اختر المريض')
+    : (t('in.chooseClient') || 'اختر العميل');
+  const entityColumnLabel = isClinic
+    ? (t('in.patientColumn') || entityLabel)
+    : (t('in.client') || entityLabel);
+
+  // ✅ لابيل المنتج بقى "الدواء" في حالة العيادات، وفاضل "منتج" لغيرها
+  const productLabel = isClinic
+    ? (t('in.medicine') || 'الدواء')
+    : (t('in.productOpt') || 'منتج (اختياري)');
+  const chooseProductPlaceholder = isClinic
+    ? (t('in.chooseMedicine') || 'اختر الدواء')
+    : (t('in.chooseProduct') || 'اختر المنتج');
 
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -89,12 +113,13 @@ export default function Invoices() {
     enabled: !!userCompanyId,
   });
 
-  // Fetch clients (needed for autocomplete - small dataset, client-side OK)
+  // ✅ Fetch clients/patients (needed for autocomplete - small dataset, client-side OK)
+  // بيجيب من entityCollection مش من "clients" ثابتة، عشان العيادات تجيب من patients
   const fetchClients = useCallback(async () => {
     if (!userCompanyId) return;
     try {
       const snap = await getDocs(
-        getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)
+        getScopedQuery(entityCollection, userRole, userCompanyId, currentUser?.uid)
       );
       setClients(snap.docs.map((d) => ({
         id: d.id,
@@ -104,7 +129,7 @@ export default function Invoices() {
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId, currentUser?.uid]);
+  }, [userRole, userCompanyId, currentUser?.uid, entityCollection]);
 
   // Fetch products (needed for autocomplete)
   const fetchProducts = useCallback(async () => {
@@ -187,7 +212,7 @@ export default function Invoices() {
         actionType: 'CREATE',
         collectionName: 'invoices',
         itemId: docRef.id,
-        details: `Created invoice for client ${newInvoice.clientId}, amount ${amount}`,
+        details: `Created invoice for ${entityCollection} ${newInvoice.clientId}, amount ${amount}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
@@ -455,7 +480,7 @@ export default function Invoices() {
               }}
             >
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("in.clientReq")}</label>
+                <label>{entityLabelReq}</label>
                 <AutocompleteInput
                   items={clients.map(c => ({
                     id: c.id,
@@ -464,13 +489,13 @@ export default function Invoices() {
                   }))}
                   value={newInvoice.clientId}
                   onChange={(id) => setNewInvoice({ ...newInvoice, clientId: id })}
-                  placeholder={t("in.chooseClient")}
+                  placeholder={chooseEntityPlaceholder}
                   required
                 />
               </div>
               {hasInventory && (
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>{t("in.productOpt")}</label>
+                  <label>{productLabel}</label>
                   <AutocompleteInput
                     items={products.map(p => ({
                       id: p.id,
@@ -489,7 +514,7 @@ export default function Invoices() {
                         amount: amount > 0 ? amount.toString() : newInvoice.amount,
                       });
                     }}
-                    placeholder={t("in.chooseProduct")}
+                    placeholder={chooseProductPlaceholder}
                   />
                 </div>
               )}
@@ -642,8 +667,8 @@ export default function Invoices() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>{t("in.client")}</th>
-                      {hasInventory && <th>{t("in.product")}</th>}
+                      <th>{entityColumnLabel}</th>
+                      {hasInventory && <th>{isClinic ? (t('in.medicineColumn') || 'الدواء') : (t('in.product') || 'المنتج')}</th>}
                       {hasInventory && <th>{t("common.quantity")}</th>}
                       <th>{t("common.amount")}</th>
                       <th>{t("in.paid")}</th>
@@ -773,7 +798,7 @@ export default function Invoices() {
             <form onSubmit={updateInvoice}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>{t("in.client")}</label>
+                  <label>{entityColumnLabel}</label>
                   <AutocompleteInput
                     items={clients.map(c => ({
                       id: c.id,
@@ -782,7 +807,7 @@ export default function Invoices() {
                     }))}
                     value={editingInvoice.clientId}
                     onChange={(id) => setEditingInvoice({ ...editingInvoice, clientId: id })}
-                    placeholder={t("in.chooseClient")}
+                    placeholder={chooseEntityPlaceholder}
                     required
                   />
                 </div>
