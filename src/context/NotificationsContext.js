@@ -48,7 +48,9 @@ export function NotificationsProvider({ children }) {
 
   // ✅ استماع لحظي على المخزون: تنبيه نقص الكمية + تنبيه قرب/انتهاء الصلاحية
   useEffect(() => {
-    if (!userCompanyId) {
+    // ✅ السوبر أدمن بيدير النظام كله مش شركة واحدة، فمش المفروض يشوف
+    // تنبيهات تشغيلية (مخزون/فواتير/مهام) خاصة بأي شركة بعينها
+    if (!userCompanyId || userRole === 'super_admin') {
       setStockAlerts([]);
       setExpiryAlerts([]);
       setLoadedFlags((f) => ({ ...f, inventory: true }));
@@ -117,7 +119,7 @@ export function NotificationsProvider({ children }) {
 
   // ✅ استماع لحظي على الفواتير: تنبيه فاتورة متأخرة السداد
   useEffect(() => {
-    if (!userCompanyId) {
+    if (!userCompanyId || userRole === 'super_admin') {
       setInvoiceAlerts([]);
       setLoadedFlags((f) => ({ ...f, invoices: true }));
       return;
@@ -155,7 +157,7 @@ export function NotificationsProvider({ children }) {
 
   // ✅ استماع لحظي على المهام: تنبيه مهمة قرب موعدها
   useEffect(() => {
-    if (!userCompanyId) {
+    if (!userCompanyId || userRole === 'super_admin') {
       setTaskAlerts([]);
       setLoadedFlags((f) => ({ ...f, tasks: true }));
       return;
