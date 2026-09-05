@@ -23,6 +23,7 @@ export default function Inventory() {
   // ✅ الحقول الخاصة بالملابس/الأحذية تظهر بس لصناعة clothing
   const isClothing = userIndustry === "clothing";
   const isRestaurant = userIndustry === "restaurant";
+    const isRealEstate = userIndustry === "real_estate";
 
   // ✅ تصنيفات المنيو للمطاعم
   const menuCategories = [
@@ -325,16 +326,15 @@ export default function Inventory() {
       <Sidebar />
       <div className="main-content">
         <h2 style={{ color: "#333", marginBottom: "20px" }}>
-          📦 {t("inv.title")}
-        </h2>
+          {userIndustry === "real_estate" ? "🏠" : "📦"}{" "}
+          {t(userIndustry === "real_estate" ? "inv.title.real_estate" : "inv.title")}        </h2>
 
         <form onSubmit={addProduct} className="form-container">
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {" "}
             <input
               type="text"
-              placeholder={t("inv.phName")}
-              value={newProduct.name}
+              placeholder={isRealEstate ? "اسم العقار / الوحدة" : t("inv.phName")}              value={newProduct.name}
               onChange={(e) =>
                 setNewProduct({ ...newProduct, name: e.target.value })
               }
@@ -362,8 +362,7 @@ export default function Inventory() {
             ) : (
               <input
                 type="text"
-                placeholder={t("inv.phCat")}
-                value={newProduct.category}
+                placeholder={isRealEstate ? "نوع العقار (شقة / فيلا / محل...)" : t("inv.phCat")}                value={newProduct.category}
                 onChange={(e) =>
                   setNewProduct({ ...newProduct, category: e.target.value })
                 }
@@ -371,8 +370,7 @@ export default function Inventory() {
             )}
             <input
               type="number"
-              placeholder={t("inv.phQty")}
-              value={newProduct.quantity}
+              placeholder={isRealEstate ? "عدد الوحدات" : t("inv.phQty")}              value={newProduct.quantity}
               onChange={(e) =>
                 setNewProduct({ ...newProduct, quantity: e.target.value })
               }
@@ -389,8 +387,7 @@ export default function Inventory() {
             />
             <input
               type="text"
-              placeholder={t("inv.phDesc")}
-              value={newProduct.description}
+              placeholder={isRealEstate ? "وصف العقار (الموقع، المساحة، عدد الغرف...)" : t("inv.phDesc")}              value={newProduct.description}
               onChange={(e) =>
                 setNewProduct({ ...newProduct, description: e.target.value })
               }
@@ -489,15 +486,13 @@ export default function Inventory() {
             className="btn-primary"
             style={{ marginTop: 12 }}
           >
-            <i className="fas fa-plus"></i> {t("inv.add")}
-          </button>
+            <i className="fas fa-plus"></i> {isRealEstate ? "إضافة عقار" : t("inv.add")}          </button>
         </form>
 
         <div style={{ marginBottom: "20px", marginTop: 20 }}>
           <input
             type="text"
-            placeholder={t("inv.search")}
-            value={searchTerm}
+            placeholder={isRealEstate ? "🔍 ابحث عن عقار بالاسم أو النوع..." : t("inv.search")}            value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               width: "100%",
@@ -512,22 +507,25 @@ export default function Inventory() {
 
         <div className="table-container">
           <div className="table-header">
-            <h3>{t("inv.list")}</h3>
+            <h3>{isRealEstate ? "قائمة العقارات" : t("inv.list")}</h3>
             <span>
-              {filteredProducts.length} {t("inv.products")}
+              {filteredProducts.length} {isRealEstate ? "عقار" : t("inv.products")}
             </span>
           </div>
           {filteredProducts.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm ? t("common.noResults") : t("inv.empty")}
-            </p>
+              {searchTerm
+                ? t("common.noResults")
+                : isRealEstate
+                ? "لا توجد عقارات مسجلة حتى الآن"
+                : t("inv.empty")}            </p>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>{t("inv.name")}</th>
-                  <th>{t("inv.category")}</th>
+                                    <th>{isRealEstate ? "اسم العقار" : t("inv.name")}</th>
+                  <th>{isRealEstate ? "نوع العقار" : t("inv.category")}</th>
                   {isClothing && (
                     <>
                       <th>النوع</th>
@@ -536,8 +534,7 @@ export default function Inventory() {
                       <th>الماركة</th>
                     </>
                   )}
-                  <th>{t("common.quantity")}</th>
-                  <th>{t("inv.price")}</th>
+                  <th>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</th>                  <th>{t("inv.price")}</th>
                   <th>{t("common.actions")}</th>
                 </tr>
               </thead>
@@ -618,15 +615,15 @@ export default function Inventory() {
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h3>
-                <i className="fas fa-edit"></i> {t("inv.editTitle")}
+                <i className="fas fa-edit"></i> {isRealEstate ? "تعديل بيانات العقار" : t("inv.editTitle")}
               </h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>
                 &times;
               </button>
             </div>
             <form onSubmit={updateProduct}>
-              <div style={styles.formGroup}>
-                <label>{t("inv.name")}</label>
+                            <div style={styles.formGroup}>
+                <label>{isRealEstate ? "اسم العقار" : t("inv.name")}</label>
                 <input
                   type="text"
                   value={editingProduct.name}
@@ -640,8 +637,8 @@ export default function Inventory() {
                   style={styles.input}
                 />
               </div>
-                         <div style={styles.formGroup}>
-                <label>{t("inv.category")}</label>
+              <div style={styles.formGroup}>
+                <label>{isRealEstate ? "نوع العقار" : t("inv.category")}</label>
                 {isRestaurant ? (
                   <select
                     value={editingProduct.category || ""}
@@ -755,7 +752,7 @@ export default function Inventory() {
               )}
 
               <div style={styles.formGroup}>
-                <label>{t("common.quantity")}</label>
+                <label>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</label>
                 <input
                   type="number"
                   value={editingProduct.quantity}
@@ -785,7 +782,7 @@ export default function Inventory() {
                 />
               </div>
               <div style={styles.formGroup}>
-                <label>{t("common.description")}</label>
+                <label>{isRealEstate ? "وصف العقار (الموقع، المساحة، الغرف...)" : t("common.description")}</label>
                 <input
                   type="text"
                   value={editingProduct.description || ""}
@@ -798,8 +795,7 @@ export default function Inventory() {
                   style={styles.input}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label>تاريخ الصلاحية (اختياري)</label>
+              <div style={{ ...styles.formGroup, display: isRealEstate ? "none" : "block" }}>                <label>تاريخ الصلاحية (اختياري)</label>
                 <input
                   type="date"
                   value={editingProduct.expiryDate || ""}

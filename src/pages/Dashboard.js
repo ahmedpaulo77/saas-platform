@@ -1,6 +1,13 @@
 // src/pages/Dashboard.js
 import React, { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +25,15 @@ const ALL_FEATURE_CARDS = [
     titleKey: "dash.c1.t",
     descKey: "dash.c1.d",
     module: "companies",
+  },
+  {
+    to: "/purchases",
+    icon: "fas fa-cart-arrow-down",
+    color: "#0891b2",
+    bg: "#cffafe",
+    titleKey: "dash.c19.t",
+    descKey: "dash.c19.d",
+    module: "purchases",
   },
   {
     to: "/clients",
@@ -62,6 +78,8 @@ const ALL_FEATURE_CARDS = [
     bg: "#f3e8ff",
     titleKey: "dash.c4.t",
     descKey: "dash.c4.d",
+    titleKeyByIndustry: { real_estate: "dash.c4.t.real_estate" },
+    descKeyByIndustry: { real_estate: "dash.c4.d.real_estate" },
     module: "inventory",
   },
   {
@@ -181,11 +199,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // ✅ التحقق من أن المستخدم Admin أو Super Admin
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const isAdmin = userRole === "admin" || userRole === "super_admin";
 
   const availableModules = getAvailableModules(userIndustry, userRole);
   const featureCards = ALL_FEATURE_CARDS.filter((card) =>
-    availableModules.has(card.module)
+    availableModules.has(card.module),
   );
   const [stats, setStats] = useState({
     companies: 0,
@@ -201,6 +219,7 @@ export default function Dashboard() {
     prescriptions: 0,
     messages: 0,
     patients: 0,
+    purchases: 0,
     revenue: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -243,6 +262,7 @@ export default function Dashboard() {
     const projRef = collection(db, "projects");
     const usersRef = collection(db, "users");
     const suppRef = collection(db, "suppliers");
+    const purchRef = collection(db, "purchases");
     const apptRef = collection(db, "appointments");
     const rxRef = collection(db, "prescriptions");
     const msgRef = collection(db, "messages");
@@ -277,6 +297,9 @@ export default function Dashboard() {
     const suppQ = isSuper
       ? suppRef
       : query(suppRef, where("companyId", "==", userCompanyId));
+    const purchQ = isSuper
+      ? purchRef
+      : query(purchRef, where("companyId", "==", userCompanyId));
     const apptQ = isSuper
       ? apptRef
       : query(apptRef, where("companyId", "==", userCompanyId));
@@ -290,40 +313,43 @@ export default function Dashboard() {
       ? patRef
       : query(patRef, where("companyId", "==", userCompanyId));
     const unsubComp = onSnapshot(compQ, (snap) =>
-      setStats((prev) => ({ ...prev, companies: snap.size }))
+      setStats((prev) => ({ ...prev, companies: snap.size })),
     );
     const unsubCli = onSnapshot(cliQ, (snap) =>
-      setStats((prev) => ({ ...prev, clients: snap.size }))
+      setStats((prev) => ({ ...prev, clients: snap.size })),
     );
     const unsubSeller = onSnapshot(sellerQ, (snap) =>
-      setStats((prev) => ({ ...prev, sellers: snap.size }))
+      setStats((prev) => ({ ...prev, sellers: snap.size })),
     );
     const unsubBuyer = onSnapshot(buyerQ, (snap) =>
-      setStats((prev) => ({ ...prev, buyers: snap.size }))
+      setStats((prev) => ({ ...prev, buyers: snap.size })),
     );
     const unsubTask = onSnapshot(taskQ, (snap) =>
-      setStats((prev) => ({ ...prev, tasks: snap.size }))
+      setStats((prev) => ({ ...prev, tasks: snap.size })),
     );
     const unsubProj = onSnapshot(projQ, (snap) =>
-      setStats((prev) => ({ ...prev, projects: snap.size }))
+      setStats((prev) => ({ ...prev, projects: snap.size })),
     );
     const unsubUsers = onSnapshot(usersQ, (snap) =>
-      setStats((prev) => ({ ...prev, users: snap.size }))
+      setStats((prev) => ({ ...prev, users: snap.size })),
     );
     const unsubSupp = onSnapshot(suppQ, (snap) =>
-      setStats((prev) => ({ ...prev, suppliers: snap.size }))
+      setStats((prev) => ({ ...prev, suppliers: snap.size })),
+    );
+    const unsubPurch = onSnapshot(purchQ, (snap) =>
+      setStats((prev) => ({ ...prev, purchases: snap.size })),
     );
     const unsubAppt = onSnapshot(apptQ, (snap) =>
-      setStats((prev) => ({ ...prev, appointments: snap.size }))
+      setStats((prev) => ({ ...prev, appointments: snap.size })),
     );
     const unsubRx = onSnapshot(rxQ, (snap) =>
-      setStats((prev) => ({ ...prev, prescriptions: snap.size }))
+      setStats((prev) => ({ ...prev, prescriptions: snap.size })),
     );
     const unsubMsg = onSnapshot(msgQ, (snap) =>
-      setStats((prev) => ({ ...prev, messages: snap.size }))
+      setStats((prev) => ({ ...prev, messages: snap.size })),
     );
     const unsubPat = onSnapshot(patQ, (snap) =>
-      setStats((prev) => ({ ...prev, patients: snap.size }))
+      setStats((prev) => ({ ...prev, patients: snap.size })),
     );
 
     const unsubInv = onSnapshot(invQ, (snap) => {
@@ -356,6 +382,7 @@ export default function Dashboard() {
       unsubProj();
       unsubUsers();
       unsubSupp();
+      unsubPurch();
       unsubAppt();
       unsubRx();
       unsubMsg();
@@ -373,7 +400,8 @@ export default function Dashboard() {
               {t("dash.welcome")}
               {companyName && (
                 <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>
-                  {" "}({companyName})
+                  {" "}
+                  ({companyName})
                 </span>
               )}
             </h1>
@@ -390,8 +418,8 @@ export default function Dashboard() {
               {userRole === "super_admin"
                 ? `👑 ${t("role.superAdmin")}`
                 : userRole === "admin"
-                ? `⚡ ${t("role.admin")}`
-                : `👤 ${t("role.user")}`}
+                  ? `⚡ ${t("role.admin")}`
+                  : `👤 ${t("role.user")}`}
             </span>
             <button
               onClick={async () => {
@@ -406,7 +434,7 @@ export default function Dashboard() {
         </div>
 
         {/* ✅ Stats - تظهر فقط للأدمن */}
-                {isAdmin ? (
+        {isAdmin ? (
           <div className="stats-row">
             {availableModules.has("companies") && (
               <div className="stat-card indigo">
@@ -424,7 +452,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-user-friends"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.clients}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.clients}
+                </div>
                 <div className="stat-label">{t("dash.clients")}</div>
               </div>
             )}
@@ -433,7 +463,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-store"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.sellers}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.sellers}
+                </div>
                 <div className="stat-label">{t("dash.sellers")}</div>
               </div>
             )}
@@ -442,7 +474,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-user-plus"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.buyers}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.buyers}
+                </div>
                 <div className="stat-label">{t("dash.buyers")}</div>
               </div>
             )}
@@ -451,7 +485,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-file-invoice"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.invoices}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.invoices}
+                </div>
                 <div className="stat-label">{t("dash.invoices")}</div>
               </div>
             )}
@@ -460,7 +496,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-tasks"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.tasks}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.tasks}
+                </div>
                 <div className="stat-label">{t("dash.tasks")}</div>
               </div>
             )}
@@ -469,7 +507,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-project-diagram"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.projects}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.projects}
+                </div>
                 <div className="stat-label">{t("dash.projects")}</div>
               </div>
             )}
@@ -478,7 +518,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-users"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.users}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.users}
+                </div>
                 <div className="stat-label">{t("dash.users")}</div>
               </div>
             )}
@@ -487,8 +529,21 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-truck"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.suppliers}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.suppliers}
+                </div>
                 <div className="stat-label">{t("nav.suppliers")}</div>
+              </div>
+            )}
+            {availableModules.has("purchases") && (
+              <div className="stat-card amber">
+                <div className="stat-icon">
+                  <i className="fas fa-cart-arrow-down"></i>
+                </div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.purchases}
+                </div>
+                <div className="stat-label">{t("dash.purchases")}</div>{" "}
               </div>
             )}
             {availableModules.has("appointments") && (
@@ -496,7 +551,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-calendar-alt"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.appointments}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.appointments}
+                </div>
                 <div className="stat-label">{t("modules.appointments")}</div>
               </div>
             )}
@@ -505,7 +562,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-hospital-user"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.patients}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.patients}
+                </div>
                 <div className="stat-label">{t("modules.patients")}</div>
               </div>
             )}
@@ -514,7 +573,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-prescription"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.prescriptions}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.prescriptions}
+                </div>
                 <div className="stat-label">{t("modules.prescriptions")}</div>
               </div>
             )}
@@ -523,7 +584,9 @@ export default function Dashboard() {
                 <div className="stat-icon">
                   <i className="fas fa-envelope"></i>
                 </div>
-                <div className="stat-value">{loading ? "..." : stats.messages}</div>
+                <div className="stat-value">
+                  {loading ? "..." : stats.messages}
+                </div>
                 <div className="stat-label">{t("modules.messages")}</div>
               </div>
             )}
@@ -541,10 +604,24 @@ export default function Dashboard() {
           </div>
         ) : (
           // ✅ لو مش Admin، يظهر رسالة
-          <div className="card" style={{ textAlign: "center", padding: "40px 20px", marginBottom: 24 }}>
-            <i className="fas fa-lock" style={{ fontSize: 32, color: "#94a3b8", marginBottom: 12 }}></i>
-            <h3 style={{ color: "#64748b", fontSize: 16 }}>الإحصائيات متاحة للمديرين فقط</h3>
-            <p style={{ color: "#94a3b8", fontSize: 13 }}>يمكنك الوصول إلى البيانات المتعلقة بعملك فقط</p>
+          <div
+            className="card"
+            style={{
+              textAlign: "center",
+              padding: "40px 20px",
+              marginBottom: 24,
+            }}
+          >
+            <i
+              className="fas fa-lock"
+              style={{ fontSize: 32, color: "#94a3b8", marginBottom: 12 }}
+            ></i>
+            <h3 style={{ color: "#64748b", fontSize: 16 }}>
+              الإحصائيات متاحة للمديرين فقط
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: 13 }}>
+              يمكنك الوصول إلى البيانات المتعلقة بعملك فقط
+            </p>
           </div>
         )}
 
@@ -568,8 +645,10 @@ export default function Dashboard() {
                 <i className={card.icon}></i>
               </div>
               <div className="card-body">
-                <h3 style={{ color: "#1e293b" }}>{t(card.titleKey)}</h3>
-                <p>{t(card.descKey)}</p>
+                               <h3 style={{ color: "#1e293b" }}>
+                  {card.title || t(card.titleKeyByIndustry?.[userIndustry] || card.titleKey)}
+                </h3>
+                <p>{card.desc || t(card.descKeyByIndustry?.[userIndustry] || card.descKey)}</p>
               </div>
               <button
                 onClick={() => navigate(card.to)}
