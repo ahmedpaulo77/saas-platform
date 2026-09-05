@@ -22,6 +22,15 @@ export default function Inventory() {
 
   // ✅ الحقول الخاصة بالملابس/الأحذية تظهر بس لصناعة clothing
   const isClothing = userIndustry === "clothing";
+  const isRestaurant = userIndustry === "restaurant";
+
+  // ✅ تصنيفات المنيو للمطاعم
+  const menuCategories = [
+    { value: 'appetizers', label: '🥗 مقبلات' },
+    { value: 'main', label: '🍖 أطباق رئيسية' },
+    { value: 'drinks', label: '🥤 مشروبات' },
+    { value: 'desserts', label: '🍰 حلويات' },
+  ];  
 
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -331,14 +340,35 @@ export default function Inventory() {
               }
               required
             />
-            <input
-              type="text"
-              placeholder={t("inv.phCat")}
-              value={newProduct.category}
-              onChange={(e) =>
-                setNewProduct({ ...newProduct, category: e.target.value })
-              }
-            />
+                        {isRestaurant ? (
+              <select
+                value={newProduct.category}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, category: e.target.value })
+                }
+                style={{
+                  padding: "10px 14px",
+                  border: "2px solid #e2e8f0",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  background: "white",
+                }}
+              >
+                <option value="">تصنيف الصنف</option>
+                {menuCategories.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                placeholder={t("inv.phCat")}
+                value={newProduct.category}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, category: e.target.value })
+                }
+              />
+            )}
             <input
               type="number"
               placeholder={t("inv.phQty")}
@@ -516,8 +546,11 @@ export default function Inventory() {
                   <tr key={product.id}>
                     <td>{index + 1}</td>
                     <td>{product.name}</td>
-                    <td>{product.category || "-"}</td>
-                    {isClothing && (
+                    <td>
+                      {isRestaurant
+                        ? (menuCategories.find((c) => c.value === product.category)?.label || "-")
+                        : (product.category || "-")}
+                    </td>                    {isClothing && (
                       <>
                         <td>
                           {product.type === "men"
@@ -607,19 +640,37 @@ export default function Inventory() {
                   style={styles.input}
                 />
               </div>
-              <div style={styles.formGroup}>
+                         <div style={styles.formGroup}>
                 <label>{t("inv.category")}</label>
-                <input
-                  type="text"
-                  value={editingProduct.category || ""}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      category: e.target.value,
-                    })
-                  }
-                  style={styles.input}
-                />
+                {isRestaurant ? (
+                  <select
+                    value={editingProduct.category || ""}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        category: e.target.value,
+                      })
+                    }
+                    style={styles.input}
+                  >
+                    <option value="">تصنيف الصنف</option>
+                    {menuCategories.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={editingProduct.category || ""}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        category: e.target.value,
+                      })
+                    }
+                    style={styles.input}
+                  />
+                )}
               </div>
 
               {/* ✅ الحقول دي تظهر بس لصناعة الملابس */}

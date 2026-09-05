@@ -18,6 +18,8 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // ✅ تعريف القوائم جوه المكون (عشان الترجمة)
+   const isRestaurant = userIndustry === 'restaurant';
+
   const ALL_NAV_ITEMS = [
     { to: '/purchases', icon: 'fas fa-cart-arrow-down', label: t('nav.purchases'), module: 'purchases' },
     { to: '/dashboard', icon: 'fas fa-th-large', label: t('nav.dashboard'), module: 'dashboard' },
@@ -26,12 +28,12 @@ export default function Sidebar() {
     { to: '/patients', icon: 'fas fa-hospital-user', label: t('nav.patients'), module: 'patients' },
     { to: '/appointments', icon: 'fas fa-calendar-alt', label: t('nav.appointments'), module: 'appointments' },
     { to: '/prescriptions', icon: 'fas fa-prescription', label: t('nav.prescriptions'), module: 'prescriptions' },
-    { to: '/clients', icon: 'fas fa-user-friends', label: t('nav.clients'), module: 'clients' },
+    { to: '/clients', icon: 'fas fa-user-friends', label: isRestaurant ? 'الزباين' : t('nav.clients'), module: 'clients' },
     { to: '/sellers', icon: 'fas fa-store', label: t('sellers.title'), module: 'sellers' },
     { to: '/buyers', icon: 'fas fa-user-plus', label: t('buyers.title'), module: 'buyers' },
     { to: '/messages', icon: 'fas fa-envelope', label: t('nav.messages'), module: 'messages' },
-    { to: '/invoices', icon: 'fas fa-file-invoice', label: t('nav.invoices'), module: 'invoices' },
-    { to: '/inventory', icon: 'fas fa-boxes', label: t('nav.inventory'), module: 'inventory' },
+    { to: '/invoices', icon: 'fas fa-file-invoice', label: isRestaurant ? 'الطلبات' : t('nav.invoices'), module: 'invoices' },
+    { to: '/inventory', icon: 'fas fa-boxes', label: isRestaurant ? 'المنيو' : t('nav.inventory'), module: 'inventory' },
     { to: '/suppliers', icon: 'fas fa-truck', label: t('nav.suppliers'), module: 'suppliers' },
     { to: '/expiry', icon: 'fas fa-calendar-times', label: t('nav.expiry'), module: 'expiry' },
     { to: '/tasks', icon: 'fas fa-tasks', label: t('nav.tasks'), module: 'tasks' },

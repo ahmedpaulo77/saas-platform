@@ -30,12 +30,20 @@ export default function Invoices() {
   );
   const isAdmin = userRole === "admin" || userRole === "super_admin";
 
-  const isClinic = userIndustry === "clinic";
+    const isClinic = userIndustry === 'clinic';
+  const isRestaurant = userIndustry === 'restaurant';
+
+  // ✅ أنواع الطلبات للمطاعم
+  const orderTypes = [
+    { value: 'dinein', label: '🍽️ صالة' },
+    { value: 'takeaway', label: '🥡 تيك أواي' },
+    { value: 'delivery', label: '🛵 توصيل' },
+  ];
   const entityCollection = isClinic ? "patients" : "clients";
   const entityLabel = isClinic
     ? t("in.patient") || "المريض"
-    : t("in.clientLabel") || t("common.client") || "العميل";
-  const entityLabelReq = isClinic
+    : "العميل";
+      const entityLabelReq = isClinic
     ? t("in.patientReq") || `${entityLabel} *`
     : t("in.clientReq") || `${entityLabel} *`;
   const chooseEntityPlaceholder = isClinic
@@ -58,12 +66,14 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [submitting, setSubmitting] = useState(false);
 
-  const [newInvoice, setNewInvoice] = useState({
+    const [newInvoice, setNewInvoice] = useState({
     clientId: "",
-    products: [],
+    products: [], // Array of { productId, quantity, amount }
     status: "pending",
     description: "",
     dueDate: "",
+    orderType: "dinein",
+    deliveryAddress: "",
   });
 
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -256,6 +266,8 @@ export default function Invoices() {
       const totalAmount = getTotalAmount;
       const invoiceData = {
         ...newInvoice,
+        orderType: isRestaurant ? newInvoice.orderType : "",
+        deliveryAddress: isRestaurant && newInvoice.orderType === 'delivery' ? newInvoice.deliveryAddress : "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         amount: totalAmount,
@@ -297,6 +309,8 @@ export default function Invoices() {
         status: "pending",
         description: "",
         dueDate: "",
+        orderType: "dinein",
+        deliveryAddress: "",
       });
       await Promise.all([resetPagination(), fetchProducts()]);
     } catch (e) {
@@ -868,6 +882,66 @@ export default function Invoices() {
                   required
                 />
               </div>
+                           {isRestaurant && (
+                <>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>نوع الطلب</label>
+                    <select
+                      value={newInvoice.orderType}
+                      onChange={(e) =>
+                        setNewInvoice({ ...newInvoice, orderType: e.target.value })
+                      }
+                    >
+                      {orderTypes.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {newInvoice.orderType === 'delivery' && (
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>عنوان التوصيل</label>
+                      <input
+                        type="text"
+                        placeholder="اكتب العنوان بالتفصيل"
+                        value={newInvoice.deliveryAddress}
+                        onChange={(e) =>
+                          setNewInvoice({ ...newInvoice, deliveryAddress: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+                        {isRestaurant && (
+                <>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>نوع الطلب</label>
+                    <select
+                      value={newInvoice.orderType}
+                      onChange={(e) =>
+                        setNewInvoice({ ...newInvoice, orderType: e.target.value })
+                      }
+                    >
+                      {orderTypes.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {newInvoice.orderType === 'delivery' && (
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>عنوان التوصيل</label>
+                      <input
+                        type="text"
+                        placeholder="اكتب العنوان بالتفصيل"
+                        value={newInvoice.deliveryAddress}
+                        onChange={(e) =>
+                          setNewInvoice({ ...newInvoice, deliveryAddress: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              )}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("common.status")}</label>
                 <select
@@ -984,6 +1058,7 @@ export default function Invoices() {
                     <tr>
                       <th>#</th>
                       <th>{entityColumnLabel}</th>
+                      {isRestaurant && <th>نوع الطلب</th>}
                       {hasInventory && (
                         <th>
                           {isClinic
@@ -1034,7 +1109,12 @@ export default function Invoices() {
                           >
                             {i + 1}
                           </td>
-                          <td style={{ fontWeight: 600 }}>{clientName}</td>
+                                                   <td style={{ fontWeight: 600 }}>{clientName}</td>
+                          {isRestaurant && (
+                            <td>
+                              {orderTypes.find((o) => o.value === inv.orderType)?.label || "-"}
+                            </td>
+                          )}
                           {hasInventory && <td>{productStr}</td>}
                           {hasInventory && <td>{totalQuantity}</td>}
                           <td

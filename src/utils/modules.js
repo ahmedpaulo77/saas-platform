@@ -171,10 +171,10 @@ export const MODULE_MAP = {
   ],
 
   // مطعم / كافيه - طلبات وطاولات وصلاحيات طعام + مهام ورسائل
+    // مطعم / كافيه - بيستخدم صفحات الفواتير والمخزون الموجودة (بمسميات مختلفة) + موردين ومشتريات
   restaurant: [
-    'pos',
-    'orders',
-    'tables',
+    'clients',
+    'invoices',
     'suppliers',
     'purchases',
     'expiry',
