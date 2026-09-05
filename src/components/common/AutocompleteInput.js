@@ -66,7 +66,7 @@ export default function AutocompleteInput({ items = [], value, onChange, placeho
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative' }}>
-      <input
+           <input
         type="text"
         value={inputText}
         onChange={handleInput}

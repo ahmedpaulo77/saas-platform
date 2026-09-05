@@ -32,10 +32,10 @@ export default function Inventory() {
     price: "",
     description: "",
     // ✅ حقول خاصة بالملابس
-    type: "",        // رجالي، حريمي، أطفال
-    size: "",        // المقاس (نص أو رقم)
-    color: "",       // اللون
-    brand: "",       // الماركة
+    type: "", // رجالي، حريمي، أطفال
+    size: "", // المقاس (نص أو رقم)
+    color: "", // اللون
+    brand: "", // الماركة
     expiryDate: "",
   });
   const [loading, setLoading] = useState(true);
@@ -44,67 +44,67 @@ export default function Inventory() {
 
   // ✅ خيارات النوع
   const types = [
-    { value: 'men', label: 'رجالي' },
-    { value: 'women', label: 'حريمي' },
-    { value: 'kids', label: 'أطفال' },
-    { value: 'unisex', label: 'يونيسكس' },
+    { value: "men", label: "رجالي" },
+    { value: "women", label: "حريمي" },
+    { value: "kids", label: "أطفال" },
+    { value: "unisex", label: "يونيسكس" },
   ];
 
   // ✅ خيارات المقاسات - ثابتة
   const sizeOptions = [
     // مقاسات الملابس
-    { value: 'XS', label: 'XS', category: 'clothing' },
-    { value: 'S', label: 'S', category: 'clothing' },
-    { value: 'M', label: 'M', category: 'clothing' },
-    { value: 'L', label: 'L', category: 'clothing' },
-    { value: 'XL', label: 'XL', category: 'clothing' },
-    { value: 'XXL', label: 'XXL', category: 'clothing' },
-    { value: 'XXXL', label: 'XXXL', category: 'clothing' },
+    { value: "XS", label: "XS", category: "clothing" },
+    { value: "S", label: "S", category: "clothing" },
+    { value: "M", label: "M", category: "clothing" },
+    { value: "L", label: "L", category: "clothing" },
+    { value: "XL", label: "XL", category: "clothing" },
+    { value: "XXL", label: "XXL", category: "clothing" },
+    { value: "XXXL", label: "XXXL", category: "clothing" },
     // مقاسات الأحذية (أرقام)
-    { value: '22', label: '22', category: 'shoes' },
-    { value: '23', label: '23', category: 'shoes' },
-    { value: '24', label: '24', category: 'shoes' },
-    { value: '25', label: '25', category: 'shoes' },
-    { value: '26', label: '26', category: 'shoes' },
-    { value: '27', label: '27', category: 'shoes' },
-    { value: '28', label: '28', category: 'shoes' },
-    { value: '29', label: '29', category: 'shoes' },
-    { value: '30', label: '30', category: 'shoes' },
-    { value: '31', label: '31', category: 'shoes' },
-    { value: '32', label: '32', category: 'shoes' },
-    { value: '33', label: '33', category: 'shoes' },
-    { value: '34', label: '34', category: 'shoes' },
-    { value: '35', label: '35', category: 'shoes' },
-    { value: '36', label: '36', category: 'shoes' },
-    { value: '37', label: '37', category: 'shoes' },
-    { value: '38', label: '38', category: 'shoes' },
-    { value: '39', label: '39', category: 'shoes' },
-    { value: '40', label: '40', category: 'shoes' },
-    { value: '41', label: '41', category: 'shoes' },
-    { value: '42', label: '42', category: 'shoes' },
-    { value: '43', label: '43', category: 'shoes' },
-    { value: '44', label: '44', category: 'shoes' },
-    { value: '45', label: '45', category: 'shoes' },
-    { value: '46', label: '46', category: 'shoes' },
-    { value: '47', label: '47', category: 'shoes' },
-    { value: '48', label: '48', category: 'shoes' },
-    { value: '49', label: '49', category: 'shoes' },
-    { value: '50', label: '50', category: 'shoes' },
+    { value: "22", label: "22", category: "shoes" },
+    { value: "23", label: "23", category: "shoes" },
+    { value: "24", label: "24", category: "shoes" },
+    { value: "25", label: "25", category: "shoes" },
+    { value: "26", label: "26", category: "shoes" },
+    { value: "27", label: "27", category: "shoes" },
+    { value: "28", label: "28", category: "shoes" },
+    { value: "29", label: "29", category: "shoes" },
+    { value: "30", label: "30", category: "shoes" },
+    { value: "31", label: "31", category: "shoes" },
+    { value: "32", label: "32", category: "shoes" },
+    { value: "33", label: "33", category: "shoes" },
+    { value: "34", label: "34", category: "shoes" },
+    { value: "35", label: "35", category: "shoes" },
+    { value: "36", label: "36", category: "shoes" },
+    { value: "37", label: "37", category: "shoes" },
+    { value: "38", label: "38", category: "shoes" },
+    { value: "39", label: "39", category: "shoes" },
+    { value: "40", label: "40", category: "shoes" },
+    { value: "41", label: "41", category: "shoes" },
+    { value: "42", label: "42", category: "shoes" },
+    { value: "43", label: "43", category: "shoes" },
+    { value: "44", label: "44", category: "shoes" },
+    { value: "45", label: "45", category: "shoes" },
+    { value: "46", label: "46", category: "shoes" },
+    { value: "47", label: "47", category: "shoes" },
+    { value: "48", label: "48", category: "shoes" },
+    { value: "49", label: "49", category: "shoes" },
+    { value: "50", label: "50", category: "shoes" },
   ];
 
   // ✅ خيارات الألوان
   const colors = [
-    { value: 'أسود', label: '⚫ أسود' },
-    { value: 'أبيض', label: '⚪ أبيض' },
-    { value: 'أحمر', label: '🔴 أحمر' },
-    { value: 'أزرق', label: '🔵 أزرق' },
-    { value: 'أخضر', label: '🟢 أخضر' },
-    { value: 'أصفر', label: '🟡 أصفر' },
-    { value: 'رمادي', label: '⬜ رمادي' },
-    { value: 'بني', label: '🟤 بني' },
-    { value: 'برتقالي', label: '🟠 برتقالي' },
-    { value: 'وردي', label: '💗 وردي' },
-    { value: 'بنفسجي', label: '🟣 بنفسجي' },
+    { value: "أسود", label: "⚫ أسود" },
+    { value: "أبيض", label: "⚪ أبيض" },
+    { value: "أحمر", label: "🔴 أحمر" },
+    { value: "أزرق", label: "🔵 أزرق" },
+    { value: "أخضر", label: "🟢 أخضر" },
+    { value: "أصفر", label: "🟡 أصفر" },
+    { value: "رمادي", label: "⬜ رمادي" },
+    { value: "بني", label: "🟤 بني" },
+    { value: "برتقالي", label: "🟠 برتقالي" },
+    { value: "وردي", label: "💗 وردي" },
+    { value: "بنفسجي", label: "🟣 بنفسجي" },
   ];
 
   const fetchProducts = useCallback(async () => {
@@ -116,7 +116,7 @@ export default function Inventory() {
 
     try {
       const querySnapshot = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)
+        getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid),
       );
       const productsData = [];
       querySnapshot.forEach((d) => {
@@ -150,21 +150,26 @@ export default function Inventory() {
         quantity: parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
         // ✅ الحقول دي تتسجل بس لو صناعة ملابس، غير كده تتبعت فاضية
-        type: isClothing ? (newProduct.type || "") : "",
-        size: isClothing ? (newProduct.size || "") : "",
-        color: isClothing ? (newProduct.color || "") : "",
-        brand: isClothing ? (newProduct.brand || "") : "",
+        type: isClothing ? newProduct.type || "" : "",
+        size: isClothing ? newProduct.size || "" : "",
+        color: isClothing ? newProduct.color || "" : "",
+        brand: isClothing ? newProduct.brand || "" : "",
         expiryDate: newProduct.expiryDate || "",
         createdAt: new Date().toISOString(),
       });
-      
+
       // ✅ Audit Log
       await logActivity({
-        actionType: 'CREATE',
-        collectionName: 'inventory',
+        actionType: "CREATE",
+        collectionName: "inventory",
         itemId: docRef.id,
         details: `Created product: ${newProduct.name}`,
-        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        user: {
+          uid: currentUser?.uid,
+          email: currentUser?.email,
+          role: userRole,
+          companyId: userCompanyId,
+        },
       });
 
       setNewProduct({
@@ -199,7 +204,11 @@ export default function Inventory() {
 
   async function updateProduct(e) {
     e.preventDefault();
-    if (!editingProduct.name || !editingProduct.quantity || !editingProduct.price) {
+    if (
+      !editingProduct.name ||
+      !editingProduct.quantity ||
+      !editingProduct.price
+    ) {
       alert(t("common.fillRequired"));
       return;
     }
@@ -212,22 +221,27 @@ export default function Inventory() {
         quantity: parseInt(editingProduct.quantity),
         price: parseFloat(editingProduct.price),
         description: editingProduct.description || "",
-        type: isClothing ? (editingProduct.type || "") : "",
-        size: isClothing ? (editingProduct.size || "") : "",
-        color: isClothing ? (editingProduct.color || "") : "",
-        brand: isClothing ? (editingProduct.brand || "") : "",
+        type: isClothing ? editingProduct.type || "" : "",
+        size: isClothing ? editingProduct.size || "" : "",
+        color: isClothing ? editingProduct.color || "" : "",
+        brand: isClothing ? editingProduct.brand || "" : "",
         expiryDate: editingProduct.expiryDate || "",
       });
-      
+
       // ✅ Audit Log
       await logActivity({
-        actionType: 'UPDATE',
-        collectionName: 'inventory',
+        actionType: "UPDATE",
+        collectionName: "inventory",
         itemId: editingProduct.id,
         details: `Updated product: ${editingProduct.name}`,
-        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        user: {
+          uid: currentUser?.uid,
+          email: currentUser?.email,
+          role: userRole,
+          companyId: userCompanyId,
+        },
       });
-      
+
       await fetchProducts();
       closeEditModal();
       alert(t("inv.updOk"));
@@ -242,19 +256,26 @@ export default function Inventory() {
     try {
       // Get product name before deletion for audit log
       const productDoc = await getDoc(doc(db, "inventory", id));
-      const productName = productDoc.exists() ? productDoc.data().name : 'Unknown';
-      
+      const productName = productDoc.exists()
+        ? productDoc.data().name
+        : "Unknown";
+
       await deleteDoc(doc(db, "inventory", id));
-      
+
       // ✅ Audit Log
       await logActivity({
-        actionType: 'DELETE',
-        collectionName: 'inventory',
+        actionType: "DELETE",
+        collectionName: "inventory",
         itemId: id,
         details: `Deleted product: ${productName}`,
-        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        user: {
+          uid: currentUser?.uid,
+          email: currentUser?.email,
+          role: userRole,
+          companyId: userCompanyId,
+        },
       });
-      
+
       await fetchProducts();
       alert(t("inv.delOk"));
     } catch (error) {
@@ -274,7 +295,7 @@ export default function Inventory() {
       (product.brand &&
         product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (product.size &&
-        product.size.toLowerCase().includes(searchTerm.toLowerCase()))
+        product.size.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
   const userCanDelete = canDelete(userRole);
@@ -299,7 +320,8 @@ export default function Inventory() {
         </h2>
 
         <form onSubmit={addProduct} className="form-container">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {" "}
             <input
               type="text"
               placeholder={t("inv.phName")}
@@ -343,7 +365,6 @@ export default function Inventory() {
                 setNewProduct({ ...newProduct, description: e.target.value })
               }
             />
-
             {/* ✅ الحقول دي تظهر بس لصناعة الملابس */}
             {isClothing && (
               <>
@@ -363,7 +384,9 @@ export default function Inventory() {
                 >
                   <option value="">النوع</option>
                   {types.map((tp) => (
-                    <option key={tp.value} value={tp.value}>{tp.label}</option>
+                    <option key={tp.value} value={tp.value}>
+                      {tp.label}
+                    </option>
                   ))}
                 </select>
 
@@ -384,7 +407,7 @@ export default function Inventory() {
                   <option value="">المقاس</option>
                   {sizeOptions.map((s) => (
                     <option key={s.value} value={s.value}>
-                      {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                      {s.label} {s.category === "shoes" ? "(حذاء)" : "(ملابس)"}
                     </option>
                   ))}
                 </select>
@@ -405,7 +428,9 @@ export default function Inventory() {
                 >
                   <option value="">اللون</option>
                   {colors.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
                   ))}
                 </select>
 
@@ -420,7 +445,6 @@ export default function Inventory() {
                 />
               </>
             )}
-
             <input
               type="date"
               placeholder={t("inv.phExpiry")}
@@ -430,7 +454,11 @@ export default function Inventory() {
               }
             />
           </div>
-          <button type="submit" className="btn-primary" style={{ marginTop: 12 }}>
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ marginTop: 12 }}
+          >
             <i className="fas fa-plus"></i> {t("inv.add")}
           </button>
         </form>
@@ -455,7 +483,9 @@ export default function Inventory() {
         <div className="table-container">
           <div className="table-header">
             <h3>{t("inv.list")}</h3>
-            <span>{filteredProducts.length} {t("inv.products")}</span>
+            <span>
+              {filteredProducts.length} {t("inv.products")}
+            </span>
           </div>
           {filteredProducts.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
@@ -490,12 +520,19 @@ export default function Inventory() {
                     {isClothing && (
                       <>
                         <td>
-                          {product.type === 'men' ? 'رجالي' :
-                           product.type === 'women' ? 'حريمي' :
-                           product.type === 'kids' ? 'أطفال' :
-                           product.type === 'unisex' ? 'يونيسكس' : '-'}
+                          {product.type === "men"
+                            ? "رجالي"
+                            : product.type === "women"
+                              ? "حريمي"
+                              : product.type === "kids"
+                                ? "أطفال"
+                                : product.type === "unisex"
+                                  ? "يونيسكس"
+                                  : "-"}
                         </td>
-                        <td style={{ fontWeight: 600 }}>{product.size || "-"}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {product.size || "-"}
+                        </td>
                         <td>{product.color || "-"}</td>
                         <td>{product.brand || "-"}</td>
                       </>
@@ -503,13 +540,17 @@ export default function Inventory() {
                     <td>
                       <span
                         className={`badge ${
-                          product.quantity < 5 ? "badge-expired" : "badge-active"
+                          product.quantity < 5
+                            ? "badge-expired"
+                            : "badge-active"
                         }`}
                       >
                         {product.quantity}
                       </span>
                     </td>
-                    <td>{product.price} {t("currency")}</td>
+                    <td>
+                      {product.price} {t("currency")}
+                    </td>
                     <td>
                       <button
                         onClick={() => openEditModal(product)}
@@ -557,7 +598,10 @@ export default function Inventory() {
                   type="text"
                   value={editingProduct.name}
                   onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, name: e.target.value })
+                    setEditingProduct({
+                      ...editingProduct,
+                      name: e.target.value,
+                    })
                   }
                   required
                   style={styles.input}
@@ -586,13 +630,18 @@ export default function Inventory() {
                     <select
                       value={editingProduct.type || ""}
                       onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, type: e.target.value })
+                        setEditingProduct({
+                          ...editingProduct,
+                          type: e.target.value,
+                        })
                       }
                       style={styles.input}
                     >
                       <option value="">اختر النوع</option>
                       {types.map((tp) => (
-                        <option key={tp.value} value={tp.value}>{tp.label}</option>
+                        <option key={tp.value} value={tp.value}>
+                          {tp.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -601,14 +650,18 @@ export default function Inventory() {
                     <select
                       value={editingProduct.size || ""}
                       onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, size: e.target.value })
+                        setEditingProduct({
+                          ...editingProduct,
+                          size: e.target.value,
+                        })
                       }
                       style={styles.input}
                     >
                       <option value="">اختر المقاس</option>
                       {sizeOptions.map((s) => (
                         <option key={s.value} value={s.value}>
-                          {s.label} {s.category === 'shoes' ? '(حذاء)' : '(ملابس)'}
+                          {s.label}{" "}
+                          {s.category === "shoes" ? "(حذاء)" : "(ملابس)"}
                         </option>
                       ))}
                     </select>
@@ -618,13 +671,18 @@ export default function Inventory() {
                     <select
                       value={editingProduct.color || ""}
                       onChange={(e) =>
-                        setEditingProduct({ ...editingProduct, color: e.target.value })
+                        setEditingProduct({
+                          ...editingProduct,
+                          color: e.target.value,
+                        })
                       }
                       style={styles.input}
                     >
                       <option value="">اختر اللون</option>
                       {colors.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -666,7 +724,10 @@ export default function Inventory() {
                   type="number"
                   value={editingProduct.price}
                   onChange={(e) =>
-                    setEditingProduct({ ...editingProduct, price: e.target.value })
+                    setEditingProduct({
+                      ...editingProduct,
+                      price: e.target.value,
+                    })
                   }
                   required
                   style={styles.input}

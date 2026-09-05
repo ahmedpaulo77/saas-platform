@@ -19,6 +19,7 @@ export default function Sidebar() {
 
   // ✅ تعريف القوائم جوه المكون (عشان الترجمة)
   const ALL_NAV_ITEMS = [
+    { to: '/purchases', icon: 'fas fa-cart-arrow-down', label: t('nav.purchases'), module: 'purchases' },
     { to: '/dashboard', icon: 'fas fa-th-large', label: t('nav.dashboard'), module: 'dashboard' },
     { to: '/pos', icon: 'fas fa-cash-register', label: t('nav.pos'), module: 'pos' },
     { to: '/companies', icon: 'fas fa-building', label: t('nav.companies'), module: 'companies' },

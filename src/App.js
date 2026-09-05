@@ -3,6 +3,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
+import Purchases from './pages/Purchases';
+
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -86,7 +88,7 @@ function AppRoutes() {
       <Route path="/notifications" element={<ProtectedRoute><IndustryRoute moduleKey="notifications"><Notifications /></IndustryRoute></ProtectedRoute>} />
       <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
       <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
-
+      <Route path="/purchases"    element={<ProtectedRoute><IndustryRoute moduleKey="purchases"><Purchases /></IndustryRoute></ProtectedRoute>} />
       <Route path="/patients"     element={<ProtectedRoute><IndustryRoute moduleKey="patients"><Patients /></IndustryRoute></ProtectedRoute>} />
       <Route path="/appointments" element={<ProtectedRoute><IndustryRoute moduleKey="appointments"><Appointments /></IndustryRoute></ProtectedRoute>} />
       <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />
