@@ -381,15 +381,16 @@ export default function Sidebar() {
   );
 
   return (
-    <>
-      {/* ✅ Hamburger Button محسن */}
-      <button
-        className="hamburger-btn"
-        onClick={toggleSidebar}
-        aria-label={t("nav.openMenu")}
-      >
-        <i className={`fas ${mobileOpen ? "fa-times" : "fa-bars"}`}></i>
-      </button>
+    <>      {/* ✅ Hamburger Button محسن — بيختفي لما القائمة تكون مفتوحة عشان منكررش زرار الإغلاق */}
+      {!mobileOpen && (
+        <button
+          className="hamburger-btn"
+          onClick={toggleSidebar}
+          aria-label={t("nav.openMenu")}
+        >
+          <i className="fas fa-bars"></i>
+        </button>
+      )}
 
       {/* ✅ Overlay محسن */}
       {mobileOpen && (
