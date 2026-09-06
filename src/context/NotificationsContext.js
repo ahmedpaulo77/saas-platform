@@ -57,8 +57,7 @@ export function NotificationsProvider({ children }) {
       return;
     }
 
-    const q = getScopedQuery('inventory', userRole, userCompanyId);
-    const unsubscribe = onSnapshot(
+const q = getScopedQuery('inventory', userRole, userCompanyId, currentUser?.uid);    const unsubscribe = onSnapshot(
       q,
       (snap) => {
         const stock = [];
@@ -115,8 +114,7 @@ export function NotificationsProvider({ children }) {
     );
 
     return () => unsubscribe();
-  }, [userRole, userCompanyId, t]);
-
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
   // ✅ استماع لحظي على الفواتير: تنبيه فاتورة متأخرة السداد
   useEffect(() => {
     if (!userCompanyId || userRole === 'super_admin') {
@@ -125,8 +123,7 @@ export function NotificationsProvider({ children }) {
       return;
     }
 
-    const q = getScopedQuery('invoices', userRole, userCompanyId);
-    const unsubscribe = onSnapshot(
+const q = getScopedQuery('invoices', userRole, userCompanyId, currentUser?.uid);    const unsubscribe = onSnapshot(
       q,
       (snap) => {
         const list = [];
@@ -153,7 +150,7 @@ export function NotificationsProvider({ children }) {
     );
 
     return () => unsubscribe();
-  }, [userRole, userCompanyId, t]);
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
 
   // ✅ استماع لحظي على المهام: تنبيه مهمة قرب موعدها
   useEffect(() => {
@@ -163,8 +160,7 @@ export function NotificationsProvider({ children }) {
       return;
     }
 
-    const q = getScopedQuery('tasks', userRole, userCompanyId);
-    const unsubscribe = onSnapshot(
+const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);    const unsubscribe = onSnapshot(
       q,
       (snap) => {
         const list = [];
@@ -199,8 +195,7 @@ export function NotificationsProvider({ children }) {
     );
 
     return () => unsubscribe();
-  }, [userRole, userCompanyId, t]);
-
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
   // ✅ تجميع كل المصادر في قائمة واحدة مرتبة بالأحدث
   const notifications = useMemo(() => {
     const all = [...stockAlerts, ...expiryAlerts, ...invoiceAlerts, ...taskAlerts];
