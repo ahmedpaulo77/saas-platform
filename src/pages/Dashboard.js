@@ -4,7 +4,8 @@ import {
   collection,
   query,
   where,
-  onSnapshot,
+  getDocs,
+  getCountFromServer,
   doc,
   getDoc,
 } from "firebase/firestore";
@@ -240,153 +241,114 @@ export default function Dashboard() {
       }
     })();
   }, [userCompanyId]);
-
   useEffect(() => {
     if (!currentUser) return;
     if (userRole !== "super_admin" && !userCompanyId) return;
 
-    // ✅ لو مش Admin، ميجيبش الإحصائيات
     if (!isAdmin) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    let cancelled = false;
 
-    const compRef = collection(db, "companies");
-    const cliRef = collection(db, "clients");
-    const sellerRef = collection(db, "sellers");
-    const buyerRef = collection(db, "buyers");
-    const invRef = collection(db, "invoices");
-    const taskRef = collection(db, "tasks");
-    const projRef = collection(db, "projects");
-    const usersRef = collection(db, "users");
-    const suppRef = collection(db, "suppliers");
-    const purchRef = collection(db, "purchases");
-    const apptRef = collection(db, "appointments");
-    const rxRef = collection(db, "prescriptions");
-    const msgRef = collection(db, "messages");
-    const patRef = collection(db, "patients");
+    async function fetchStats() {
+      setLoading(true);
+      const isSuper = userRole === "super_admin";
 
-    const isSuper = userRole === "super_admin";
+      const compRef = collection(db, "companies");
+      const cliRef = collection(db, "clients");
+      const sellerRef = collection(db, "sellers");
+      const buyerRef = collection(db, "buyers");
+      const invRef = collection(db, "invoices");
+      const taskRef = collection(db, "tasks");
+      const projRef = collection(db, "projects");
+      const usersRef = collection(db, "users");
+      const suppRef = collection(db, "suppliers");
+      const purchRef = collection(db, "purchases");
+      const apptRef = collection(db, "appointments");
+      const rxRef = collection(db, "prescriptions");
+      const msgRef = collection(db, "messages");
+      const patRef = collection(db, "patients");
 
-    const compQ = isSuper
-      ? compRef
-      : query(compRef, where("__name__", "==", userCompanyId));
-    const cliQ = isSuper
-      ? cliRef
-      : query(cliRef, where("companyId", "==", userCompanyId));
-    const sellerQ = isSuper
-      ? sellerRef
-      : query(sellerRef, where("companyId", "==", userCompanyId));
-    const buyerQ = isSuper
-      ? buyerRef
-      : query(buyerRef, where("companyId", "==", userCompanyId));
-    const invQ = isSuper
-      ? invRef
-      : query(invRef, where("companyId", "==", userCompanyId));
-    const taskQ = isSuper
-      ? taskRef
-      : query(taskRef, where("companyId", "==", userCompanyId));
-    const projQ = isSuper
-      ? projRef
-      : query(projRef, where("companyId", "==", userCompanyId));
-    const usersQ = isSuper
-      ? usersRef
-      : query(usersRef, where("companyId", "==", userCompanyId));
-    const suppQ = isSuper
-      ? suppRef
-      : query(suppRef, where("companyId", "==", userCompanyId));
-    const purchQ = isSuper
-      ? purchRef
-      : query(purchRef, where("companyId", "==", userCompanyId));
-    const apptQ = isSuper
-      ? apptRef
-      : query(apptRef, where("companyId", "==", userCompanyId));
-    const rxQ = isSuper
-      ? rxRef
-      : query(rxRef, where("companyId", "==", userCompanyId));
-    const msgQ = isSuper
-      ? msgRef
-      : query(msgRef, where("companyId", "==", userCompanyId));
-    const patQ = isSuper
-      ? patRef
-      : query(patRef, where("companyId", "==", userCompanyId));
-    const unsubComp = onSnapshot(compQ, (snap) =>
-      setStats((prev) => ({ ...prev, companies: snap.size })),
-    );
-    const unsubCli = onSnapshot(cliQ, (snap) =>
-      setStats((prev) => ({ ...prev, clients: snap.size })),
-    );
-    const unsubSeller = onSnapshot(sellerQ, (snap) =>
-      setStats((prev) => ({ ...prev, sellers: snap.size })),
-    );
-    const unsubBuyer = onSnapshot(buyerQ, (snap) =>
-      setStats((prev) => ({ ...prev, buyers: snap.size })),
-    );
-    const unsubTask = onSnapshot(taskQ, (snap) =>
-      setStats((prev) => ({ ...prev, tasks: snap.size })),
-    );
-    const unsubProj = onSnapshot(projQ, (snap) =>
-      setStats((prev) => ({ ...prev, projects: snap.size })),
-    );
-    const unsubUsers = onSnapshot(usersQ, (snap) =>
-      setStats((prev) => ({ ...prev, users: snap.size })),
-    );
-    const unsubSupp = onSnapshot(suppQ, (snap) =>
-      setStats((prev) => ({ ...prev, suppliers: snap.size })),
-    );
-    const unsubPurch = onSnapshot(purchQ, (snap) =>
-      setStats((prev) => ({ ...prev, purchases: snap.size })),
-    );
-    const unsubAppt = onSnapshot(apptQ, (snap) =>
-      setStats((prev) => ({ ...prev, appointments: snap.size })),
-    );
-    const unsubRx = onSnapshot(rxQ, (snap) =>
-      setStats((prev) => ({ ...prev, prescriptions: snap.size })),
-    );
-    const unsubMsg = onSnapshot(msgQ, (snap) =>
-      setStats((prev) => ({ ...prev, messages: snap.size })),
-    );
-    const unsubPat = onSnapshot(patQ, (snap) =>
-      setStats((prev) => ({ ...prev, patients: snap.size })),
-    );
+      const mk = (ref) =>
+        isSuper ? ref : query(ref, where("companyId", "==", userCompanyId));
 
-    const unsubInv = onSnapshot(invQ, (snap) => {
-      let totalRevenue = 0;
-      snap.forEach((doc) => {
-        const inv = doc.data();
-        if (inv.status === "paid") {
-          const amount = parseFloat(inv.amount) || 0;
-          totalRevenue += amount;
-        } else {
-          const paid = parseFloat(inv.paidAmount) || 0;
-          totalRevenue += paid;
-        }
-      });
-      setStats((prev) => ({
-        ...prev,
-        invoices: snap.size,
-        revenue: totalRevenue,
-      }));
-      setLoading(false);
-    });
+      const compQ = query(compRef, where("__name__", "==", userCompanyId));
+
+      try {
+        const [
+          compCount,
+          cliCount,
+          sellerCount,
+          buyerCount,
+          taskCount,
+          projCount,
+          usersCount,
+          suppCount,
+          purchCount,
+          apptCount,
+          rxCount,
+          msgCount,
+          patCount,
+          invSnap,
+        ] = await Promise.all([
+          isSuper ? getCountFromServer(compRef) : getCountFromServer(compQ),
+          getCountFromServer(mk(cliRef)),
+          getCountFromServer(mk(sellerRef)),
+          getCountFromServer(mk(buyerRef)),
+          getCountFromServer(mk(taskRef)),
+          getCountFromServer(mk(projRef)),
+          getCountFromServer(mk(usersRef)),
+          getCountFromServer(mk(suppRef)),
+          getCountFromServer(mk(purchRef)),
+          getCountFromServer(mk(apptRef)),
+          getCountFromServer(mk(rxRef)),
+          getCountFromServer(mk(msgRef)),
+          getCountFromServer(mk(patRef)),
+          getDocs(mk(invRef)),
+        ]);
+
+        let totalRevenue = 0;
+        invSnap.forEach((docSnap) => {
+          const inv = docSnap.data();
+          if (inv.status === "paid") {
+            totalRevenue += parseFloat(inv.amount) || 0;
+          } else {
+            totalRevenue += parseFloat(inv.paidAmount) || 0;
+          }
+        });
+
+        if (cancelled) return;
+
+        setStats({
+          companies: compCount.data().count,
+          clients: cliCount.data().count,
+          sellers: sellerCount.data().count,
+          buyers: buyerCount.data().count,
+          invoices: invSnap.size,
+          tasks: taskCount.data().count,
+          projects: projCount.data().count,
+          users: usersCount.data().count,
+          suppliers: suppCount.data().count,
+          purchases: purchCount.data().count,
+          appointments: apptCount.data().count,
+          prescriptions: rxCount.data().count,
+          messages: msgCount.data().count,
+          patients: patCount.data().count,
+          revenue: totalRevenue,
+        });
+      } catch (e) {
+        console.error("Failed to fetch dashboard stats", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchStats();
 
     return () => {
-      unsubComp();
-      unsubCli();
-      unsubSeller();
-      unsubBuyer();
-      unsubInv();
-      unsubTask();
-      unsubProj();
-      unsubUsers();
-      unsubSupp();
-      unsubPurch();
-      unsubAppt();
-      unsubRx();
-      unsubMsg();
-      unsubPat();
+      cancelled = true;
     };
   }, [currentUser, userRole, userCompanyId, isAdmin]);
 
