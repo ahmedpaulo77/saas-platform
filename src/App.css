@@ -1962,3 +1962,42 @@ input[type='number'] {
     padding: 0 8px;
   }
 }
+/* ============================================================
+   Landing Page - Mobile Responsiveness
+   ============================================================ */
+@media (max-width: 640px) {
+  .landing-nav {
+    height: auto !important;
+    padding: 10px 4% !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .landing-nav-actions {
+    gap: 6px !important;
+  }
+
+  .landing-btn-lang,
+  .landing-btn-login-nav,
+  .landing-btn-signup-nav {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+
+  .landing-btn-signup-nav i,
+  .landing-btn-lang i {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .landing-btn-lang span {
+    display: none;
+  }
+
+  .landing-btn-login-nav,
+  .landing-btn-signup-nav {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+}
