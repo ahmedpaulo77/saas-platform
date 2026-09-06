@@ -11,7 +11,7 @@ export default function Notifications() {
   const { t } = useLanguage();
   const { currentUser, userCompanyId } = useAuth();
   // ✅ نفس المصدر اللي بيقرا منه الـ Sidebar
-  const { notifications, loading, refresh } = useNotifications();
+  const { notifications, loading, refresh, markAllAsRead } = useNotifications();
   const [filter, setFilter] = useState("all");
   const [pushStatus, setPushStatus] = useState("");
   const [pushSupported, setPushSupported] = useState(false);
@@ -34,6 +34,14 @@ export default function Notifications() {
     });
     return unsubscribe;
   }, [refresh]);
+
+  // ✅ لما المستخدم يفتح الصفحة ويشوف الإشعارات، تتحسب كمقروءة
+  // فالعداد في الـ Sidebar يرجع يقل
+  useEffect(() => {
+    if (!loading && notifications.length > 0) {
+      markAllAsRead();
+    }
+  }, [loading, notifications, markAllAsRead]);
 
   const handleEnablePush = async () => {
     setPushStatus("جاري التفعيل...");

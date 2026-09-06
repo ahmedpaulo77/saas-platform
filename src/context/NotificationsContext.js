@@ -3,7 +3,7 @@
 // بدل getDocs (قراءة لمرة واحدة). أي تغيير في المخزون/الفواتير/المهام
 // بيوصل فورًا للـ Sidebar وصفحة الإشعارات من غير أي انتظار أو Refresh يدوي.
 
-import React, { createContext, useState, useEffect, useMemo, useContext } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { onSnapshot } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import { getScopedQuery } from '../utils/companyQuery';
@@ -17,6 +17,9 @@ export function useNotifications() {
 
 // ✅ لو باقي على انتهاء صلاحية الدواء الرقم ده من الأيام أو أقل → يتحول لتنبيه
 const EXPIRY_WARNING_DAYS = 30;
+
+// ✅ مفتاح تخزين الإشعارات "المقروءة" محليًا لكل مستخدم
+const READ_STORAGE_PREFIX = 'notif_read_';
 
 function parseDate(value) {
   if (!value) return null;
@@ -203,6 +206,55 @@ const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);   
     return all;
   }, [stockAlerts, expiryAlerts, invoiceAlerts, taskAlerts]);
 
+  // ✅ تتبع الإشعارات اللي المستخدم شافها (محفوظة محليًا لكل مستخدم)
+  const [readIds, setReadIds] = useState(new Set());
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setReadIds(new Set());
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(READ_STORAGE_PREFIX + currentUser.uid);
+      setReadIds(raw ? new Set(JSON.parse(raw)) : new Set());
+    } catch {
+      setReadIds(new Set());
+    }
+  }, [currentUser?.uid]);
+
+   const persistReadIds = useCallback((nextSet) => {
+    if (!currentUser?.uid) return;
+    try {
+      localStorage.setItem(READ_STORAGE_PREFIX + currentUser.uid, JSON.stringify([...nextSet]));
+    } catch {}
+  }, [currentUser?.uid]);
+  // ✅ علّم كل الإشعارات الظاهرة حاليًا كمقروءة
+  const markAllAsRead = useCallback(() => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      notifications.forEach((n) => {
+        if (!next.has(n.id)) {
+          next.add(n.id);
+          changed = true;
+        }
+      });
+      if (!changed) return prev; // مفيش جديد يتحفظ
+      persistReadIds(next);
+      return next;
+    });
+  }, [notifications, persistReadIds]);
+  const markAsRead = useCallback((id) => {
+    setReadIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      persistReadIds(next);
+      return next;
+    });
+  }, [persistReadIds]);
+  const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
+
   const loading = !currentUser
     ? false
     : !(loadedFlags.inventory && loadedFlags.invoices && loadedFlags.tasks);
@@ -214,8 +266,11 @@ const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);   
   const value = {
     notifications,
     loading,
-    unreadCount: notifications.length,
+    unreadCount,
     refresh,
+    markAsRead,
+    markAllAsRead,
+    readIds,
   };
 
   return (
