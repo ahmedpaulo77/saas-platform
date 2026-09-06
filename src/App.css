@@ -1698,6 +1698,22 @@ tbody tr:last-child td {
   .form-container, .form-card form > div[style] {
     flex-direction: column !important;
   }
+    .form-container input,
+  .form-container select,
+  .form-card input,
+  .form-card select,
+  .form-card textarea {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+    .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .search-wrapper input,
+  .filter-bar .search-wrapper {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
 
   /* الـ filter bar */
   .filter-bar {
