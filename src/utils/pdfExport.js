@@ -1,7 +1,8 @@
 // src/utils/pdfExport.js - يدعم العربية والإنجليزية
-export function exportInvoicePDF(invoice, clientName, productName) {
+export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice") {
   // كشف اللغة بناءً على اسم العميل أو المنتج
   const isArabic = /[\u0600-\u06FF]/.test(clientName) || /[\u0600-\u06FF]/.test(productName);
+  const isQuotation = docType === "quotation";
   
   const date     = invoice.date    ? new Date(invoice.date).toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB') : new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB');
   const dueDate  = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB') : '—';
@@ -12,7 +13,7 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   // ترجمات حسب اللغة
   const translations = isArabic ? {
     brand: 'منصة إدارة الأعمال',
-    invoice: 'فاتورة',
+    invoice: isQuotation ? 'عرض سعر' : 'فاتورة',
     date: 'التاريخ',
     due: 'تاريخ الاستحقاق',
     status: 'الحالة',
@@ -34,7 +35,7 @@ export function exportInvoicePDF(invoice, clientName, productName) {
     currency: 'ج.م',
   } : {
     brand: 'Business Management Platform',
-    invoice: 'INVOICE',
+    invoice: isQuotation ? 'QUOTATION' : 'INVOICE',
     date: 'Date',
     due: 'Due Date',
     status: 'Status',
@@ -63,7 +64,7 @@ export function exportInvoicePDF(invoice, clientName, productName) {
   const statusClr   = statusColor[invoice.status] || '#64748b';
   const statusBgClr = statusBg[invoice.status]    || '#f1f5f9';
 
-  const invoiceNum = invoice.id?.slice(0, 8).toUpperCase() || 'INV-0001';
+  const invoiceNum = invoice.id?.slice(0, 8).toUpperCase() || (isQuotation ? 'QUO-0001' : 'INV-0001');
   const dir = isArabic ? 'rtl' : 'ltr';
 
   const html = `<!DOCTYPE html>

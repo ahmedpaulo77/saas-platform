@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import Purchases from './pages/Purchases';
+import Expenses from './pages/Expenses';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -13,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
 import Clients from './pages/Clients';
 import Invoices from './pages/Invoices';
+import Quotations from './pages/Quotations';
 import Inventory from './pages/Inventory';
 import Tasks from './pages/Tasks';
 import Projects from './pages/Projects';
@@ -76,6 +78,7 @@ function AppRoutes() {
       <Route path="/buyers"       element={<ProtectedRoute><IndustryRoute moduleKey="buyers"><Buyers /></IndustryRoute></ProtectedRoute>} />
       <Route path="/messages"     element={<ProtectedRoute><IndustryRoute moduleKey="messages"><Messages /></IndustryRoute></ProtectedRoute>} />
       <Route path="/invoices"     element={<ProtectedRoute><IndustryRoute moduleKey="invoices"><Invoices /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/quotations"   element={<ProtectedRoute><IndustryRoute moduleKey="quotations"><Quotations /></IndustryRoute></ProtectedRoute>} />
       <Route path="/inventory"    element={<ProtectedRoute><IndustryRoute moduleKey="inventory"><Inventory /></IndustryRoute></ProtectedRoute>} />
       <Route path="/tasks"        element={<ProtectedRoute><IndustryRoute moduleKey="tasks"><Tasks /></IndustryRoute></ProtectedRoute>} />
       <Route path="/projects"     element={<ProtectedRoute><IndustryRoute moduleKey="projects"><Projects /></IndustryRoute></ProtectedRoute>} />
@@ -89,6 +92,7 @@ function AppRoutes() {
       <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
       <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
       <Route path="/purchases"    element={<ProtectedRoute><IndustryRoute moduleKey="purchases"><Purchases /></IndustryRoute></ProtectedRoute>} />
+            <Route path="/expenses"     element={<ProtectedRoute><IndustryRoute moduleKey="expenses"><Expenses /></IndustryRoute></ProtectedRoute>} />
       <Route path="/patients"     element={<ProtectedRoute><IndustryRoute moduleKey="patients"><Patients /></IndustryRoute></ProtectedRoute>} />
       <Route path="/appointments" element={<ProtectedRoute><IndustryRoute moduleKey="appointments"><Appointments /></IndustryRoute></ProtectedRoute>} />
       <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />

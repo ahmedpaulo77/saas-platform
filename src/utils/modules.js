@@ -82,16 +82,18 @@ export const INDUSTRY_LABELS = {
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
 export const MODULE_MAP = {
   // الوحدات الأساسية المتاحة للجميع
-  _base: [
+   _base: [
     'dashboard',
     'inventory',
     'reports',
+    'expenses',
   ],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
   trader: [
     'clients',
     'invoices',
+    'quotations',
     'suppliers',
     'purchases',
     'tasks',
@@ -103,6 +105,7 @@ export const MODULE_MAP = {
   contractor: [
     'clients',
     'invoices',
+    'quotations',
     'projects',
     'tasks',
     'suppliers',
@@ -124,6 +127,7 @@ export const MODULE_MAP = {
   services: [
     'clients',
     'invoices',
+    'quotations',
     'tasks',
     'projects',
     'aging',
@@ -134,6 +138,7 @@ export const MODULE_MAP = {
   general: [
     'clients',
     'invoices',
+    'quotations',
     'tasks',
     'projects',
     'aging',
@@ -186,6 +191,7 @@ export const MODULE_MAP = {
   clothing: [
     'clients',
     'invoices',
+    'quotations',
     'suppliers',
     'purchases',
     'sizes_colors',
@@ -242,9 +248,11 @@ export function canAccess(moduleKey, industry, userRole) {
 // خريطة المسارات → الوحدات
 export const ROUTE_MODULE_MAP = {
   '/dashboard': 'dashboard',
+    '/expenses': 'expenses',
   '/companies': 'companies',
   '/clients': 'clients',
   '/invoices': 'invoices',
+  '/quotations': 'quotations',
   '/inventory': 'inventory',
   '/tasks': 'tasks',
   '/projects': 'projects',
@@ -306,9 +314,11 @@ export function getTranslatedIndustries(t) {
 export const MODULE_LABEL_KEYS = {
   dashboard: 'modules.dashboard',
   inventory: 'modules.inventory',
+    expenses: 'modules.expenses',
   reports: 'modules.reports',
   clients: 'modules.clients',
   invoices: 'modules.invoices',
+  quotations: 'modules.quotations',
   tasks: 'modules.tasks',
   projects: 'modules.projects',
   aging: 'modules.aging',

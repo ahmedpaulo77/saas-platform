@@ -96,6 +96,12 @@ export default function Sidebar() {
       module: "invoices",
     },
     {
+      to: "/quotations",
+      icon: "fas fa-file-signature",
+      label: t("nav.quotations"),
+      module: "quotations",
+    },
+    {
       to: "/inventory",
       icon: "fas fa-boxes",
       label: isRestaurant
@@ -109,6 +115,12 @@ export default function Sidebar() {
       icon: "fas fa-truck",
       label: t("nav.suppliers"),
       module: "suppliers",
+    },
+        {
+      to: "/expenses",
+      icon: "fas fa-file-invoice-dollar",
+      label: t("nav.expenses"),
+      module: "expenses",
     },
     {
       to: "/expiry",
