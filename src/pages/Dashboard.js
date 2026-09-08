@@ -291,6 +291,7 @@ export default function Dashboard() {
           rxCount,
           msgCount,
           patCount,
+          invCount,
           invSnap,
         ] = await Promise.all([
           isSuper ? getCountFromServer(compRef) : getCountFromServer(compQ),
@@ -306,6 +307,7 @@ export default function Dashboard() {
           getCountFromServer(mk(rxRef)),
           getCountFromServer(mk(msgRef)),
           getCountFromServer(mk(patRef)),
+          getCountFromServer(mk(invRef)),
           getDocs(mk(invRef)),
         ]);
 
@@ -326,7 +328,7 @@ export default function Dashboard() {
           clients: cliCount.data().count,
           sellers: sellerCount.data().count,
           buyers: buyerCount.data().count,
-          invoices: invSnap.size,
+          invoices: invCount.data().count,
           tasks: taskCount.data().count,
           projects: projCount.data().count,
           users: usersCount.data().count,

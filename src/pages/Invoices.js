@@ -66,7 +66,7 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [submitting, setSubmitting] = useState(false);
 
-    const [newInvoice, setNewInvoice] = useState({
+       const [newInvoice, setNewInvoice] = useState({
     clientId: "",
     products: [], // Array of { productId, quantity, amount }
     status: "pending",
@@ -216,7 +216,6 @@ export default function Invoices() {
     fetchClients();
     fetchProducts();
   }, [fetchClients, fetchProducts]);
-
   useEffect(() => {
     resetPagination();
   }, [filterStatus, resetPagination]);
@@ -238,7 +237,7 @@ export default function Invoices() {
       );
     });
   }, [invoices, searchTerm, clients, products]);
-
+  // ✅ حساب تاريخ الاستحقاق الجاي حسب دورة التكرار
   async function addInvoice(e) {
     e.preventDefault();
     if (!newInvoice.clientId || newInvoice.products.length === 0) return;
@@ -384,7 +383,6 @@ export default function Invoices() {
       console.error(e);
     }
   }
-
   async function recordPayment(e) {
     e.preventDefault();
     if (!payingInvoice) return;
@@ -912,36 +910,6 @@ export default function Invoices() {
                   )}
                 </>
               )}
-                        {isRestaurant && (
-                <>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>نوع الطلب</label>
-                    <select
-                      value={newInvoice.orderType}
-                      onChange={(e) =>
-                        setNewInvoice({ ...newInvoice, orderType: e.target.value })
-                      }
-                    >
-                      {orderTypes.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {newInvoice.orderType === 'delivery' && (
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label>عنوان التوصيل</label>
-                      <input
-                        type="text"
-                        placeholder="اكتب العنوان بالتفصيل"
-                        value={newInvoice.deliveryAddress}
-                        onChange={(e) =>
-                          setNewInvoice({ ...newInvoice, deliveryAddress: e.target.value })
-                        }
-                      />
-                    </div>
-                  )}
-                </>
-              )}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("common.status")}</label>
                 <select
@@ -969,7 +937,7 @@ export default function Invoices() {
                   }
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
+                           <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("in.due")}</label>
                 <input
                   type="date"

@@ -2023,3 +2023,260 @@ input[type='number'] {
     -webkit-backdrop-filter: blur(8px) !important;
   }
 }
+
+
+/* ================================================
+   Mobile Responsive Fixes — إصلاحات الموبايل
+   ================================================ */
+
+/* ── إصلاح عام: منع overflow أفقي ── */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* ── أزرار الجدول: بتبقى icon فقط على الموبايل ── */
+  .table-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .table-actions .btn-sm {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    min-width: 32px;
+    min-height: 32px;
+    justify-content: center;
+  }
+
+  /* إخفاء النص في أزرار الجدول، إبقاء الأيقونة فقط */
+  .table-actions .btn-sm span,
+  .table-actions .btn-sm .btn-text {
+    display: none;
+  }
+
+  /* ── الـ form inputs: ضمان إنها تاخد العرض كامل ── */
+  .form-card input,
+  .form-card select,
+  .form-card textarea,
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 16px !important; /* يمنع الـ zoom على iOS */
+  }
+
+  /* ── الـ search input ── */
+  .search-wrapper input {
+    font-size: 16px !important; /* يمنع الـ zoom على iOS */
+  }
+
+  /* ── الـ filter bar ── */
+  .filter-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-bar > * {
+    width: 100% !important;
+  }
+
+  .filter-bar select {
+    width: 100% !important;
+  }
+
+  /* ── الجدول: padding أقل على الموبايل ── */
+  thead th {
+    padding: 10px 10px !important;
+    font-size: 11px !important;
+  }
+
+  tbody td {
+    padding: 10px 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* ── الـ modal: يبقى full width تقريباً ── */
+  .modal-overlay {
+    padding: 8px !important;
+    align-items: flex-end; /* يطلع من الأسفل زي sheet */
+  }
+
+  .modal-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 20px 20px 0 0 !important; /* bottom sheet style */
+    max-height: 92vh;
+  }
+
+  /* ── إصلاح header ── */
+  .header {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 20px !important;
+  }
+
+  /* ── stats-row: عمودين على الموبايل ── */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .stat-card {
+    padding: 16px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 22px !important;
+    letter-spacing: -0.5px;
+  }
+
+  .stat-card .stat-icon {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 16px !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* ── form-card: padding أقل ── */
+  .form-card {
+    padding: 16px !important;
+  }
+
+  /* ── table-container ── */
+  .table-container {
+    border-radius: 12px;
+  }
+
+  .table-header {
+    padding: 14px 16px !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── الـ grid ── */
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── موبايل صغير (480px وأقل) ── */
+@media (max-width: 480px) {
+  /* stats: عمود واحد لو الشاشة ضيقة جداً */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* الـ main content */
+  .main-content {
+    padding: 62px 10px 20px !important;
+  }
+
+  /* الجدول: إخفاء أعمدة أقل أهمية */
+  .table-col-hide-mobile {
+    display: none !important;
+  }
+
+  /* أزرار أكبر للمس */
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+  }
+
+  /* modal */
+  .modal-body {
+    padding: 16px !important;
+  }
+
+  .modal-header {
+    padding: 14px 16px !important;
+  }
+
+  .modal-footer {
+    padding: 12px 16px !important;
+  }
+
+  /* pagination */
+  .pagination-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+/* ── iPhone SE وأصغر (375px) ── */
+@media (max-width: 375px) {
+  .main-content {
+    padding: 58px 8px 16px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 18px !important;
+  }
+
+  .stat-card .stat-label {
+    font-size: 11px !important;
+  }
+
+  /* الأزرار الصغيرة */
+  .btn-sm {
+    padding: 5px 6px !important;
+    font-size: 10px !important;
+  }
+}
+
+/* ── Tablet (769px - 1024px) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    padding: 24px 20px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── تحسينات اللمس للأجهزة المحمولة ── */
+@media (hover: none) and (pointer: coarse) {
+  /* touch targets أكبر */
+  nav a {
+    min-height: 44px;
+  }
+
+  .btn:not(.btn-sm) {
+    min-height: 44px;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* إزالة hover effects على الأجهزة اللمسية */
+  .stat-card:hover,
+  .card.hoverable:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* تأثير عند اللمس */
+  .btn:active {
+    transform: scale(0.96) !important;
+    opacity: 0.85;
+    transition: all 0.1s ease !important;
+  }
+}

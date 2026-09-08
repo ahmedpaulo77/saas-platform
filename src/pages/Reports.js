@@ -383,11 +383,25 @@ export default function Reports() {
           productNameMap[p.id] = p.name;
         });
 
-        data = (allData.invoicesData || []).map((inv) => ({
-          ...inv,
-          clientId: clientNameMap[inv.clientId] || t('common.unspecified'),
-          productId: productNameMap[inv.productId] || t('common.unspecified'),
-        }));
+        data = (allData.invoicesData || []).map((inv) => {
+          // inv.products هي array من { productId, quantity, amount }
+          const productNames = (inv.products || [])
+            .map((p) => productNameMap[p.productId] || t('common.unspecified'))
+            .join(' ، ');
+          const totalQty = (inv.products || []).reduce(
+            (sum, p) => sum + (parseFloat(p.quantity) || 0), 0
+          );
+          return {
+            id: inv.id,
+            clientId: clientNameMap[inv.clientId] || t('common.unspecified'),
+            productId: productNames || t('common.unspecified'),
+            quantity: totalQty,
+            amount: inv.amount,
+            status: inv.status,
+            date: inv.date ? new Date(inv.date).toLocaleDateString() : '',
+            description: inv.description || '',
+          };
+        });
 
         fileName = t('rep.file.invoices');
         headers = {

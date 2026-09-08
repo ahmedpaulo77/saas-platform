@@ -13,7 +13,7 @@ import { db } from "../firebase/config";
  */
 export async function logActivity({ actionType, collectionName, itemId, details, user }) {
   try {
-    await addDoc(collection(db, "audit_logs"), {
+    await addDoc(collection(db, "auditLogs"), {
       actionType,
       collectionName,
       itemId: itemId || "N/A",

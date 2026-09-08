@@ -13,13 +13,13 @@ import { useFirestorePagination } from "../hooks/useFirestorePagination";
 const PAGE_SIZE = 25;
 
 const CATEGORIES = [
-  { value: "rent", labelKey: "exp.cat.rent" },
-  { value: "salaries", labelKey: "exp.cat.salaries" },
-  { value: "utilities", labelKey: "exp.cat.utilities" },
-  { value: "marketing", labelKey: "exp.cat.marketing" },
-  { value: "transport", labelKey: "exp.cat.transport" },
-  { value: "maintenance", labelKey: "exp.cat.maintenance" },
-  { value: "other", labelKey: "exp.cat.other" },
+  { value: "rent", labelKey: "expn.cat.rent" },
+  { value: "salaries", labelKey: "expn.cat.salaries" },
+  { value: "utilities", labelKey: "expn.cat.utilities" },
+  { value: "marketing", labelKey: "expn.cat.marketing" },
+  { value: "transport", labelKey: "expn.cat.transport" },
+  { value: "maintenance", labelKey: "expn.cat.maintenance" },
+  { value: "other", labelKey: "expn.cat.other" },
 ];
 
 export default function Expenses() {
@@ -207,9 +207,9 @@ export default function Expenses() {
           <div>
             <h1>
               <i className="fas fa-file-invoice-dollar" style={{ color: "#dc2626", marginLeft: 10 }}></i>
-              {t("exp.title")}
+              {t("expn.title")}
             </h1>
-            <p className="subtitle">{t("exp.subtitle")}</p>
+            <p className="subtitle">{t("expn.subtitle")}</p>
           </div>
         </div>
 
@@ -242,7 +242,7 @@ export default function Expenses() {
               <div className="stat-value" style={{ fontSize: 20 }}>
                 {totalAmount.toLocaleString()}
               </div>
-              <div className="stat-label">{t("exp.statTotal")}</div>
+              <div className="stat-label">{t("expn.statTotal")}</div>
             </div>
             <div className="stat-card amber">
               <div className="stat-icon">
@@ -251,21 +251,21 @@ export default function Expenses() {
               <div className="stat-value" style={{ fontSize: 20 }}>
                 {thisMonthTotal.toLocaleString()}
               </div>
-              <div className="stat-label">{t("exp.statThisMonth")}</div>
+              <div className="stat-label">{t("expn.statThisMonth")}</div>
             </div>
             <div className="stat-card indigo">
               <div className="stat-icon">
                 <i className="fas fa-list"></i>
               </div>
               <div className="stat-value">{filteredExpenses.length}</div>
-              <div className="stat-label">{t("exp.statCount")}</div>
+              <div className="stat-label">{t("expn.statCount")}</div>
             </div>
           </div>
         ) : (
           <div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}>
             <i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i>
             <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
-              {t("exp.statsAdminOnly")}
+              {t("expn.statsAdminOnly")}
             </p>
           </div>
         )}
@@ -273,12 +273,12 @@ export default function Expenses() {
         <div className="form-card">
           <h3>
             <i className="fas fa-plus-circle" style={{ color: "#dc2626" }}></i>
-            {t("exp.add")}
+            {t("expn.add")}
           </h3>
           <form onSubmit={addExpense}>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("exp.category")}</label>
+                <label>{t("expn.category")}</label>
                 <select
                   value={newExpense.category}
                   onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
@@ -291,7 +291,7 @@ export default function Expenses() {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("exp.amountReq")}</label>
+                <label>{t("expn.amountReq")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -302,7 +302,7 @@ export default function Expenses() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("exp.date")}</label>
+                <label>{t("expn.date")}</label>
                 <input
                   type="date"
                   value={newExpense.date}
@@ -314,7 +314,7 @@ export default function Expenses() {
                 <label>{t("common.description")}</label>
                 <input
                   type="text"
-                  placeholder={t("exp.descPh")}
+                  placeholder={t("expn.descPh")}
                   value={newExpense.description}
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
                 />
@@ -328,7 +328,7 @@ export default function Expenses() {
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-plus"></i> {t("exp.add")}
+                    <i className="fas fa-plus"></i> {t("expn.add")}
                   </>
                 )}
               </button>
@@ -341,13 +341,13 @@ export default function Expenses() {
             <i className="fas fa-search search-icon"></i>
             <input
               type="text"
-              placeholder={t("exp.search")}
+              placeholder={t("expn.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-            <option value="all">{t("exp.allCategories")}</option>
+            <option value="all">{t("expn.allCategories")}</option>
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {t(c.labelKey)}
@@ -359,10 +359,10 @@ export default function Expenses() {
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-list"></i> {t("exp.list")}
+              <i className="fas fa-list"></i> {t("expn.list")}
             </h3>
             <span className="table-count">
-              {filteredExpenses.length} {t("exp.expenses")}
+              {filteredExpenses.length} {t("expn.expenses")}
             </span>
           </div>
           <div className="table-wrapper">
@@ -378,7 +378,7 @@ export default function Expenses() {
                 <div className="table-empty">
                   <i className="fas fa-file-invoice-dollar"></i>
                   <p>
-                    {searchTerm || filterCategory !== "all" ? t("common.noResults") : t("exp.empty")}
+                    {searchTerm || filterCategory !== "all" ? t("common.noResults") : t("expn.empty")}
                   </p>
                 </div>
               }
@@ -387,7 +387,7 @@ export default function Expenses() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>{t("exp.category")}</th>
+                      <th>{t("expn.category")}</th>
                       <th>{t("common.amount")}</th>
                       <th>{t("common.description")}</th>
                       <th>{t("common.date")}</th>
@@ -453,7 +453,7 @@ export default function Expenses() {
             <form onSubmit={updateExpense}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>{t("exp.category")}</label>
+                  <label>{t("expn.category")}</label>
                   <select
                     value={editingExpense.category}
                     onChange={(e) => setEditingExpense({ ...editingExpense, category: e.target.value })}
@@ -476,7 +476,7 @@ export default function Expenses() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>{t("exp.date")}</label>
+                  <label>{t("expn.date")}</label>
                   <input
                     type="date"
                     value={editingExpense.date}

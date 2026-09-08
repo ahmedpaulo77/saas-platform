@@ -20,6 +20,12 @@ service cloud.firestore {
         getUserData().role == 'super_admin';
     }
 
+    function isAdmin() {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (getUserData().role == 'admin' || getUserData().role == 'super_admin');
+    }
+
     function userCompanyId() {
       return isLoggedIn() ? getUserData().companyId : null;
     }
@@ -32,7 +38,7 @@ service cloud.firestore {
          (request.resource.data.companyId == userCompanyId() && userCompanyId() != null));
     }
 
-    // قراءة / تعديل / حذف مستند — يخص شركة المستخدم فقط، أو السوبر أدمن
+    // قراءة / تعديل / حذف مستند واحد — يخص شركة المستخدم فقط، أو السوبر أدمن
     function canAccessCompanyDoc() {
       return isLoggedIn() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -44,15 +50,22 @@ service cloud.firestore {
     // ============================================================
     match /users/{userId} {
       // المستخدم يقرأ نفسه بس — السوبر أدمن يقرأ الكل
-      allow get, list:  if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow get: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
+
+      // ✅ list: السوبر أدمن يشوف الكل، المستخدم العادي يشوف مستخدمي شركته
+      // الـ query لازم يكون مفلتر بـ companyId من ناحية الكود
+      allow list: if isSuperAdmin() || (
+        isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        userCompanyId() != null
+      );
 
       // المستخدم يعمل مستنده بس عند التسجيل، وممنوع يرفع نفسه سوبر أدمن
       allow create: if isLoggedIn() && request.auth.uid == userId &&
         (!("isSuperAdmin" in request.resource.data) ||
          request.resource.data.isSuperAdmin == false);
 
-      // السوبر أدمن يعدل أي حقل على أي مستخدم (بما في ذلك الـ role)
-      // المستخدم العادي يعدل نفسه فقط بدون تغيير الـ role
+      // السوبر أدمن يعدل أي حقل — المستخدم العادي يعدل نفسه بدون تغيير الـ role
       allow update: if isLoggedIn() && (
         isSuperAdmin() ||
         (
@@ -72,17 +85,26 @@ service cloud.firestore {
     // companies/{companyId}
     // ============================================================
     match /companies/{companyId} {
-      // أي مستخدم مسجل يقرأ (عشان كود الانضمام)
-      allow get:    if isLoggedIn();
-      allow list:   if isLoggedIn();
-      // لازم يكون مسجل دخول عشان ينشئ شركة
+      // ✅ get مفتوح لكل المسجلين (لازم عشان كود الانضمام يشتغل)
+      allow get: if isLoggedIn();
+
+      // ✅ list: السوبر أدمن يشوف الكل — المستخدم العادي يشوف شركته بس
+      allow list: if isSuperAdmin() || (
+        isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        userCompanyId() != null
+      );
+
+      // إنشاء شركة — أي مستخدم مسجل
       allow create: if isLoggedIn();
+
       // التعديل: السوبر أدمن أو صاحب الشركة بس
       allow update: if isSuperAdmin() || (
         isLoggedIn() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         getUserData().companyId == companyId
       );
+
       allow delete: if isSuperAdmin();
     }
 
@@ -115,6 +137,30 @@ service cloud.firestore {
     }
 
     match /invoices/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    match /quotations/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    match /purchases/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    match /expenses/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
@@ -188,6 +234,29 @@ service cloud.firestore {
       allow create: if canCreateForCompany();
       allow update: if canAccessCompanyDoc();
       allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
+    // auditLogs/{docId} — سجل العمليات (للأدمن فقط)
+    // ============================================================
+    match /auditLogs/{docId} {
+      // القراءة للأدمن والسوبر أدمن فقط
+      allow get:    if isAdmin() && canAccessCompanyDoc();
+      allow list:   if isAdmin() && canAccessCompanyDoc();
+      // الكتابة: أي مستخدم في الشركة (عشان الـ app يسجل العمليات)
+      allow create: if canCreateForCompany();
+      // لا يوجد تعديل أو حذف — السجلات تفضل زي ما هي
+    }
+
+    // ============================================================
+    // fcm_tokens/{userId} — توكنات الإشعارات
+    // ============================================================
+    match /fcm_tokens/{userId} {
+      allow get:    if isLoggedIn() && request.auth.uid == userId;
+      allow create: if isLoggedIn() && request.auth.uid == userId;
+      allow update: if isLoggedIn() && request.auth.uid == userId;
+      allow delete: if isLoggedIn() && request.auth.uid == userId;
+      allow list:   if isSuperAdmin();
     }
 
   }

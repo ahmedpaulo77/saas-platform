@@ -35,7 +35,7 @@ export default function AuditLog() {
 
     try {
       let baseQuery = query(
-        collection(db, 'audit_logs'),
+        collection(db, 'auditLogs'),
         orderBy('timestamp', 'desc'),
         limit(PAGE_SIZE)
       );
