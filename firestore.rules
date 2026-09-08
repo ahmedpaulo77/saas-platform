@@ -237,6 +237,26 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // مطعم - أقسام المنيو والخامات
+    // ============================================================
+
+    match /menu_categories/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    match /raw_materials/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canAccessCompanyDoc();
+      allow delete: if canAccessCompanyDoc();
+    }
+
+    // ============================================================
     // auditLogs/{docId} — سجل العمليات (للأدمن فقط)
     // ============================================================
     match /auditLogs/{docId} {

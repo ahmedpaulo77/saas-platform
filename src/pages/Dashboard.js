@@ -43,6 +43,8 @@ const ALL_FEATURE_CARDS = [
     bg: "#d1fae5",
     titleKey: "dash.c2.t",
     descKey: "dash.c2.d",
+    titleKeyByIndustry: { restaurant: "dash.c2.t.restaurant" },
+    descKeyByIndustry: { restaurant: "dash.c2.d.restaurant" },
     module: "clients",
   },
   {
@@ -70,6 +72,8 @@ const ALL_FEATURE_CARDS = [
     bg: "#fef3c7",
     titleKey: "dash.c3.t",
     descKey: "dash.c3.d",
+    titleKeyByIndustry: { restaurant: "dash.c3.t.restaurant" },
+    descKeyByIndustry: { restaurant: "dash.c3.d.restaurant" },
     module: "invoices",
   },
   {
@@ -79,8 +83,8 @@ const ALL_FEATURE_CARDS = [
     bg: "#f3e8ff",
     titleKey: "dash.c4.t",
     descKey: "dash.c4.d",
-    titleKeyByIndustry: { real_estate: "dash.c4.t.real_estate" },
-    descKeyByIndustry: { real_estate: "dash.c4.d.real_estate" },
+    titleKeyByIndustry: { real_estate: "dash.c4.t.real_estate", restaurant: "dash.c4.t.restaurant" },
+    descKeyByIndustry: { real_estate: "dash.c4.d.real_estate", restaurant: "dash.c4.d.restaurant" },
     module: "inventory",
   },
   {

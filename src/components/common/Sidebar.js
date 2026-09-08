@@ -68,7 +68,7 @@ export default function Sidebar() {
     {
       to: "/clients",
       icon: "fas fa-user-friends",
-      label: isRestaurant ? "الزباين" : t("nav.clients"),
+      label: isRestaurant ? t("nav.clients.restaurant") : t("nav.clients"),
       module: "clients",
     },
     {
@@ -92,7 +92,7 @@ export default function Sidebar() {
     {
       to: "/invoices",
       icon: "fas fa-file-invoice",
-      label: isRestaurant ? "الطلبات" : t("nav.invoices"),
+      label: isRestaurant ? t("nav.invoices.restaurant") : t("nav.invoices"),
       module: "invoices",
     },
     {
@@ -105,10 +105,23 @@ export default function Sidebar() {
       to: "/inventory",
       icon: "fas fa-boxes",
       label: isRestaurant
-        ? "المنيو"
+        ? t("nav.inventory.restaurant")
         : isRealEstate
         ? t("nav.inventory.real_estate")
-        : t("nav.inventory"),      module: "inventory",
+        : t("nav.inventory"),
+      module: "inventory",
+    },
+    {
+      to: "/menu-categories",
+      icon: "fas fa-layer-group",
+      label: "أقسام المنيو",
+      module: "menu-categories",
+    },
+    {
+      to: "/raw-materials",
+      icon: "fas fa-cubes",
+      label: "الخامات",
+      module: "raw-materials",
     },
     {
       to: "/suppliers",

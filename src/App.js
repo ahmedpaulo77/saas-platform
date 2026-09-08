@@ -38,6 +38,8 @@ import Messages from './pages/Messages';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
 import Prescriptions from './pages/Prescriptions';
+import MenuCategories from './pages/MenuCategories';
+import RawMaterials from './pages/RawMaterials';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SuperAdminRoute from './components/common/SuperAdminRoute';
 import { LanguageProvider } from './i18n/LanguageContext';
@@ -96,6 +98,8 @@ function AppRoutes() {
       <Route path="/patients"     element={<ProtectedRoute><IndustryRoute moduleKey="patients"><Patients /></IndustryRoute></ProtectedRoute>} />
       <Route path="/appointments" element={<ProtectedRoute><IndustryRoute moduleKey="appointments"><Appointments /></IndustryRoute></ProtectedRoute>} />
       <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/menu-categories" element={<ProtectedRoute><IndustryRoute moduleKey="menu-categories"><MenuCategories /></IndustryRoute></ProtectedRoute>} />
+      <Route path="/raw-materials"   element={<ProtectedRoute><IndustryRoute moduleKey="raw-materials"><RawMaterials /></IndustryRoute></ProtectedRoute>} />
 
       <Route path="/my-company"   element={<ProtectedRoute><MyCompany /></ProtectedRoute>} />
       <Route path="/audit-log"    element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />

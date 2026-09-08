@@ -175,13 +175,16 @@ export const MODULE_MAP = {
     'messages',
   ],
 
-  // مطعم / كافيه - طلبات وطاولات وصلاحيات طعام + مهام ورسائل
-    // مطعم / كافيه - بيستخدم صفحات الفواتير والمخزون الموجودة (بمسميات مختلفة) + موردين ومشتريات
+  // مطعم / كافيه - ديليفري وتيك أواي فقط
   restaurant: [
+    'pos',
+    'menu-categories',
+    'raw-materials',
     'clients',
     'invoices',
     'suppliers',
     'purchases',
+    'aging',
     'expiry',
     'tasks',
     'messages',
@@ -259,6 +262,8 @@ export const ROUTE_MODULE_MAP = {
   '/users': 'users',
   '/reports': 'reports',
   '/aging': 'aging',
+  '/menu-categories': 'menu-categories',
+  '/raw-materials': 'raw-materials',
   '/notifications': 'notifications',
 
   '/profile': 'profile',
@@ -331,6 +336,8 @@ export const MODULE_LABEL_KEYS = {
   drug_categories: 'modules.drug_categories',
   orders: 'modules.orders',
   tables: 'modules.tables',
+  'menu-categories': 'modules.menu_categories',
+  'raw-materials': 'modules.raw_materials',
   sizes_colors: 'modules.sizes_colors',
   companies: 'modules.companies',
   users: 'modules.users',
