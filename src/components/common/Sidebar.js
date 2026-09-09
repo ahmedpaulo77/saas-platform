@@ -124,6 +124,12 @@ export default function Sidebar() {
       module: "raw-materials",
     },
     {
+  to: "/kitchen",
+  icon: "fas fa-fire",
+  label: t("nav.kitchen"),
+  module: "kitchen",
+},
+    {
       to: "/suppliers",
       icon: "fas fa-truck",
       label: t("nav.suppliers"),

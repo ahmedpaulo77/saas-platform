@@ -1,56 +1,61 @@
 // src/App.js
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { NotificationsProvider } from './context/NotificationsContext';
-import Purchases from './pages/Purchases';
-import Expenses from './pages/Expenses';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { NotificationsProvider } from "./context/NotificationsContext";
+import Purchases from "./pages/Purchases";
+import Expenses from "./pages/Expenses";
+import Kitchen from "./pages/Kitchen";
+import Landing from "./pages/Landing";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Setup from "./pages/Setup";
+import Dashboard from "./pages/Dashboard";
+import Companies from "./pages/Companies";
+import Clients from "./pages/Clients";
+import Invoices from "./pages/Invoices";
+import Quotations from "./pages/Quotations";
+import Inventory from "./pages/Inventory";
+import Tasks from "./pages/Tasks";
+import Projects from "./pages/Projects";
+import Users from "./pages/Users";
+import Reports from "./pages/Reports";
+import Aging from "./pages/Aging";
+import POS from "./pages/POS";
+import Suppliers from "./pages/Suppliers";
+import Expiry from "./pages/Expiry";
+import Notifications from "./pages/Notifications";
+import About from "./pages/About";
+import Profile from "./pages/Profile";
 
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Setup from './pages/Setup';
-import Dashboard from './pages/Dashboard';
-import Companies from './pages/Companies';
-import Clients from './pages/Clients';
-import Invoices from './pages/Invoices';
-import Quotations from './pages/Quotations';
-import Inventory from './pages/Inventory';
-import Tasks from './pages/Tasks';
-import Projects from './pages/Projects';
-import Users from './pages/Users';
-import Reports from './pages/Reports';
-import Aging from './pages/Aging';
-import POS from './pages/POS';
-import Suppliers from './pages/Suppliers';
-import Expiry from './pages/Expiry';
-import Notifications from './pages/Notifications';
-import About from './pages/About';
-import Profile from './pages/Profile';
-
-import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
-import ManageUsers from './pages/admin/ManageUsers';
-import AuditLog from './pages/AuditLog';
-import MyCompany from './pages/MyCompany';
-import Sellers from './pages/Sellers';
-import Buyers from './pages/Buyers';
-import Messages from './pages/Messages';
-import Patients from './pages/Patients';
-import Appointments from './pages/Appointments';
-import Prescriptions from './pages/Prescriptions';
-import MenuCategories from './pages/MenuCategories';
-import RawMaterials from './pages/RawMaterials';
-import ProtectedRoute from './components/common/ProtectedRoute';
-import SuperAdminRoute from './components/common/SuperAdminRoute';
-import { LanguageProvider } from './i18n/LanguageContext';
-import { getAvailableModules } from './utils/modules';
-import './App.css';
+import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
+import ManageUsers from "./pages/admin/ManageUsers";
+import AuditLog from "./pages/AuditLog";
+import MyCompany from "./pages/MyCompany";
+import Sellers from "./pages/Sellers";
+import Buyers from "./pages/Buyers";
+import Messages from "./pages/Messages";
+import Patients from "./pages/Patients";
+import Appointments from "./pages/Appointments";
+import Prescriptions from "./pages/Prescriptions";
+import MenuCategories from "./pages/MenuCategories";
+import RawMaterials from "./pages/RawMaterials";
+import ProtectedRoute from "./components/common/ProtectedRoute";
+import SuperAdminRoute from "./components/common/SuperAdminRoute";
+import { LanguageProvider } from "./i18n/LanguageContext";
+import { getAvailableModules } from "./utils/modules";
+import "./App.css";
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
   const { userRole, userIndustry } = useAuth();
   const available = getAvailableModules(userIndustry, userRole);
-  
+
   if (!available.has(moduleKey)) {
     return <Navigate to="/dashboard" />;
   }
@@ -63,50 +68,328 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/"        element={<Landing />} />
-      <Route path="/login"   element={<Login />} />
-      <Route path="/signup"  element={<Signup />} />
-      <Route path="/setup"   element={<Setup />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/setup" element={<Setup />} />
 
       {/* Protected */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          {userRole === 'super_admin' ? <Navigate to="/admin" /> : <Dashboard />}
-        </ProtectedRoute>
-      } />
-      <Route path="/companies"    element={<ProtectedRoute><IndustryRoute moduleKey="companies"><Companies /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/clients"      element={<ProtectedRoute><IndustryRoute moduleKey="clients"><Clients /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/sellers"      element={<ProtectedRoute><IndustryRoute moduleKey="sellers"><Sellers /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/buyers"       element={<ProtectedRoute><IndustryRoute moduleKey="buyers"><Buyers /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/messages"     element={<ProtectedRoute><IndustryRoute moduleKey="messages"><Messages /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/invoices"     element={<ProtectedRoute><IndustryRoute moduleKey="invoices"><Invoices /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/quotations"   element={<ProtectedRoute><IndustryRoute moduleKey="quotations"><Quotations /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/inventory"    element={<ProtectedRoute><IndustryRoute moduleKey="inventory"><Inventory /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/tasks"        element={<ProtectedRoute><IndustryRoute moduleKey="tasks"><Tasks /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/projects"     element={<ProtectedRoute><IndustryRoute moduleKey="projects"><Projects /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/users"        element={<ProtectedRoute><IndustryRoute moduleKey="users"><Users /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/reports"      element={<ProtectedRoute><IndustryRoute moduleKey="reports"><Reports /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/aging"        element={<ProtectedRoute><IndustryRoute moduleKey="aging"><Aging /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/pos"          element={<ProtectedRoute><IndustryRoute moduleKey="pos"><POS /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/suppliers"    element={<ProtectedRoute><IndustryRoute moduleKey="suppliers"><Suppliers /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/expiry"       element={<ProtectedRoute><IndustryRoute moduleKey="expiry"><Expiry /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/notifications" element={<ProtectedRoute><IndustryRoute moduleKey="notifications"><Notifications /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/about"        element={<ProtectedRoute><IndustryRoute moduleKey="about"><About /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/profile"      element={<ProtectedRoute><IndustryRoute moduleKey="profile"><Profile /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/purchases"    element={<ProtectedRoute><IndustryRoute moduleKey="purchases"><Purchases /></IndustryRoute></ProtectedRoute>} />
-            <Route path="/expenses"     element={<ProtectedRoute><IndustryRoute moduleKey="expenses"><Expenses /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/patients"     element={<ProtectedRoute><IndustryRoute moduleKey="patients"><Patients /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/appointments" element={<ProtectedRoute><IndustryRoute moduleKey="appointments"><Appointments /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/prescriptions" element={<ProtectedRoute><IndustryRoute moduleKey="prescriptions"><Prescriptions /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/menu-categories" element={<ProtectedRoute><IndustryRoute moduleKey="menu-categories"><MenuCategories /></IndustryRoute></ProtectedRoute>} />
-      <Route path="/raw-materials"   element={<ProtectedRoute><IndustryRoute moduleKey="raw-materials"><RawMaterials /></IndustryRoute></ProtectedRoute>} />
-
-      <Route path="/my-company"   element={<ProtectedRoute><MyCompany /></ProtectedRoute>} />
-      <Route path="/audit-log"    element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            {userRole === "super_admin" ? (
+              <Navigate to="/admin" />
+            ) : (
+              <Dashboard />
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/companies"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="companies">
+              <Companies />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clients"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="clients">
+              <Clients />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sellers"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="sellers">
+              <Sellers />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/buyers"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="buyers">
+              <Buyers />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="messages">
+              <Messages />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/invoices"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="invoices">
+              <Invoices />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quotations"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="quotations">
+              <Quotations />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="inventory">
+              <Inventory />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="tasks">
+              <Tasks />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="projects">
+              <Projects />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="users">
+              <Users />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="reports">
+              <Reports />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/aging"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="aging">
+              <Aging />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pos"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="pos">
+              <POS />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/suppliers"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="suppliers">
+              <Suppliers />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expiry"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="expiry">
+              <Expiry />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="notifications">
+              <Notifications />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/about"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="about">
+              <About />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="profile">
+              <Profile />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/purchases"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="purchases">
+              <Purchases />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="expenses">
+              <Expenses />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/patients"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="patients">
+              <Patients />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/appointments"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="appointments">
+              <Appointments />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/prescriptions"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="prescriptions">
+              <Prescriptions />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/menu-categories"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="menu-categories">
+              <MenuCategories />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/raw-materials"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="raw-materials">
+              <RawMaterials />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kitchen"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="kitchen">
+              <Kitchen />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-company"
+        element={
+          <ProtectedRoute>
+            <MyCompany />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/audit-log"
+        element={
+          <ProtectedRoute>
+            <AuditLog />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Super Admin */}
-      <Route path="/admin"       element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
-      <Route path="/admin/users" element={<SuperAdminRoute><ManageUsers /></SuperAdminRoute>} />
+      <Route
+        path="/admin"
+        element={
+          <SuperAdminRoute>
+            <SuperAdminDashboard />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <SuperAdminRoute>
+            <ManageUsers />
+          </SuperAdminRoute>
+        }
+      />
     </Routes>
   );
 }
