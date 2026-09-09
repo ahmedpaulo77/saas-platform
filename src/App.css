@@ -782,7 +782,6 @@ body {
 .form-card select,
 .form-card textarea {
   flex: 1;
-  min-width: 340px;
   padding: 16px 20px;
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-sm);
@@ -829,7 +828,7 @@ body {
   background: var(--gray-50);
   color: var(--gray-800);
   font-family: 'Cairo', sans-serif;
-  min-width: 340px;
+  box-sizing: border-box;
 }
 .form-group input:focus,
 .form-group select:focus,

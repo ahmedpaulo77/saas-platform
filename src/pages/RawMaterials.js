@@ -1,13 +1,7 @@
 // src/pages/RawMaterials.js - إدارة الخامات والمواد الخام للمطاعم
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  getDoc,
+  collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -17,37 +11,47 @@ import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
 const UNITS = [
-  { value: "kg", label: "كيلو" },
-  { value: "g", label: "جرام" },
-  { value: "liter", label: "لتر" },
-  { value: "ml", label: "مل" },
-  { value: "piece", label: "قطعة" },
-  { value: "box", label: "علبة" },
-  { value: "bag", label: "كيس" },
-  { value: "can", label: "علبة معدنية" },
-  { value: "bottle", label: "زجاجة" },
-  { value: "pack", label: "باكيت" },
-  { value: "tray", label: "طبق" },
-  { value: "cup", label: "كوب" },
+  { value: "kg",     label: { ar: "كيلو",          en: "KG" } },
+  { value: "g",      label: { ar: "جرام",           en: "Gram" } },
+  { value: "liter",  label: { ar: "لتر",            en: "Liter" } },
+  { value: "ml",     label: { ar: "مل",             en: "ML" } },
+  { value: "piece",  label: { ar: "قطعة",           en: "Piece" } },
+  { value: "box",    label: { ar: "علبة",           en: "Box" } },
+  { value: "bag",    label: { ar: "كيس",            en: "Bag" } },
+  { value: "can",    label: { ar: "علبة معدنية",    en: "Can" } },
+  { value: "bottle", label: { ar: "زجاجة",          en: "Bottle" } },
+  { value: "pack",   label: { ar: "باكيت",          en: "Pack" } },
+  { value: "tray",   label: { ar: "طبق",            en: "Tray" } },
+  { value: "cup",    label: { ar: "كوب",            en: "Cup" } },
 ];
 
+const FIELD = (style) => ({
+  padding: "10px 14px",
+  border: "2px solid #e2e8f0",
+  borderRadius: 10,
+  fontSize: 14,
+  background: "white",
+  width: "100%",
+  boxSizing: "border-box",
+  ...style,
+});
+
 export default function RawMaterials() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const userCanDelete = canDelete(userRole);
+
+  const getUnitLabel = (val) => {
+    const u = UNITS.find((u) => u.value === val);
+    return u ? u.label[lang] || u.label.ar : val;
+  };
 
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLow, setFilterLow] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
-    name: "",
-    unit: "kg",
-    quantity: "",
-    minQuantity: "",
-    costPerUnit: "",
-    supplier: "",
-    notes: "",
+    name: "", unit: "kg", quantity: "", minQuantity: "", costPerUnit: "", supplier: "", notes: "",
   });
   const [editingMaterial, setEditingMaterial] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -55,17 +59,12 @@ export default function RawMaterials() {
   const fetchMaterials = useCallback(async () => {
     if (!userCompanyId) { setLoading(false); return; }
     try {
-      const snap = await getDocs(
-        getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid)
-      );
+      const snap = await getDocs(getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid));
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setMaterials(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   }, [userRole, userCompanyId, currentUser?.uid]);
 
   useEffect(() => { fetchMaterials(); }, [fetchMaterials]);
@@ -95,10 +94,7 @@ export default function RawMaterials() {
       });
       setNewMaterial({ name: "", unit: "kg", quantity: "", minQuantity: "", costPerUnit: "", supplier: "", notes: "" });
       await fetchMaterials();
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
-    }
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
   }
 
   async function updateMaterial(e) {
@@ -122,10 +118,7 @@ export default function RawMaterials() {
       setShowEditModal(false);
       setEditingMaterial(null);
       await fetchMaterials();
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
-    }
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
   }
 
   async function deleteMaterial(id) {
@@ -140,24 +133,20 @@ export default function RawMaterials() {
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       await fetchMaterials();
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
-    }
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
   }
-
-  const getUnitLabel = (val) => UNITS.find((u) => u.value === val)?.label || val;
 
   const getStockStatus = (mat) => {
     const qty = parseFloat(mat.quantity) || 0;
     const min = parseFloat(mat.minQuantity) || 0;
-    if (qty <= 0) return { label: "نفد", color: "#dc2626", bg: "#fef2f2" };
-    if (min > 0 && qty <= min) return { label: "منخفض", color: "#d97706", bg: "#fffbeb" };
-    return { label: "كافي", color: "#16a34a", bg: "#f0fdf4" };
+    if (qty <= 0) return { label: t("rm.status.out"),  color: "#dc2626", bg: "#fef2f2" };
+    if (min > 0 && qty <= min) return { label: t("rm.status.low"), color: "#d97706", bg: "#fffbeb" };
+    return { label: t("rm.status.ok"), color: "#16a34a", bg: "#f0fdf4" };
   };
 
   const filtered = materials.filter((m) => {
-    const matchSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchSearch =
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.supplier && m.supplier.toLowerCase().includes(searchTerm.toLowerCase()));
     if (filterLow) {
       const qty = parseFloat(m.quantity) || 0;
@@ -173,9 +162,15 @@ export default function RawMaterials() {
     return qty <= 0 || (min > 0 && qty <= min);
   }).length;
 
-  const totalValue = materials.reduce((sum, m) => {
-    return sum + (parseFloat(m.quantity) || 0) * (parseFloat(m.costPerUnit) || 0);
-  }, 0);
+  const totalValue = materials.reduce(
+    (sum, m) => sum + (parseFloat(m.quantity) || 0) * (parseFloat(m.costPerUnit) || 0), 0
+  );
+
+  const LabelEl = ({ text, required }) => (
+    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+      {text} {required && <span style={{ color: "#ef4444" }}>*</span>}
+    </label>
+  );
 
   if (loading) {
     return (
@@ -192,13 +187,15 @@ export default function RawMaterials() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
+
+        {/* Header */}
         <div className="header">
           <div>
             <h1>
               <i className="fas fa-boxes" style={{ color: "#8b5cf6", marginLeft: 10 }}></i>
-              الخامات والمواد الخام
+              {t("rm.title")}
             </h1>
-            <p className="subtitle">متابعة مخزون الخامات والمواد المستخدمة في المطبخ</p>
+            <p className="subtitle">{t("rm.subtitle")}</p>
           </div>
         </div>
 
@@ -207,91 +204,112 @@ export default function RawMaterials() {
           <div className="stat-card indigo">
             <div className="stat-icon"><i className="fas fa-boxes"></i></div>
             <div className="stat-value">{materials.length}</div>
-            <div className="stat-label">إجمالي الخامات</div>
+            <div className="stat-label">{t("rm.title")}</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div>
             <div className="stat-value">{lowStockCount}</div>
-            <div className="stat-label">مخزون منخفض</div>
+            <div className="stat-label">{t("rm.lowStock")}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-dollar-sign"></i></div>
             <div className="stat-value" style={{ fontSize: 18 }}>{totalValue.toLocaleString()}</div>
-            <div className="stat-label">القيمة الإجمالية ({t("currency")})</div>
+            <div className="stat-label">{t("currency")}</div>
           </div>
         </div>
 
-        {/* Add Form */}
+        {/* ── Add Form ── */}
         <div className="form-card">
           <h3>
             <i className="fas fa-plus-circle" style={{ color: "#8b5cf6" }}></i>
-            إضافة خامة جديدة
+            {t("rm.add")}
           </h3>
           <form onSubmit={addMaterial}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+            {/* صف 1: الاسم + الوحدة */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 14, marginBottom: 14 }}>
               <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>اسم الخامة *</label>
+                <LabelEl text={t("rm.name")} required />
                 <input
-                  type="text" placeholder="مثال: دجاج مجمد"
+                  type="text"
+                  placeholder={lang === "ar" ? "مثال: دجاج مجمد" : "e.g. Frozen chicken"}
                   value={newMaterial.name}
                   onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
                   required
+                  style={FIELD()}
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>الوحدة *</label>
+                <LabelEl text={t("rm.unit")} required />
                 <select
                   value={newMaterial.unit}
                   onChange={(e) => setNewMaterial({ ...newMaterial, unit: e.target.value })}
-                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", width: "100%" }}
+                  style={FIELD()}
                 >
-                  {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                  {UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label[lang] || u.label.ar}</option>
+                  ))}
                 </select>
               </div>
+            </div>
+
+            {/* صف 2: الكمية + حد التنبيه + تكلفة الوحدة */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
               <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>الكمية الحالية *</label>
+                <LabelEl text={t("rm.quantity")} required />
                 <input
                   type="number" step="0.01" min="0" placeholder="0"
                   value={newMaterial.quantity}
                   onChange={(e) => setNewMaterial({ ...newMaterial, quantity: e.target.value })}
-                  required
+                  required style={FIELD()}
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>حد التنبيه الأدنى</label>
+                <LabelEl text={t("rm.minQty")} />
                 <input
-                  type="number" step="0.01" min="0" placeholder="0 (اختياري)"
+                  type="number" step="0.01" min="0"
+                  placeholder={lang === "ar" ? "0 (اختياري)" : "0 (optional)"}
                   value={newMaterial.minQuantity}
                   onChange={(e) => setNewMaterial({ ...newMaterial, minQuantity: e.target.value })}
+                  style={FIELD()}
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>تكلفة الوحدة ({t("currency")})</label>
+                <LabelEl text={`${t("rm.costPerUnit")} (${t("currency")})`} />
                 <input
                   type="number" step="0.01" min="0" placeholder="0.00"
                   value={newMaterial.costPerUnit}
                   onChange={(e) => setNewMaterial({ ...newMaterial, costPerUnit: e.target.value })}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>المورد (اختياري)</label>
-                <input
-                  type="text" placeholder="اسم المورد"
-                  value={newMaterial.supplier}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, supplier: e.target.value })}
-                />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 4 }}>ملاحظات (اختياري)</label>
-                <input
-                  type="text" placeholder="أي ملاحظات إضافية..."
-                  value={newMaterial.notes}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, notes: e.target.value })}
+                  style={FIELD()}
                 />
               </div>
             </div>
-            <button type="submit" className="btn-primary" style={{ marginTop: 14 }}>
-              <i className="fas fa-plus"></i> إضافة خامة
+
+            {/* صف 3: المورد + الملاحظات */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+              <div>
+                <LabelEl text={t("rm.supplier")} />
+                <input
+                  type="text"
+                  placeholder={lang === "ar" ? "اسم المورد" : "Supplier name"}
+                  value={newMaterial.supplier}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, supplier: e.target.value })}
+                  style={FIELD()}
+                />
+              </div>
+              <div>
+                <LabelEl text={t("rm.notes")} />
+                <input
+                  type="text"
+                  placeholder={lang === "ar" ? "أي ملاحظات إضافية..." : "Any extra notes..."}
+                  value={newMaterial.notes}
+                  onChange={(e) => setNewMaterial({ ...newMaterial, notes: e.target.value })}
+                  style={FIELD()}
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary">
+              <i className="fas fa-plus"></i> {t("rm.add")}
             </button>
           </form>
         </div>
@@ -301,7 +319,8 @@ export default function RawMaterials() {
           <div className="search-wrapper" style={{ flex: 1 }}>
             <i className="fas fa-search search-icon"></i>
             <input
-              type="text" placeholder="🔍 ابحث عن خامة بالاسم أو المورد..."
+              type="text"
+              placeholder={lang === "ar" ? "🔍 ابحث عن خامة بالاسم أو المورد..." : "🔍 Search by name or supplier..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -311,35 +330,38 @@ export default function RawMaterials() {
             className={filterLow ? "btn-danger btn-sm" : "btn-secondary btn-sm"}
             style={{ whiteSpace: "nowrap" }}
           >
-            <i className="fas fa-exclamation-triangle"></i>
-            {filterLow ? "كل الخامات" : `مخزون منخفض (${lowStockCount})`}
+            <i className="fas fa-exclamation-triangle"></i>{" "}
+            {filterLow
+              ? t("rm.title")
+              : `${t("rm.lowStock")} (${lowStockCount})`}
           </button>
         </div>
 
         {/* Table */}
         <div className="table-container">
           <div className="table-header">
-            <h3><i className="fas fa-list"></i> قائمة الخامات</h3>
-            <span>{filtered.length} خامة</span>
+            <h3><i className="fas fa-list"></i> {t("rm.title")}</h3>
+            <span>{filtered.length} {t("rm.name")}</span>
           </div>
+
           {filtered.length === 0 ? (
             <div className="empty-state" style={{ padding: "40px 20px" }}>
               <div className="empty-icon"><i className="fas fa-boxes"></i></div>
-              <p>{searchTerm || filterLow ? t("common.noResults") : "لا توجد خامات مسجلة بعد"}</p>
+              <p>{searchTerm || filterLow ? t("common.noResults") : t("rm.empty")}</p>
             </div>
           ) : (
             <table>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>اسم الخامة</th>
-                  <th>الكمية</th>
-                  <th>الوحدة</th>
-                  <th>حد التنبيه</th>
-                  <th>تكلفة الوحدة</th>
-                  <th>القيمة الكلية</th>
-                  <th>المورد</th>
-                  <th>الحالة</th>
+                  <th>{t("rm.name")}</th>
+                  <th>{t("rm.quantity")}</th>
+                  <th>{t("rm.unit")}</th>
+                  <th>{t("rm.minQty")}</th>
+                  <th>{t("rm.costPerUnit")}</th>
+                  <th>{lang === "ar" ? "القيمة الكلية" : "Total Value"}</th>
+                  <th>{t("rm.supplier")}</th>
+                  <th>{t("common.status")}</th>
                   <th>{t("common.actions")}</th>
                 </tr>
               </thead>
@@ -352,7 +374,9 @@ export default function RawMaterials() {
                       <td style={{ color: "#94a3b8", fontWeight: 600 }}>{idx + 1}</td>
                       <td style={{ fontWeight: 700 }}>
                         {mat.name}
-                        {mat.notes && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{mat.notes}</div>}
+                        {mat.notes && (
+                          <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{mat.notes}</div>
+                        )}
                       </td>
                       <td>
                         <span style={{ fontWeight: 700, color: status.color }}>
@@ -383,11 +407,16 @@ export default function RawMaterials() {
                           <button
                             onClick={() => { setEditingMaterial({ ...mat }); setShowEditModal(true); }}
                             className="btn-secondary btn-sm"
+                            title={t("common.edit")}
                           >
                             <i className="fas fa-edit"></i>
                           </button>
                           {userCanDelete && (
-                            <button onClick={() => deleteMaterial(mat.id)} className="btn-danger btn-sm">
+                            <button
+                              onClick={() => deleteMaterial(mat.id)}
+                              className="btn-danger btn-sm"
+                              title={t("common.delete")}
+                            >
                               <i className="fas fa-trash"></i>
                             </button>
                           )}
@@ -406,68 +435,88 @@ export default function RawMaterials() {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><i className="fas fa-edit" style={{ color: "#8b5cf6" }}></i> تعديل الخامة</h3>
+                <h3>
+                  <i className="fas fa-edit" style={{ color: "#8b5cf6" }}></i>{" "}
+                  {lang === "ar" ? "تعديل الخامة" : "Edit Material"}
+                </h3>
                 <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
               </div>
               <form onSubmit={updateMaterial}>
-                <div className="modal-body" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                    <label>اسم الخامة *</label>
+                <div className="modal-body">
+
+                  {/* الاسم - عرض كامل */}
+                  <div className="form-group">
+                    <label>{t("rm.name")} <span style={{ color: "#ef4444" }}>*</span></label>
                     <input
                       type="text" value={editingMaterial.name} required
                       onChange={(e) => setEditingMaterial({ ...editingMaterial, name: e.target.value })}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>الوحدة</label>
-                    <select
-                      value={editingMaterial.unit}
-                      onChange={(e) => setEditingMaterial({ ...editingMaterial, unit: e.target.value })}
-                      style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", width: "100%" }}
-                    >
-                      {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-                    </select>
+
+                  {/* الوحدة + الكمية */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div className="form-group">
+                      <label>{t("rm.unit")}</label>
+                      <select
+                        value={editingMaterial.unit}
+                        onChange={(e) => setEditingMaterial({ ...editingMaterial, unit: e.target.value })}
+                        style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", width: "100%" }}
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u.value} value={u.value}>{u.label[lang] || u.label.ar}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>{t("rm.quantity")}</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={editingMaterial.quantity}
+                        onChange={(e) => setEditingMaterial({ ...editingMaterial, quantity: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label>الكمية الحالية</label>
-                    <input
-                      type="number" step="0.01" min="0"
-                      value={editingMaterial.quantity}
-                      onChange={(e) => setEditingMaterial({ ...editingMaterial, quantity: e.target.value })}
-                    />
+
+                  {/* حد التنبيه + تكلفة الوحدة */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div className="form-group">
+                      <label>{t("rm.minQty")}</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={editingMaterial.minQuantity || ""}
+                        onChange={(e) => setEditingMaterial({ ...editingMaterial, minQuantity: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>{t("rm.costPerUnit")} ({t("currency")})</label>
+                      <input
+                        type="number" step="0.01" min="0"
+                        value={editingMaterial.costPerUnit || ""}
+                        onChange={(e) => setEditingMaterial({ ...editingMaterial, costPerUnit: e.target.value })}
+                      />
+                    </div>
                   </div>
+
+                  {/* المورد */}
                   <div className="form-group">
-                    <label>حد التنبيه الأدنى</label>
-                    <input
-                      type="number" step="0.01" min="0"
-                      value={editingMaterial.minQuantity || ""}
-                      onChange={(e) => setEditingMaterial({ ...editingMaterial, minQuantity: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>تكلفة الوحدة ({t("currency")})</label>
-                    <input
-                      type="number" step="0.01" min="0"
-                      value={editingMaterial.costPerUnit || ""}
-                      onChange={(e) => setEditingMaterial({ ...editingMaterial, costPerUnit: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                    <label>المورد (اختياري)</label>
+                    <label>{t("rm.supplier")}</label>
                     <input
                       type="text"
                       value={editingMaterial.supplier || ""}
                       onChange={(e) => setEditingMaterial({ ...editingMaterial, supplier: e.target.value })}
                     />
                   </div>
-                  <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                    <label>ملاحظات</label>
+
+                  {/* الملاحظات */}
+                  <div className="form-group">
+                    <label>{t("rm.notes")}</label>
                     <input
                       type="text"
                       value={editingMaterial.notes || ""}
                       onChange={(e) => setEditingMaterial({ ...editingMaterial, notes: e.target.value })}
                     />
                   </div>
+
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
@@ -481,6 +530,7 @@ export default function RawMaterials() {
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

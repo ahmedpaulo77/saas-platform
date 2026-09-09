@@ -30,8 +30,9 @@ export default function Login() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(t('login.error'));
-    }
+  console.error('Login error code:', err.code);
+  setError(err.code || t('login.error'));
+}
     setLoading(false);
   }
 

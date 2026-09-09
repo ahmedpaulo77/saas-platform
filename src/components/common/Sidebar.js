@@ -114,13 +114,13 @@ export default function Sidebar() {
     {
       to: "/menu-categories",
       icon: "fas fa-layer-group",
-      label: "أقسام المنيو",
+      label: t("nav.menuCategories"),
       module: "menu-categories",
     },
     {
       to: "/raw-materials",
       icon: "fas fa-cubes",
-      label: "الخامات",
+      label: t("nav.rawMaterials"),
       module: "raw-materials",
     },
     {
