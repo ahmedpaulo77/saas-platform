@@ -266,79 +266,8 @@ export default function Inventory() {
     );
   }
 
-  // ── الحقول الخاصة بالمطعم في النموذج ──
-  const RestaurantFields = ({ product, setProduct, tempEx, setTempEx, onAddExtra, onRemoveExtra }) => (
-    <>
-      {/* أقسام المنيو */}
-      <select
-        value={product.category || ""}
-        onChange={(e) => setProduct({ ...product, category: e.target.value })}
-        style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
-      >
-        <option value="">— اختر قسم المنيو —</option>
-        {menuCategories.length === 0 && (
-          <option disabled>لا توجد أقسام — أضفها من صفحة أقسام المنيو</option>
-        )}
-        {menuCategories.map((c) => (
-          <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-        ))}
-      </select>
-
-      {/* ملاحظة تحضير */}
-      <input
-        type="text"
-        placeholder="ملاحظة التحضير (مثال: يُقدَّم ساخناً مع صلصة)"
-        value={product.preparationNote || ""}
-        onChange={(e) => setProduct({ ...product, preparationNote: e.target.value })}
-      />
-
-      {/* الإضافات */}
-      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
-          🧩 الإضافات الاختيارية (Extras)
-        </div>
-        {(product.extras || []).length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-            {(product.extras || []).map((ex, idx) => (
-              <span key={idx} style={{
-                background: "#ede9fe", color: "#6d28d9", padding: "4px 10px",
-                borderRadius: 20, fontSize: 12, fontWeight: 600,
-                display: "flex", alignItems: "center", gap: 6,
-              }}>
-                {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
-                <button
-                  type="button"
-                  onClick={() => onRemoveExtra(idx)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#7c3aed", fontSize: 13, padding: 0, lineHeight: 1 }}
-                >×</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            type="text"
-            placeholder="اسم الإضافة (مثال: صوص حار)"
-            value={tempEx.name}
-            onChange={(e) => setTempEx({ ...tempEx, name: e.target.value })}
-            style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onAddExtra(); } }}
-          />
-          <input
-            type="number" step="0.5" min="0"
-            placeholder="سعر (+)"
-            value={tempEx.price}
-            onChange={(e) => setTempEx({ ...tempEx, price: e.target.value })}
-            style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
-          />
-          <button type="button" onClick={onAddExtra}
-            style={{ background: "#6d28d9", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
-            + إضافة
-          </button>
-        </div>
-      </div>
-    </>
-  );
+  // ── الحقول الخاصة بالمطعم — مدمجة مباشرة في الـ JSX (لا تُعرَّف كـ component منفصل)
+  // السبب: تعريف component جوه component بيسبب re-mount عند كل render وبيفقد الـ focus
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -361,13 +290,80 @@ export default function Inventory() {
             />
 
             {/* أقسام وحقول المطعم */}
-            {isRestaurant ? (
-              <RestaurantFields
-                product={newProduct} setProduct={setNewProduct}
-                tempEx={tempExtra} setTempEx={setTempExtra}
-                onAddExtra={addTempExtra} onRemoveExtra={removeTempExtra}
-              />
-            ) : (
+            {isRestaurant && (              <>
+                {/* أقسام المنيو */}
+                <select
+                  value={newProduct.category || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
+                >
+                  <option value="">— اختر قسم المنيو —</option>
+                  {menuCategories.length === 0 && (
+                    <option disabled>لا توجد أقسام — أضفها من صفحة أقسام المنيو</option>
+                  )}
+                  {menuCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                  ))}
+                </select>
+
+                {/* ملاحظة تحضير */}
+                <input
+                  type="text"
+                  placeholder="ملاحظة التحضير (مثال: يُقدَّم ساخناً مع صلصة)"
+                  value={newProduct.preparationNote || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, preparationNote: e.target.value })}
+                />
+
+                {/* الإضافات */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+                    🧩 الإضافات الاختيارية (Extras)
+                  </div>
+                  {(newProduct.extras || []).length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                      {(newProduct.extras || []).map((ex, idx) => (
+                        <span key={idx} style={{
+                          background: "#ede9fe", color: "#6d28d9", padding: "4px 10px",
+                          borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          display: "flex", alignItems: "center", gap: 6,
+                        }}>
+                          {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
+                          <button
+                            type="button"
+                            onClick={() => removeTempExtra(idx)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#7c3aed", fontSize: 13, padding: 0, lineHeight: 1 }}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="اسم الإضافة (مثال: صوص حار)"
+                      value={tempExtra.name}
+                      onChange={(e) => setTempExtra({ ...tempExtra, name: e.target.value })}
+                      style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTempExtra(); } }}
+                    />
+                    <input
+                      type="number" step="0.5" min="0"
+                      placeholder="سعر (+)"
+                      value={tempExtra.price}
+                      onChange={(e) => setTempExtra({ ...tempExtra, price: e.target.value })}
+                      style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <button type="button" onClick={addTempExtra}
+                      style={{ background: "#6d28d9", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                      + إضافة
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* فئة للصناعات غير المطعم */}
+            {!isRestaurant && (
               <input
                 type="text"
                 placeholder={isRealEstate ? "نوع العقار (شقة / فيلا / محل...)" : t("inv.phCat")}

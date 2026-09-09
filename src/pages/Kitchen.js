@@ -3,9 +3,8 @@
 // المساحة كلها. بتقرا من نفس invoices اللي POS.js بيكتب فيها، وبتستخدم
 // onSnapshot عشان أي أوردر جديد يظهر فورًا من غير ما حد يعمل Refresh يدوي.
 import React, { useState, useEffect, useMemo } from "react";
-import { onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { onSnapshot, doc, updateDoc, collection, query, where } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
 import { useLanguage } from "../i18n/LanguageContext";
 import { db } from "../firebase/config";
 import { Link } from "react-router-dom";
@@ -123,13 +122,19 @@ function OrderCard({ order, t, onAdvance }) {
 
 export default function Kitchen() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userCompanyId) return;
-    const q = getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid);
+    // ✅ شاشة المطبخ تشغيلية ومشتركة: تعرض كل أوردرات الشركة لكل الأدوار
+    // (مش getScopedQuery عشان هو بيحصر الـ user في الأوردرات اللي هو عملها بس)
+    if (!userCompanyId && userRole !== "super_admin") return;
+    const col = collection(db, "invoices");
+    const q =
+      userRole === "super_admin" && !userCompanyId
+        ? col
+        : query(col, where("companyId", "==", userCompanyId));
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
@@ -155,7 +160,7 @@ export default function Kitchen() {
       },
     );
     return () => unsubscribe();
-  }, [userRole, userCompanyId, currentUser?.uid]);
+  }, [userRole, userCompanyId]);
 
   const grouped = useMemo(() => {
     const g = { new: [], preparing: [], ready: [] };

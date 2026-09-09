@@ -250,6 +250,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>Ù
 
       const invDoc = {
         companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdByEmail: currentUser?.email || "",
         clientId: selectedClient || null,
         items: cart.map((item) => {
           const selectedExtraIdxs = cartItemExtras[item.id] || [];
