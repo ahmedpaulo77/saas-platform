@@ -56,6 +56,7 @@ export default function Signup() {
       // عشان request.auth يبقى موجود وقت التحقق من الـ Security Rules
       // ============================================================
       const user = await signupAuth(formData.email, formData.password);
+      await user.getIdToken(true);
 
       // ============================================================
       // ✅ خطوة 2: دلوقتي المستخدم مسجل دخول فعلياً — نقدر نبحث
