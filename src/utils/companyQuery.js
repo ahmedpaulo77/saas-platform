@@ -3,7 +3,7 @@ import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 /** ✅ Returns a Firestore query scoped to the user's company and role */
-export function getScopedQuery(collectionName, userRole, userCompanyId, userId) {
+export function getScopedQuery(collectionName, userRole, userCompanyId, _userId) {
   // ✅ لو مفيش companyId، ارجع query مش هيجيب حاجة
   if (!userCompanyId) {
     return query(collection(db, collectionName), where('companyId', '==', '__none__'));
@@ -12,23 +12,12 @@ export function getScopedQuery(collectionName, userRole, userCompanyId, userId) 
   if (userRole === 'super_admin') {
     return collection(db, collectionName);
   }
-  
-  if (userRole === 'admin') {
-    return query(
-      collection(db, collectionName), 
-      where('companyId', '==', userCompanyId)
-    );
-  }
-  
-  if (userRole === 'user') {
-    // ✅ لو مفيش userId، ارجع query مش هيجيب حاجة
-    if (!userId) {
-      return query(collection(db, collectionName), where('companyId', '==', '__none__'));
-    }
+
+  // أدمن وموظف الشركة يشوفوا كل بيانات الشركة (createdBy للسجل فقط)
+  if (userRole === 'admin' || userRole === 'user') {
     return query(
       collection(db, collectionName),
-      where('companyId', '==', userCompanyId),
-      where('createdBy', '==', userId)
+      where('companyId', '==', userCompanyId)
     );
   }
   

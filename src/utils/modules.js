@@ -239,6 +239,11 @@ export function getAvailableModules(industry, userRole) {
   modules.add('about');
   modules.add('my-company');
 
+  // مدير الشركة يدير موظفين شركته
+  if (userRole === 'admin') {
+    modules.add('users');
+  }
+
   return modules;
 }
 

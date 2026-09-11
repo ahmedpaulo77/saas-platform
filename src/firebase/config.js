@@ -1,6 +1,10 @@
 // src/firebase/config.js
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApp } from "firebase/app";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signOut as signOutAuth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -16,9 +20,28 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+let secondaryApp;
+try {
+  secondaryApp = getApp("Secondary");
+} catch {
+  secondaryApp = initializeApp(firebaseConfig, "Secondary");
+}
+
 export const auth = getAuth(app);
+export const secondaryAuth = getAuth(secondaryApp);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+/**
+ * إنشاء حساب Auth من غير تبديل جلسة المستخدم الحالي
+ * (تطبيق Firebase ثانوي ثم تسجيل خروج منه)
+ */
+export async function createAuthUserWithoutSession(email, password) {
+  const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+  const result = { uid: cred.user.uid, email: cred.user.email };
+  await signOutAuth(secondaryAuth);
+  return result;
+}
 
 // تفعيل Firebase Messaging للمتصفحات التي تدعم Web Push Notifications
 export const messaging = typeof window !== "undefined" && "serviceWorker" in navigator 

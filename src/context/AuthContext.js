@@ -9,7 +9,22 @@ import {
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db, initializePushNotifications } from '../firebase/config';
 
+const AUTH_BLOCK_KEY = 'saas-auth-block';
+
 const AuthContext = createContext();
+
+function rememberAuthBlock(reason) {
+  try {
+    sessionStorage.setItem(AUTH_BLOCK_KEY, reason);
+  } catch {
+    /* ignore */
+  }
+}
+
+// eslint-disable-next-line no-unused-vars
+function isMarkedActive(data) {
+  return !data || data.isActive !== false;
+}
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -55,8 +70,34 @@ export function AuthProvider({ children }) {
     return user;
   }
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function assertAccountAllowed(uid) {
+    const userSnap = await getDoc(doc(db, "users", uid));
+    if (userSnap.exists() && !isMarkedActive(userSnap.data())) {
+      const err = new Error("account-disabled");
+      err.code = "auth/account-disabled";
+      throw err;
+    }
+
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    if (userData.role !== "super_admin" && userData.companyId) {
+      const companySnap = await getDoc(doc(db, "companies", userData.companyId));
+      if (companySnap.exists() && !isMarkedActive(companySnap.data())) {
+        const err = new Error("company-disabled");
+        err.code = "auth/company-disabled";
+        throw err;
+      }
+    }
+  }
+
+  async function login(email, password) {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await assertAccountAllowed(cred.user.uid);
+    } catch (err) {
+      await signOut(auth);
+      throw err;
+    }
+    return cred;
   }
 
   function logout() {
@@ -65,29 +106,54 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let unsubUserDoc = null;
+    let unsubCompanyDoc = null;
     let pushInitialized = false;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (unsubCompanyDoc) {
+        unsubCompanyDoc();
+        unsubCompanyDoc = null;
+      }
       setCurrentUser(user);
       
       if (user) {
         // ✅ استماع لحظي لتغييرات مستند المستخدم (Role و CompanyId)
         unsubUserDoc = onSnapshot(doc(db, "users", user.uid), async (docSnap) => {
+          if (unsubCompanyDoc) {
+            unsubCompanyDoc();
+            unsubCompanyDoc = null;
+          }
+
           if (docSnap.exists()) {
             const userData = docSnap.data();
+
+            if (!isMarkedActive(userData)) {
+              rememberAuthBlock("account-disabled");
+              setLoading(false);
+              await signOut(auth);
+              return;
+            }
+
             setUserRole(userData.role || 'user');
             setUserCompanyId(userData.companyId || null);
 
-            // ✅ جلب مجال العمل (Industry) من الشركة
+            // ✅ جلب مجال العمل (Industry) من الشركة + إيقاف الشركة
             if (userData.companyId) {
-              try {
-                const companySnap = await getDoc(doc(db, "companies", userData.companyId));
-                const industry = companySnap.exists() ? companySnap.data().industry || 'general' : 'general';
-                setUserIndustry(industry);
-              } catch (e) {
+              unsubCompanyDoc = onSnapshot(doc(db, "companies", userData.companyId), (companySnap) => {
+                if (companySnap.exists()) {
+                  const companyData = companySnap.data();
+                  setUserIndustry(companyData.industry || 'general');
+                  if (userData.role !== "super_admin" && !isMarkedActive(companyData)) {
+                    rememberAuthBlock("company-disabled");
+                    signOut(auth);
+                  }
+                } else {
+                  setUserIndustry('general');
+                }
+              }, (e) => {
                 console.warn("Error fetching company industry:", e.message);
                 setUserIndustry('general');
-              }
+              });
             } else {
               setUserIndustry('general');
             }

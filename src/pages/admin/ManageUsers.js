@@ -1,12 +1,16 @@
 // src/pages/admin/ManageUsers.js - إدارة المستخدمين وربطهم بالشركات
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '../../firebase/config';
+import { db, createAuthUserWithoutSession } from '../../firebase/config';
+import { useAuth } from '../../context/AuthContext';
+import { logActivity } from '../../utils/auditLogger';
 import Sidebar from '../../components/common/Sidebar';
 import PasswordStrengthMeter, { getPasswordStrength } from '../../components/common/PasswordStrengthMeter';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function ManageUsers() {
+  const { t } = useLanguage();
+  const { currentUser, userRole, userCompanyId } = useAuth();
   const [users, setUsers] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,41 +41,49 @@ export default function ManageUsers() {
 
   async function handleAddUser(e) {
     e.preventDefault();
-    if (!newUser.email || !newUser.password || !newUser.companyId) {
-      alert('يرجى ملء جميع الحقول');
+    const companyRequired = newUser.role !== 'super_admin';
+    if (!newUser.email || !newUser.password || (companyRequired && !newUser.companyId)) {
+      alert(t('mu.fill'));
       return;
     }
 
     const { checks } = getPasswordStrength(newUser.password);
     if (!checks.uppercase) {
-      alert('كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل');
+      alert(t('signup.needUppercase'));
       return;
     }
     if (!checks.symbol) {
-      alert('كلمة المرور يجب أن تحتوي على رمز خاص واحد على الأقل (!@#$...)');
+      alert(t('signup.needSymbol'));
       return;
     }
     setSubmitting(true);
     try {
-      // إنشاء المستخدم في Firebase Auth
-      const cred = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password);
-      // حفظ بياناته في Firestore مع companyId
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        email: newUser.email,
+      const newCred = await createAuthUserWithoutSession(newUser.email, newUser.password);
+      await setDoc(doc(db, 'users', newCred.uid), {
+        email: newCred.email,
         role: newUser.role,
-        companyId: newUser.companyId,
+        companyId: newUser.companyId || null,
         createdAt: new Date().toISOString(),
         isActive: true,
       });
+
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'users',
+        itemId: newCred.uid,
+        details: `Created user: ${newCred.email} (${newUser.role}) linked to company ${newUser.companyId || '-'}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
       setNewUser({ email: '', password: '', role: 'user', companyId: '' });
       setShowAddModal(false);
       await fetchData();
-      alert('✅ تم إنشاء المستخدم وربطه بالشركة');
+      alert(t('mu.ok'));
     } catch (e) {
       if (e.code === 'auth/email-already-in-use') {
-        alert('❌ البريد الإلكتروني مستخدم بالفعل');
+        alert(t('mu.exists'));
       } else {
-        alert('❌ حدث خطأ: ' + e.message);
+        alert(t('mu.err', { msg: e.message || e }));
       }
     }
     setSubmitting(false);
@@ -80,29 +92,57 @@ export default function ManageUsers() {
   async function handleUpdateCompany(userId, companyId) {
     try {
       await updateDoc(doc(db, 'users', userId), { companyId });
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `Updated user companyId to ${companyId || '-'}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert('❌ حدث خطأ في التحديث');
+      alert(t('mu.updErr'));
     }
   }
 
   async function handleUpdateRole(userId, role) {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
+      await logActivity({
+        actionType: 'UPDATE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `Updated user role to ${role}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
       await fetchData();
     } catch (e) {
       console.error(e);
+      alert(t('mu.updErr'));
     }
   }
 
   async function handleDeleteUser(userId) {
-    if (!window.confirm('حذف هذا المستخدم من قاعدة البيانات؟')) return;
+    if (userId === currentUser?.uid) {
+      alert('لا يمكنك حذف حسابك الحالي');
+      return;
+    }
+    if (!window.confirm(t('mu.delQ'))) return;
     try {
+      const userDoc = users.find(u => u.id === userId);
       await deleteDoc(doc(db, 'users', userId));
+      await logActivity({
+        actionType: 'DELETE',
+        collectionName: 'users',
+        itemId: userId,
+        details: `Deleted user: ${userDoc?.email || 'Unknown'}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
       await fetchData();
     } catch (e) {
       console.error(e);
+      alert(t('mu.updErr'));
     }
   }
 
@@ -114,7 +154,7 @@ export default function ManageUsers() {
     companies.find(c => c.id === companyId)?.name || '—';
 
   if (loading) return (
-    <div className="loading"><div className="spinner"></div>جاري التحميل...</div>
+    <div className="loading"><div className="spinner"></div>{t('common.loading')}</div>
   );
 
   return (
@@ -124,11 +164,11 @@ export default function ManageUsers() {
 
         <div className="header">
           <div>
-            <h1><i className="fas fa-users-cog" style={{ color: '#6366f1', marginLeft: 10 }}></i>إدارة المستخدمين</h1>
-            <p className="subtitle">ربط المستخدمين بالشركات وتحديد الصلاحيات</p>
+            <h1><i className="fas fa-users-cog" style={{ color: '#6366f1', marginLeft: 10 }}></i>{t('mu.title')}</h1>
+            <p className="subtitle">{t('mu.subtitle')}</p>
           </div>
           <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-            <i className="fas fa-user-plus"></i> مستخدم جديد
+            <i className="fas fa-user-plus"></i> {t('mu.new')}
           </button>
         </div>
 
@@ -137,54 +177,54 @@ export default function ManageUsers() {
           <div className="stat-card indigo">
             <div className="stat-icon"><i className="fas fa-users"></i></div>
             <div className="stat-value">{users.length}</div>
-            <div className="stat-label">إجمالي المستخدمين</div>
+            <div className="stat-label">{t('mu.total')}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon"><i className="fas fa-crown"></i></div>
             <div className="stat-value">{users.filter(u => u.role === 'super_admin').length}</div>
-            <div className="stat-label">مدراء النظام</div>
+            <div className="stat-label">{t('mu.admins')}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-user-check"></i></div>
             <div className="stat-value">{users.filter(u => u.companyId).length}</div>
-            <div className="stat-label">مربوطون بشركة</div>
+            <div className="stat-label">{t('mu.linked')}</div>
           </div>
           <div className="stat-card red">
             <div className="stat-icon"><i className="fas fa-user-times"></i></div>
             <div className="stat-value">{users.filter(u => !u.companyId).length}</div>
-            <div className="stat-label">غير مربوطين</div>
+            <div className="stat-label">{t('mu.unlinked')}</div>
           </div>
         </div>
 
         {/* Search */}
         <div className="search-wrapper" style={{ marginBottom: 20 }}>
           <i className="fas fa-search search-icon"></i>
-          <input type="text" placeholder="ابحث بالبريد الإلكتروني..."
+          <input type="text" placeholder={t('mu.search')}
             value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
         {/* Users Table */}
         <div className="table-container">
           <div className="table-header">
-            <h3><i className="fas fa-list"></i> قائمة المستخدمين</h3>
-            <span className="table-count">{filtered.length} مستخدم</span>
+            <h3><i className="fas fa-list"></i> {t('mu.list')}</h3>
+            <span className="table-count">{t('mu.nUsers', { n: filtered.length })}</span>
           </div>
           <div className="table-wrapper">
             {filtered.length === 0 ? (
               <div className="table-empty">
                 <i className="fas fa-users"></i>
-                <p>لا يوجد مستخدمون</p>
+                <p>{t('mu.none')}</p>
               </div>
             ) : (
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>البريد الإلكتروني</th>
-                    <th>الدور</th>
-                    <th>الشركة المرتبطة</th>
-                    <th>تغيير الشركة</th>
-                    <th>الإجراءات</th>
+                    <th>{t('common.email')}</th>
+                    <th>{t('mu.role')}</th>
+                    <th>{t('mu.company')}</th>
+                    <th>{t('mu.changeCo')}</th>
+                    <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,9 +243,9 @@ export default function ManageUsers() {
                             background: 'white', cursor: 'pointer',
                           }}
                         >
-                          <option value="user">مستخدم</option>
-                          <option value="admin">أدمن</option>
-                          <option value="super_admin">سوبر أدمن</option>
+                          <option value="user">{t('mu.user')}</option>
+                          <option value="admin">{t('mu.admin')}</option>
+                          <option value="super_admin">{t('mu.sa')}</option>
                         </select>
                       </td>
                       <td>
@@ -215,7 +255,7 @@ export default function ManageUsers() {
                             {getCompanyName(user.companyId)}
                           </span>
                         ) : (
-                          <span className="badge badge-expired">غير مربوط</span>
+                          <span className="badge badge-expired">{t('mu.noCo')}</span>
                         )}
                       </td>
                       <td>
@@ -230,19 +270,21 @@ export default function ManageUsers() {
                             maxWidth: 160,
                           }}
                         >
-                          <option value="">بدون شركة</option>
+                          <option value="">{t('mu.noCoOpt')}</option>
                           {companies.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
                         </select>
                       </td>
                       <td>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="btn-danger btn-sm"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
+                        {user.id !== currentUser?.uid && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="btn-danger btn-sm"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -251,9 +293,6 @@ export default function ManageUsers() {
             )}
           </div>
         </div>
-
-        {/* Info card */}
-         
       </div>
 
       {/* Add User Modal */}
@@ -261,52 +300,53 @@ export default function ManageUsers() {
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><i className="fas fa-user-plus" style={{ color: '#6366f1' }}></i> إنشاء مستخدم جديد</h3>
+              <h3><i className="fas fa-user-plus" style={{ color: '#6366f1' }}></i> {t('mu.create')}</h3>
               <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <form onSubmit={handleAddUser}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>البريد الإلكتروني *</label>
+                  <label>{t('mu.email')}</label>
                   <input type="email" value={newUser.email}
                     onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                     placeholder="user@company.com" required />
                 </div>
                 <div className="form-group">
-                  <label>كلمة المرور *</label>
+                  <label>{t('mu.pass')}</label>
                   <input type="password" value={newUser.password}
                     onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                    placeholder="6 أحرف على الأقل" required minLength={6} />
+                    placeholder={t('mu.passPh')} required minLength={6} />
                   <PasswordStrengthMeter password={newUser.password} />
                 </div>
                 <div className="form-group">
-                  <label>الشركة *</label>
+                  <label>{t('mu.coReq')}</label>
                   <select value={newUser.companyId}
-                    onChange={e => setNewUser({ ...newUser, companyId: e.target.value })} required>
-                    <option value="">اختر الشركة</option>
+                    onChange={e => setNewUser({ ...newUser, companyId: e.target.value })}
+                    required={newUser.role !== 'super_admin'}>
+                    <option value="">{t('mu.chooseCo')}</option>
                     {companies.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>الدور</label>
+                  <label>{t('mu.role')}</label>
                   <select value={newUser.role}
                     onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
-                    <option value="user">مستخدم عادي</option>
-                    <option value="admin">أدمن الشركة</option>
-                    <option value="super_admin">سوبر أدمن</option>
+                    <option value="user">{t('mu.userN')}</option>
+                    <option value="admin">{t('mu.adminC')}</option>
+                    <option value="super_admin">{t('mu.sa')}</option>
                   </select>
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setShowAddModal(false)}>
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
                   {submitting
-                    ? <><i className="fas fa-spinner fa-spin"></i> جاري الإنشاء...</>
-                    : <><i className="fas fa-user-plus"></i> إنشاء المستخدم</>}
+                    ? <><i className="fas fa-spinner fa-spin"></i> {t('mu.creating')}</>
+                    : <><i className="fas fa-user-plus"></i> {t('mu.createBtn')}</>}
                 </button>
               </div>
             </form>

@@ -1,4 +1,4 @@
-// src/pages/Users.js - إدارة المستخدمين مع دعم الترجمة
+// src/pages/Users.js - إدارة المستخدمين مع دعم الترجمة وصلاحيات الأدمن/السوبر أدمن
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -8,11 +8,12 @@ import {
   deleteDoc,
   setDoc,
   getDoc,
+  query,
+  where,
 } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, auth } from "../firebase/config";
+import { db, createAuthUserWithoutSession } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { isSuperAdmin } from "../utils/companyQuery";
+import { isSuperAdmin, canManageUsers } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -22,12 +23,13 @@ export default function Users() {
   const { t } = useLanguage();
   const { currentUser, userRole, userCompanyId } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
-  const hasAccess = isSuperAdmin(userRole);
+  const hasAccess = canManageUsers(userRole);
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -40,7 +42,16 @@ export default function Users() {
       return;
     }
     try {
-      const querySnapshot = await getDocs(collection(db, "users"));
+      let q;
+      if (superAdmin) {
+        q = collection(db, "users");
+      } else {
+        q = query(
+          collection(db, "users"),
+          where("companyId", "==", userCompanyId)
+        );
+      }
+      const querySnapshot = await getDocs(q);
       setUsers(querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -48,11 +59,35 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [hasAccess, t]);
+  }, [hasAccess, superAdmin, userCompanyId, t]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  function canUserBeManaged(user) {
+    if (superAdmin) return true;
+    if (!userCompanyId) return false;
+    if (user.companyId !== userCompanyId) return false;
+    if (user.role === "super_admin") return false;
+    return true;
+  }
+
+  function canToggleUserStatus(user) {
+    if (user.id === currentUser?.uid) return false;
+    return canUserBeManaged(user);
+  }
+
+  function canChangeUserRole(user) {
+    if (superAdmin) return true;
+    return canUserBeManaged(user);
+  }
+
+  function canDeleteUser(user) {
+    if (user.id === currentUser?.uid) return false;
+    if (superAdmin) return true;
+    return canUserBeManaged(user);
+  }
 
   async function addUser(e) {
     e.preventDefault();
@@ -71,32 +106,36 @@ export default function Users() {
       return;
     }
 
-    const role = superAdmin ? newUser.role : "user";
-    const companyId =
-      superAdmin && role === "super_admin" ? null : userCompanyId;
+    let targetRole = newUser.role;
+    if (!superAdmin) {
+      if (targetRole !== "user" && targetRole !== "admin") {
+        targetRole = "user";
+      }
+    }
 
+    const companyId =
+      superAdmin && targetRole === "super_admin" ? null : userCompanyId;
+
+    setSubmitting(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      const newCred = await createAuthUserWithoutSession(
         newUser.email,
         newUser.password,
       );
-      const user = userCredential.user;
 
-      await setDoc(doc(db, "users", user.uid), {
-        email: user.email,
-        role,
+      await setDoc(doc(db, "users", newCred.uid), {
+        email: newCred.email,
+        role: targetRole,
         companyId,
         isActive: true,
         createdAt: new Date().toISOString(),
       });
       
-      // ✅ Audit Log
       await logActivity({
         actionType: 'CREATE',
         collectionName: 'users',
-        itemId: user.uid,
-        details: `Created user: ${user.email} (${role})`,
+        itemId: newCred.uid,
+        details: `Created user: ${newCred.email} (${targetRole})`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
@@ -106,14 +145,26 @@ export default function Users() {
       alert(t("success.userAdded"));
     } catch (error) {
       console.error("Error adding user:", error);
-      alert(t("errors.addUser") + ": " + error.message);
+      if (error.code === 'auth/email-already-in-use') {
+        alert(t("mu.exists"));
+      } else {
+        alert(t("errors.addUser") + ": " + (error.message || error));
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function updateUserRole(userId, newRole) {
-    if (!superAdmin && newRole !== "user") {
-      alert(t("errors.roleRestricted"));
-      return;
+  async function updateUserRole(userId, targetUser, newRole) {
+    if (!superAdmin) {
+      if (targetUser.role === "super_admin") {
+        alert(t("errors.roleRestricted"));
+        return;
+      }
+      if (newRole !== "user" && newRole !== "admin") {
+        alert(t("errors.roleRestricted"));
+        return;
+      }
     }
     const roleLabels = {
       user: t("users.roleUser"),
@@ -127,7 +178,6 @@ export default function Users() {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { role: newRole });
       
-      // ✅ Audit Log
       await logActivity({
         actionType: 'UPDATE',
         collectionName: 'users',
@@ -144,7 +194,11 @@ export default function Users() {
     }
   }
 
-  async function toggleUserStatus(userId, currentStatus) {
+  async function toggleUserStatus(userId, targetUser, currentStatus) {
+    if (!canToggleUserStatus(targetUser)) {
+      alert(t("errors.noAccess"));
+      return;
+    }
     const newStatus = !currentStatus;
     const action = newStatus ? t("users.activate") : t("users.deactivate");
     if (!window.confirm(t("users.confirmStatusChange", { action })))
@@ -154,7 +208,6 @@ export default function Users() {
       const userRef = doc(db, "users", userId);
       await updateDoc(userRef, { isActive: newStatus });
       
-      // ✅ Audit Log
       await logActivity({
         actionType: 'UPDATE',
         collectionName: 'users',
@@ -171,17 +224,19 @@ export default function Users() {
     }
   }
 
-  async function deleteUser(userId) {
+  async function deleteUser(userId, targetUser) {
+    if (!canDeleteUser(targetUser)) {
+      alert(t("errors.noAccess"));
+      return;
+    }
     if (!window.confirm(t("users.confirmDelete"))) return;
 
     try {
-      // Get user email before deletion for audit log
       const userDoc = await getDoc(doc(db, "users", userId));
       const userEmail = userDoc.exists() ? userDoc.data().email : 'Unknown';
       
       await deleteDoc(doc(db, "users", userId));
       
-      // ✅ Audit Log
       await logActivity({
         actionType: 'DELETE',
         collectionName: 'users',
@@ -271,6 +326,18 @@ export default function Users() {
           <h2 style={{ color: "#333", margin: 0 }}>
             <i className="fas fa-users" style={{ color: "#4f46e5" }}></i>{" "}
             {t("users.title")}
+            {!superAdmin && (
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  color: "#64748b",
+                  marginRight: "10px",
+                }}
+              >
+                ({t("role.adminShort")})
+              </span>
+            )}
           </h2>
           <button onClick={() => setShowAddModal(true)} className="btn-primary">
             <i className="fas fa-plus"></i> {t("users.addUser")}
@@ -345,19 +412,22 @@ export default function Users() {
                     <td>
                       <select
                         onChange={(e) =>
-                          updateUserRole(user.id, e.target.value)
+                          updateUserRole(user.id, user, e.target.value)
                         }
                         defaultValue={user.role || "user"}
+                        disabled={!canChangeUserRole(user)}
                         style={{
                           padding: "4px 8px",
                           borderRadius: "6px",
                           border: "1px solid #e2e8f0",
                           fontSize: "13px",
                           marginLeft: "6px",
+                          opacity: canChangeUserRole(user) ? 1 : 0.45,
+                          cursor: canChangeUserRole(user) ? "pointer" : "not-allowed",
                         }}
                       >
                         <option value="user">{t("users.roleUser")}</option>
-                        {superAdmin && <option value="admin">{t("users.roleAdmin")}</option>}
+                        <option value="admin">{t("users.roleAdmin")}</option>
                         {superAdmin && (
                           <option value="super_admin">{t("users.roleSuperAdmin")}</option>
                         )}
@@ -365,26 +435,35 @@ export default function Users() {
 
                       <button
                         onClick={() =>
-                          toggleUserStatus(user.id, user.isActive !== false)
+                          toggleUserStatus(user.id, user, user.isActive !== false)
+                        }
+                        disabled={!canToggleUserStatus(user)}
+                        title={
+                          !canToggleUserStatus(user) && user.id === currentUser?.uid
+                            ? "لا يمكنك إيقاف نفسك"
+                            : !canToggleUserStatus(user)
+                            ? "غير مصرح لك"
+                            : ""
                         }
                         style={{
                           padding: "4px 10px",
                           borderRadius: "6px",
                           border: "none",
                           fontSize: "12px",
-                          cursor: "pointer",
+                          cursor: canToggleUserStatus(user) ? "pointer" : "not-allowed",
                           marginLeft: "6px",
                           background:
                             user.isActive !== false ? "#f59e0b" : "#10b981",
                           color: "white",
+                          opacity: canToggleUserStatus(user) ? 1 : 0.5,
                         }}
                       >
                         {user.isActive !== false ? t("users.deactivate") : t("users.activate")}
                       </button>
 
-                      {user.id !== currentUser?.uid && (
+                      {canDeleteUser(user) && (
                         <button
-                          onClick={() => deleteUser(user.id)}
+                          onClick={() => deleteUser(user.id, user)}
                           className="btn-danger"
                           style={{
                             padding: "4px 10px",
@@ -447,22 +526,22 @@ export default function Users() {
                 />
                 <PasswordStrengthMeter password={newUser.password} />
               </div>
-              {superAdmin && (
-                <div style={styles.formGroup}>
-                  <label>{t("users.role")}</label>
-                  <select
-                    value={newUser.role}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, role: e.target.value })
-                    }
-                    style={styles.input}
-                  >
-                    <option value="user">{t("users.roleUser")}</option>
-                    <option value="admin">{t("users.roleAdmin")}</option>
+              <div style={styles.formGroup}>
+                <label>{t("users.role")}</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, role: e.target.value })
+                  }
+                  style={styles.input}
+                >
+                  <option value="user">{t("users.roleUser")}</option>
+                  <option value="admin">{t("users.roleAdmin")}</option>
+                  {superAdmin && (
                     <option value="super_admin">{t("users.roleSuperAdmin")}</option>
-                  </select>
-                </div>
-              )}
+                  )}
+                </select>
+              </div>
               <div style={styles.modalFooter}>
                 <button
                   type="button"
@@ -472,8 +551,12 @@ export default function Users() {
                 >
                   {t("common.cancel")}
                 </button>
-                <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> {t("users.addUserBtn")}
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? (
+                    <><i className="fas fa-spinner fa-spin"></i> {t("common.saving")}</>
+                  ) : (
+                    <><i className="fas fa-save"></i> {t("users.addUserBtn")}</>
+                  )}
                 </button>
               </div>
             </form>

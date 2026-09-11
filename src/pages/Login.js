@@ -1,10 +1,12 @@
 // src/pages/Login.js - نسخة مترجمة بالكامل
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import { useLanguage } from '../i18n/LanguageContext';
+
+const AUTH_BLOCK_KEY = 'saas-auth-block';
 
 export default function Login() {
   const { t } = useLanguage();
@@ -12,27 +14,52 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [bannerMsg, setBannerMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Reset password state
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
+  useEffect(() => {
+    try {
+      const reason = sessionStorage.getItem(AUTH_BLOCK_KEY);
+      if (reason === 'account-disabled') {
+        setBannerMsg(t('login.accountDisabledBanner'));
+      } else if (reason === 'company-disabled') {
+        setBannerMsg(t('login.companyDisabledBanner'));
+      }
+      sessionStorage.removeItem(AUTH_BLOCK_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [t]);
+
+  function mapLoginError(err) {
+    const code = err && err.code;
+    if (code === 'auth/account-disabled') return t('login.accountDisabled');
+    if (code === 'auth/company-disabled') return t('login.companyDisabled');
+    if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+      return t('login.error');
+    }
+    return code ? `${code}` : t('login.error');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setBannerMsg('');
     setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-  console.error('Login error code:', err.code);
-  setError(err.code || t('login.error'));
-}
+      console.error('Login error code:', err && err.code);
+      setError(mapLoginError(err));
+    }
     setLoading(false);
   }
 
@@ -66,6 +93,24 @@ export default function Login() {
           <h1>SaaS PRO</h1>
           <p>{t('login.tagline')}</p>
         </div>
+
+        {/* Auto-logout banner */}
+        {bannerMsg && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            color: '#fca5a5',
+            padding: '12px 14px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 16,
+            direction: 'rtl',
+          }}>
+            <i className="fas fa-exclamation-triangle" style={{ marginLeft: 8 }}></i>
+            {bannerMsg}
+          </div>
+        )}
 
         {/* Error */}
         {error && (
