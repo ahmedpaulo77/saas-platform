@@ -111,6 +111,12 @@ export default function Sidebar() {
         : t("nav.inventory"),
       module: "inventory",
     },
+        {
+      to: "/daily-prices",
+      icon: "fas fa-tags",
+      label: t("nav.dailyPrices"),
+      module: "daily-prices",
+    },
     {
       to: "/menu-categories",
       icon: "fas fa-layer-group",

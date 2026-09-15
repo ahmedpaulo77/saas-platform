@@ -4,214 +4,203 @@
 // المجالات المتاحة - مع مفاتيح ترجمة
 export const INDUSTRIES = [
   {
-    id: 'general',
-    labelKey: 'industries.general.label',
-    descKey: 'industries.general.desc',
-    icon: '🏢',
+    id: "general",
+    labelKey: "industries.general.label",
+    descKey: "industries.general.desc",
+    icon: "🏢",
   },
   {
-    id: 'trader',
-    labelKey: 'industries.trader.label',
-    descKey: 'industries.trader.desc',
-    icon: '📦',
+    id: "trader",
+    labelKey: "industries.trader.label",
+    descKey: "industries.trader.desc",
+    icon: "📦",
   },
   {
-    id: 'contractor',
-    labelKey: 'industries.contractor.label',
-    descKey: 'industries.contractor.desc',
-    icon: '🏗️',
+    id: "contractor",
+    labelKey: "industries.contractor.label",
+    descKey: "industries.contractor.desc",
+    icon: "🏗️",
   },
   {
-    id: 'real_estate',
-    labelKey: 'industries.real_estate.label',
-    descKey: 'industries.real_estate.desc',
-    icon: '🏠',
+    id: "real_estate",
+    labelKey: "industries.real_estate.label",
+    descKey: "industries.real_estate.desc",
+    icon: "🏠",
   },
   {
-    id: 'services',
-    labelKey: 'industries.services.label',
-    descKey: 'industries.services.desc',
-    icon: '💼',
+    id: "services",
+    labelKey: "industries.services.label",
+    descKey: "industries.services.desc",
+    icon: "💼",
   },
   {
-    id: 'super_market',
-    labelKey: 'industries.super_market.label',
-    descKey: 'industries.super_market.desc',
-    icon: '🏪',
+    id: "super_market",
+    labelKey: "industries.super_market.label",
+    descKey: "industries.super_market.desc",
+    icon: "🏪",
   },
   {
-    id: 'pharmacy',
-    labelKey: 'industries.pharmacy.label',
-    descKey: 'industries.pharmacy.desc',
-    icon: '💊',
+    id: "pharmacy",
+    labelKey: "industries.pharmacy.label",
+    descKey: "industries.pharmacy.desc",
+    icon: "💊",
   },
   {
-    id: 'restaurant',
-    labelKey: 'industries.restaurant.label',
-    descKey: 'industries.restaurant.desc',
-    icon: '🍽️',
+    id: "restaurant",
+    labelKey: "industries.restaurant.label",
+    descKey: "industries.restaurant.desc",
+    icon: "🍽️",
   },
   {
-    id: 'clothing',
-    labelKey: 'industries.clothing.label',
-    descKey: 'industries.clothing.desc',
-    icon: '👕',
+    id: "clothing",
+    labelKey: "industries.clothing.label",
+    descKey: "industries.clothing.desc",
+    icon: "👕",
   },
   {
-    id: 'clinic',
-    labelKey: 'industries.clinic.label',
-    descKey: 'industries.clinic.desc',
-    icon: '🩺',
+    id: "clinic",
+    labelKey: "industries.clinic.label",
+    descKey: "industries.clinic.desc",
+    icon: "🩺",
   },
 ];
 
 // للتوافق مع الكود القديم (مباشر)
 export const INDUSTRY_LABELS = {
-  general: '🏢 شركة / مكتب عام',
-  trader: '📦 تاجر / استيراد وتصدير',
-  contractor: '🏗️ مقاولات',
-  real_estate: '🏠 عقارات',
-  services: '💼 خدمات',
-  super_market: '🏪 سوبر ماركت',
-  pharmacy: '💊 صيدلية',
-  restaurant: '🍽️ مطعم / كافيه',
-  clothing: '👕 ملابس',
-  clinic: '🩺 طبيب / عيادة',
+  general: "🏢 شركة / مكتب عام",
+  trader: "📦 تاجر / استيراد وتصدير",
+  contractor: "🏗️ مقاولات",
+  real_estate: "🏠 عقارات",
+  services: "💼 خدمات",
+  super_market: "🏪 سوبر ماركت",
+  pharmacy: "💊 صيدلية",
+  restaurant: "🍽️ مطعم / كافيه",
+  clothing: "👕 ملابس",
+  clinic: "🩺 طبيب / عيادة",
 };
 
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
 export const MODULE_MAP = {
   // الوحدات الأساسية المتاحة للجميع
-   _base: [
-    'dashboard',
-    'inventory',
-    'reports',
-    'expenses',
-    'profits',
-  ],
+  _base: ["dashboard", "inventory", "reports", "expenses", "profits"],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
-  trader: [
-    'clients',
-    'invoices',
-    'quotations',
-    'suppliers',
-    'purchases',
-    'tasks',
-    'aging',
-    'messages',
+ trader: [
+    "clients",
+    "daily-prices",
+    "invoices",
+    "quotations",
+    "suppliers",
+    "purchases",
+    "tasks",
+    "aging",
+    "messages",
   ],
 
   // مقاولات (من غير Sellers و Buyers)
   contractor: [
-    'clients',
-    'invoices',
-    'quotations',
-    'projects',
-    'tasks',
-    'suppliers',
-    'purchases',
-    'aging',
-    'messages',
+    "clients",
+    "invoices",
+    "quotations",
+    "projects",
+    "tasks",
+    "suppliers",
+    "purchases",
+    "aging",
+    "messages",
   ],
 
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
-  real_estate: [
-    'sellers',
-    'buyers',
-    'tasks',
-    'projects',
-    'messages',
-  ],
+  real_estate: ["sellers", "buyers", "tasks", "projects", "messages"],
 
   // خدمات (عملاء، فواتير، مشاريع، مهام - بدون موردين وبائعين ومشترين)
   services: [
-    'clients',
-    'invoices',
-    'quotations',
-    'tasks',
-    'projects',
-    'aging',
-    'messages',
+    "clients",
+    "invoices",
+    "quotations",
+    "tasks",
+    "projects",
+    "aging",
+    "messages",
   ],
 
   // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
   general: [
-    'clients',
-    'invoices',
-    'quotations',
-    'tasks',
-    'projects',
-    'aging',
-    'suppliers',
-    'purchases',
-    'messages',
+    "clients",
+    "invoices",
+    "quotations",
+    "tasks",
+    "projects",
+    "aging",
+    "suppliers",
+    "purchases",
+    "messages",
   ],
 
   // سوبر ماركت - نقطة بيع + صلاحية + مهام ورسائل للفريق
   super_market: [
-    'pos',
-    'clients',
-    'invoices',
-    'suppliers',
-    'purchases',
-    'barcode',
-    'expiry',
-    'tasks',
-    'messages',
+    "pos",
+    "clients",
+    "invoices",
+    "suppliers",
+    "purchases",
+    "barcode",
+    "expiry",
+    "tasks",
+    "messages",
   ],
 
   // صيدلية - نقطة بيع + تشغيلة + تصنيف أدوية + مهام ورسائل
   pharmacy: [
-    'pos',
-    'clients',
-    'invoices',
-    'suppliers',
-    'purchases',
-    'barcode',
-    'expiry',
-    'batch',
-    'drug_categories',
-    'tasks',
-    'messages',
+    "pos",
+    "clients",
+    "invoices",
+    "suppliers",
+    "purchases",
+    "barcode",
+    "expiry",
+    "batch",
+    "drug_categories",
+    "tasks",
+    "messages",
   ],
 
   // مطعم / كافيه - ديليفري وتيك أواي فقط
   restaurant: [
-    'pos',
-    'menu-categories',
-    'raw-materials',
-    'clients',
-    'invoices',
-    'suppliers',
-    'purchases',
-    'kitchen', 
-     'expiry',
-    'tasks',
-    'messages',
+    "pos",
+    "menu-categories",
+    "raw-materials",
+    "clients",
+    "invoices",
+    "suppliers",
+    "purchases",
+    "kitchen",
+    "expiry",
+    "tasks",
+    "messages",
   ],
 
   // ملابس - مقاسات وألوان + مهام ورسائل للموظفين
   clothing: [
-    'clients',
-    'invoices',
-    'quotations',
-    'suppliers',
-    'purchases',
-    'sizes_colors',
-    'tasks',
-    'messages',
+    "clients",
+    "invoices",
+    "quotations",
+    "suppliers",
+    "purchases",
+    "sizes_colors",
+    "tasks",
+    "messages",
   ],
 
   // طبيب / عيادة - مرضى ومواعيد وروشتات فقط (بدون أعمار ديون)
   clinic: [
-    'patients',
-    'appointments',
-    'prescriptions',
-    'invoices',
-    'tasks',
-    'expiry',
-    'messages',
+    "patients",
+    "appointments",
+    "prescriptions",
+    "invoices",
+    "tasks",
+    "expiry",
+    "messages",
   ],
 };
 
@@ -219,10 +208,16 @@ export const MODULE_MAP = {
 export function getAvailableModules(industry, userRole) {
   // السوبر أدمن يشوف بس أدوات إدارة النظام (الشركات والمستخدمين والتقارير)
   // من غير الوحدات التشغيلية الخاصة بالشركات المشتركين
-  if (userRole === 'super_admin') {
+  if (userRole === "super_admin") {
     return new Set([
-      'dashboard', 'companies', 'users', 'reports',
-      'notifications', 'profile', 'about', 'my-company',
+      "dashboard",
+      "companies",
+      "users",
+      "reports",
+      "notifications",
+      "profile",
+      "about",
+      "my-company",
     ]);
   }
 
@@ -235,14 +230,14 @@ export function getAvailableModules(industry, userRole) {
   }
 
   // صفحات ثابتة للجميع
-  modules.add('notifications');
-  modules.add('profile');
-  modules.add('about');
-  modules.add('my-company');
+  modules.add("notifications");
+  modules.add("profile");
+  modules.add("about");
+  modules.add("my-company");
 
   // مدير الشركة يدير موظفين شركته
-  if (userRole === 'admin') {
-    modules.add('users');
+  if (userRole === "admin") {
+    modules.add("users");
   }
 
   return modules;
@@ -256,66 +251,67 @@ export function canAccess(moduleKey, industry, userRole) {
 
 // خريطة المسارات → الوحدات
 export const ROUTE_MODULE_MAP = {
-  '/dashboard': 'dashboard',
-    '/expenses': 'expenses',
-  '/profits': 'profits',
-  '/companies': 'companies',
-  '/clients': 'clients',
-  '/invoices': 'invoices',
-  '/quotations': 'quotations',
-  '/inventory': 'inventory',
-  '/tasks': 'tasks',
-  '/projects': 'projects',
-  '/users': 'users',
-  '/reports': 'reports',
-  '/aging': 'aging',
-  '/menu-categories': 'menu-categories',
-  '/raw-materials': 'raw-materials',
-  '/notifications': 'notifications',
+  "/dashboard": "dashboard",
+  "/expenses": "expenses",
+  "/profits": "profits",
+  "/companies": "companies",
+  "/clients": "clients",
+  "/invoices": "invoices",
+  "/quotations": "quotations",
+  "/inventory": "inventory",
+  "/daily-prices": "daily-prices",
+  "/tasks": "tasks",
+  "/projects": "projects",
+  "/users": "users",
+  "/reports": "reports",
+  "/aging": "aging",
+  "/menu-categories": "menu-categories",
+  "/raw-materials": "raw-materials",
+  "/notifications": "notifications",
 
-  '/profile': 'profile',
-  '/about': 'about',
-  '/pos': 'pos',
-  '/suppliers': 'suppliers',
-  '/purchases': 'purchases',
-  '/expiry': 'expiry',
-  '/sellers': 'sellers',
-  '/buyers': 'buyers',
-  '/messages': 'messages',
-  '/patients': 'patients',
-  '/appointments': 'appointments',
-  '/prescriptions': 'prescriptions',
+  "/profile": "profile",
+  "/about": "about",
+  "/pos": "pos",
+  "/suppliers": "suppliers",
+  "/purchases": "purchases",
+  "/expiry": "expiry",
+  "/sellers": "sellers",
+  "/buyers": "buyers",
+  "/messages": "messages",
+  "/patients": "patients",
+  "/appointments": "appointments",
+  "/prescriptions": "prescriptions",
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
 export function getIndustryShortLabel(industry) {
   const labels = {
-    general: '🏢 عام',
-    trader: '📦 تاجر',
-    contractor: '🏗️ مقاولات',
-    real_estate: '🏠 عقارات',
-    services: '💼 خدمات',
-    super_market: '🏪 سوبر ماركت',
-    pharmacy: '💊 صيدلية',
-    restaurant: '🍽️ مطعم',
-  clothing: '👕 ملابس',
-  clinic: '🩺 عيادة',
-};
-  return labels[industry] || '🏢 عام';
+    general: "🏢 عام",
+    trader: "📦 تاجر",
+    contractor: "🏗️ مقاولات",
+    real_estate: "🏠 عقارات",
+    services: "💼 خدمات",
+    super_market: "🏪 سوبر ماركت",
+    pharmacy: "💊 صيدلية",
+    restaurant: "🍽️ مطعم",
+    clothing: "👕 ملابس",
+    clinic: "🩺 عيادة",
+  };
+  return labels[industry] || "🏢 عام";
 }
 
 // دالة جديدة للحصول على الاسم المترجم
 export function getIndustryLabel(industryId, t) {
-  const industry = INDUSTRIES.find(ind => ind.id === industryId);
+  const industry = INDUSTRIES.find((ind) => ind.id === industryId);
   if (industry && t) {
     return `${industry.icon} ${t(industry.labelKey)}`;
   }
-  return INDUSTRY_LABELS[industryId] || '🏢 عام';
+  return INDUSTRY_LABELS[industryId] || "🏢 عام";
 }
 
 // دالة للحصول على قائمة المجالات مع ترجمة
 export function getTranslatedIndustries(t) {
-  return INDUSTRIES.map(ind => ({
+  return INDUSTRIES.map((ind) => ({
     ...ind,
     label: `${ind.icon} ${t(ind.labelKey)}`,
     desc: t(ind.descKey),
@@ -324,42 +320,43 @@ export function getTranslatedIndustries(t) {
 
 // أسماء الوحدات المترجمة (مفاتيح)
 export const MODULE_LABEL_KEYS = {
-  dashboard: 'modules.dashboard',
-  inventory: 'modules.inventory',
-    expenses: 'modules.expenses',
-  profits: 'modules.profits',
-  reports: 'modules.reports',
-  clients: 'modules.clients',
-  invoices: 'modules.invoices',
-  quotations: 'modules.quotations',
-  tasks: 'modules.tasks',
-  projects: 'modules.projects',
-  aging: 'modules.aging',
-  pos: 'modules.pos',
-  suppliers: 'modules.suppliers',
-  purchases: 'modules.purchases',
-  barcode: 'modules.barcode',
-  expiry: 'modules.expiry',
-  batch: 'modules.batch',
-  drug_categories: 'modules.drug_categories',
-  orders: 'modules.orders',
-  tables: 'modules.tables',
-  'menu-categories': 'modules.menu_categories',
-  'raw-materials': 'modules.raw_materials',
-  sizes_colors: 'modules.sizes_colors',
-  companies: 'modules.companies',
-  users: 'modules.users',
-  notifications: 'modules.notifications',
+  dashboard: "modules.dashboard",
+  inventory: "modules.inventory",
+  "daily-prices": "modules.daily_prices",
+  expenses: "modules.expenses",
+  profits: "modules.profits",
+  reports: "modules.reports",
+  clients: "modules.clients",
+  invoices: "modules.invoices",
+  quotations: "modules.quotations",
+  tasks: "modules.tasks",
+  projects: "modules.projects",
+  aging: "modules.aging",
+  pos: "modules.pos",
+  suppliers: "modules.suppliers",
+  purchases: "modules.purchases",
+  barcode: "modules.barcode",
+  expiry: "modules.expiry",
+  batch: "modules.batch",
+  drug_categories: "modules.drug_categories",
+  orders: "modules.orders",
+  tables: "modules.tables",
+  "menu-categories": "modules.menu_categories",
+  "raw-materials": "modules.raw_materials",
+  sizes_colors: "modules.sizes_colors",
+  companies: "modules.companies",
+  users: "modules.users",
+  notifications: "modules.notifications",
 
-  profile: 'modules.profile',
-  about: 'modules.about',
-  'my-company': 'modules.my_company',
-  sellers: 'modules.sellers',
-  buyers: 'modules.buyers',
-  messages: 'modules.messages',
-  patients: 'modules.patients',
-  appointments: 'modules.appointments',
-  prescriptions: 'modules.prescriptions',
+  profile: "modules.profile",
+  about: "modules.about",
+  "my-company": "modules.my_company",
+  sellers: "modules.sellers",
+  buyers: "modules.buyers",
+  messages: "modules.messages",
+  patients: "modules.patients",
+  appointments: "modules.appointments",
+  prescriptions: "modules.prescriptions",
 };
 
 // دالة للحصول على اسم وحدة مترجم

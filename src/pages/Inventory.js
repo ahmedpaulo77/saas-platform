@@ -24,6 +24,7 @@ export default function Inventory() {
   const isClothing = userIndustry === "clothing";
   const isRestaurant = userIndustry === "restaurant";
   const isRealEstate = userIndustry === "real_estate";
+  const isTrader = userIndustry === "trader";
 
   // ── أقسام المنيو من Firestore (للمطاعم فقط) ──
   const [menuCategories, setMenuCategories] = useState([]);
@@ -54,12 +55,14 @@ export default function Inventory() {
     quantity: "",
     price: "",
     description: "",
-    // ملابس
+        // تاجر
+     // ملابس
     type: "", size: "", color: "", brand: "",
     expiryDate: "",
     // مطعم - إضافات
     extras: [], // [{ name, price }]
     preparationNote: "", // ملاحظة تحضير افتراضية
+    unit: "kg",
   });
 
   // إضافة extra مؤقت في النموذج
@@ -153,8 +156,9 @@ export default function Inventory() {
         ...newProduct,
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        quantity: parseInt(newProduct.quantity),
+        quantity: isTrader ? parseFloat(newProduct.quantity) : parseInt(newProduct.quantity),
         price: parseFloat(newProduct.price),
+                 unit: isTrader ? newProduct.unit || "piece" : "",
         type: isClothing ? newProduct.type || "" : "",
         size: isClothing ? newProduct.size || "" : "",
         color: isClothing ? newProduct.color || "" : "",
@@ -169,7 +173,7 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", expiryDate: "", extras: [], preparationNote: "" });
+      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", expiryDate: "", extras: [], preparationNote: "", unit: "kg" });
       setTempExtra({ name: "", price: "" });
       await fetchProducts();
       alert(t("inv.addOk"));
@@ -189,10 +193,11 @@ export default function Inventory() {
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
         category: editingProduct.category || "",
-        quantity: parseInt(editingProduct.quantity),
+        quantity: isTrader ? parseFloat(editingProduct.quantity) : parseInt(editingProduct.quantity),
         price: parseFloat(editingProduct.price),
+        unit: isTrader ? (editingProduct.unit || "kg") : "",
         description: editingProduct.description || "",
-        type: isClothing ? editingProduct.type || "" : "",
+         type: isClothing ? editingProduct.type || "" : "",
         size: isClothing ? editingProduct.size || "" : "",
         color: isClothing ? editingProduct.color || "" : "",
         brand: isClothing ? editingProduct.brand || "" : "",
@@ -372,8 +377,22 @@ export default function Inventory() {
               />
             )}
 
+            {isTrader && (
+              <select
+                value={newProduct.unit || "kg"}
+                onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
+              >
+                <option value="kg">{t("trader.unit.kg")}</option>
+                <option value="piece">{t("trader.unit.piece")}</option>
+                <option value="carton">{t("trader.unit.carton")}</option>
+              </select>
+            )}
+
             <input
               type="number"
+              min="0"
+              step={isTrader ? "0.001" : "1"}
               placeholder={isRealEstate ? "عدد الوحدات" : isRestaurant ? "الكمية المتاحة" : t("inv.phQty")}
               value={newProduct.quantity}
               onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })}
@@ -392,7 +411,14 @@ export default function Inventory() {
               value={newProduct.description}
               onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
             />
-
+            {isTrader && (
+              <select value={newProduct.unit} onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
+                <option value="piece">{t("trader.unit.piece")}</option>
+                <option value="kg">{t("trader.unit.kg")}</option>
+                <option value="carton">{t("trader.unit.carton")}</option>
+              </select>
+            )}
             {/* حقول الملابس */}
             {isClothing && (
               <>
@@ -467,6 +493,7 @@ export default function Inventory() {
                   <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
                   {isClothing && <><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurant && <th>الإضافات</th>}
+                  {isTrader && <th>{t("trader.unit")}</th>}
                   <th>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</th>
                   <th>{t("inv.price")}</th>
                   <th>{t("common.actions")}</th>
@@ -493,6 +520,9 @@ export default function Inventory() {
                         <td>{product.color || "—"}</td>
                         <td>{product.brand || "—"}</td>
                       </>
+                    )}
+                    {isTrader && (
+                      <td>{t(`trader.unit.${product.unit || "piece"}`)}</td>
                     )}
                     {isRestaurant && (
                       <td>
@@ -573,7 +603,17 @@ export default function Inventory() {
                       onChange={(e) => setEditingProduct({ ...editingProduct, preparationNote: e.target.value })} />
                   </div>
                 )}
-
+                {isTrader && (
+                  <div style={styles.formGroup}>
+                    <label>{t("trader.unit")}</label>
+                    <select value={editingProduct.unit || "piece"} style={styles.input}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}>
+                      <option value="piece">{t("trader.unit.piece")}</option>
+                      <option value="kg">{t("trader.unit.kg")}</option>
+                      <option value="carton">{t("trader.unit.carton")}</option>
+                    </select>
+                  </div>
+                )}
                 {/* ملابس */}
                 {isClothing && (
                   <>
@@ -609,9 +649,20 @@ export default function Inventory() {
                   </>
                 )}
 
+                {isTrader && (
+                  <div style={styles.formGroup}>
+                    <label>{t("trader.unit")}</label>
+                    <select value={editingProduct.unit || "piece"} style={styles.input}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}>
+                      <option value="kg">{t("trader.unit.kg")}</option>
+                      <option value="piece">{t("trader.unit.piece")}</option>
+                      <option value="carton">{t("trader.unit.carton")}</option>
+                    </select>
+                  </div>
+                )}
                 <div style={styles.formGroup}>
                   <label>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</label>
-                  <input type="number" value={editingProduct.quantity} required style={styles.input}
+                  <input type="number" min="0" step={isTrader ? "0.001" : "1"} value={editingProduct.quantity} required style={styles.input}
                     onChange={(e) => setEditingProduct({ ...editingProduct, quantity: e.target.value })} />
                 </div>
                 <div style={styles.formGroup}>

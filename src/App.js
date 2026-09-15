@@ -22,7 +22,7 @@ import Clients from "./pages/Clients";
 import Invoices from "./pages/Invoices";
 import Quotations from "./pages/Quotations";
 import Inventory from "./pages/Inventory";
-import Tasks from "./pages/Tasks";
+ import Tasks from "./pages/Tasks";
 import Projects from "./pages/Projects";
 import Users from "./pages/Users";
 import Reports from "./pages/Reports";
@@ -33,6 +33,7 @@ import Expiry from "./pages/Expiry";
 import Notifications from "./pages/Notifications";
 import About from "./pages/About";
 import Profile from "./pages/Profile";
+import DailyPrices from "./pages/DailyPrices";
 
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import ManageUsers from "./pages/admin/ManageUsers";
@@ -163,6 +164,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="inventory">
               <Inventory />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+            <Route
+        path="/daily-prices"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="daily-prices">
+              <DailyPrices />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/daily-prices"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="daily-prices">
+              <DailyPrices />
             </IndustryRoute>
           </ProtectedRoute>
         }
