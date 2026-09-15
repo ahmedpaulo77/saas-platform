@@ -998,18 +998,15 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                     {isRestaurant ? "🍽️ أصناف الطلب *" : productLabel}
                   </label>
                   <AutocompleteInput
+                    key={`inv-add-${newInvoice.products.length}`}
                     items={products.map((p) => ({
                       id: p.id,
                       label: p.name,
                       sublabel: `${t("currency")} ${p.price || 0} — متاح: ${p.quantity || 0}`,
                     }))}
-                    value={
-                      newInvoice.products.length > 0
-                        ? newInvoice.products[newInvoice.products.length - 1]
-                            .productId
-                        : ""
-                    }
+                    value=""
                     onChange={(productId) => {
+                      if (!productId) return;
                       if (
                         newInvoice.products.some(
                           (p) => p.productId === productId,
@@ -2244,6 +2241,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                             : t("in.addProduct") || "إضافة منتج جديد"}
                         </label>
                         <AutocompleteInput
+                          key={`inv-edit-${editingInvoice.products?.length || 0}`}
                           items={products.map((p) => ({
                             id: p.id,
                             label: p.name,

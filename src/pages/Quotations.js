@@ -617,18 +617,15 @@ export default function Quotations() {
                 <div className="form-group">
                   <label>{t("in.productOpt") || "منتج (اختياري)"}</label>
                   <AutocompleteInput
+                    key={`quo-add-${newQuotation.products.length}`}
                     items={products.map((p) => ({
                       id: p.id,
                       label: p.name,
                       sublabel: `${t("currency")} ${p.price || 0}`,
                     }))}
-                    value={
-                      newQuotation.products.length > 0
-                        ? newQuotation.products[newQuotation.products.length - 1]
-                            .productId
-                        : ""
-                    }
+                    value=""
                     onChange={(productId) => {
+                      if (!productId) return;
                       const alreadySelected = newQuotation.products.some(
                         (p) => p.productId === productId,
                       );
@@ -1312,6 +1309,7 @@ export default function Quotations() {
                             + {t("in.addProduct") || "إضافة منتج جديد"}
                           </label>
                           <AutocompleteInput
+                            key={`quo-edit-${editingQuotation.products?.length || 0}`}
                             items={products.map((p) => ({
                               id: p.id,
                               label: p.name,

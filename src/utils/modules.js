@@ -85,7 +85,7 @@ export const MODULE_MAP = {
   _base: ["dashboard", "inventory", "reports", "expenses", "profits"],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
- trader: [
+  trader: [
     "clients",
     "daily-prices",
     "invoices",
@@ -94,7 +94,6 @@ export const MODULE_MAP = {
     "purchases",
     "tasks",
     "aging",
-    "messages",
   ],
 
   // مقاولات (من غير Sellers و Buyers)

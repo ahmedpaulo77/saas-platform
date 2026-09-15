@@ -567,6 +567,7 @@ export default function Purchases() {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>{t("pur.productOpt")}</label>
                   <AutocompleteInput
+                    key={`pur-add-${(newPurchase.items || []).length}`}
                     items={products.map((p) => ({
                       id: p.id,
                       label: p.name,
