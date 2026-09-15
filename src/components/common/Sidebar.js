@@ -142,6 +142,12 @@ export default function Sidebar() {
       module: "expenses",
     },
     {
+      to: "/profits",
+      icon: "fas fa-chart-line",
+      label: t("nav.profits"),
+      module: "profits",
+    },
+    {
       to: "/expiry",
       icon: "fas fa-calendar-times",
       label: t("nav.expiry"),

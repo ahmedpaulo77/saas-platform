@@ -11,6 +11,8 @@ import { useLanguage } from "../i18n/LanguageContext";
 const ORDER_TYPES = [
   { value: "takeaway", label: "🥡 تيك أواي" },
   { value: "delivery", label: "🛵 توصيل" },
+    { value: "dine_in", label: "🍽️ صالة" },
+
 ];
 
 export default function POS() {

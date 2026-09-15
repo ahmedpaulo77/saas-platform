@@ -87,6 +87,7 @@ export const MODULE_MAP = {
     'inventory',
     'reports',
     'expenses',
+    'profits',
   ],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
@@ -257,6 +258,7 @@ export function canAccess(moduleKey, industry, userRole) {
 export const ROUTE_MODULE_MAP = {
   '/dashboard': 'dashboard',
     '/expenses': 'expenses',
+  '/profits': 'profits',
   '/companies': 'companies',
   '/clients': 'clients',
   '/invoices': 'invoices',
@@ -325,6 +327,7 @@ export const MODULE_LABEL_KEYS = {
   dashboard: 'modules.dashboard',
   inventory: 'modules.inventory',
     expenses: 'modules.expenses',
+  profits: 'modules.profits',
   reports: 'modules.reports',
   clients: 'modules.clients',
   invoices: 'modules.invoices',

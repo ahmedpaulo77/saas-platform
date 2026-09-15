@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import Purchases from "./pages/Purchases";
 import Expenses from "./pages/Expenses";
+import Profits from "./pages/Profits";
 import Kitchen from "./pages/Kitchen";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -292,6 +293,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="expenses">
               <Expenses />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profits"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="profits">
+              <Profits />
             </IndustryRoute>
           </ProtectedRoute>
         }
