@@ -411,14 +411,6 @@ export default function Inventory() {
               value={newProduct.description}
               onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
             />
-            {isTrader && (
-              <select value={newProduct.unit} onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
-                style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
-                <option value="piece">{t("trader.unit.piece")}</option>
-                <option value="kg">{t("trader.unit.kg")}</option>
-                <option value="carton">{t("trader.unit.carton")}</option>
-              </select>
-            )}
             {/* حقول الملابس */}
             {isClothing && (
               <>
@@ -649,17 +641,6 @@ export default function Inventory() {
                   </>
                 )}
 
-                {isTrader && (
-                  <div style={styles.formGroup}>
-                    <label>{t("trader.unit")}</label>
-                    <select value={editingProduct.unit || "piece"} style={styles.input}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, unit: e.target.value })}>
-                      <option value="kg">{t("trader.unit.kg")}</option>
-                      <option value="piece">{t("trader.unit.piece")}</option>
-                      <option value="carton">{t("trader.unit.carton")}</option>
-                    </select>
-                  </div>
-                )}
                 <div style={styles.formGroup}>
                   <label>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</label>
                   <input type="number" min="0" step={isTrader ? "0.001" : "1"} value={editingProduct.quantity} required style={styles.input}

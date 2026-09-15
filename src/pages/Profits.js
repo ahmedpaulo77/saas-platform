@@ -20,6 +20,21 @@ function invoiceRevenue(inv) {
   return parseFloat(inv.paidAmount) || 0;
 }
 
+// تكلفة الشراء (نفس المنطق النقدي: مدفوعة بالكامل = amount / غير كده = paidAmount)
+function purchaseCost(pur) {
+  if (pur.status === "paid") return parseFloat(pur.amount) || 0;
+  return parseFloat(pur.paidAmount) || 0;
+}
+
+// بيرجع أول وآخر لحظة في يوم معين
+function dayRange(date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 const MONTH_NAMES = {
   ar: [
     "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -39,6 +54,7 @@ export default function Profits() {
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [purchases, setPurchases] = useState([]);
 
   // خانة الكفر (احتياطي مالي اختياري)
   const [coverageEnabled, setCoverageEnabled] = useState(false);
@@ -49,19 +65,27 @@ export default function Profits() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-11
+  // ✅ اليوم المختار لتقرير اليومية (default = النهاردة)
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
-  // -------- تحميل الفواتير والمصروفات --------
+  // -------- تحميل الفواتير والمشتريات والمصروفات --------
   useEffect(() => {
     async function loadData() {
       if (!userCompanyId) return;
       setLoading(true);
       try {
-        const [invSnap, expSnap] = await Promise.all([
+        const [invSnap, expSnap, purSnap] = await Promise.all([
           getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "expenses"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "purchases"), where("companyId", "==", userCompanyId))),
         ]);
         setInvoices(invSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setExpenses(expSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setPurchases(purSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
       }
@@ -88,29 +112,54 @@ export default function Profits() {
     loadCoverage();
   }, [userCompanyId]);
 
-  // -------- حساب إيراد/مصروف/ربح شهر معين --------
+  // -------- حساب إيراد/مشتريات/مصروف/ربح فترة معينة --------
+  // الربح = المحصّل من المبيعات − المدفوع للموردين − المصروفات (منها الهالك)
+  const calcPeriod = useCallback(
+    (start, end) => {
+      const inRange = (dateStr) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        return d >= start && d <= end;
+      };
+
+      const revenue = invoices.reduce(
+        (sum, inv) => (inRange(inv.date || inv.createdAt) ? sum + invoiceRevenue(inv) : sum),
+        0,
+      );
+
+      const purchasesTotal = purchases.reduce(
+        (sum, p) => (inRange(p.date || p.createdAt) ? sum + purchaseCost(p) : sum),
+        0,
+      );
+
+      let expenseTotal = 0;
+      let wasteTotal = 0;
+      expenses.forEach((e) => {
+        if (!inRange(e.date)) return;
+        const amt = parseFloat(e.amount) || 0;
+        expenseTotal += amt;
+        if (e.category === "waste") wasteTotal += amt;
+      });
+
+      return {
+        revenue,
+        purchases: purchasesTotal,
+        expenses: expenseTotal,
+        waste: wasteTotal,
+        otherExpenses: expenseTotal - wasteTotal,
+        profit: revenue - purchasesTotal - expenseTotal,
+      };
+    },
+    [invoices, expenses, purchases],
+  );
+
+  // -------- حساب شهر معين --------
   const calcMonth = useCallback(
     (year, monthIndex) => {
       const { start, end } = monthRange(year, monthIndex);
-
-      const revenue = invoices.reduce((sum, inv) => {
-        const dateStr = inv.date || inv.createdAt;
-        if (!dateStr) return sum;
-        const d = new Date(dateStr);
-        if (d >= start && d <= end) return sum + invoiceRevenue(inv);
-        return sum;
-      }, 0);
-
-      const expenseTotal = expenses.reduce((sum, e) => {
-        if (!e.date) return sum;
-        const d = new Date(e.date);
-        if (d >= start && d <= end) return sum + (parseFloat(e.amount) || 0);
-        return sum;
-      }, 0);
-
-      return { revenue, expenses: expenseTotal, profit: revenue - expenseTotal };
+      return calcPeriod(start, end);
     },
-    [invoices, expenses]
+    [calcPeriod],
   );
 
   const currentMonthData = useMemo(
@@ -123,6 +172,50 @@ export default function Profits() {
     const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
     return calcMonth(prevYear, prevMonthIndex);
   }, [calcMonth, selectedYear, selectedMonth]);
+
+  // -------- يومية اليوم المختار --------
+  const dayData = useMemo(() => {
+    const { start, end } = dayRange(selectedDate);
+    return calcPeriod(start, end);
+  }, [calcPeriod, selectedDate]);
+
+  const isViewingToday = useMemo(() => {
+    const t = new Date();
+    return (
+      selectedDate.getFullYear() === t.getFullYear() &&
+      selectedDate.getMonth() === t.getMonth() &&
+      selectedDate.getDate() === t.getDate()
+    );
+  }, [selectedDate]);
+
+  function goToPrevDay() {
+    setSelectedDate((d) => {
+      const c = new Date(d);
+      c.setDate(c.getDate() - 1);
+      return c;
+    });
+  }
+
+  function goToNextDay() {
+    if (isViewingToday) return; // مايتخطاش النهاردة
+    setSelectedDate((d) => {
+      const c = new Date(d);
+      c.setDate(c.getDate() + 1);
+      return c;
+    });
+  }
+
+  const dayLabel = useMemo(() => {
+    try {
+      return selectedDate.toLocaleDateString(lang === "en" ? "en-US" : "ar-EG", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+    } catch {
+      return selectedDate.toLocaleDateString();
+    }
+  }, [selectedDate, lang]);
 
   const coverageValue = parseFloat(coverageAmount) || 0;
   const netAfterCoverage = coverageEnabled
@@ -233,6 +326,92 @@ export default function Profits() {
           </div>
         </div>
 
+        {/* ✅ تقرير اليومية: إيراد اليوم − مشتريات اليوم − مصاريف اليوم = الصافي */}
+        <div className="table-container" style={{ marginBottom: 20 }}>
+          <div className="table-header">
+            <h3>
+              <i className="fas fa-calendar-day"></i> {t("profits.dailyTitle")}
+            </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button className="btn-secondary btn-sm" onClick={goToPrevDay}>
+                <i className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}></i>
+              </button>
+              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 130, textAlign: "center" }}>
+                {dayLabel}
+                {isViewingToday && (
+                  <span
+                    style={{
+                      marginRight: 6,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#10b981",
+                      background: "#ecfdf5",
+                      padding: "2px 8px",
+                      borderRadius: 20,
+                    }}
+                  >
+                    {t("profits.today")}
+                  </span>
+                )}
+              </span>
+              <button
+                className="btn-secondary btn-sm"
+                onClick={goToNextDay}
+                disabled={isViewingToday}
+              >
+                <i className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}></i>
+              </button>
+            </div>
+          </div>
+          <div className="stats-row" style={{ padding: 16 }}>
+            <div className="stat-card green">
+              <div className="stat-icon">
+                <i className="fas fa-arrow-trend-up"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.revenue.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("profits.revenue")}</div>
+            </div>
+            <div className="stat-card amber">
+              <div className="stat-icon">
+                <i className="fas fa-cart-arrow-down"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.purchases.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("pur.title")}</div>
+            </div>
+            <div className="stat-card red">
+              <div className="stat-icon">
+                <i className="fas fa-trash-can"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.waste.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("profits.waste")}</div>
+            </div>
+            <div className="stat-card indigo">
+              <div className="stat-icon">
+                <i className="fas fa-receipt"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.otherExpenses.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("profits.otherExpenses")}</div>
+            </div>
+            <div className={`stat-card ${dayData.profit >= 0 ? "purple" : "red"}`}>
+              <div className="stat-icon">
+                <i className="fas fa-sack-dollar"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.profit.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("profits.profit")} {t("profits.day")}</div>
+            </div>
+          </div>
+        </div>
+
         {/* منتقي الشهر */}
         <div
           className="card"
@@ -287,6 +466,15 @@ export default function Profits() {
             </div>
             <div className="stat-label">{t("profits.revenue")}</div>
           </div>
+          <div className="stat-card amber">
+            <div className="stat-icon">
+              <i className="fas fa-cart-arrow-down"></i>
+            </div>
+            <div className="stat-value" style={{ fontSize: 20 }}>
+              {currentMonthData.purchases.toLocaleString()} {t("currency")}
+            </div>
+            <div className="stat-label">{t("pur.title")}</div>
+          </div>
           <div className="stat-card red">
             <div className="stat-icon">
               <i className="fas fa-arrow-trend-down"></i>
@@ -294,7 +482,10 @@ export default function Profits() {
             <div className="stat-value" style={{ fontSize: 20 }}>
               {currentMonthData.expenses.toLocaleString()} {t("currency")}
             </div>
-            <div className="stat-label">{t("profits.expenses")}</div>
+            <div className="stat-label">
+              {t("profits.expenses")} ({t("profits.waste")}:{" "}
+              {currentMonthData.waste.toLocaleString()})
+            </div>
           </div>
           <div className={`stat-card ${currentMonthData.profit >= 0 ? "indigo" : "red"}`}>
             <div className="stat-icon">
@@ -334,6 +525,7 @@ export default function Profits() {
               <thead>
                 <tr>
                   <th>{t("profits.revenue")}</th>
+                  <th>{t("pur.title")}</th>
                   <th>{t("profits.expenses")}</th>
                   <th>{t("profits.profit")}</th>
                 </tr>
@@ -342,6 +534,9 @@ export default function Profits() {
                 <tr>
                   <td style={{ fontWeight: 700, color: "#059669" }}>
                     {prevMonthData.revenue.toLocaleString()} {t("currency")}
+                  </td>
+                  <td style={{ fontWeight: 700, color: "#d97706" }}>
+                    {prevMonthData.purchases.toLocaleString()} {t("currency")}
                   </td>
                   <td style={{ fontWeight: 700, color: "#dc2626" }}>
                     {prevMonthData.expenses.toLocaleString()} {t("currency")}

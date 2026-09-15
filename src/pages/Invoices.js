@@ -18,7 +18,7 @@ import { exportInvoicePDF } from "../utils/pdfExport";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getAvailableModules } from "../utils/modules";
 import { logActivity } from "../utils/auditLogger";
-import { getProductUnit, lineAmount } from "../utils/traderUnits";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
 import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
@@ -365,14 +365,21 @@ export default function Invoices() {
           const productDoc = await getDoc(productRef);
           if (productDoc.exists()) {
             const currentQty = productDoc.data().quantity || 0;
-            const qty = parseFloat(item.quantity) || 0;
-            if (qty > 0 && currentQty - qty < 0) {
+            // ✅ للتاجر: الخصم بالوزن لو الصنف بالكيلو، غير كده بالعدد
+            const delta = isTrader
+              ? stockDelta(
+                  item.unit || getProductUnit(productDoc.data()),
+                  item.quantity,
+                  item.weight,
+                )
+              : parseFloat(item.quantity) || 0;
+            if (delta > 0 && currentQty - delta < 0) {
               alert(t("in.qtyOver"));
               setSubmitting(false);
               return;
             }
-            if (qty > 0)
-              await updateDoc(productRef, { quantity: currentQty - qty });
+            if (delta > 0)
+              await updateDoc(productRef, { quantity: currentQty - delta });
           }
         }
       }
@@ -384,6 +391,9 @@ export default function Invoices() {
           quantity: item.quantity,
           amount: item.amount,
           paidAmount: item.paidAmount || 0,
+          // ✅ حفظ الوزن والوحدة (للتاجر - الأصناف بالكيلو)
+          weight: item.weight || "",
+          unit: item.unit || "",
         })),
         status: isRestaurant ? "pending" : newInvoice.status,
         orderStatus: isRestaurant ? newInvoice.orderStatus || "new" : "",
@@ -409,7 +419,11 @@ export default function Invoices() {
         amount: totalAmount,
         quantity: hasInventory
           ? newInvoice.products.reduce(
-              (sum, item) => sum + parseFloat(item.quantity || 0),
+              (sum, item) =>
+                sum +
+                (isTrader
+                  ? stockDelta(item.unit || "piece", item.quantity, item.weight)
+                  : parseFloat(item.quantity || 0)),
               0,
             )
           : 0,
@@ -471,6 +485,9 @@ export default function Invoices() {
           quantity: item.quantity,
           amount: item.amount,
           paidAmount: item.paidAmount || 0,
+          // ✅ حفظ الوزن والوحدة (للتاجر - الأصناف بالكيلو)
+          weight: item.weight || "",
+          unit: item.unit || "",
         })),
       });
       await logActivity({
@@ -574,10 +591,17 @@ export default function Invoices() {
         const name = product ? product.name : "صنف";
         const price = parseFloat(p.amount) || 0;
         const qty = parseFloat(p.quantity) || 1;
-        const unit = (price / qty).toFixed(2);
+        // ✅ للتاجر: عرض العدد × الوزن لو الصنف بالكيلو
+        const weight = parseFloat(p.weight) || 0;
+        const isKg =
+          isTrader && isKgUnit(p.unit || getProductUnit(product));
+        const qtyLabel =
+          isKg && weight > 0 ? `${qty} × ${weight} كجم` : `${qty}`;
+        const divisor = isKg && weight > 0 ? weight : qty;
+        const unit = (price / divisor).toFixed(2);
         return `<tr>
         <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${name}</td>
-        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${qty}</td>
+        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${qtyLabel}</td>
         <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${unit}</td>
         <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${price.toFixed(2)}</td>
       </tr>`;
@@ -992,6 +1016,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                         )
                       )
                         return;
+                      const prod = products.find((p) => p.id === productId);
                       setNewInvoice({
                         ...newInvoice,
                         products: [
@@ -999,6 +1024,9 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                           {
                             productId,
                             quantity: "1",
+                            // ✅ الوحدة والوزن (للتاجر - الأصناف بالكيلو)
+                            unit: getProductUnit(prod),
+                            weight: "",
                             amount: calculateProductAmount(
                               productId,
                               1,
@@ -1041,6 +1069,16 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                         (p) => p.id === item.productId,
                       );
                       const productName = product ? product.name : "—";
+                      // ✅ الصنف بالكيلو؟ (للتاجر) → نظهر خانة الوزن
+                      const showWeight =
+                        isTrader &&
+                        isKgUnit(item.unit || getProductUnit(product));
+                      const recalc = (qty, weight) =>
+                        calculateProductAmount(
+                          item.productId,
+                          qty,
+                          weight,
+                        ).toString();
                       return (
                         <div
                           key={idx}
@@ -1057,6 +1095,14 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                             style={{ flex: 1, fontSize: 13, color: "#475569" }}
                           >
                             {productName}
+                            {showWeight && item.weight ? (
+                              <span
+                                style={{ color: "#b45309", fontWeight: 700 }}
+                              >
+                                {" "}
+                                ({item.weight} {t("trader.unit.kg")})
+                              </span>
+                            ) : null}
                           </span>
                           <div
                             style={{
@@ -1065,6 +1111,40 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                               gap: 8,
                             }}
                           >
+                            {showWeight && (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                title={t("trader.weight")}
+                                placeholder={t("trader.weight")}
+                                value={item.weight || ""}
+                                onChange={(e) => {
+                                  const weight = e.target.value;
+                                  setNewInvoice({
+                                    ...newInvoice,
+                                    products: newInvoice.products.map((p, i) =>
+                                      i === idx
+                                        ? {
+                                            ...p,
+                                            weight,
+                                            amount: recalc(p.quantity, weight),
+                                          }
+                                        : p,
+                                    ),
+                                  });
+                                }}
+                                style={{
+                                  width: 80,
+                                  padding: "4px 6px",
+                                  fontSize: 12,
+                                  borderRadius: 6,
+                                  border: "1px solid #f59e0b",
+                                  textAlign: "center",
+                                  background: "#fffbeb",
+                                }}
+                              />
+                            )}
                             <input
                               type="number"
                               min="0.001"
@@ -1075,10 +1155,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                 const numQty = parseFloat(qty);
                                 const amount =
                                   !isNaN(numQty) && numQty > 0
-                                    ? calculateProductAmount(
-                                        item.productId,
-                                        numQty,
-                                      ).toString()
+                                    ? recalc(numQty, item.weight)
                                     : "";
                                 setNewInvoice({
                                   ...newInvoice,
@@ -2026,6 +2103,50 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                 >
                                   الكمية:
                                 </span>
+                                {isTrader &&
+                                  isKgUnit(
+                                    item.unit || getProductUnit(product),
+                                  ) && (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      title={t("trader.weight")}
+                                      placeholder={t("trader.weight")}
+                                      value={item.weight || ""}
+                                      onChange={(e) => {
+                                        const weight = e.target.value;
+                                        setEditingInvoice({
+                                          ...editingInvoice,
+                                          products:
+                                            editingInvoice.products.map(
+                                              (p, i) =>
+                                                i === idx
+                                                  ? {
+                                                      ...p,
+                                                      weight,
+                                                      amount:
+                                                        calculateProductAmount(
+                                                          p.productId,
+                                                          p.quantity,
+                                                          weight,
+                                                        ).toString(),
+                                                    }
+                                                  : p,
+                                            ),
+                                        });
+                                      }}
+                                      style={{
+                                        width: "80px",
+                                        padding: "4px 6px",
+                                        fontSize: "12px",
+                                        borderRadius: "4px",
+                                        border: "1px solid #f59e0b",
+                                        background: "#fffbeb",
+                                        textAlign: "center",
+                                      }}
+                                    />
+                                  )}
                                 <input
                                   type="number"
                                   min="1"
@@ -2033,9 +2154,18 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                   onChange={(e) => {
                                     const newQty =
                                       parseFloat(e.target.value) || 1;
-                                    const unitPrice = product
-                                      ? parseFloat(product.price) || 0
-                                      : 0;
+                                    // ✅ للتاجر: الحساب بالوزن لو الصنف بالكيلو
+                                    const newAmount = isTrader
+                                      ? calculateProductAmount(
+                                          item.productId,
+                                          newQty,
+                                          item.weight,
+                                        ).toString()
+                                      : (
+                                          (product
+                                            ? parseFloat(product.price) || 0
+                                            : 0) * newQty
+                                        ).toString();
                                     setEditingInvoice({
                                       ...editingInvoice,
                                       products: editingInvoice.products.map(
@@ -2044,9 +2174,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                             ? {
                                                 ...p,
                                                 quantity: newQty,
-                                                amount: (
-                                                  unitPrice * newQty
-                                                ).toString(),
+                                                amount: newAmount,
                                               }
                                             : p,
                                       ),
@@ -2137,6 +2265,11 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                 {
                                   productId,
                                   quantity: 1,
+                                  // ✅ الوحدة والوزن (للتاجر - الأصناف بالكيلو)
+                                  unit: getProductUnit(
+                                    products.find((p) => p.id === productId),
+                                  ),
+                                  weight: "",
                                   amount: calculateProductAmount(
                                     productId,
                                     1,

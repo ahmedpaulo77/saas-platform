@@ -16,6 +16,7 @@ const CATEGORIES = [
   { value: "rent", labelKey: "expn.cat.rent" },
   { value: "salaries", labelKey: "expn.cat.salaries" },
   { value: "utilities", labelKey: "expn.cat.utilities" },
+  { value: "waste", labelKey: "expn.cat.waste" },
   { value: "marketing", labelKey: "expn.cat.marketing" },
   { value: "transport", labelKey: "expn.cat.transport" },
   { value: "maintenance", labelKey: "expn.cat.maintenance" },

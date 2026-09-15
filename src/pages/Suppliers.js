@@ -1,6 +1,6 @@
 // src/pages/Suppliers.js - إدارة الموردين مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
@@ -11,6 +11,7 @@ export default function Suppliers() {
   const { t } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [newSupplier, setNewSupplier] = useState({
     name: "",
@@ -24,6 +25,8 @@ export default function Suppliers() {
   const [loading, setLoading] = useState(true);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [statementSupplier, setStatementSupplier] = useState(null);
+  const [showStatement, setShowStatement] = useState(false);
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -37,9 +40,23 @@ export default function Suppliers() {
     }
   }, [userRole, userCompanyId]);
 
+  // ✅ فواتير الشراء للشركة (لحساب مديونية كل مورد تلقائياً)
+  const fetchPurchases = useCallback(async () => {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(
+        query(collection(db, "purchases"), where("companyId", "==", userCompanyId))
+      );
+      setPurchases(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [userCompanyId]);
+
   useEffect(() => {
     fetchSuppliers();
-  }, [fetchSuppliers]);
+    fetchPurchases();
+  }, [fetchSuppliers, fetchPurchases]);
 
   async function addSupplier(e) {
     e.preventDefault();
@@ -116,6 +133,81 @@ export default function Suppliers() {
     (s.phone && s.phone.includes(searchTerm)) ||
     (s.email && s.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // ✅ إجماليات المورد من فواتير الشراء الفعلية
+  const supplierTotals = (supplierId) => {
+    const list = purchases.filter((p) => p.supplierId === supplierId);
+    const total = list.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    const paid = list.reduce((s, p) => s + (parseFloat(p.paidAmount) || 0), 0);
+    return { list, total, paid, remaining: total - paid };
+  };
+
+  // ✅ طباعة كشف الحساب
+  function printStatement(supplier) {
+    const { list, total, paid, remaining } = supplierTotals(supplier.id);
+    const rows = list
+      .map((p, i) => {
+        const pPaid = parseFloat(p.paidAmount) || 0;
+        const pTotal = parseFloat(p.amount) || 0;
+        const date = p.date ? new Date(p.date).toLocaleDateString("ar-EG") : "—";
+        return `<tr>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;text-align:center;">${i + 1}</td>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;text-align:center;">${date}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${pTotal.toFixed(2)}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${pPaid.toFixed(2)}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${(pTotal - pPaid).toFixed(2)}</td>
+      </tr>`;
+      })
+      .join("");
+    const printContent = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 13px; width: 80mm; padding: 8px; }
+  h2 { text-align: center; font-size: 16px; margin-bottom: 4px; }
+  .center { text-align: center; }
+  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f0f0f0; padding: 4px 6px; font-size: 11px; }
+  .total-row { font-weight: bold; font-size: 14px; }
+  @media print {
+    body { width: 80mm; }
+    @page { size: 80mm auto; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<h2>📋 ${t("sup.statementTitle")}</h2>
+<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
+<div class="divider"></div>
+<div style="font-size:12px;margin-bottom:4px;"><strong>${t("sup.name")}:</strong> ${supplier.name}</div>
+<div class="divider"></div>
+<table>
+  <thead><tr>
+    <th>#</th><th>${t("common.date")}</th><th>${t("common.amount")}</th>
+    <th>${t("in.paid")}</th><th>${t("in.remaining")}</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="divider"></div>
+<div style="text-align:left;font-size:13px;">
+  <div>${t("sup.totalPurchases")}: ${total.toFixed(2)} ج.م</div>
+  <div>${t("sup.totalPaid")}: ${paid.toFixed(2)} ج.م</div>
+  <div class="total-row" style="margin-top:4px;font-size:15px;border-top:2px solid #000;padding-top:4px;">
+    ${t("sup.totalRemaining")}: ${remaining.toFixed(2)} ج.م
+  </div>
+</div>
+</body>
+</html>`;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) return;
+    win.document.write(printContent);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
+  }
 
   if (loading) {
     return <div className="loading">{t("sup.loading")}</div>;
@@ -222,21 +314,34 @@ export default function Suppliers() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSuppliers.map((supplier, index) => (
+                {filteredSuppliers.map((supplier, index) => {
+                  // ✅ المتبقي عليه = فواتير الشراء − المدفوع (تلقائي)
+                  const { remaining } = supplierTotals(supplier.id);
+                  return (
                   <tr key={supplier.id}>
                     <td>{index + 1}</td>
                     <td style={{ fontWeight: 600 }}>{supplier.name}</td>
                     <td>{supplier.phone || "-"}</td>
                     <td>{supplier.email || "-"}</td>
                     <td>{supplier.address || "-"}</td>
-                    <td>
-                      {supplier.balance
-                        ? `${Number(supplier.balance).toLocaleString()} ${t("currency.short")}`
-                        : "-"}
+                    <td style={{ fontWeight: 800, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
+                      {remaining > 0
+                        ? `${remaining.toLocaleString()} ${t("currency.short")}`
+                        : "✓"}
                     </td>
                     <td>{supplier.taxNumber || "-"}</td>
                     <td>{supplier.notes || "-"}</td>
                     <td>
+                      <button
+                        onClick={() => {
+                          setStatementSupplier(supplier);
+                          setShowStatement(true);
+                        }}
+                        className="btn-secondary"
+                        style={{ marginLeft: "8px", padding: "6px 14px", fontSize: "13px" }}
+                      >
+                        <i className="fas fa-file-invoice"></i> {t("sup.statement")}
+                      </button>
                       <button
                         onClick={() => openEditModal(supplier)}
                         className="btn-primary"
@@ -252,7 +357,8 @@ export default function Suppliers() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -345,6 +451,92 @@ export default function Suppliers() {
           </div>
         </div>
       )}
+      {showStatement && statementSupplier && (() => {
+        const { list, total, paid, remaining } = supplierTotals(statementSupplier.id);
+        return (
+          <div style={styles.modalOverlay} onClick={() => setShowStatement(false)}>
+            <div
+              style={{ ...styles.modalContent, maxWidth: "650px" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={styles.modalHeader}>
+                <h3>
+                  <i className="fas fa-file-invoice" style={{ color: "#0891b2" }}></i>{" "}
+                  {t("sup.statementTitle")}: {statementSupplier.name}
+                </h3>
+                <button onClick={() => setShowStatement(false)} style={styles.closeBtn}>&times;</button>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                <div className="stat-card cyan" style={{ flex: 1, minWidth: 140 }}>
+                  <div className="stat-value" style={{ fontSize: 18 }}>
+                    {total.toLocaleString()} {t("currency.short")}
+                  </div>
+                  <div className="stat-label">{t("sup.totalPurchases")}</div>
+                </div>
+                <div className="stat-card green" style={{ flex: 1, minWidth: 140 }}>
+                  <div className="stat-value" style={{ fontSize: 18 }}>
+                    {paid.toLocaleString()} {t("currency.short")}
+                  </div>
+                  <div className="stat-label">{t("sup.totalPaid")}</div>
+                </div>
+                <div className="stat-card red" style={{ flex: 1, minWidth: 140 }}>
+                  <div className="stat-value" style={{ fontSize: 18 }}>
+                    {remaining.toLocaleString()} {t("currency.short")}
+                  </div>
+                  <div className="stat-label">{t("sup.totalRemaining")}</div>
+                </div>
+              </div>
+              {list.length === 0 ? (
+                <p style={{ textAlign: "center", padding: 20, color: "#999" }}>
+                  {t("sup.noPurchases")}
+                </p>
+              ) : (
+                <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>{t("common.date")}</th>
+                        <th>{t("common.amount")}</th>
+                        <th>{t("in.paid")}</th>
+                        <th>{t("in.remaining")}</th>
+                        <th>{t("common.status")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((p, i) => {
+                        const pPaid = parseFloat(p.paidAmount) || 0;
+                        const pTotal = parseFloat(p.amount) || 0;
+                        return (
+                          <tr key={p.id}>
+                            <td>{i + 1}</td>
+                            <td>{p.date ? new Date(p.date).toLocaleDateString() : "-"}</td>
+                            <td style={{ fontWeight: 700 }}>{pTotal.toLocaleString()}</td>
+                            <td style={{ color: "#10b981" }}>{pPaid.toLocaleString()}</td>
+                            <td style={{ fontWeight: 700, color: pTotal - pPaid > 0 ? "#ef4444" : "#10b981" }}>
+                              {pTotal - pPaid > 0 ? (pTotal - pPaid).toLocaleString() : "✓"}
+                            </td>
+                            <td>{p.status}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div style={styles.modalFooter}>
+                <button
+                  type="button"
+                  onClick={() => printStatement(statementSupplier)}
+                  className="btn-primary"
+                >
+                  <i className="fas fa-print"></i> {t("sup.print")}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

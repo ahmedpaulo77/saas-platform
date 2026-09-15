@@ -19,6 +19,7 @@ import { logActivity } from "../utils/auditLogger";
 import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
 const PAGE_SIZE = 25;
 
 export default function Purchases() {
@@ -27,6 +28,7 @@ export default function Purchases() {
   const availableModules = getAvailableModules(userIndustry, userRole);
   const hasInventory = availableModules.has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
+  const isTrader = userIndustry === "trader";
 
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -36,9 +38,7 @@ export default function Purchases() {
 
   const [newPurchase, setNewPurchase] = useState({
     supplierId: "",
-    productId: "",
-    quantity: "",
-    unitCost: "",
+    items: [], // [{ productId, quantity, weight, unit, unitCost, amount }]
     amount: "",
     status: "pending",
     description: "",
@@ -54,12 +54,25 @@ export default function Purchases() {
   const [payAmount, setPayAmount] = useState("");
   const [paying, setPaying] = useState(false);
 
-  // ✅ حساب المبلغ تلقائياً = سعر الوحدة × الكمية
-  const calculateAmount = (unitCost, quantity) => {
-    const cost = parseFloat(unitCost) || 0;
-    const qty = parseFloat(quantity) || 0;
-    if (cost > 0 && qty > 0) return cost * qty;
-    return 0;
+  // ✅ حساب مبلغ الصنف: سعر الوحدة × الوزن (للكيلو) أو × العدد
+  const calculateItemAmount = (unit, unitCost, quantity, weight) =>
+    lineAmount(unit || "piece", unitCost, quantity, weight);
+
+  // ✅ أصناف الفاتورة: الجديدة (items) أو القديمة (productId مفرد) للتوافق
+  const getPurchaseItems = (p) => {
+    if (p.items && p.items.length > 0) return p.items;
+    if (p.productId)
+      return [
+        {
+          productId: p.productId,
+          quantity: p.quantity || 0,
+          weight: p.weight || "",
+          unit: p.unit || "",
+          unitCost: p.unitCost || 0,
+          amount: p.amount || 0,
+        },
+      ];
+    return [];
   };
 
   const filters = useMemo(() => {
@@ -132,10 +145,12 @@ export default function Purchases() {
     const term = searchTerm.toLowerCase();
     return purchases.filter((p) => {
       const supplierName = suppliers.find((s) => s.id === p.supplierId)?.name || "";
-      const productName = products.find((x) => x.id === p.productId)?.name || "";
+      const itemNames = getPurchaseItems(p)
+        .map((it) => products.find((x) => x.id === it.productId)?.name || "")
+        .join(" ");
       return (
         supplierName.toLowerCase().includes(term) ||
-        productName.toLowerCase().includes(term) ||
+        itemNames.toLowerCase().includes(term) ||
         String(p.amount).includes(term) ||
         (p.description || "").toLowerCase().includes(term)
       );
@@ -147,27 +162,52 @@ export default function Purchases() {
     if (!newPurchase.supplierId || !newPurchase.amount) return;
     setSubmitting(true);
     try {
-      // ✅ لو اتاختار منتج، الشراء بيزوّد كميته في المخزون (عكس فاتورة البيع)
-      if (hasInventory && newPurchase.productId) {
-        const productRef = doc(db, "inventory", newPurchase.productId);
-        const productDoc = await getDoc(productRef);
-        const qty = parseFloat(newPurchase.quantity) || 0;
-        if (productDoc.exists() && qty > 0) {
-          const currentQty = productDoc.data().quantity || 0;
-          await updateDoc(productRef, { quantity: currentQty + qty });
+      const items = newPurchase.items || [];
+      // ✅ كل صنف مختار بيزوّد كميته في المخزون (بالوزن للكيلو)
+      if (hasInventory) {
+        for (const item of items) {
+          if (!item.productId) continue;
+          const productRef = doc(db, "inventory", item.productId);
+          const productDoc = await getDoc(productRef);
+          if (!productDoc.exists()) continue;
+          const delta = stockDelta(
+            item.unit || getProductUnit(productDoc.data()),
+            item.quantity,
+            item.weight,
+          );
+          if (delta > 0) {
+            const currentQty = productDoc.data().quantity || 0;
+            await updateDoc(productRef, { quantity: currentQty + delta });
+          }
         }
       }
 
       const amount = parseFloat(newPurchase.amount) || 0;
+      const totalQty = items.reduce(
+        (sum, it) =>
+          sum + stockDelta(it.unit || "piece", it.quantity, it.weight),
+        0,
+      );
       const purchaseData = {
-        ...newPurchase,
+        supplierId: newPurchase.supplierId,
+        // ✅ أصناف متعددة بالوزن
+        items: items.map((it) => ({
+          productId: it.productId,
+          quantity: parseFloat(it.quantity) || 0,
+          weight: it.weight || "",
+          unit: it.unit || "",
+          unitCost: parseFloat(it.unitCost) || 0,
+          amount: parseFloat(it.amount) || 0,
+        })),
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         amount,
-        unitCost: parseFloat(newPurchase.unitCost) || 0,
-        quantity: hasInventory ? (parseFloat(newPurchase.quantity) || 0) : 0,
+        unitCost: 0,
+        quantity: hasInventory ? totalQty : 0,
         date: new Date().toISOString(),
         dueDate: newPurchase.dueDate || null,
+        status: newPurchase.status,
+        description: newPurchase.description || "",
         createdAt: new Date().toISOString(),
       };
 
@@ -183,9 +223,7 @@ export default function Purchases() {
 
       setNewPurchase({
         supplierId: "",
-        productId: "",
-        quantity: "",
-        unitCost: "",
+        items: [],
         amount: "",
         status: "pending",
         description: "",
@@ -289,6 +327,93 @@ export default function Purchases() {
       alert(t("pur.payFail"));
     }
     setPaying(false);
+  }
+
+  // ── طباعة فاتورة شراء حرارية ──
+  function handlePrintPurchase(purchase) {
+    const supplierName =
+      suppliers.find((s) => s.id === purchase.supplierId)?.name || "مورد";
+    const itemsRows = getPurchaseItems(purchase)
+      .map((it) => {
+        const name =
+          products.find((pr) => pr.id === it.productId)?.name || "صنف";
+        const amount = parseFloat(it.amount) || 0;
+        const qty = parseFloat(it.quantity) || 0;
+        const w = parseFloat(it.weight) || 0;
+        const isKg = isTrader && isKgUnit(it.unit || "piece") && w > 0;
+        const qtyLabel = isKg ? `${qty} × ${it.weight} كجم` : `${qty}`;
+        const unitCost = parseFloat(it.unitCost) || 0;
+        return `<tr>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${name}</td>
+        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${qtyLabel}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${unitCost}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${amount.toFixed(2)}</td>
+      </tr>`;
+      })
+      .join("");
+
+    const paid = parseFloat(purchase.paidAmount) || 0;
+    const total = parseFloat(purchase.amount) || 0;
+    const printContent = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 13px; width: 80mm; padding: 8px; }
+  h2 { text-align: center; font-size: 16px; margin-bottom: 4px; }
+  .center { text-align: center; }
+  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f0f0f0; padding: 4px 6px; font-size: 11px; }
+  .total-row { font-weight: bold; font-size: 14px; }
+  @media print {
+    body { width: 80mm; }
+    @page { size: 80mm auto; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<h2>🧾 فاتورة شراء</h2>
+<div class="center" style="font-size:11px;color:#666;">${purchase.date ? new Date(purchase.date).toLocaleString("ar-EG") : new Date().toLocaleString("ar-EG")}</div>
+<div class="divider"></div>
+<div style="font-size:12px;margin-bottom:4px;">
+  <strong>المورد:</strong> ${supplierName}<br/>
+  ${purchase.description ? `<strong>ملاحظات:</strong> ${purchase.description}` : ""}
+</div>
+<div class="divider"></div>
+<table>
+  <thead><tr>
+    <th style="text-align:right;">الصنف</th>
+    <th>الكمية</th>
+    <th>السعر</th>
+    <th>الإجمالي</th>
+  </tr></thead>
+  <tbody>${itemsRows}</tbody>
+</table>
+<div class="divider"></div>
+<div style="text-align:left;font-size:13px;">
+  <div>الإجمالي: ${total.toFixed(2)} ج.م</div>
+  <div>المدفوع: ${paid.toFixed(2)} ج.م</div>
+  <div class="total-row" style="margin-top:4px;font-size:15px;border-top:2px solid #000;padding-top:4px;">
+    المتبقي: ${(total - paid).toFixed(2)} ج.م
+  </div>
+</div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) {
+      alert("السماح بالـ popups مطلوب للطباعة");
+      return;
+    }
+    win.document.write(printContent);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      win.close();
+    }, 300);
   }
 
   const userCanDelete = canDelete(userRole);
@@ -447,52 +572,207 @@ export default function Purchases() {
                       label: p.name,
                       sublabel: `${p.quantity || 0} ${t("in.remaining")}`,
                     }))}
-                    value={newPurchase.productId}
-                    onChange={(productId) => setNewPurchase({ ...newPurchase, productId })}
+                    value=""
+                    onChange={(productId) => {
+                      if (
+                        !productId ||
+                        (newPurchase.items || []).some(
+                          (it) => it.productId === productId,
+                        )
+                      )
+                        return;
+                      const prod = products.find((p) => p.id === productId);
+                      const unit = getProductUnit(prod);
+                      const newItem = {
+                        productId,
+                        quantity: "1",
+                        weight: "",
+                        unit,
+                        unitCost: prod?.price != null ? String(prod.price) : "",
+                        amount: calculateItemAmount(
+                          unit,
+                          prod?.price || 0,
+                          1,
+                          "",
+                        ).toString(),
+                      };
+                      const items = [...(newPurchase.items || []), newItem];
+                      const total = items.reduce(
+                        (s, it) => s + (parseFloat(it.amount) || 0),
+                        0,
+                      );
+                      setNewPurchase({
+                        ...newPurchase,
+                        items,
+                        amount: total > 0 ? total.toString() : newPurchase.amount,
+                      });
+                    }}
                     placeholder={t("pur.chooseProduct")}
                   />
                 </div>
               )}
-              {hasInventory && newPurchase.productId && (
-                <>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>{t("pur.qty")}</label>
-                    <input
-                      type="number"
-                      min="0.001"
-                      step="0.001"
-                      value={newPurchase.quantity}
-                      onWheel={(e) => e.target.blur()}
-                      onChange={(e) => {
-                        const quantity = e.target.value;
-                        const amount = calculateAmount(newPurchase.unitCost, quantity);
+              {hasInventory && (newPurchase.items || []).length > 0 && (
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    borderRadius: 8,
+                    padding: 12,
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#334155" }}>
+                    {t("in.selectedProducts")} ({(newPurchase.items || []).length})
+                  </h4>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(newPurchase.items || []).map((item, idx) => {
+                      const prod = products.find((p) => p.id === item.productId);
+                      const showWeight =
+                        isTrader && isKgUnit(item.unit || getProductUnit(prod));
+                      const updateItem = (patch) => {
+                        const items = (newPurchase.items || []).map((it, i) => {
+                          if (i !== idx) return it;
+                          const next = { ...it, ...patch };
+                          next.amount = calculateItemAmount(
+                            next.unit,
+                            next.unitCost,
+                            next.quantity,
+                            next.weight,
+                          ).toString();
+                          return next;
+                        });
+                        const total = items.reduce(
+                          (s, it) => s + (parseFloat(it.amount) || 0),
+                          0,
+                        );
                         setNewPurchase({
                           ...newPurchase,
-                          quantity,
-                          amount: amount > 0 ? amount.toString() : newPurchase.amount,
+                          items,
+                          amount: total > 0 ? total.toString() : "",
                         });
-                      }}
-                    />
+                      };
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            background: "#fff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            padding: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 8,
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>
+                              {prod?.name || "—"}
+                              {showWeight && item.weight ? (
+                                <span style={{ color: "#b45309" }}>
+                                  {" "}
+                                  ({item.weight} {t("trader.unit.kg")})
+                                </span>
+                              ) : null}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const items = (newPurchase.items || []).filter(
+                                  (_, i) => i !== idx,
+                                );
+                                const total = items.reduce(
+                                  (s, it) => s + (parseFloat(it.amount) || 0),
+                                  0,
+                                );
+                                setNewPurchase({
+                                  ...newPurchase,
+                                  items,
+                                  amount: total > 0 ? total.toString() : "",
+                                });
+                              }}
+                              className="btn-danger btn-sm"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={{ flex: 1, minWidth: 80 }}>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>
+                                {t("pur.qty")}
+                              </label>
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="0.001"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  updateItem({ quantity: e.target.value })
+                                }
+                              />
+                            </div>
+                            {showWeight && (
+                              <div style={{ flex: 1, minWidth: 90 }}>
+                                <label style={{ fontSize: 11, color: "#b45309", fontWeight: 700 }}>
+                                  {t("trader.weight")}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.weight || ""}
+                                  onChange={(e) =>
+                                    updateItem({ weight: e.target.value })
+                                  }
+                                  style={{
+                                    border: "1px solid #f59e0b",
+                                    background: "#fffbeb",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 90 }}>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>
+                                {t("pur.unitCost")}
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unitCost}
+                                onChange={(e) =>
+                                  updateItem({ unitCost: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 90 }}>
+                              <label style={{ fontSize: 11, color: "#64748b" }}>
+                                {t("common.amount")}
+                              </label>
+                              <div
+                                style={{
+                                  fontWeight: 800,
+                                  color: "#0891b2",
+                                  padding: "8px 4px",
+                                }}
+                              >
+                                {(parseFloat(item.amount) || 0).toLocaleString()}{" "}
+                                {t("currency")}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>{t("pur.unitCost")}</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newPurchase.unitCost}
-                      onChange={(e) => {
-                        const unitCost = e.target.value;
-                        const amount = calculateAmount(unitCost, newPurchase.quantity);
-                        setNewPurchase({
-                          ...newPurchase,
-                          unitCost,
-                          amount: amount > 0 ? amount.toString() : newPurchase.amount,
-                        });
-                      }}
-                    />
-                  </div>
-                </>
+                </div>
               )}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("pur.amountReq")}</label>
@@ -615,17 +895,44 @@ export default function Purchases() {
                       const supplierName =
                         suppliers.find((s) => s.id === p.supplierId)?.name ||
                         t("common.unspecified");
-                      const productName =
-                        products.find((x) => x.id === p.productId)?.name ||
-                        t("common.unspecified");
+                      // ✅ أصناف الفاتورة (متعددة أو صنف واحد قديم)
+                      const purchaseItems = getPurchaseItems(p);
                       const paid = parseFloat(p.paidAmount) || 0;
                       const remaining = (parseFloat(p.amount) || 0) - paid;
+                      const totalQty = purchaseItems.reduce(
+                        (s, it) =>
+                          s + stockDelta(it.unit || "piece", it.quantity, it.weight),
+                        0,
+                      );
                       return (
                         <tr key={p.id}>
                           <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{i + 1}</td>
                           <td style={{ fontWeight: 600 }}>{supplierName}</td>
-                          {hasInventory && <td>{productName}</td>}
-                          {hasInventory && <td>{p.quantity || 0}</td>}
+                          {hasInventory && (
+                            <td style={{ fontSize: 12 }}>
+                              {purchaseItems.length === 0
+                                ? t("common.unspecified")
+                                : purchaseItems.map((it, idx) => {
+                                    const nm =
+                                      products.find((x) => x.id === it.productId)
+                                        ?.name || "—";
+                                    const w = parseFloat(it.weight) || 0;
+                                    const showW =
+                                      isTrader &&
+                                      isKgUnit(it.unit || "piece") &&
+                                      w > 0;
+                                    return (
+                                      <div key={idx}>
+                                        {nm} — {it.quantity}
+                                        {showW
+                                          ? ` × ${it.weight} ${t("trader.unit.kg")}`
+                                          : ""}
+                                      </div>
+                                    );
+                                  })}
+                            </td>
+                          )}
+                          {hasInventory && <td>{totalQty || p.quantity || 0}</td>}
                           <td style={{ fontWeight: 700, color: "var(--gray-800)" }}>
                             {(p.amount || 0).toLocaleString()} {t("currency")}
                           </td>
@@ -657,6 +964,13 @@ export default function Purchases() {
                           </td>
                           <td>
                             <div className="table-actions">
+                              <button
+                                onClick={() => handlePrintPurchase(p)}
+                                className="btn-secondary btn-sm"
+                                title={t("in.print") || "طباعة"}
+                              >
+                                <i className="fas fa-print"></i>
+                              </button>
                               {p.status !== "paid" && (
                                 <button
                                   onClick={() => {

@@ -168,16 +168,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-            <Route
-        path="/daily-prices"
-        element={
-          <ProtectedRoute>
-            <IndustryRoute moduleKey="daily-prices">
-              <DailyPrices />
-            </IndustryRoute>
-          </ProtectedRoute>
-        }
-      />
+             
       <Route
         path="/daily-prices"
         element={
