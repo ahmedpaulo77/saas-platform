@@ -277,13 +277,31 @@ export default function Dashboard() {
       const mk = (ref) =>
         isSuper ? ref : query(ref, where("companyId", "==", userCompanyId));
 
-      const compQ = query(compRef, where("__name__", "==", userCompanyId));
+      // ✅ أي استعلام يفشل (صلاحيات...) يرجع فاضي بدل ما يوقع باقي الإحصائيات
+      const emptySnap = { size: 0, forEach: () => {} };
+      const safeGet = (q, name) =>
+        getDocs(q).catch((e) => {
+          console.error(`Dashboard stats failed for ${name}:`, e?.message);
+          return emptySnap;
+        });
 
       try {
+        // ✅ عدد الشركات: get مباشر (الـ list على companies مقفول لغير السوبر أدمن في الـ rules)
+        let companiesCount = 0;
+        try {
+          if (isSuper) {
+            companiesCount = (await getDocs(compRef)).size;
+          } else {
+            const compSnap = await getDoc(doc(db, "companies", userCompanyId));
+            companiesCount = compSnap.exists() ? 1 : 0;
+          }
+        } catch (e) {
+          console.error("Dashboard stats failed for companies:", e?.message);
+        }
+
         // ✅ العدادات بـ getDocs (الحجم) بدل getCountFromServer
         // لأن الـ count من السيرفر بيترفض مع قواعد الأمان المبنية على resource.data
         const [
-          compSnap,
           cliSnap,
           sellerSnap,
           buyerSnap,
@@ -298,20 +316,19 @@ export default function Dashboard() {
           patSnap,
           invSnap,
         ] = await Promise.all([
-          isSuper ? getDocs(compRef) : getDocs(compQ),
-          getDocs(mk(cliRef)),
-          getDocs(mk(sellerRef)),
-          getDocs(mk(buyerRef)),
-          getDocs(mk(taskRef)),
-          getDocs(mk(projRef)),
-          getDocs(mk(usersRef)),
-          getDocs(mk(suppRef)),
-          getDocs(mk(purchRef)),
-          getDocs(mk(apptRef)),
-          getDocs(mk(rxRef)),
-          getDocs(mk(msgRef)),
-          getDocs(mk(patRef)),
-          getDocs(mk(invRef)),
+          safeGet(mk(cliRef), "clients"),
+          safeGet(mk(sellerRef), "sellers"),
+          safeGet(mk(buyerRef), "buyers"),
+          safeGet(mk(taskRef), "tasks"),
+          safeGet(mk(projRef), "projects"),
+          safeGet(mk(usersRef), "users"),
+          safeGet(mk(suppRef), "suppliers"),
+          safeGet(mk(purchRef), "purchases"),
+          safeGet(mk(apptRef), "appointments"),
+          safeGet(mk(rxRef), "prescriptions"),
+          safeGet(mk(msgRef), "messages"),
+          safeGet(mk(patRef), "patients"),
+          safeGet(mk(invRef), "invoices"),
         ]);
 
         let totalRevenue = 0;
@@ -327,7 +344,7 @@ export default function Dashboard() {
         if (cancelled) return;
 
         setStats({
-          companies: compSnap.size,
+          companies: companiesCount,
           clients: cliSnap.size,
           sellers: sellerSnap.size,
           buyers: buyerSnap.size,
