@@ -49,15 +49,23 @@ export function AuthProvider({ children }) {
 
   /**
    * ✅ خطوة 2: كتابة مستند المستخدم في Firestore بعد ما يكون مسجل دخول فعلياً
+   * ✅ إضافة: joinCode — لو المستخدم بينضم بكود دعوة، لازم نبعت الكود
+   *    جوا مستند الإنشاء عشان الـ Rule تتحقق منه في invite_codes ({_joinCode}).
+   *    من غير الحقل ده، الـ create هيترفض (rule فرع "ب" محتاجه).
+   *    لحالة "إنشاء شركة جديدة" سيبه فاضي (undefined).
    */
-  async function createUserDoc(uid, email, role = 'user', companyId = null) {
-    await setDoc(doc(db, "users", uid), {
+  async function createUserDoc(uid, email, role = 'user', companyId = null, joinCode = null) {
+    const payload = {
       email,
       role,
       companyId,
       createdAt: new Date().toISOString(),
       isActive: true,
-    });
+    };
+    if (joinCode) {
+      payload._joinCode = joinCode;
+    }
+    await setDoc(doc(db, "users", uid), payload);
   }
 
   /**

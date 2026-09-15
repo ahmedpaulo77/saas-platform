@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { generateInviteCode } from '../utils/companyQuery';
 import { INDUSTRIES } from '../utils/modules';
@@ -65,56 +65,59 @@ export default function Signup() {
       let companyId = null;
       let role = 'admin';
       let joinCompanyName = '';
+      let usedJoinCode = null; // ← هيتبعت لـ createUserDoc عشان الـ Rule تتحقق منه
 
       if (formData.inviteCode.trim()) {
+        // ✅ الانضمام بكود — get مباشر على invite_codes/{code}، مفيش list خالص
         const code = formData.inviteCode.trim().toUpperCase();
+        const codeSnap = await getDoc(doc(db, 'invite_codes', code));
 
-        // جرب كود Admin أولاً
-        let companiesSnap = await getDocs(
-          query(collection(db, 'companies'), where('adminInviteCode', '==', code))
-        );
-
-        if (!companiesSnap.empty) {
-          role = 'admin';
-          const companyDoc = companiesSnap.docs[0];
-          companyId = companyDoc.id;
-          joinCompanyName = companyDoc.data().name || '';
-        } else {
-          // جرب كود User
-          companiesSnap = await getDocs(
-            query(collection(db, 'companies'), where('userInviteCode', '==', code))
-          );
-
-          if (!companiesSnap.empty) {
-            role = 'user';
-            const companyDoc = companiesSnap.docs[0];
-            companyId = companyDoc.id;
-            joinCompanyName = companyDoc.data().name || '';
-          } else {
-            setError(t('signup.badCode'));
-            setLoading(false);
-            return;
-          }
+        if (!codeSnap.exists()) {
+          setError(t('signup.badCode'));
+          setLoading(false);
+          return;
         }
+
+        const codeData = codeSnap.data();
+        companyId = codeData.companyId;
+        role = codeData.role; // 'admin' أو 'user' — جاي من المستند نفسه، مش من تخمين الكود
+        usedJoinCode = code;
+
+        const companySnap = await getDoc(doc(db, 'companies', companyId));
+        joinCompanyName = companySnap.exists() ? (companySnap.data().name || '') : '';
       } else {
-        // إنشاء شركة جديدة (أول مدير)
+        // ✅ إنشاء شركة جديدة (أول مدير) — creatorUid إلزامي حسب الـ Rules الجديدة
         const companyRef = await addDoc(collection(db, 'companies'), {
           name: formData.companyName,
           email: formData.email,
           industry: formData.industry,
-          adminInviteCode: generateInviteCode('ADMIN_' + formData.companyName),
-          userInviteCode: generateInviteCode('USER_' + formData.companyName),
           createdAt: new Date().toISOString(),
           isActive: true,
+          creatorUid: user.uid,
         });
         companyId = companyRef.id;
+
+        // ✅ توليد الأكواد في كولكشن منفصل invite_codes بدل ما تكون حقول جوا الشركة
+        const adminCode = generateInviteCode('ADMIN_' + formData.companyName);
+        const userCode = generateInviteCode('USER_' + formData.companyName);
+
+        await setDoc(doc(db, 'invite_codes', adminCode), {
+          companyId,
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+        });
+        await setDoc(doc(db, 'invite_codes', userCode), {
+          companyId,
+          role: 'user',
+          createdAt: new Date().toISOString(),
+        });
       }
 
       // ============================================================
-      // ✅ خطوة 3: كتابة مستند المستخدم بعد ما بقى عندنا الـ companyId
-      // الصحيح والـ role الصحيح
+      // ✅ خطوة 3: كتابة مستند المستخدم — usedJoinCode بيتبعت بس لو
+      // كانت حالة انضمام بكود (مش إنشاء شركة جديدة)
       // ============================================================
-      await createUserDoc(user.uid, user.email, role, companyId);
+      await createUserDoc(user.uid, user.email, role, companyId, usedJoinCode);
 
       alert(role === 'admin'
         ? t('signup.okCreate')

@@ -4,6 +4,7 @@ import {
   collection,
   addDoc,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -77,20 +78,44 @@ export default function Companies() {
 
     try {
       const docRef = await addDoc(collection(db, "companies"), {
-        ...newCompany,
+        name: newCompany.name,
+        email: newCompany.email,
         industry: newCompany.industry || "general",
-        adminInviteCode: generateInviteCode('ADMIN_' + newCompany.name),
-        userInviteCode: generateInviteCode('USER_' + newCompany.name),
         createdAt: new Date().toISOString(),
         isActive: true,
+        creatorUid: currentUser.uid, // ✅ مطلوب حسب الـ Rules الجديدة
       });
 
+      // ✅ الأكواد بقت في invite_codes بدل ما تكون حقول جوا الشركة
+      const adminCode = generateInviteCode('ADMIN_' + newCompany.name);
+      const userCode = generateInviteCode('USER_' + newCompany.name);
+
+      await setDoc(doc(db, 'invite_codes', adminCode), {
+        companyId: docRef.id,
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      });
+      await setDoc(doc(db, 'invite_codes', userCode), {
+        companyId: docRef.id,
+        role: 'user',
+        createdAt: new Date().toISOString(),
+      });
+
+      // ⚠️ السوبر أدمن مش isAdmin() لشركة العميل (userCompanyId بتاعه مختلف)،
+      // فمينفعش يكتب في companies/{id}/codes/current (مقفولة على أدمن الشركة نفسها).
+      // ده مقصود ومتوقع — الأدمن الحقيقي أول ما يدخل MyCompany.js هيلاقي
+      // نسخة العرض فاضية، والكود هيتحقق من وجوده تلقائيًا ويولّد نسخة عرض بنفسه
+      // (الكود اللي طبعناه في alert فوق لسه شغال 100% للانضمام في الوقت ده).
+
+      // ⚠️ مسار ميت فعليًا (الفورم ده معروض للسوبر أدمن بس حاليًا)، وحتى لو
+      // اتنفذ يومًا ما، الـ Rules الجديدة بترفضه عمدًا (مينفعش يوزر يغيّر
+      // companyId بتاعه بنفسه بعد ما يتسجل أول مرة). سيبته لأمانة النقل بس.
       if (!superAdmin && currentUser) {
         await updateDoc(doc(db, "users", currentUser.uid), {
           companyId: docRef.id,
         });
       }
-      
+
       // ✅ Audit Log
       await logActivity({
         actionType: 'CREATE',
@@ -105,7 +130,12 @@ export default function Companies() {
         email: "",
         industry: "general",
       });
-      alert(t("co.addOk"));
+
+      // ⚠️ آخر مرة هتشوف فيها الأكواد دي — مفيش list على invite_codes،
+      // فلو ضاعوا الحل الوحيد إنك تولّد أكواد جديدة، مش تشوف القدام تاني
+      alert(
+        `${t("co.addOk")}\n\nAdmin code: ${adminCode}\nUser code: ${userCode}\n\n⚠️ احفظ الأكواد دي — مش هتقدر تشوفها تاني من هنا.`
+      );
     } catch (error) {
       console.error("Error adding company:", error);
       alert(t("co.addFail"));
@@ -179,17 +209,40 @@ export default function Companies() {
     }
   }
 
+  async function regenerateInviteCode(company, role) {
+    if (!window.confirm(t("co.confirmRegenerate") || "هتولّد كود جديد — الكود القديم (لو موجود) هيفضل شغال لحد ما تحذفه يدويًا. متابع؟")) return;
+    try {
+      const newCode = generateInviteCode(`${role.toUpperCase()}_${company.name}_${Date.now()}`);
+      await setDoc(doc(db, "invite_codes", newCode), {
+        companyId: company.id,
+        role,
+        createdAt: new Date().toISOString(),
+      });
+      // ⚠️ ملاحظة: ده مش بيحدّث companies/{id}/codes/current (نسخة العرض بتاعة
+      // MyCompany.js) لأن السوبر أدمن مش isAdmin() لشركة العميل. لو الأدمن الحقيقي
+      // فاتح MyCompany.js قبل كده وشايف كود قديم، هيفضل شايفه لحد ما يدوس "توليد"
+      // بنفسه من صفحته هو. الكود الجديد هنا شغال للانضمام فورًا رغم كده.
+
+      await logActivity({
+        actionType: 'CREATE',
+        collectionName: 'invite_codes',
+        itemId: newCode,
+        details: `Generated new ${role} invite code for company: ${company.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+
+      alert(`${t("co.newCode") || "الكود الجديد"} (${role}): ${newCode}\n\n⚠️ احفظه دلوقتي — مش هتقدر تشوفه تاني من هنا.`);
+    } catch (error) {
+      console.error("Error regenerating invite code:", error);
+      alert(t("co.addFail"));
+    }
+  }
+
   const filteredCompanies = companies.filter(
     (company) =>
       company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       company.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  function copyInviteCode(code) {
-    if (!code) return;
-    navigator.clipboard.writeText(code);
-    alert(t("co.copyOk", { code }));
-  }
 
   if (loading) {
     return <div className="loading">{t("co.loading")}</div>;
@@ -296,47 +349,29 @@ export default function Companies() {
                       </span>
                     </td>
                     <td>
-                      {company.inviteCode ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <code
-                            style={{
-                              background: "#f1f5f9",
-                              padding: "4px 10px",
-                              borderRadius: 6,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: "#6366f1",
-                              letterSpacing: 1,
-                              direction: "ltr",
-                              display: "inline-block",
-                            }}
-                          >
-                            {company.inviteCode}
-                          </code>
-                          <button
-                            onClick={() => copyInviteCode(company.inviteCode)}
-                            title={t("co.copyCode")}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              color: "#6366f1",
-                              fontSize: 14,
-                              padding: 4,
-                            }}
-                          >
-                            <i className="fas fa-copy"></i>
-                          </button>
-                        </div>
-                      ) : (
-                        <span style={{ color: "#999", fontSize: 12 }}>—</span>
-                      )}
+                      {/* ⚠️ الأكواد بقت في invite_codes ومش متخزنة/معروضة هنا —
+                          مفيش list على الكولكشن ده عمدًا، فبتتعرض مرة واحدة بس
+                          وقت التوليد. هنا بس زرارين لتوليد كود جديد لو احتجت. */}
+                      <button
+                        onClick={() => regenerateInviteCode(company, 'admin')}
+                        title={t("co.genAdminCode") || "توليد كود أدمن جديد"}
+                        style={{
+                          background: "none", border: "1px solid #6366f1", borderRadius: 6,
+                          color: "#6366f1", fontSize: 11, padding: "3px 8px", cursor: "pointer", marginLeft: 4,
+                        }}
+                      >
+                        <i className="fas fa-key"></i> Admin
+                      </button>
+                      <button
+                        onClick={() => regenerateInviteCode(company, 'user')}
+                        title={t("co.genUserCode") || "توليد كود موظف جديد"}
+                        style={{
+                          background: "none", border: "1px solid #94a3b8", borderRadius: 6,
+                          color: "#64748b", fontSize: 11, padding: "3px 8px", cursor: "pointer",
+                        }}
+                      >
+                        <i className="fas fa-key"></i> User
+                      </button>
                     </td>
                     <td>
                       <span
@@ -352,17 +387,19 @@ export default function Companies() {
                       </span>
                     </td>
                     <td>
-                      <button
-                        onClick={() => openEditModal(company)}
-                        className="btn-primary"
-                        style={{
-                          marginLeft: "8px",
-                          padding: "6px 14px",
-                          fontSize: "13px",
-                        }}
-                      >
-                        <i className="fas fa-edit"></i> {t("common.edit")}
-                      </button>
+                      {(superAdmin || userRole === "admin") && (
+                        <button
+                          onClick={() => openEditModal(company)}
+                          className="btn-primary"
+                          style={{
+                            marginLeft: "8px",
+                            padding: "6px 14px",
+                            fontSize: "13px",
+                          }}
+                        >
+                          <i className="fas fa-edit"></i> {t("common.edit")}
+                        </button>
+                      )}
                       {superAdmin && (
                         <button
                           onClick={() => deleteCompany(company.id)}

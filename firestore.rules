@@ -31,11 +31,9 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // ✅ فحوصات isActive الجديدة — الإيقاف الحقيقي على مستوى القواعد
+    // ✅ فحوصات isActive — الإيقاف الحقيقي على مستوى القواعد
     // ============================================================
 
-    // هل المستخدم الحالي (اللي بيعمل الطلب) مفعل؟
-    // لو مفيش مستند user بعد (حالة التسجيل الأولي لحد ما ينكتب المستند) → نعتبره مفعّل
     function requestingUserIsActive() {
       return isLoggedIn() && (
         !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
@@ -43,8 +41,6 @@ service cloud.firestore {
       );
     }
 
-    // هل الشركة التابعة للمستخدم الحالي مفعّلة؟
-    // استثناء: السوبر أدمن يَدخل عادي حتى لو الشركة موقفة عشان يقدر يرجّعها
     function requestingCompanyIsActive() {
       return isLoggedIn() && (
         isSuperAdmin() ||
@@ -54,17 +50,14 @@ service cloud.firestore {
       );
     }
 
-    // اختصار: المستخدم مفعّل وشركته مفعّلة
     function fullyActive() {
       return requestingUserIsActive() && requestingCompanyIsActive();
     }
 
     // ============================================================
-    // ✅ صلاحيات الحذف وإنشاء المستندات على بيانات الشركة
+    // ✅ صلاحيات القراءة/الإنشاء/الحذف/التعديل على بيانات الشركة
     // ============================================================
 
-    // إنشاء مستند — يخص شركة المستخدم، أو السوبر أدمن
-    // ✅ مضاف: فحص isActive للمستخدم والشركة
     function canCreateForCompany() {
       return fullyActive() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -72,16 +65,21 @@ service cloud.firestore {
          (request.resource.data.companyId == userCompanyId() && userCompanyId() != null));
     }
 
-    // قراءة / تعديل مستند واحد — يخص شركة المستخدم فقط، أو السوبر أدمن
-    // ✅ مضاف: فحص isActive للمستخدم والشركة
     function canAccessCompanyDoc() {
       return fullyActive() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (isSuperAdmin() || resource.data.companyId == userCompanyId());
     }
 
-    // ✅ الحذف: للأدمن والسوبر أدمن بس (لا للموظف العادي)
-    //    مع الحفاظ على شرط نطاق الشركة + isActive
+    // 🔴 إصلاح ثغرة (4): منع تحويل المستند لشركة تانية أثناء التعديل
+    function canUpdateCompanyDoc() {
+      return fullyActive() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
+        (!('companyId' in request.resource.data) ||
+         request.resource.data.companyId == resource.data.companyId);
+    }
+
     function canDeleteCompanyDoc() {
       return fullyActive() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -89,20 +87,36 @@ service cloud.firestore {
         (isSuperAdmin() || resource.data.companyId == userCompanyId());
     }
 
+    // 🔴 إصلاح: كولكشنز مالية حساسة — الموظف العادي ميعدّلش فواتير/مصروفات بعد إنشائها
+    //    القراءة/الإنشاء لسه لأي حد في الشركة (عشان الموظف يقدر يعمل فاتورة)
+    //    لكن التعديل (زي تغيير المبلغ أو حالة "مدفوعة") لـ isAdmin() بس
+    function canUpdateFinancialDoc() {
+      return fullyActive() &&
+        isAdmin() &&
+        (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
+        (!('companyId' in request.resource.data) ||
+         request.resource.data.companyId == resource.data.companyId);
+    }
+
+    // 🔴 إصلاح: حماية أسعار المخزون — الموظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
+    function canUpdateInventoryDoc() {
+      return canUpdateCompanyDoc() &&
+        (
+          isAdmin() ||
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['price', 'costPrice', 'sellingPrice', 'purchasePrice'])
+        );
+    }
+
     // ============================================================
-    // ✅ صلاحيات إدارة المستخدمين لأدمن الشركة (قسم users/{userId})
+    // ✅ صلاحيات إدارة المستخدمين لأدمن الشركة
     // ============================================================
 
-    // هل المدير الحالي مَخول يُدير (تعديل/حذف/إيقاف) المستخدم الهدف؟
-    // takes: targetUserData = مستند الـ user اللي هنعدّل عليه
-    // ⚠️ ملاحظة: قواعد Firestore مش بتقبل if/return كأوامر منفصلة، لازم كله عبارتان منطقيتان
     function canManageTargetUser(targetUserData) {
       return fullyActive() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (
-          // السوبر أدمن يُدير أي حد
           isSuperAdmin() ||
-          // أدمن الشركة: يُدير مستخدمي شركته بس - ممنوع يلمس حسابات سوبر أدمن
           (
             isAdmin() &&
             targetUserData != null &&
@@ -113,14 +127,11 @@ service cloud.firestore {
         );
     }
 
-    // هل المدير الحالي مخول يُنشئ مستخدم جديد بالبيانات دي؟
     function canCreateTargetUser(newUserData) {
       return fullyActive() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (
-          // السوبر أدمن يُنشئ أي دور مع أي شركة
           isSuperAdmin() ||
-          // أدمن الشركة: user أو admin بس ضمن شركته
           (
             isAdmin() &&
             newUserData.role != 'super_admin' &&
@@ -135,103 +146,88 @@ service cloud.firestore {
     // ============================================================
     match /users/{userId} {
 
-      // ✅ قراءة مستخدم واحد
-      //  ⚠️ الفصل مهم: المستخدم يقرا نفسه أولاً — بدون فحوصات زيادة (لأنه ممكن المستند لسه متكتبش في التسجيل الأولي)
-      //  - السوبر أدمن يقرا الكل
-      //  - أدمن الشركة يقرا مستخدمي شركته بس (غير حسابات سوبر أدمن)
-      //  - الموقفين منهم حماية خاصة: لو المستند موجود و isActive:false بيبقى block من AuthContext بس
       allow get: if
-        // الفرع (1): المستخدم يقرا نفسه — مفتوح بسيط عشان التسجيل الأولي و onSnapshot مش يقفش
         (isLoggedIn() && request.auth.uid == userId) ||
-        // الفرع (2): السوبر أدمن يقرا الكل
         isSuperAdmin() ||
-        // الفرع (3): أدمن الشركة يقرا مستخدمي شركته بس
         (
           fullyActive() &&
           isAdmin() &&
-          exists(resource) &&
           resource.data.role != 'super_admin' &&
           resource.data.companyId == userCompanyId() &&
           userCompanyId() != null
         );
 
-      // ✅ list: استعلام مجموعة المستخدمين
-      //  - السوبر أدمن يشوف الكل
-      //  - أدمن الشركة يشوف مستخدمي شركته بس (الـ query في الكود لازم يكون مفلتر بـ companyId)
-      //  - user العادي ممنوع يعمل list أصلاً عشان ما يجيبش قائمة مستخدمين حتى لو شركتهم
       allow list: if fullyActive() && (
         isSuperAdmin() ||
-        (
-          isAdmin() &&
-          userCompanyId() != null
-        )
+        (isAdmin() && userCompanyId() != null)
       );
 
-      // ✅ إنشاء مستند مستخدم
-      // 3 حالات:
-      //   أ) المستخدم يسجل نفسه (التسجيل الأولي) — request.auth.uid == userId
-      //   ب) السوبر أدمن يضيف أي مستخدم بأي دور
-      //   ج) أدمن الشركة يضيف user أو admin بس ضمن شركته
-      allow create: if (
-          // حالة أ) التسجيل الذاتي الأولي — ممنوع يرفع نفسه سوبر أدمن
-          (isLoggedIn() && request.auth.uid == userId &&
-           request.resource.data.role != 'super_admin')
+      // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
+      allow create: if
+        request.resource.data.keys().hasOnly(['email', 'role', 'companyId', 'createdAt', 'isActive', '_joinCode']) &&
+        (
+          // أ) هو نفسه اللي أنشأ الشركة دي لتوه (مقارنة creatorUid على مستند الشركة)
+          isLoggedIn() && request.auth.uid == userId &&
+          request.resource.data.role == 'admin' &&
+          request.resource.data.companyId != null &&
+          exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
         ) || (
-          // حالة ب + ج) مدير (سوبر/شركة) بيضيف مستخدم
+          // ب) بينضم بكود دعوة حقيقي اتحقق منه عبر invite_codes
+          isLoggedIn() && request.auth.uid == userId &&
+          request.resource.data.role != 'super_admin' &&
+          '_joinCode' in request.resource.data &&
+          exists(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)) &&
+          get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.companyId == request.resource.data.companyId &&
+          get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.role == request.resource.data.role
+        ) || (
+          // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا
           canCreateTargetUser(request.resource.data)
         );
 
-      // ✅ تعديل مستخدم
-      //  - السوبر أدمن يعدل أي حقل على أي واحد
-      //  - أدمن الشركة يعدل مستخدمي شركته بس، مع منع:
-      //      * تغيير الدور لـ super_admin
-      //      * تعديل حسابات سوبر أدمن
-      //      * تعديل مستخدم خارج شركته
-      //  - المستخدم العادي يعدل نفسه بس بدون تغيير role أو companyId
-      //  - منع إيقاف الحساب الشخصي من أي حد (isActive لـ نفسه)
-      allow update: if fullyActive() && (
+      // 🟡 allowlist: امنع أي حقل مش من القائمة دي يتغير أو يتضاف
+      //    ⚠️ عدّل اللستة دي لو عندك حقول بروفايل تانية (زي name, phone, photoURL...)
+      allow update: if fullyActive() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode']) &&
+        (
         isSuperAdmin() ||
         (
-          // أدمن الشركة: يُعدّل مستخدمي شركته بس
           isAdmin() &&
-          exists(resource) &&
           canManageTargetUser(resource.data) &&
-          // منع تعيين دور super_admin تحت أي ظرف
           request.resource.data.role != 'super_admin' &&
-          // منع أدمن الشركة من إيقاف/تعديل حسابه الشخصي
           request.auth.uid != userId
         ) ||
         (
-          // المستخدم العادي يعدّل نفسه بس
           isLoggedIn() && request.auth.uid == userId &&
-          // بدون تغيير الدور
           request.resource.data.role == resource.data.role &&
-          // بدون تغيير الشركة (لازم يظل زي ما هو أو يسجل لأول مرة)
-          (
-            (request.resource.data.companyId == resource.data.companyId) ||
-            (resource.data.companyId == null && request.resource.data.companyId != null)
-          ) &&
-          // منع المستخدم العادي من إيقاف نفسه يدويًا
+          request.resource.data.companyId == resource.data.companyId &&
           (
             !('isActive' in request.resource.data) ||
             request.resource.data.isActive == resource.data.isActive ||
             resource.data.isActive == null
           )
+        ) ||
+        (
+          // 🆕 حالة Setup.js: مستخدم بلا شركة (companyId:null) بيكمل التسجيل
+          // بإنشاء أول شركة ليه ويبقى أدمنها — نفس منطق فرع "أ" في create بالظبط
+          isLoggedIn() && request.auth.uid == userId &&
+          resource.data.companyId == null &&
+          request.resource.data.role == 'admin' &&
+          request.resource.data.companyId != null &&
+          exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
         )
       );
 
-      // ✅ حذف مستخدم
-      //  - السوبر أدمن يحذف أي حد (غير حسابه الشخصي)
-      //  - أدمن الشركة يحذف مستخدمي شركته بس — غير حسابات سوبر أدمن وغير حسابه الشخصي
       allow delete: if fullyActive() && (
         (isSuperAdmin() && request.auth.uid != userId) ||
         (
           isAdmin() &&
-          !isSuperAdmin() && // أدمن الشركة بس
-          exists(resource) &&
+          !isSuperAdmin() &&
           resource.data.role != 'super_admin' &&
           resource.data.companyId == userCompanyId() &&
-          request.auth.uid != userId // ممنوع يحذف نفسه
+          request.auth.uid != userId
         )
       );
     }
@@ -240,26 +236,35 @@ service cloud.firestore {
     // companies/{companyId}
     // ============================================================
     match /companies/{companyId} {
-      // ✅ get: مفتوح لكل المسجلين (لازم عشان كود الانضمام يشتغل)
+      // ✅ get: مفتوح لكل المسجلين — الأكواد بقت في كولكشن تاني، فمفيش حاجة حساسة هنا
       allow get: if isLoggedIn();
 
-      // ✅ list: مفتوح لأي مستخدم مسجل مفعّل.
-      //    السبب: سيناريو الانضمام بكود الشركة بيحتاج يعمل
-      //    query: where('joinCode', '==', 'USER_CLOTHESRT3RP5')
-      //    عشان يلاقي المستند اللي عايز ينضم له.
-      //    بيانات الشركة (الاسم، المجال، كود الانضمام) مش بيانات حساسة.
-      allow list: if requestingUserIsActive();
+      // 🔴 إصلاح ثغرة (2): list مقفول تماماً — مفيش أي سبب برمجي لعمل list على الشركات
+      allow list: if isSuperAdmin();
 
-      // إنشاء شركة — أي مستخدم مسجل مفعّل (ممكن ما يكونش عنده شركة بعد)
-      allow create: if requestingUserIsActive();
+      // إنشاء شركة — لازم يثبت creatorUid لنفسه، وميكونش عنده شركة أصلاً
+      allow create: if requestingUserIsActive() &&
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+         getUserData().companyId == null) &&
+        request.resource.data.isActive == true &&
+        request.resource.data.creatorUid == request.auth.uid &&
+        // 🟡 allowlist — عدّل اللستة لو فورم إنشاء الشركة فيه حقول زيادة (logo, address...)
+        request.resource.data.keys().hasOnly(['name', 'email', 'industry', 'createdAt', 'isActive', 'creatorUid']);
 
-      // التعديل: السوبر أدمن أو صاحب الشركة بس
-      allow update: if fullyActive() && (
+      // 🔴 إصلاح ثغرة (3): التعديل لـ isAdmin() بس، مع حماية isActive/plan/subscription
+      allow update: if fullyActive() &&
+        // 🟡 allowlist — عدّل اللستة لو صفحة إعدادات الشركة فيها حقول زيادة
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone']) &&
+        (
         isSuperAdmin() ||
         (
-          isLoggedIn() &&
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          getUserData().companyId == companyId
+          isAdmin() &&
+          userCompanyId() == companyId &&
+          (!('isActive' in request.resource.data) || request.resource.data.isActive == resource.data.isActive) &&
+          (!('plan' in request.resource.data) || request.resource.data.plan == resource.data.plan) &&
+          (!('subscription' in request.resource.data) || request.resource.data.subscription == resource.data.subscription) &&
+          (!('creatorUid' in request.resource.data) || request.resource.data.creatorUid == resource.data.creatorUid)
         )
       );
 
@@ -267,15 +272,51 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // companies/{companyId}/codes/current — نسخة عرض للأدمن بس
+    // (المصدر الحقيقي اللي بيتحقق منه وقت الانضمام هو invite_codes، ده للعرض فقط)
+    // ============================================================
+    match /companies/{companyId}/codes/{docId} {
+      allow get, list: if fullyActive() && isAdmin() && userCompanyId() == companyId;
+      allow create, update: if fullyActive() && isAdmin() && userCompanyId() == companyId &&
+        request.resource.data.keys().hasOnly(['adminCode', 'userCode', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // invite_codes/{code} — بديل joinCode الآمن (لا list خالص)
+    // ============================================================
+    match /invite_codes/{code} {
+      // get فقط لو عارف الكود بالظبط — مفيش list
+      allow get: if isLoggedIn();
+      allow list: if false;
+
+      // الإنشاء مسموح في 3 حالات:
+      //  أ) السوبر أدمن (بينشئ شركة لعميل ويولّد أكوادها)
+      //  ب) نفس الشخص اللي أنشأ الشركة (لحظة الإنشاء، قبل ما يبقى عنده مستند user بالـ companyId)
+      //  ج) أي أدمن حالي للشركة دي (عشان يقدر "يولّد كود جديد" لو الكود القديم ضاع)
+      allow create: if isLoggedIn() &&
+        request.resource.data.companyId != null &&
+        exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+        (
+          isSuperAdmin() ||
+          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid ||
+          (fullyActive() && isAdmin() && userCompanyId() == request.resource.data.companyId)
+        );
+
+      // إعادة توليد/حذف الكود: أدمن الشركة أو السوبر أدمن بس
+      allow update, delete: if fullyActive() && isAdmin() &&
+        resource.data.companyId == userCompanyId();
+    }
+
+    // ============================================================
     // بيانات الشركة — عزل كامل حسب companyId
-    // ✅ ملاحظة: الحذف صار من خلال canDeleteCompanyDoc → isAdmin فقط
     // ============================================================
 
     match /clients/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -283,7 +324,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -291,15 +332,16 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
+    // 🔴 مالية — التعديل بعد الإنشاء لـ isAdmin() بس (منع تلاعب موظف بفاتورة مدفوعة)
     match /invoices/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateFinancialDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -307,7 +349,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateFinancialDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -315,7 +357,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateFinancialDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -323,15 +365,16 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateFinancialDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
+    // 🔴 المخزون: أي موظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
     match /inventory/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateInventoryDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -339,7 +382,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -347,7 +390,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -355,7 +398,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -363,19 +406,15 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
-
-    // ============================================================
-    // عيادة / طبيب
-    // ============================================================
 
     match /patients/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -383,7 +422,7 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -391,19 +430,15 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
-
-    // ============================================================
-    // مطعم - أقسام المنيو والخامات
-    // ============================================================
 
     match /menu_categories/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -411,27 +446,35 @@ service cloud.firestore {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canAccessCompanyDoc();
+      allow update: if canUpdateCompanyDoc();
       allow delete: if canDeleteCompanyDoc();
     }
 
     // ============================================================
-    // auditLogs/{docId} — سجل العمليات (للأدمن فقط)
+    // auditLogs/{docId}
     // ============================================================
     match /auditLogs/{docId} {
-      // القراءة للأدمن والسوبر أدمن فقط + الحفاظ على نطاق الشركة + isActive
       allow get:    if fullyActive() && isAdmin() && canAccessCompanyDoc();
       allow list:   if fullyActive() && isAdmin() && (
                       isSuperAdmin() ||
                       (userCompanyId() != null)
                     );
-      // الكتابة: أي مستخدم في الشركة فعّال (عشان الـ app يسجل العمليات)
-      allow create: if canCreateForCompany();
-      // لا يوجد تعديل أو حذف — السجلات تفضل زي ما هي
+      // ✅ إصلاح نهائي: الشكل الحقيقي 100% من utils/auditLogger.js
+      //    - performedBy.uid بيتحقق منه مباشرة (أقوى من مقارنة الإيميل)
+      //    - createdAt هو Timestamp حقيقي (new Date() بيتحول تلقائي) فبنتأكد إنه قريب من وقت السيرفر
+      //      (نافذة ٥ دقايق) عشان نمنع تلاعب بتواريخ قديمة/مستقبلية في السجل
+      allow create: if canCreateForCompany() &&
+        request.resource.data.keys().hasOnly(
+          ['actionType', 'collectionName', 'itemId', 'details', 'performedBy', 'companyId', 'timestamp', 'createdAt']
+        ) &&
+        request.resource.data.performedBy.uid == request.auth.uid &&
+        request.resource.data.performedBy.role == getUserData().role &&
+        request.resource.data.createdAt > request.time - duration.value(5, 'm') &&
+        request.resource.data.createdAt < request.time + duration.value(5, 'm');
     }
 
     // ============================================================
-    // fcm_tokens/{userId} — توكنات الإشعارات
+    // fcm_tokens/{userId}
     // ============================================================
     match /fcm_tokens/{userId} {
       allow get:    if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
