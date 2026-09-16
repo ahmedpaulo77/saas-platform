@@ -50,6 +50,18 @@ const ORDER_TYPES = [
   { value: "delivery", label: "🛵 توصيل" },
 ];
 
+const ORDER_SOURCES = [
+  { value: "direct", label: "🏪 مباشر" },
+  { value: "whatsapp", label: "💬 واتساب" },
+  { value: "phone", label: "📞 تليفون" },
+  { value: "talabat", label: "🛵 طلبات" },
+  { value: "city_app", label: "🏙️ سيتي آب" },
+];
+
+function getSourceLabel(val) {
+  return ORDER_SOURCES.find((s) => s.value === (val || "").toLowerCase())?.label || val || "—";
+}
+
 function getOrderStatusConfig(val) {
   return ORDER_STATUSES.find((s) => s.value === val) || ORDER_STATUSES[0];
 }
@@ -151,6 +163,7 @@ export default function Invoices() {
     description: "",
     dueDate: "",
     orderType: "takeaway",
+    orderSource: "direct",
     deliveryAddress: "",
     deliveryPhone: "",
     deliveryFee: "",
@@ -171,8 +184,7 @@ export default function Invoices() {
   const [showQuickAddClient, setShowQuickAddClient] = useState(false);
   const [quickClientName, setQuickClientName] = useState("");
   const [quickClientPhone, setQuickClientPhone] = useState("");
-  const [quickClientEmail, setQuickClientEmail] = useState("");
-  const [quickClientGov, setQuickClientGov] = useState("");
+  const [quickClientAddress, setQuickClientAddress] = useState("");
   const [addingClient, setAddingClient] = useState(false);
 
   const calculateProductAmount = (productId, quantity, weight = "") => {
@@ -280,8 +292,8 @@ export default function Invoices() {
       const docRef = await addDoc(collection(db, entityCollection), {
         name: quickClientName.trim(),
         phone: quickClientPhone.trim() || "",
-        email: quickClientEmail.trim() || "",
-        governorate: quickClientGov || "",
+        address: quickClientAddress.trim() || "",
+        governorate: quickClientAddress.trim() || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
@@ -290,8 +302,7 @@ export default function Invoices() {
       setNewInvoice((prev) => ({ ...prev, clientId: docRef.id }));
       setQuickClientName("");
       setQuickClientPhone("");
-      setQuickClientEmail("");
-      setQuickClientGov("");
+      setQuickClientAddress("");
       setShowQuickAddClient(false);
     } catch (e) {
       console.error(e);
@@ -401,12 +412,14 @@ export default function Invoices() {
         dueDate: newInvoice.dueDate || null,
         // حقول المطعم
         orderType: isRestaurant ? newInvoice.orderType : "",
+        orderSource: isRestaurant ? (newInvoice.orderSource || "direct") : "",
+        source: isRestaurant ? (newInvoice.orderSource || "direct") : "",
         deliveryAddress:
           isRestaurant && newInvoice.orderType === "delivery"
             ? newInvoice.deliveryAddress || ""
             : "",
         deliveryPhone:
-          isRestaurant && newInvoice.orderType === "delivery"
+          isRestaurant
             ? newInvoice.deliveryPhone || ""
             : "",
         deliveryFee:
@@ -944,39 +957,11 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                       onChange={(e) => setQuickClientPhone(e.target.value)}
                     />
                     <input
-                      type="email"
-                      placeholder="البريد الإلكتروني (اختياري)"
-                      value={quickClientEmail}
-                      onChange={(e) => setQuickClientEmail(e.target.value)}
+                      type="text"
+                      placeholder="📍 العنوان (اختياري)"
+                      value={quickClientAddress}
+                      onChange={(e) => setQuickClientAddress(e.target.value)}
                     />
-                    {!isRestaurant && (
-                      <select
-                        value={quickClientGov}
-                        onChange={(e) => setQuickClientGov(e.target.value)}
-                        style={{
-                          padding: "8px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                        }}
-                      >
-                        <option value="">-- اختر المحافظة --</option>
-                        {[
-                          "القاهرة",
-                          "الإسكندرية",
-                          "الجيزة",
-                          "الشرقية",
-                          "الدقهلية",
-                          "البحيرة",
-                          "الفيوم",
-                          "الغربية",
-                          "المنوفية",
-                        ].map((g) => (
-                          <option key={g} value={g}>
-                            {g}
-                          </option>
-                        ))}
-                      </select>
-                    )}
                     <button
                       type="button"
                       className="btn-primary btn-sm"
@@ -1244,6 +1229,32 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
               {/* ── حقول المطعم ── */}
               {isRestaurant && (
                 <>
+                  {/* مصدر الأوردر */}
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>مصدر الأوردر</label>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {ORDER_SOURCES.map((os) => (
+                        <button
+                          key={os.value}
+                          type="button"
+                          onClick={() => setNewInvoice({ ...newInvoice, orderSource: os.value })}
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            border: `2px solid ${(newInvoice.orderSource || "direct") === os.value ? "#6366f1" : "#e2e8f0"}`,
+                            borderRadius: 10,
+                            background: (newInvoice.orderSource || "direct") === os.value ? "#eef2ff" : "white",
+                            color: (newInvoice.orderSource || "direct") === os.value ? "#4338ca" : "#64748b",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {os.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* نوع الطلب */}
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>نوع الطلب</label>
@@ -1534,6 +1545,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                     <tr>
                       <th>#</th>
                       <th>{isRestaurant ? "الزبون" : entityColumnLabel}</th>
+                      {isRestaurant && <th>المصدر</th>}
                       {isRestaurant && <th>نوع الطلب</th>}
                       {isRestaurant && <th>حالة الطلب</th>}
                       {hasInventory && (
@@ -1603,6 +1615,16 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                               </div>
                             )}
                           </td>
+                          {isRestaurant && (
+                            <td>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#4338ca", background: "#eef2ff", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                                {getSourceLabel(inv.source || inv.orderSource)}
+                              </span>
+                              {inv.deliveryPhone && inv.orderType !== "delivery" && (
+                                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>📞 {inv.deliveryPhone}</div>
+                              )}
+                            </td>
+                          )}
                           {isRestaurant && (
                             <td>
                               <div

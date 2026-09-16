@@ -26,11 +26,10 @@ export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
     const [newClient, setNewClient] = useState({
     name: "",
-    email: "",
     phone: "",
+    address: "",
     companyId: "",
     type: "",
-    governorate: "", // ✅ المحافظة
   });
   const [companies, setCompanies] = useState([]);
   const [editingClient, setEditingClient] = useState(null);
@@ -91,11 +90,11 @@ export default function Clients() {
     try {
           const docRef = await addDoc(collection(db, "clients"), {
         name: newClient.name,
-        email: newClient.email || "",
         phone: newClient.phone || "",
+        address: newClient.address || "",
+        governorate: newClient.address || "", // توافق مع البيانات القديمة
         companyId,
         type: newClient.type || "",
-        governorate: newClient.governorate || "", // ✅ تخزين المحافظة
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
@@ -116,11 +115,10 @@ export default function Clients() {
 
             setNewClient({
         name: "",
-        email: "",
         phone: "",
+        address: "",
         companyId: superAdmin ? "" : userCompanyId,
         type: "",
-        governorate: "",
       });
       await fetchClients();
       alert(t("cli.addOk"));
@@ -151,11 +149,11 @@ export default function Clients() {
           const clientRef = doc(db, "clients", editingClient.id);
       await updateDoc(clientRef, {
         name: editingClient.name,
-        email: editingClient.email || "",
         phone: editingClient.phone || "",
+        address: editingClient.address || editingClient.governorate || "",
+        governorate: editingClient.address || editingClient.governorate || "",
         companyId: editingClient.companyId,
         type: editingClient.type || "",
-        governorate: editingClient.governorate || "",
       });
 
       // ✅ Audit Log
@@ -215,9 +213,8 @@ export default function Clients() {
   const filteredClients = clients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.email &&
-        client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (client.phone && client.phone.includes(searchTerm)) ||
+      ((client.address || client.governorate || "").toLowerCase().includes(searchTerm.toLowerCase())) ||
       (client.type &&
         client.type.toLowerCase().includes(searchTerm.toLowerCase())),
   );
@@ -257,16 +254,6 @@ export default function Clients() {
               required
             />
             <input
-              type="email"
-              placeholder={
-                t("common.email") + " (" + t("common.optional") + ")"
-              }
-              value={newClient.email}
-              onChange={(e) =>
-                setNewClient({ ...newClient, email: e.target.value })
-              }
-            />
-            <input
               type="text"
               placeholder={
                 t("common.phone") + " (" + t("common.optional") + ")"
@@ -278,10 +265,10 @@ export default function Clients() {
             />
                       <input
               type="text"
-              placeholder={"المحافظة (اختياري)"}
-              value={newClient.governorate}
+              placeholder={"📍 العنوان (اختياري)"}
+              value={newClient.address}
               onChange={(e) =>
-                setNewClient({ ...newClient, governorate: e.target.value })
+                setNewClient({ ...newClient, address: e.target.value })
               }
             />
             {/* ✅ حقل نوع العميل — للملابس فقط */}
@@ -384,9 +371,8 @@ export default function Clients() {
                     <th>#</th>
                     <th>{t("cli.name")}</th>
                     {isClothing && <th>{t("cli.type")}</th>}
-                    <th>{t("common.email")}</th>
                     <th>{t("common.phone")}</th>
-                    <th>المحافظة</th>
+                    <th>📍 العنوان</th>
                     <th>{t("cli.company")}</th>
                     <th>{t("common.actions")}</th>
                   </tr>
@@ -411,9 +397,8 @@ export default function Clients() {
                         <td>{start + i + 1}</td>
                         <td>{client.name}</td>
                         {isClothing && <td>{typeLabel}</td>}
-                        <td>{client.email || "-"}</td>
                         <td>{client.phone || "-"}</td>
-                        <td>{client.governorate || "-"}</td>
+                        <td>{client.address || client.governorate || "-"}</td>
                         <td>{companyName}</td>
                         <td>
                           <button
@@ -469,22 +454,6 @@ export default function Clients() {
                     setEditingClient({ ...editingClient, name: e.target.value })
                   }
                   required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label>
-                  {t("common.email")} ({t("common.optional")})
-                </label>
-                <input
-                  type="email"
-                  value={editingClient.email || ""}
-                  onChange={(e) =>
-                    setEditingClient({
-                      ...editingClient,
-                      email: e.target.value,
-                    })
-                  }
                   style={styles.input}
                 />
               </div>
@@ -546,14 +515,14 @@ export default function Clients() {
                 </select>
               </div>
                            <div style={styles.formGroup}>
-                <label>المحافظة (اختياري)</label>
+                <label>📍 العنوان (اختياري)</label>
                 <input
                   type="text"
-                  value={editingClient.governorate || ""}
+                  value={editingClient.address || editingClient.governorate || ""}
                   onChange={(e) =>
                     setEditingClient({
                       ...editingClient,
-                      governorate: e.target.value,
+                      address: e.target.value,
                     })
                   }
                   style={styles.input}

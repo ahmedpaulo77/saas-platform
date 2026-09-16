@@ -1,6 +1,6 @@
 // src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
@@ -13,6 +13,15 @@ const ORDER_TYPES = [
   { value: "delivery", label: "🛵 توصيل" },
     { value: "dine_in", label: "🍽️ صالة" },
 
+];
+
+// مصدر الأوردر - الكاشير هو اللي بينقل من واتساب/طلبات/سيتي
+const ORDER_SOURCES = [
+  { value: "direct", label: "🏪 مباشر" },
+  { value: "whatsapp", label: "💬 واتساب" },
+  { value: "phone", label: "📞 تليفون" },
+  { value: "talabat", label: "🛵 طلبات" },
+  { value: "city_app", label: "🏙️ سيتي آب" },
 ];
 
 export default function POS() {
@@ -29,13 +38,19 @@ export default function POS() {
   const [selectedClient, setSelectedClient] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // عميل جديد سريع من الكاشير (من غير ما يروح صفحة العملاء)
+  const [newClientName, setNewClientName] = useState("");
+  const [addingClient, setAddingClient] = useState(false);
 
   // حقول المطعم
   const [orderType, setOrderType] = useState("takeaway");
+  const [orderSource, setOrderSource] = useState("direct");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryPhone, setDeliveryPhone] = useState("");
   const [deliveryFee, setDeliveryFee] = useState("");
   const [customerNote, setCustomerNote] = useState("");
+  const [phoneHint, setPhoneHint] = useState("");
+  const [repeating, setRepeating] = useState(false);
 
   // إضافات مخصصة لكل صنف في السلة
   const [cartItemNotes, setCartItemNotes] = useState({}); // { productId: note }
@@ -68,6 +83,122 @@ export default function POS() {
   useEffect(() => {
     Promise.all([fetchProducts(), fetchClients(), fetchCategories()]);
   }, [fetchProducts, fetchClients, fetchCategories]);
+
+  // ── عميل جديد سريع: حفظ في العملاء واختياره فوراً ──
+  async function handleQuickAddClient() {
+    if (!newClientName.trim()) { alert("اكتب اسم العميل الأول"); return; }
+    if (!userCompanyId) return;
+    setAddingClient(true);
+    try {
+      const phoneToSave = (deliveryPhone || "").trim();
+      // منع التكرار: لو الرقم موجود اختاره وخلاص
+      if (phoneToSave) {
+        const existing = clients.find((c) => (c.phone || "").trim() === phoneToSave);
+        if (existing) {
+          setSelectedClient(existing.id);
+          setNewClientName("");
+          setAddingClient(false);
+          return;
+        }
+      }
+      const docRef = await addDoc(collection(db, "clients"), {
+        name: newClientName.trim(),
+        phone: phoneToSave,
+        address: (deliveryAddress || "").trim(),
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdAt: new Date().toISOString(),
+      });
+      const newClient = { id: docRef.id, name: newClientName.trim(), phone: phoneToSave, address: (deliveryAddress || "").trim() };
+      setClients((prev) => [...prev, newClient]);
+      setSelectedClient(docRef.id);
+      setNewClientName("");
+    } catch (e) {
+      console.error(e);
+      alert("تعذر حفظ العميل");
+    }
+    setAddingClient(false);
+  }
+
+  // ── لما الكاشير يكتب رقم التليفون: هات آخر عنوان متسجل لنفس الرقم ──
+  async function lookupAddressByPhone(phone) {
+    const clean = (phone || "").trim();
+    if (!isRestaurant || clean.length < 7 || !userCompanyId) {
+      setPhoneHint("");
+      return;
+    }
+    // لو الرقم بتاع عميل مسجل اختاره تلقائي
+    const matched = clients.find((c) => (c.phone || "").trim() === clean);
+    if (matched) {
+      setSelectedClient(matched.id);
+      if (!deliveryAddress.trim() && matched.address) {
+        setDeliveryAddress(matched.address);
+      }
+    }
+    try {
+      const q = query(
+        collection(db, "invoices"),
+        where("companyId", "==", userCompanyId),
+        where("deliveryPhone", "==", clean),
+        orderBy("createdAt", "desc"),
+        limit(3)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const last = snap.docs[0].data();
+        // لو العنوان فاضي عند الكاشير عبّيه تلقائي من آخر أوردر
+        if (!deliveryAddress.trim() && last.deliveryAddress) {
+          setDeliveryAddress(last.deliveryAddress);
+        }
+        setPhoneHint(`✓ زبون متكرر — آخر طلب: ${last.deliveryAddress || "بدون عنوان"}`);
+      } else {
+        setPhoneHint("");
+      }
+    } catch (e) {
+      // index ناقص أو خطأ — نتجاهل بهدوء عشان منعطلش الكاشير
+      console.warn("phone lookup:", e.message);
+    }
+  }
+
+  // ── تكرار آخر أوردر لنفس الرقم (بنفس الأصناف) ──
+  async function repeatLastOrder() {
+    const clean = (deliveryPhone || "").trim();
+    if (clean.length < 7) { alert("اكتب رقم التليفون الأول"); return; }
+    if (!userCompanyId) return;
+    setRepeating(true);
+    try {
+      const q = query(
+        collection(db, "invoices"),
+        where("companyId", "==", userCompanyId),
+        where("deliveryPhone", "==", clean),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) { alert("مفيش أوردرات سابقة للرقم ده"); return; }
+      const last = snap.docs[0].data();
+      const items = last.items || [];
+      if (items.length === 0) { alert("آخر أوردر فاضي"); return; }
+      // رجّع الأصناف للسلة لو المنتج لسه موجود ومتاح
+      const restored = [];
+      for (const it of items) {
+        const prod = products.find((p) => p.id === it.productId);
+        if (!prod) continue;
+        const qty = Math.min(it.quantity || 1, prod.quantity || 0);
+        if (qty <= 0) continue;
+        restored.push({ ...prod, quantity: qty, stockQty: prod.quantity });
+      }
+      if (restored.length === 0) { alert("أصناف آخر أوردر مش متاحة حالياً"); return; }
+      setCart(restored);
+      if (last.deliveryAddress) setDeliveryAddress(last.deliveryAddress);
+      if (last.orderType) setOrderType(last.orderType);
+      if (last.source) setOrderSource(last.source);
+    } catch (e) {
+      console.error(e);
+      alert("تعذر جلب آخر أوردر");
+    }
+    setRepeating(false);
+  }
 
   // فلتر المنتجات
   const filteredProducts = products.filter((p) => {
@@ -148,8 +279,9 @@ export default function POS() {
 
   // ── طباعة حرارية ──
   function handleThermalPrint(invoiceData) {
-    const clientName = clients.find((c) => c.id === selectedClient)?.name || "زبون";
+    const clientName = invoiceData?.clientName || clients.find((c) => c.id === selectedClient)?.name || newClientName.trim() || "زبون";
     const orderTypeLabel = ORDER_TYPES.find((o) => o.value === orderType)?.label || "";
+    const orderSourceLabel = ORDER_SOURCES.find((o) => o.value === orderSource)?.label || "";
 
     const itemsRows = cart.map((item) => {
       const selectedExtraIdxs = cartItemExtras[item.id] || [];
@@ -197,7 +329,8 @@ export default function POS() {
 <div class="divider"></div>
 <div style="font-size:12px;margin-bottom:4px;">
   <strong>الزبون:</strong> ${clientName}<br/>
-  <strong>نوع الطلب:</strong> ${orderTypeLabel}
+  <strong>نوع الطلب:</strong> ${orderTypeLabel}<br/>
+  <strong>المصدر:</strong> ${orderSourceLabel}
 </div>
 ${deliveryInfo}
 ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>ملاحظة:</strong> ${customerNote}</div>` : ""}
@@ -241,6 +374,32 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
     }
     setSubmitting(true);
     try {
+      // لو الكاشير كتب اسم عميل جديد من غير ما يدوس حفظ — احفظه تلقائي مع الفاتورة
+      let finalClientId = selectedClient || null;
+      let finalClientName = clients.find((c) => c.id === selectedClient)?.name || "";
+      if (isRestaurant && !finalClientId && (newClientName.trim() || deliveryPhone.trim())) {
+        try {
+          const phoneToSave = (deliveryPhone || "").trim();
+          const existing = phoneToSave ? clients.find((c) => (c.phone || "").trim() === phoneToSave) : null;
+          if (existing) {
+            finalClientId = existing.id;
+            finalClientName = existing.name;
+          } else {
+            const cRef = await addDoc(collection(db, "clients"), {
+              name: newClientName.trim() || `زبون ${phoneToSave || "نقدي"}`,
+              phone: phoneToSave,
+              address: (deliveryAddress || "").trim(),
+              companyId: userCompanyId,
+              createdBy: currentUser?.uid || null,
+              createdAt: new Date().toISOString(),
+            });
+            finalClientId = cRef.id;
+            finalClientName = newClientName.trim() || phoneToSave;
+            setClients((prev) => [...prev, { id: cRef.id, name: finalClientName, phone: phoneToSave, address: (deliveryAddress || "").trim() }]);
+          }
+        } catch (e) { console.warn("auto-create client:", e.message); }
+      }
+
       for (const item of cart) {
         const productRef = doc(db, "inventory", item.id);
         const productDoc = await getDoc(productRef);
@@ -254,7 +413,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         companyId: userCompanyId,
         createdBy: currentUser?.uid || null,
         createdByEmail: currentUser?.email || "",
-        clientId: selectedClient || null,
+        clientId: finalClientId,
+        clientName: finalClientName,
         items: cart.map((item) => {
           const selectedExtraIdxs = cartItemExtras[item.id] || [];
           const selectedExtras = (item.extras || []).filter((_, i) => selectedExtraIdxs.includes(i));
@@ -281,9 +441,11 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         paidAmount: total,
         // حقول المطعم
         orderType: isRestaurant ? orderType : "",
+        orderSource: isRestaurant ? orderSource : "",
+        source: isRestaurant ? orderSource : "",
         orderStatus: isRestaurant ? "new" : "",
         deliveryAddress: isRestaurant && orderType === "delivery" ? deliveryAddress : "",
-        deliveryPhone: isRestaurant && orderType === "delivery" ? deliveryPhone : "",
+        deliveryPhone: isRestaurant ? deliveryPhone.trim() : "",
         customerNote: isRestaurant ? customerNote : "",
         date: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -298,11 +460,14 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
       // reset
       setCart([]);
       setSelectedClient("");
+      setNewClientName("");
       setOrderType("takeaway");
+      setOrderSource("direct");
       setDeliveryAddress("");
       setDeliveryPhone("");
       setDeliveryFee("");
       setCustomerNote("");
+      setPhoneHint("");
       setCartItemNotes({});
       setCartItemExtras({});
       await Promise.all([fetchProducts(), fetchClients()]);
@@ -475,6 +640,28 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
               )}
             </h3>
 
+            {/* مصدر الأوردر للمطعم */}
+            {isRestaurant && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontWeight: 600 }}>مصدر الأوردر</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {ORDER_SOURCES.map((os) => (
+                    <button key={os.value} type="button"
+                      onClick={() => setOrderSource(os.value)}
+                      style={{
+                        padding: "6px 10px", fontSize: 12, fontWeight: 700,
+                        border: `2px solid ${orderSource === os.value ? "#6366f1" : "#e2e8f0"}`,
+                        borderRadius: 10,
+                        background: orderSource === os.value ? "#eef2ff" : "white",
+                        color: orderSource === os.value ? "#4338ca" : "#64748b",
+                        cursor: "pointer",
+                      }}
+                    >{os.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* نوع الطلب للمطعم */}
             {isRestaurant && (
               <div style={{ marginBottom: 14 }}>
@@ -505,9 +692,20 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                   style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
                 />
                 <input type="tel" placeholder="📞 رقم الهاتف"
-                  value={deliveryPhone} onChange={(e) => setDeliveryPhone(e.target.value)}
+                  value={deliveryPhone}
+                  onChange={(e) => setDeliveryPhone(e.target.value)}
+                  onBlur={(e) => lookupAddressByPhone(e.target.value)}
                   style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
                 />
+                {phoneHint && (
+                  <div style={{ fontSize: 11, color: "#16a34a", background: "#f0fdf4", padding: "4px 8px", borderRadius: 6 }}>
+                    {phoneHint}
+                  </div>
+                )}
+                <button type="button" onClick={repeatLastOrder} disabled={repeating}
+                  style={{ padding: "6px", fontSize: 12, fontWeight: 700, border: "1px dashed #6366f1", borderRadius: 8, background: "white", color: "#6366f1", cursor: "pointer" }}>
+                  {repeating ? "جاري الجلب..." : "🔁 تكرار آخر أوردر لنفس الرقم"}
+                </button>
                 <input type="number" step="0.5" min="0" placeholder="🛵 رسوم التوصيل"
                   value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)}
                   style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
@@ -515,16 +713,61 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
               </div>
             )}
 
+            {/* رقم التليفون للتيك أواي برضه (عشان نعرف المصدر والزبون المتكرر) */}
+            {isRestaurant && orderType !== "delivery" && (
+              <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <input type="tel" placeholder="📞 رقم الهاتف (اختياري - للتكرار)"
+                  value={deliveryPhone}
+                  onChange={(e) => setDeliveryPhone(e.target.value)}
+                  onBlur={(e) => lookupAddressByPhone(e.target.value)}
+                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
+                />
+                {phoneHint && (
+                  <div style={{ fontSize: 11, color: "#16a34a", background: "#f0fdf4", padding: "4px 8px", borderRadius: 6 }}>
+                    {phoneHint}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* الزبون */}
             <div className="form-group" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#64748b" }}>{isRestaurant ? "الزبون (اختياري)" : t("pos.client")}</label>
-              <select value={selectedClient} onChange={(e) => setSelectedClient(e.target.value)}
-                disabled={clients.length === 0}>
-                <option value="">{isRestaurant ? "زبون جديد / نقدي" : t("pos.walkIn")}</option>
+              <label style={{ fontSize: 12, color: "#64748b" }}>{isRestaurant ? "الزبون" : t("pos.client")}</label>
+              <select value={selectedClient} onChange={(e) => { setSelectedClient(e.target.value); if (e.target.value) setNewClientName(""); }}>
+                <option value="">{isRestaurant ? "زبون نقدي / بدون تسجيل" : t("pos.walkIn")}</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>{client.name}{client.phone ? ` — ${client.phone}` : ""}</option>
                 ))}
               </select>
+              {/* إضافة عميل جديد وهو واقف في الكاشير */}
+              {isRestaurant && !selectedClient && (
+                <div style={{ marginTop: 8, background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 8, padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700 }}>+ عميل جديد (هيتحفظ تلقائي مع الفاتورة)</div>
+                  <input type="text" placeholder="👤 اسم العميل *"
+                    value={newClientName} onChange={(e) => setNewClientName(e.target.value)}
+                    style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}
+                  />
+                  <input type="tel" placeholder="📞 رقم الهاتف"
+                    value={deliveryPhone} onChange={(e) => setDeliveryPhone(e.target.value)}
+                    onBlur={(e) => lookupAddressByPhone(e.target.value)}
+                    style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}
+                  />
+                  <input type="text" placeholder="📍 العنوان"
+                    value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
+                    style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}
+                  />
+                  <button type="button" onClick={handleQuickAddClient} disabled={addingClient || !newClientName.trim()}
+                    style={{ padding: "6px", fontSize: 12, fontWeight: 700, border: "none", borderRadius: 8, background: !newClientName.trim() ? "#e2e8f0" : "#6366f1", color: "white", cursor: "pointer" }}>
+                    {addingClient ? "جاري الحفظ..." : "💾 حفظ العميل في العملاء"}
+                  </button>
+                </div>
+              )}
+              {isRestaurant && selectedClient && (
+                <button type="button" onClick={() => setSelectedClient("")}
+                  style={{ marginTop: 6, background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 11 }}>
+                  ✕ إلغاء اختيار العميل
+                </button>
+              )}
             </div>
 
             {/* ملاحظة عامة */}

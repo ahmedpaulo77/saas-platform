@@ -4,7 +4,9 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  getCountFromServer,
+  getAggregateFromServer,
+  sum,
   doc,
   getDoc,
 } from "firebase/firestore";
@@ -277,87 +279,93 @@ export default function Dashboard() {
       const mk = (ref) =>
         isSuper ? ref : query(ref, where("companyId", "==", userCompanyId));
 
-      // ✅ أي استعلام يفشل (صلاحيات...) يرجع فاضي بدل ما يوقع باقي الإحصائيات
-      const emptySnap = { size: 0, forEach: () => {} };
-      const safeGet = (q, name) =>
-        getDocs(q).catch((e) => {
-          console.error(`Dashboard stats failed for ${name}:`, e?.message);
-          return emptySnap;
-        });
+      // ✅ فواتير "مدفوعة" و"غير مدفوعة" لازم كويريز منفصلة عشان منطق الإيراد
+      // بيفرّق بينهم (paid بيستخدم amount، الباقي بيستخدم paidAmount الجزئي)
+      const paidInvQ = isSuper
+        ? query(invRef, where("status", "==", "paid"))
+        : query(
+            invRef,
+            where("companyId", "==", userCompanyId),
+            where("status", "==", "paid"),
+          );
+      const unpaidInvQ = isSuper
+        ? query(invRef, where("status", "!=", "paid"))
+        : query(
+            invRef,
+            where("companyId", "==", userCompanyId),
+            where("status", "!=", "paid"),
+          );
 
       try {
-        // ✅ عدد الشركات: get مباشر (الـ list على companies مقفول لغير السوبر أدمن في الـ rules)
-        let companiesCount = 0;
-        try {
-          if (isSuper) {
-            companiesCount = (await getDocs(compRef)).size;
-          } else {
-            const compSnap = await getDoc(doc(db, "companies", userCompanyId));
-            companiesCount = compSnap.exists() ? 1 : 0;
-          }
-        } catch (e) {
-          console.error("Dashboard stats failed for companies:", e?.message);
-        }
-
-        // ✅ العدادات بـ getDocs (الحجم) بدل getCountFromServer
-        // لأن الـ count من السيرفر بيترفض مع قواعد الأمان المبنية على resource.data
+        // ✅ إصلاح جوهري: getCountFromServer() بدل getDocs()+size
+        // القديم كان بيقرا كل مستندات كل كولكشن (يزيد مع كبر البيانات) بس عشان
+        // يعرف العدد. count() بيتحسب على مستوى الـ index مش المستندات نفسها،
+        // وبيتحمّل نفس رولز الـ query العادي (اتأكدنا من التوثيق الرسمي:
+        // aggregation queries تتقيّم بنفس رولز list العادية بالظبط).
+        // للإيرادات: sum() بدل ما نقرا كل فاتورة ونجمع يدويًا في الفرونت.
         const [
-          cliSnap,
-          sellerSnap,
-          buyerSnap,
-          taskSnap,
-          projSnap,
-          usersSnap,
-          suppSnap,
-          purchSnap,
-          apptSnap,
-          rxSnap,
-          msgSnap,
-          patSnap,
-          invSnap,
+          compExists,
+          cliCount,
+          sellerCount,
+          buyerCount,
+          taskCount,
+          projCount,
+          usersCount,
+          suppCount,
+          purchCount,
+          apptCount,
+          rxCount,
+          msgCount,
+          patCount,
+          invCount,
+          paidSum,
+          unpaidSum,
         ] = await Promise.all([
-          safeGet(mk(cliRef), "clients"),
-          safeGet(mk(sellerRef), "sellers"),
-          safeGet(mk(buyerRef), "buyers"),
-          safeGet(mk(taskRef), "tasks"),
-          safeGet(mk(projRef), "projects"),
-          safeGet(mk(usersRef), "users"),
-          safeGet(mk(suppRef), "suppliers"),
-          safeGet(mk(purchRef), "purchases"),
-          safeGet(mk(apptRef), "appointments"),
-          safeGet(mk(rxRef), "prescriptions"),
-          safeGet(mk(msgRef), "messages"),
-          safeGet(mk(patRef), "patients"),
-          safeGet(mk(invRef), "invoices"),
+          isSuper
+            ? getCountFromServer(compRef).then((s) => s.data().count)
+            : getDoc(doc(db, "companies", userCompanyId)).then((s) =>
+                s.exists() ? 1 : 0,
+              ),
+          getCountFromServer(mk(cliRef)).then((s) => s.data().count),
+          getCountFromServer(mk(sellerRef)).then((s) => s.data().count),
+          getCountFromServer(mk(buyerRef)).then((s) => s.data().count),
+          getCountFromServer(mk(taskRef)).then((s) => s.data().count),
+          getCountFromServer(mk(projRef)).then((s) => s.data().count),
+          getCountFromServer(mk(usersRef)).then((s) => s.data().count),
+          getCountFromServer(mk(suppRef)).then((s) => s.data().count),
+          getCountFromServer(mk(purchRef)).then((s) => s.data().count),
+          getCountFromServer(mk(apptRef)).then((s) => s.data().count),
+          getCountFromServer(mk(rxRef)).then((s) => s.data().count),
+          getCountFromServer(mk(msgRef)).then((s) => s.data().count),
+          getCountFromServer(mk(patRef)).then((s) => s.data().count),
+          getCountFromServer(mk(invRef)).then((s) => s.data().count),
+          getAggregateFromServer(paidInvQ, { total: sum("amount") }).then(
+            (s) => s.data().total || 0,
+          ),
+          getAggregateFromServer(unpaidInvQ, {
+            total: sum("paidAmount"),
+          }).then((s) => s.data().total || 0),
         ]);
 
-        let totalRevenue = 0;
-        invSnap.forEach((docSnap) => {
-          const inv = docSnap.data();
-          if (inv.status === "paid") {
-            totalRevenue += parseFloat(inv.amount) || 0;
-          } else {
-            totalRevenue += parseFloat(inv.paidAmount) || 0;
-          }
-        });
+        const totalRevenue = (paidSum || 0) + (unpaidSum || 0);
 
         if (cancelled) return;
 
         setStats({
-          companies: companiesCount,
-          clients: cliSnap.size,
-          sellers: sellerSnap.size,
-          buyers: buyerSnap.size,
-          invoices: invSnap.size,
-          tasks: taskSnap.size,
-          projects: projSnap.size,
-          users: usersSnap.size,
-          suppliers: suppSnap.size,
-          purchases: purchSnap.size,
-          appointments: apptSnap.size,
-          prescriptions: rxSnap.size,
-          messages: msgSnap.size,
-          patients: patSnap.size,
+          companies: compExists,
+          clients: cliCount,
+          sellers: sellerCount,
+          buyers: buyerCount,
+          invoices: invCount,
+          tasks: taskCount,
+          projects: projCount,
+          users: usersCount,
+          suppliers: suppCount,
+          purchases: purchCount,
+          appointments: apptCount,
+          prescriptions: rxCount,
+          messages: msgCount,
+          patients: patCount,
           revenue: totalRevenue,
         });
       } catch (e) {

@@ -35,6 +35,15 @@ function OrderCard({ order, t, onAdvance }) {
   const minutes = useElapsedMinutes(order.createdAt || order.date);
   const urgencyColor = minutes >= 20 ? "#ef4444" : minutes >= 10 ? "#f59e0b" : "#94a3b8";
   const column = COLUMNS.find((c) => c.key === order.orderStatus) || COLUMNS[0];
+  const SOURCE_LABELS = {
+    direct: "🏪 مباشر",
+    whatsapp: "💬 واتساب",
+    phone: "📞 تليفون",
+    talabat: "🛵 طلبات",
+    city_app: "🏙️ سيتي آب",
+  };
+  const srcKey = order.source || order.orderSource || "";
+  const srcLabel = SOURCE_LABELS[srcKey] || "";
 
   return (
     <div
@@ -50,6 +59,11 @@ function OrderCard({ order, t, onAdvance }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <span style={{ fontWeight: 800, fontSize: 16, color: "#1e293b" }}>
           {order.orderType === "delivery" ? "🛵" : "🥡"} #{order.id.slice(0, 5).toUpperCase()}
+          {srcLabel && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#4338ca", background: "#eef2ff", padding: "2px 8px", borderRadius: 12, marginRight: 6 }}>
+              {srcLabel}
+            </span>
+          )}
         </span>
         <span
           style={{
