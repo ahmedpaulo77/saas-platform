@@ -20,6 +20,8 @@ export default function AddSellerModal({ seller, onClose, onSave, t }) {
     terrace: seller?.terrace || "",
     price: seller?.price || "",
     commission: seller?.commission || "",
+    unitStatus: seller?.unitStatus || "available",
+    commissionStatus: seller?.commissionStatus || "pending",
   });
 
   const handleSubmit = (e) => {
@@ -251,6 +253,31 @@ export default function AddSellerModal({ seller, onClose, onSave, t }) {
                   style={styles.input}
                   placeholder={t("sellers.commissionPlaceholder")}
                 />
+              </div>
+            </div>
+            <div style={styles.row}>
+              <div style={styles.group}>
+                <label>🏠 حالة الوحدة</label>
+                <select
+                  value={form.unitStatus}
+                  onChange={(e) => setForm({ ...form, unitStatus: e.target.value })}
+                  style={styles.input}
+                >
+                  <option value="available">🟢 متاحة</option>
+                  <option value="reserved">🟡 محجوزة</option>
+                  <option value="sold">🔴 مباعة</option>
+                </select>
+              </div>
+              <div style={styles.group}>
+                <label>💰 حالة العمولة</label>
+                <select
+                  value={form.commissionStatus}
+                  onChange={(e) => setForm({ ...form, commissionStatus: e.target.value })}
+                  style={styles.input}
+                >
+                  <option value="pending">معلقة</option>
+                  <option value="paid">محصّلة</option>
+                </select>
               </div>
             </div>
           </div>

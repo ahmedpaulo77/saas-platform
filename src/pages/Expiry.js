@@ -1,9 +1,10 @@
-// src/pages/Expiry.js - متابعة تواريخ الصلاحية مع دعم الترجمة
+// src/pages/Expiry.js - متابعة تواريخ الصلاحية + التشغيلات (صيدلية) مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
-import { getDocs, doc, updateDoc } from "firebase/firestore";
+import { getDocs, doc, updateDoc, collection, addDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, canDelete } from "../utils/companyQuery";
+import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -21,8 +22,13 @@ function startOfDay(d) {
 
 export default function Expiry() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
+  const userCanDelete = canDelete(userRole);
+  const isPharmacy = userIndustry === "pharmacy";
   const [products, setProducts] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [newBatch, setNewBatch] = useState({ productId: "", batchNumber: "", quantity: "", expiryDate: "" });
+  const [addingBatch, setAddingBatch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -41,9 +47,82 @@ export default function Expiry() {
     }
   }, [userRole, userCompanyId]);
 
+  const fetchBatches = useCallback(async () => {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(getScopedQuery("batches", userRole, userCompanyId, currentUser?.uid));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
+      setBatches(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [userRole, userCompanyId, currentUser?.uid]);
+
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchBatches();
+  }, [fetchProducts, fetchBatches]);
+
+  async function addBatch(e) {
+    e.preventDefault();
+    if (!newBatch.productId || !newBatch.batchNumber.trim() || !newBatch.quantity || !newBatch.expiryDate) {
+      alert(t("common.fillRequired"));
+      return;
+    }
+    setAddingBatch(true);
+    try {
+      const prod = products.find((p) => p.id === newBatch.productId);
+      const qty = parseFloat(newBatch.quantity) || 0;
+      const docRef = await addDoc(collection(db, "batches"), {
+        productId: newBatch.productId,
+        productName: prod?.name || "",
+        batchNumber: newBatch.batchNumber.trim(),
+        quantity: qty,
+        expiryDate: newBatch.expiryDate,
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdAt: new Date().toISOString(),
+      });
+      // زوّد مخزون الصنف بكمية التشغيلة
+      if (prod) {
+        await updateDoc(doc(db, "inventory", prod.id), { quantity: (parseFloat(prod.quantity) || 0) + qty });
+      }
+      await logActivity({
+        actionType: "CREATE", collectionName: "batches", itemId: docRef.id,
+        details: `Received batch ${newBatch.batchNumber} for ${prod?.name || ""} qty ${qty}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      setNewBatch({ productId: "", batchNumber: "", quantity: "", expiryDate: "" });
+      await Promise.all([fetchProducts(), fetchBatches()]);
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+    setAddingBatch(false);
+  }
+
+  async function deleteBatch(batch) {
+    if (!window.confirm(t("common.confirmDelete"))) return;
+    try {
+      // رجّع كمية التشغيلة المتبقية من المخزون
+      const prod = products.find((p) => p.id === batch.productId);
+      if (prod) {
+        const left = Math.max(0, (parseFloat(prod.quantity) || 0) - (parseFloat(batch.quantity) || 0));
+        await updateDoc(doc(db, "inventory", prod.id), { quantity: left });
+      }
+      await deleteDoc(doc(db, "batches", batch.id));
+      await logActivity({
+        actionType: "DELETE", collectionName: "batches", itemId: batch.id,
+        details: `Deleted batch ${batch.batchNumber} for ${batch.productName}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      await Promise.all([fetchProducts(), fetchBatches()]);
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+  }
 
   function getExpiryStatus(product) {
     const expDate = parseDate(product.expiryDate);
@@ -175,6 +254,92 @@ export default function Expiry() {
             <div className="stat-label">{t("exp.none")}</div>
           </div>
         </div>
+
+        {/* ── التشغيلات (صيدلية) ── */}
+        {isPharmacy && (
+          <div className="form-card" style={{ border: "2px solid #8b5cf655", marginBottom: 20 }}>
+            <h3>
+              <i className="fas fa-pills" style={{ color: "#8b5cf6" }}></i>
+              💊 استلام تشغيلة جديدة (بتزود المخزون)
+            </h3>
+            <form onSubmit={addBatch}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 150px auto", gap: 12, alignItems: "end" }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الدواء *</label>
+                  <select value={newBatch.productId} onChange={(e) => setNewBatch({ ...newBatch, productId: e.target.value })} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", boxSizing: "border-box" }}>
+                    <option value="">— اختر الدواء —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>رقم التشغيلة *</label>
+                  <input type="text" placeholder="B123" value={newBatch.batchNumber}
+                    onChange={(e) => setNewBatch({ ...newBatch, batchNumber: e.target.value })} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكمية *</label>
+                  <input type="number" min="1" step="1" placeholder="0" value={newBatch.quantity}
+                    onChange={(e) => setNewBatch({ ...newBatch, quantity: e.target.value })} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الصلاحية *</label>
+                  <input type="date" value={newBatch.expiryDate}
+                    onChange={(e) => setNewBatch({ ...newBatch, expiryDate: e.target.value })} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <button type="submit" className="btn-primary" disabled={addingBatch}>
+                  <i className="fas fa-plus"></i> {addingBatch ? "..." : "استلام"}
+                </button>
+              </div>
+            </form>
+
+            {batches.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <h4 style={{ fontSize: 13, color: "#334155", margin: "0 0 8px" }}>التشغيلات ({batches.length}) — مرتبة بالأقرب صلاحية (الصرف FEFO)</h4>
+                <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>الدواء</th>
+                        <th>التشغيلة</th>
+                        <th>الكمية</th>
+                        <th>الصلاحية</th>
+                        <th>الحالة</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batches.map((b) => {
+                        const st = getExpiryStatus(b);
+                        return (
+                          <tr key={b.id} style={{ background: st.daysLeft !== null && st.daysLeft < 0 ? "#fff5f5" : st.daysLeft !== null && st.daysLeft <= 30 ? "#fffbeb" : "white" }}>
+                            <td style={{ fontWeight: 600 }}>{b.productName}</td>
+                            <td style={{ fontFamily: "monospace" }}>{b.batchNumber}</td>
+                            <td style={{ fontWeight: 700 }}>{b.quantity}</td>
+                            <td>{b.expiryDate ? new Date(b.expiryDate).toLocaleDateString("ar-EG") : "—"}</td>
+                            <td><span className="badge" style={{ background: st.bg, color: st.color, fontWeight: 700 }}>{st.label}</span></td>
+                            <td>
+                              {userCanDelete && (
+                                <button onClick={() => deleteBatch(b)} className="btn-danger btn-sm" title={t("common.delete")}>
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="filter-bar" style={{ marginBottom: 20 }}>
           <div className="search-wrapper" style={{ flex: 1 }}>

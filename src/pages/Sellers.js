@@ -17,6 +17,13 @@ export default function Sellers() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSeller, setEditingSeller] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const UNIT_STATUS = {
+    available: { label: "🟢 متاحة", color: "#16a34a", bg: "#f0fdf4" },
+    reserved: { label: "🟡 محجوزة", color: "#d97706", bg: "#fffbeb" },
+    sold: { label: "🔴 مباعة", color: "#dc2626", bg: "#fef2f2" },
+  };
 
   const fetchSellers = useCallback(async () => {
     try {
@@ -76,13 +83,45 @@ export default function Sellers() {
     }
   };
 
-  const filtered = sellers.filter(
-    (s) =>
+  const filtered = sellers.filter((s) => {
+    const matchSearch =
       s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.developer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.project?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.phone?.includes(searchTerm)
-  );
+      s.phone?.includes(searchTerm);
+    const matchStatus = statusFilter === "all" || (s.unitStatus || "available") === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const statusCounts = {
+    available: sellers.filter((s) => (s.unitStatus || "available") === "available").length,
+    reserved: sellers.filter((s) => s.unitStatus === "reserved").length,
+    sold: sellers.filter((s) => s.unitStatus === "sold").length,
+  };
+  const pendingCommission = sellers.filter((s) => (s.commissionStatus || "pending") === "pending").reduce((sum, s) => sum + (parseFloat(s.commission) || 0), 0);
+  const paidCommission = sellers.filter((s) => s.commissionStatus === "paid").reduce((sum, s) => sum + (parseFloat(s.commission) || 0), 0);
+
+  async function setUnitStatus(seller, unitStatus) {
+    try {
+      const update = { unitStatus };
+      // المباعة → عمولتها تفضل معلقة لحد التحصيل (من غير تغيير تلقائي)
+      await updateDoc(doc(db, "sellers", seller.id), update);
+      await fetchSellers();
+    } catch (error) {
+      console.error(error);
+      alert(t("common.errorGeneric"));
+    }
+  }
+
+  async function setCommissionStatus(seller, commissionStatus) {
+    try {
+      await updateDoc(doc(db, "sellers", seller.id), { commissionStatus });
+      await fetchSellers();
+    } catch (error) {
+      console.error(error);
+      alert(t("common.errorGeneric"));
+    }
+  }
 
   // ✅ التحقق من صلاحية الحذف
   const userCanDelete = canDelete(userRole);
@@ -118,14 +157,15 @@ export default function Sellers() {
           </button>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
           <input
             type="text"
             placeholder={t("sellers.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
-              width: "100%",
+              flex: 1,
+              minWidth: 200,
               padding: "12px 16px",
               border: "2px solid #e2e8f0",
               borderRadius: "10px",
@@ -133,6 +173,22 @@ export default function Sellers() {
               outline: "none",
             }}
           />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
+            <option value="all">كل الحالات</option>
+            <option value="available">🟢 متاحة</option>
+            <option value="reserved">🟡 محجوزة</option>
+            <option value="sold">🔴 مباعة</option>
+          </select>
+        </div>
+
+        {/* إحصائيات الحالات والعمولات */}
+        <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", marginBottom: 20 }}>
+          <div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{statusCounts.available}</div><div className="stat-label">وحدات متاحة</div></div>
+          <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-pause-circle"></i></div><div className="stat-value">{statusCounts.reserved}</div><div className="stat-label">محجوزة</div></div>
+          <div className="stat-card red"><div className="stat-icon"><i className="fas fa-tag"></i></div><div className="stat-value">{statusCounts.sold}</div><div className="stat-label">مباعة</div></div>
+          <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-hourglass-half"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{pendingCommission.toLocaleString()}</div><div className="stat-label">عمولات معلقة (ج.م)</div></div>
+          <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{paidCommission.toLocaleString()}</div><div className="stat-label">عمولات محصّلة (ج.م)</div></div>
         </div>
 
         {filtered.length === 0 ? (
@@ -154,6 +210,7 @@ export default function Sellers() {
                   <th>{t("sellers.project")}</th>
                   <th>{t("sellers.phone")}</th>
                   <th>{t("sellers.price")}</th>
+                  <th>الحالة</th>
                   <th>{t("sellers.actions")}</th>
                 </tr>
               </thead>
@@ -167,6 +224,20 @@ export default function Sellers() {
                       <td>{seller.project || "-"}</td>
                       <td>{seller.phone || "-"}</td>
                       <td>{seller.price ? `${Number(seller.price).toLocaleString()} EGP` : "-"}</td>
+                      <td>
+                        {(() => {
+                          const st = UNIT_STATUS[seller.unitStatus || "available"] || UNIT_STATUS.available;
+                          return (
+                            <select value={seller.unitStatus || "available"}
+                              onChange={(e) => setUnitStatus(seller, e.target.value)}
+                              style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}44`, borderRadius: 20, padding: "4px 8px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                              <option value="available">🟢 متاحة</option>
+                              <option value="reserved">🟡 محجوزة</option>
+                              <option value="sold">🔴 مباعة</option>
+                            </select>
+                          );
+                        })()}
+                      </td>
                       <td>
                         <button
                           onClick={() => setExpandedId(expandedId === seller.id ? null : seller.id)}
@@ -195,7 +266,7 @@ export default function Sellers() {
                     </tr>
                     {expandedId === seller.id && (
                       <tr>
-                        <td colSpan="7">
+                        <td colSpan="8">
                           <div style={styles.expandedRow}>
                             <div style={styles.expandedGrid}>
                               <div><strong>{t("sellers.major")}:</strong> {seller.major || "-"}</div>
@@ -207,7 +278,15 @@ export default function Sellers() {
                               <div><strong>{t("sellers.kitchen")}:</strong> {seller.kitchen || "-"}</div>
                               <div><strong>{t("sellers.reception")}:</strong> {seller.reception || "-"}</div>
                               <div><strong>{t("sellers.terrace")}:</strong> {seller.terrace || "-"}</div>
-                              <div><strong>{t("sellers.commission")}:</strong> {seller.commission ? `${Number(seller.commission).toLocaleString()} EGP` : "-"}</div>
+                              <div><strong>{t("sellers.commission")}:</strong> {seller.commission ? `${Number(seller.commission).toLocaleString()} EGP` : "-"}
+                                {" "}
+                                <select value={seller.commissionStatus || "pending"}
+                                  onChange={(e) => setCommissionStatus(seller, e.target.value)}
+                                  style={{ marginRight: 6, fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0", padding: "2px 6px" }}>
+                                  <option value="pending">معلقة</option>
+                                  <option value="paid">محصّلة</option>
+                                </select>
+                              </div>
                             </div>
                             {seller.description && (
                               <div style={{ marginTop: 10 }}>

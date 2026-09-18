@@ -38,6 +38,33 @@ export default function Patients() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // الملف الطبي
+  const [filePatient, setFilePatient] = useState(null);
+  const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [] });
+  const [fileLoading, setFileLoading] = useState(false);
+
+  async function openFile(patient) {
+    setFilePatient(patient);
+    setFileLoading(true);
+    setFileData({ appointments: [], prescriptions: [], invoices: [] });
+    try {
+      const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
+      const [aSnap, rSnap, iSnap] = await Promise.all([
+        getDocs(q("appointments")),
+        getDocs(q("prescriptions")),
+        getDocs(q("invoices")),
+      ]);
+      const byPatient = (docs) => docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.patientId === patient.id || x.clientId === patient.id);
+      const appointments = byPatient(aSnap.docs).sort((a, b) => new Date((b.date || "") + "T" + (b.time || "00:00")) - new Date((a.date || "") + "T" + (a.time || "00:00")));
+      const prescriptions = byPatient(rSnap.docs).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      const invoices = byPatient(iSnap.docs).sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+      setFileData({ appointments, prescriptions, invoices });
+    } catch (e) {
+      console.error(e);
+    }
+    setFileLoading(false);
+  }
+
   const stats = {
     total: patients.length,
     newThisMonth: patients.filter((p) => {
@@ -391,6 +418,9 @@ export default function Patients() {
                       <td>{p.totalVisits || 0}</td>
                       <td>
                         <div className="table-actions">
+                          <button onClick={() => openFile(p)} className="btn-primary btn-sm" title="الملف الطبي">
+                            <i className="fas fa-folder-open"></i> الملف
+                          </button>
                           <button onClick={() => openEdit(p)} className="btn-secondary btn-sm">
                             <i className="fas fa-edit"></i> {t("common.edit")}
                           </button>
@@ -445,6 +475,69 @@ export default function Patients() {
                   <button type="submit" className="btn-primary">{t("common.saveEdits")}</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── الملف الطبي ── */}
+        {filePatient && (
+          <div className="modal-backdrop" onClick={() => setFilePatient(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
+              <div className="modal-header">
+                <h3><i className="fas fa-folder-open" style={{ color: "#2563eb" }}></i> الملف الطبي — {filePatient.name}</h3>
+                <button className="modal-close" onClick={() => setFilePatient(null)}>&times;</button>
+              </div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
+                <div>🩸 الفصيلة: <strong>{filePatient.bloodType || "—"}</strong></div>
+                <div>📞 الهاتف: <strong style={{ direction: "ltr" }}>{filePatient.phone || "—"}</strong></div>
+                <div>🎂 السن: <strong>{filePatient.age || "—"}</strong></div>
+                <div>📋 التاريخ المرضي: <strong>{filePatient.medicalHistory || "—"}</strong></div>
+                <div>⚠️ الحساسية: <strong>{filePatient.allergies || "—"}</strong></div>
+                <div>💰 إجمالي المدفوع: <strong>{fileData.invoices.reduce((s, i) => s + (parseFloat(i.paidAmount) || 0), 0).toLocaleString()} {t("currency")}</strong></div>
+              </div>
+              {fileLoading ? (
+                <div className="loading"><div className="spinner"></div>{t("common.loading")}</div>
+              ) : (
+                <>
+                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>📅 المواعيد ({fileData.appointments.length})</h4>
+                  {fileData.appointments.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مواعيد</p> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, maxHeight: 180, overflowY: "auto" }}>
+                      {fileData.appointments.map((a) => (
+                        <div key={a.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
+                          <strong>{a.date} {a.time}</strong>
+                          <span style={{ color: "#64748b" }}>{a.type === "first_visit" ? "كشف" : a.type === "follow_up" ? "متابعة" : a.type || ""}</span>
+                          <span style={{ marginRight: "auto", background: a.status === "done" ? "#f0fdf4" : "#eff6ff", color: a.status === "done" ? "#16a34a" : "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>{a.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>💊 الروشتات ({fileData.prescriptions.length})</h4>
+                  {fileData.prescriptions.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد روشتات</p> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, maxHeight: 180, overflowY: "auto" }}>
+                      {fileData.prescriptions.map((r) => (
+                        <div key={r.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
+                          <div style={{ display: "flex", gap: 8 }}><strong>{r.createdAt ? new Date(r.createdAt).toLocaleDateString("ar-EG") : "—"}</strong><span style={{ color: "#7c3aed" }}>{r.diagnosis || ""}</span></div>
+                          {(r.medicines || []).map((m, i) => (
+                            <div key={i} style={{ color: "#475569" }}>• {m.name} — {m.dose} — {m.frequency} — {m.duration}</div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>🧾 الفواتير ({fileData.invoices.length})</h4>
+                  {fileData.invoices.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد فواتير</p> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto" }}>
+                      {fileData.invoices.map((inv) => (
+                        <div key={inv.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8 }}>
+                          <strong>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "—"}</strong>
+                          <span>الإجمالي: {Number(inv.amount || 0).toLocaleString()}</span>
+                          <span style={{ color: "#16a34a" }}>المدفوع: {Number(inv.paidAmount || 0).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

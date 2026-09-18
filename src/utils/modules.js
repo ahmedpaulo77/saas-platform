@@ -75,7 +75,7 @@ export const INDUSTRY_LABELS = {
   super_market: "🏪 سوبر ماركت",
   pharmacy: "💊 صيدلية",
   restaurant: "🍽️ مطعم / كافيه",
-  clothing: "👕 ملابس",
+    clothing: "🛍️ أزياء",
   clinic: "🩺 طبيب / عيادة",
 };
 
@@ -179,7 +179,7 @@ export const MODULE_MAP = {
     "messages",
   ],
 
-  // ملابس - مقاسات وألوان + مهام ورسائل للموظفين
+  // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام ورسائل للموظفين
   clothing: [
     "clients",
     "invoices",
@@ -293,7 +293,7 @@ export function getIndustryShortLabel(industry) {
     super_market: "🏪 سوبر ماركت",
     pharmacy: "💊 صيدلية",
     restaurant: "🍽️ مطعم",
-    clothing: "👕 ملابس",
+  clothing: "🛍️ أزياء",
     clinic: "🩺 عيادة",
   };
   return labels[industry] || "🏢 عام";

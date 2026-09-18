@@ -19,6 +19,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { getAvailableModules } from "../utils/modules";
 import { logActivity } from "../utils/auditLogger";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
+import { createReturn } from "../utils/returns";
 import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
@@ -179,6 +180,13 @@ export default function Invoices() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [paying, setPaying] = useState(false);
+
+  // مرتجع بيع
+  const [returningInvoice, setReturningInvoice] = useState(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnQtys, setReturnQtys] = useState({});
+  const [returnReason, setReturnReason] = useState("");
+  const [returning, setReturning] = useState(false);
 
   // إضافة عميل جديد سريع
   const [showQuickAddClient, setShowQuickAddClient] = useState(false);
@@ -588,6 +596,49 @@ export default function Invoices() {
       alert(t("in.payFail"));
     }
     setPaying(false);
+  }
+
+  // ── مرتجع بيع (جزئي أو كلي) مع رد المخزون ──
+  async function submitSaleReturn(e) {
+    e.preventDefault();
+    if (!returningInvoice) return;
+    const lines = (returningInvoice.products || []).map((p, idx) => {
+      const rq = parseFloat(returnQtys[idx]) || 0;
+      const oq = parseFloat(p.quantity) || 0;
+      const ratio = oq > 0 ? Math.min(rq, oq) / oq : 0;
+      return {
+        productId: p.productId,
+        quantity: Math.min(rq, oq),
+        weight: p.weight || "",
+        unit: p.unit || "",
+        amount: (parseFloat(p.amount) || 0) * ratio,
+      };
+    }).filter((l) => l.quantity > 0);
+    if (lines.length === 0) { alert("حدد كمية مرتجع أكبر من صفر"); return; }
+    setReturning(true);
+    try {
+      const clientName = clients.find((c) => c.id === returningInvoice.clientId)?.name || "";
+      await createReturn({
+        kind: "sale",
+        refId: returningInvoice.id,
+        entityId: returningInvoice.clientId,
+        entityName: clientName,
+        lines,
+        reason: returnReason,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        isTrader,
+      });
+      setShowReturnModal(false);
+      setReturningInvoice(null);
+      setReturnQtys({});
+      setReturnReason("");
+      await Promise.all([resetPagination(), fetchProducts()]);
+      alert("تم تسجيل المرتجع ورد المخزون");
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+    setReturning(false);
   }
 
   // ── طباعة فاتورة حرارية ──
@@ -1766,6 +1817,21 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                               >
                                 <i className="fas fa-edit"></i>
                               </button>
+                              {!isRestaurant && (
+                                <button
+                                  onClick={() => {
+                                    setReturningInvoice(inv);
+                                    setReturnQtys({});
+                                    setReturnReason("");
+                                    setShowReturnModal(true);
+                                  }}
+                                  className="btn-secondary btn-sm"
+                                  title="مرتجع"
+                                  style={{ borderColor: "#f59e0b", color: "#d97706" }}
+                                >
+                                  <i className="fas fa-undo"></i>
+                                </button>
+                              )}
                               {userCanDelete && (
                                 <button
                                   onClick={() => deleteInvoice(inv.id)}
@@ -2442,6 +2508,50 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                         <i className="fas fa-check"></i> {t("in.confirmPay")}
                       </>
                     )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── مودال مرتجع البيع ── */}
+        {showReturnModal && returningInvoice && (
+          <div className="modal-overlay" onClick={() => setShowReturnModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>
+                  <i className="fas fa-undo" style={{ color: "#d97706" }}></i>{" "}
+                  مرتجع بيع — هيزوّد المخزون
+                </h3>
+                <button className="modal-close" onClick={() => setShowReturnModal(false)}>×</button>
+              </div>
+              <form onSubmit={submitSaleReturn}>
+                <div className="modal-body">
+                  {(returningInvoice.products || []).map((p, idx) => {
+                    const prod = products.find((pr) => pr.id === p.productId);
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || "صنف"} <span style={{ color: "#94a3b8" }}>(مباع: {p.quantity})</span></span>
+                        <input type="number" min="0" max={p.quantity} step="0.001" placeholder="مرتجع"
+                          value={returnQtys[idx] || ""}
+                          onChange={(e) => setReturnQtys({ ...returnQtys, [idx]: e.target.value })}
+                          style={{ width: 90, padding: "6px 8px", border: "1px solid #cbd5e1", borderRadius: 8, textAlign: "center" }} />
+                      </div>
+                    );
+                  })}
+                  <div className="form-group" style={{ marginTop: 12 }}>
+                    <label>سبب المرتجع (اختياري)</label>
+                    <input type="text" placeholder="مثال: صنف تالف"
+                      value={returnReason} onChange={(e) => setReturnReason(e.target.value)} />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn-secondary" onClick={() => setShowReturnModal(false)}>
+                    {t("common.cancel")}
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={returning}>
+                    {returning ? "جاري الحفظ..." : "تأكيد المرتجع"}
                   </button>
                 </div>
               </form>

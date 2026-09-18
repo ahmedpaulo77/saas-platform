@@ -103,9 +103,9 @@ export default function MyCompany() {
       <div className="main-content">
         <div className="header">
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{t('mc.title')}</h1>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{t('mc.myTitle')}</h1>
             <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
-              {t('mc.subtitle')}
+              {t('mc.mySubtitle')}
             </p>
           </div>
         </div>
@@ -133,11 +133,11 @@ export default function MyCompany() {
             <div className="card" style={{ padding: '24px 28px' }}>
               <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
                 <i className="fas fa-building" style={{ marginLeft: 8, color: '#6366f1' }}></i>
-                {t('mc.title')}
+                {t('mc.myTitle')}
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 <div className="stat-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mc.name')}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{t('mc.companyName')}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: '#1e293b' }}>
                     {company.name || '—'}
                   </div>

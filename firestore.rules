@@ -1,488 +1,534 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
 
-    // ============================================================
-    // Helper functions — الأساسيات
-    // ============================================================
+      // ============================================================
+      // Helper functions — الأساسيات
+      // ============================================================
 
-    function isLoggedIn() {
-      return request.auth != null;
-    }
+      function isLoggedIn() {
+        return request.auth != null;
+      }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
+      function getUserData() {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      }
 
-    function isSuperAdmin() {
-      return isLoggedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        getUserData().role == 'super_admin';
-    }
+      function isSuperAdmin() {
+        return isLoggedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          getUserData().role == 'super_admin';
+      }
 
-    function isAdmin() {
-      return isLoggedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (getUserData().role == 'admin' || getUserData().role == 'super_admin');
-    }
+      function isAdmin() {
+        return isLoggedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (getUserData().role == 'admin' || getUserData().role == 'super_admin');
+      }
 
-    function userCompanyId() {
-      return isLoggedIn() ? getUserData().companyId : null;
-    }
+      function userCompanyId() {
+        return isLoggedIn() ? getUserData().companyId : null;
+      }
 
-    // ============================================================
-    // ✅ فحوصات isActive — الإيقاف الحقيقي على مستوى القواعد
-    // ============================================================
+      // ============================================================
+      // ✅ فحوصات isActive — الإيقاف الحقيقي على مستوى القواعد
+      // ============================================================
 
-    function requestingUserIsActive() {
-      return isLoggedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        getUserData().isActive != false
-      );
-    }
-
-    function requestingCompanyIsActive() {
-      return isLoggedIn() && (
-        isSuperAdmin() ||
-        userCompanyId() == null ||
-        !exists(/databases/$(database)/documents/companies/$(userCompanyId())) ||
-        get(/databases/$(database)/documents/companies/$(userCompanyId())).data.isActive != false
-      );
-    }
-
-    function fullyActive() {
-      return requestingUserIsActive() && requestingCompanyIsActive();
-    }
-
-    // ============================================================
-    // ✅ صلاحيات القراءة/الإنشاء/الحذف/التعديل على بيانات الشركة
-    // ============================================================
-
-    function canCreateForCompany() {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (isSuperAdmin() ||
-         (request.resource.data.companyId == userCompanyId() && userCompanyId() != null));
-    }
-
-    function canAccessCompanyDoc() {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (isSuperAdmin() || resource.data.companyId == userCompanyId());
-    }
-
-    // 🔴 إصلاح ثغرة (4): منع تحويل المستند لشركة تانية أثناء التعديل
-    function canUpdateCompanyDoc() {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
-        (!('companyId' in request.resource.data) ||
-         request.resource.data.companyId == resource.data.companyId);
-    }
-
-    function canDeleteCompanyDoc() {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        isAdmin() &&
-        (isSuperAdmin() || resource.data.companyId == userCompanyId());
-    }
-
-    // 🔴 إصلاح: كولكشنز مالية حساسة — الموظف العادي ميعدّلش فواتير/مصروفات بعد إنشائها
-    //    القراءة/الإنشاء لسه لأي حد في الشركة (عشان الموظف يقدر يعمل فاتورة)
-    //    لكن التعديل (زي تغيير المبلغ أو حالة "مدفوعة") لـ isAdmin() بس
-    function canUpdateFinancialDoc() {
-      return fullyActive() &&
-        isAdmin() &&
-        (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
-        (!('companyId' in request.resource.data) ||
-         request.resource.data.companyId == resource.data.companyId);
-    }
-
-    // 🔴 إصلاح: حماية أسعار المخزون — الموظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
-    function canUpdateInventoryDoc() {
-      return canUpdateCompanyDoc() &&
-        (
-          isAdmin() ||
-          !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['price', 'costPrice', 'sellingPrice', 'purchasePrice'])
+      function requestingUserIsActive() {
+        return isLoggedIn() && (
+          !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+          getUserData().isActive != false
         );
-    }
+      }
 
-    // ============================================================
-    // ✅ صلاحيات إدارة المستخدمين لأدمن الشركة
-    // ============================================================
+      function requestingCompanyIsActive() {
+        return isLoggedIn() && (
+          isSuperAdmin() ||
+          userCompanyId() == null ||
+          !exists(/databases/$(database)/documents/companies/$(userCompanyId())) ||
+          get(/databases/$(database)/documents/companies/$(userCompanyId())).data.isActive != false
+        );
+      }
 
-    function canManageTargetUser(targetUserData) {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (
+      function fullyActive() {
+        return requestingUserIsActive() && requestingCompanyIsActive();
+      }
+
+      // ============================================================
+      // ✅ صلاحيات القراءة/الإنشاء/الحذف/التعديل على بيانات الشركة
+      // ============================================================
+
+      function canCreateForCompany() {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (isSuperAdmin() ||
+          (request.resource.data.companyId == userCompanyId() && userCompanyId() != null));
+      }
+
+      function canAccessCompanyDoc() {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId());
+      }
+
+      // 🔴 إصلاح ثغرة (4): منع تحويل المستند لشركة تانية أثناء التعديل
+      function canUpdateCompanyDoc() {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
+          (!('companyId' in request.resource.data) ||
+          request.resource.data.companyId == resource.data.companyId);
+      }
+
+      function canDeleteCompanyDoc() {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          isAdmin() &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId());
+      }
+
+      // 🔴 إصلاح: كولكشنز مالية حساسة — الموظف العادي ميعدّلش فواتير/مصروفات بعد إنشائها
+      //    القراءة/الإنشاء لسه لأي حد في الشركة (عشان الموظف يقدر يعمل فاتورة)
+      //    لكن التعديل (زي تغيير المبلغ أو حالة "مدفوعة") لـ isAdmin() بس
+      function canUpdateFinancialDoc() {
+        return fullyActive() &&
+          isAdmin() &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
+          (!('companyId' in request.resource.data) ||
+          request.resource.data.companyId == resource.data.companyId);
+      }
+
+      // 🔴 إصلاح: حماية أسعار المخزون — الموظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
+      function canUpdateInventoryDoc() {
+        return canUpdateCompanyDoc() &&
+          (
+            isAdmin() ||
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['price', 'costPrice', 'sellingPrice', 'purchasePrice'])
+          );
+      }
+
+      // ✅ المطبخ: أي فرد في الشركة يقدر يغيّر حالة الأوردر فقط (من غير المبالغ)
+      function canUpdateOrderStatus() {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId()) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['orderStatus']) &&
+          request.resource.data.orderStatus in ['new', 'preparing', 'ready', 'completed', 'delivered', 'cancelled'];
+      }
+
+      // ============================================================
+      // ✅ صلاحيات إدارة المستخدمين لأدمن الشركة
+      // ============================================================
+
+      function canManageTargetUser(targetUserData) {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (
+            isSuperAdmin() ||
+            (
+              isAdmin() &&
+              targetUserData != null &&
+              targetUserData.role != 'super_admin' &&
+              targetUserData.companyId == userCompanyId() &&
+              userCompanyId() != null
+            )
+          );
+      }
+
+      function canCreateTargetUser(newUserData) {
+        return fullyActive() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (
+            isSuperAdmin() ||
+            (
+              isAdmin() &&
+              newUserData.role != 'super_admin' &&
+              newUserData.companyId == userCompanyId() &&
+              userCompanyId() != null
+            )
+          );
+      }
+
+      // ============================================================
+      // users/{userId}
+      // ============================================================
+      match /users/{userId} {
+
+        allow get: if
+          (isLoggedIn() && request.auth.uid == userId) ||
+          isSuperAdmin() ||
+          (
+            fullyActive() &&
+            isAdmin() &&
+            resource.data.role != 'super_admin' &&
+            resource.data.companyId == userCompanyId() &&
+            userCompanyId() != null
+          );
+
+        allow list: if fullyActive() && (
+          isSuperAdmin() ||
+          (isAdmin() && userCompanyId() != null)
+        );
+
+        // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
+        allow create: if
+          request.resource.data.keys().hasOnly(['email', 'role', 'companyId', 'createdAt', 'isActive', '_joinCode']) &&
+          (
+            // أ) هو نفسه اللي أنشأ الشركة دي لتوه (مقارنة creatorUid على مستند الشركة)
+            isLoggedIn() && request.auth.uid == userId &&
+            request.resource.data.role == 'admin' &&
+            request.resource.data.companyId != null &&
+            exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+            get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
+          ) || (
+            // ب) بينضم بكود دعوة حقيقي اتحقق منه عبر invite_codes
+            isLoggedIn() && request.auth.uid == userId &&
+            request.resource.data.role != 'super_admin' &&
+            '_joinCode' in request.resource.data &&
+            exists(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)) &&
+            get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.companyId == request.resource.data.companyId &&
+            get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.role == request.resource.data.role
+          ) || (
+            // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا
+            canCreateTargetUser(request.resource.data)
+          );
+
+        // 🟡 allowlist: امنع أي حقل مش من القائمة دي يتغير أو يتضاف
+        //    ⚠️ عدّل اللستة دي لو عندك حقول بروفايل تانية (زي name, phone, photoURL...)
+        allow update: if fullyActive() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode']) &&
+          (
           isSuperAdmin() ||
           (
             isAdmin() &&
-            targetUserData != null &&
-            targetUserData.role != 'super_admin' &&
-            targetUserData.companyId == userCompanyId() &&
-            userCompanyId() != null
+            canManageTargetUser(resource.data) &&
+            request.resource.data.role != 'super_admin' &&
+            request.auth.uid != userId
+          ) ||
+          (
+            isLoggedIn() && request.auth.uid == userId &&
+            request.resource.data.role == resource.data.role &&
+            request.resource.data.companyId == resource.data.companyId &&
+            (
+              !('isActive' in request.resource.data) ||
+              request.resource.data.isActive == resource.data.isActive ||
+              resource.data.isActive == null
+            )
+          ) ||
+          (
+            // 🆕 حالة Setup.js: مستخدم بلا شركة (companyId:null) بيكمل التسجيل
+            // بإنشاء أول شركة ليه ويبقى أدمنها — نفس منطق فرع "أ" في create بالظبط
+            isLoggedIn() && request.auth.uid == userId &&
+            resource.data.companyId == null &&
+            request.resource.data.role == 'admin' &&
+            request.resource.data.companyId != null &&
+            exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+            get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
           )
         );
-    }
 
-    function canCreateTargetUser(newUserData) {
-      return fullyActive() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (
-          isSuperAdmin() ||
+        allow delete: if fullyActive() && (
+          (isSuperAdmin() && request.auth.uid != userId) ||
           (
             isAdmin() &&
-            newUserData.role != 'super_admin' &&
-            newUserData.companyId == userCompanyId() &&
-            userCompanyId() != null
+            !isSuperAdmin() &&
+            resource.data.role != 'super_admin' &&
+            resource.data.companyId == userCompanyId() &&
+            request.auth.uid != userId
           )
         );
-    }
+      }
 
-    // ============================================================
-    // users/{userId}
-    // ============================================================
-    match /users/{userId} {
+      // ============================================================
+      // companies/{companyId}
+      // ============================================================
+      match /companies/{companyId} {
+        // ✅ get: مفتوح لكل المسجلين — الأكواد بقت في كولكشن تاني، فمفيش حاجة حساسة هنا
+        allow get: if isLoggedIn();
 
-      allow get: if
-        (isLoggedIn() && request.auth.uid == userId) ||
-        isSuperAdmin() ||
-        (
-          fullyActive() &&
-          isAdmin() &&
-          resource.data.role != 'super_admin' &&
-          resource.data.companyId == userCompanyId() &&
-          userCompanyId() != null
-        );
+        // 🔴 إصلاح ثغرة (2): list مقفول تماماً — مفيش أي سبب برمجي لعمل list على الشركات
+        allow list: if isSuperAdmin();
 
-      allow list: if fullyActive() && (
-        isSuperAdmin() ||
-        (isAdmin() && userCompanyId() != null)
-      );
-
-      // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
-      allow create: if
-        request.resource.data.keys().hasOnly(['email', 'role', 'companyId', 'createdAt', 'isActive', '_joinCode']) &&
-        (
-          // أ) هو نفسه اللي أنشأ الشركة دي لتوه (مقارنة creatorUid على مستند الشركة)
-          isLoggedIn() && request.auth.uid == userId &&
-          request.resource.data.role == 'admin' &&
-          request.resource.data.companyId != null &&
-          exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
-          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
-        ) || (
-          // ب) بينضم بكود دعوة حقيقي اتحقق منه عبر invite_codes
-          isLoggedIn() && request.auth.uid == userId &&
-          request.resource.data.role != 'super_admin' &&
-          '_joinCode' in request.resource.data &&
-          exists(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)) &&
-          get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.companyId == request.resource.data.companyId &&
-          get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.role == request.resource.data.role
-        ) || (
-          // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا
-          canCreateTargetUser(request.resource.data)
-        );
-
-      // 🟡 allowlist: امنع أي حقل مش من القائمة دي يتغير أو يتضاف
-      //    ⚠️ عدّل اللستة دي لو عندك حقول بروفايل تانية (زي name, phone, photoURL...)
-      allow update: if fullyActive() &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode']) &&
-        (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          canManageTargetUser(resource.data) &&
-          request.resource.data.role != 'super_admin' &&
-          request.auth.uid != userId
-        ) ||
-        (
-          isLoggedIn() && request.auth.uid == userId &&
-          request.resource.data.role == resource.data.role &&
-          request.resource.data.companyId == resource.data.companyId &&
-          (
-            !('isActive' in request.resource.data) ||
-            request.resource.data.isActive == resource.data.isActive ||
-            resource.data.isActive == null
-          )
-        ) ||
-        (
-          // 🆕 حالة Setup.js: مستخدم بلا شركة (companyId:null) بيكمل التسجيل
-          // بإنشاء أول شركة ليه ويبقى أدمنها — نفس منطق فرع "أ" في create بالظبط
-          isLoggedIn() && request.auth.uid == userId &&
-          resource.data.companyId == null &&
-          request.resource.data.role == 'admin' &&
-          request.resource.data.companyId != null &&
-          exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
-          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
-        )
-      );
-
-      allow delete: if fullyActive() && (
-        (isSuperAdmin() && request.auth.uid != userId) ||
-        (
-          isAdmin() &&
-          !isSuperAdmin() &&
-          resource.data.role != 'super_admin' &&
-          resource.data.companyId == userCompanyId() &&
-          request.auth.uid != userId
-        )
-      );
-    }
-
-    // ============================================================
-    // companies/{companyId}
-    // ============================================================
-    match /companies/{companyId} {
-      // ✅ get: مفتوح لكل المسجلين — الأكواد بقت في كولكشن تاني، فمفيش حاجة حساسة هنا
-      allow get: if isLoggedIn();
-
-      // 🔴 إصلاح ثغرة (2): list مقفول تماماً — مفيش أي سبب برمجي لعمل list على الشركات
-      allow list: if isSuperAdmin();
-
-      // إنشاء شركة — لازم يثبت creatorUid لنفسه، وميكونش عنده شركة أصلاً
-      allow create: if requestingUserIsActive() &&
-        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-         getUserData().companyId == null) &&
-        request.resource.data.isActive == true &&
-        request.resource.data.creatorUid == request.auth.uid &&
-        // 🟡 allowlist — عدّل اللستة لو فورم إنشاء الشركة فيه حقول زيادة (logo, address...)
-        request.resource.data.keys().hasOnly(['name', 'email', 'industry', 'createdAt', 'isActive', 'creatorUid']);
+        // إنشاء شركة — لازم يثبت creatorUid لنفسه، وميكونش عنده شركة أصلاً
+        allow create: if requestingUserIsActive() &&
+          (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+          getUserData().companyId == null) &&
+          request.resource.data.isActive == true &&
+          request.resource.data.creatorUid == request.auth.uid &&
+          // 🟡 allowlist — عدّل اللستة لو فورم إنشاء الشركة فيه حقول زيادة (logo, address...)
+          request.resource.data.keys().hasOnly(['name', 'email', 'industry', 'createdAt', 'isActive', 'creatorUid']);
 
       // 🔴 إصلاح ثغرة (3): التعديل لـ isAdmin() بس، مع حماية isActive/plan/subscription
       allow update: if fullyActive() &&
         // 🟡 allowlist — عدّل اللستة لو صفحة إعدادات الشركة فيها حقول زيادة
+        // ✅ adminInviteCode/userInviteCode: صفحة "شركتي" بتولّدهم عند أول فتح لو ناقصين
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone']) &&
-        (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          userCompanyId() == companyId &&
-          (!('isActive' in request.resource.data) || request.resource.data.isActive == resource.data.isActive) &&
-          (!('plan' in request.resource.data) || request.resource.data.plan == resource.data.plan) &&
-          (!('subscription' in request.resource.data) || request.resource.data.subscription == resource.data.subscription) &&
-          (!('creatorUid' in request.resource.data) || request.resource.data.creatorUid == resource.data.creatorUid)
-        )
-      );
-
-      allow delete: if isSuperAdmin();
-    }
-
-    // ============================================================
-    // companies/{companyId}/codes/current — نسخة عرض للأدمن بس
-    // (المصدر الحقيقي اللي بيتحقق منه وقت الانضمام هو invite_codes، ده للعرض فقط)
-    // ============================================================
-    match /companies/{companyId}/codes/{docId} {
-      allow get, list: if fullyActive() && isAdmin() && userCompanyId() == companyId;
-      allow create, update: if fullyActive() && isAdmin() && userCompanyId() == companyId &&
-        request.resource.data.keys().hasOnly(['adminCode', 'userCode', 'updatedAt']);
-      allow delete: if false;
-    }
-
-    // ============================================================
-    // invite_codes/{code} — بديل joinCode الآمن (لا list خالص)
-    // ============================================================
-    match /invite_codes/{code} {
-      // get فقط لو عارف الكود بالظبط — مفيش list
-      allow get: if isLoggedIn();
-      allow list: if false;
-
-      // الإنشاء مسموح في 3 حالات:
-      //  أ) السوبر أدمن (بينشئ شركة لعميل ويولّد أكوادها)
-      //  ب) نفس الشخص اللي أنشأ الشركة (لحظة الإنشاء، قبل ما يبقى عنده مستند user بالـ companyId)
-      //  ج) أي أدمن حالي للشركة دي (عشان يقدر "يولّد كود جديد" لو الكود القديم ضاع)
-      allow create: if isLoggedIn() &&
-        request.resource.data.companyId != null &&
-        exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
-        (
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'adminInviteCode', 'userInviteCode']) &&
+          (
           isSuperAdmin() ||
-          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid ||
-          (fullyActive() && isAdmin() && userCompanyId() == request.resource.data.companyId)
+          (
+            isAdmin() &&
+            userCompanyId() == companyId &&
+            (!('isActive' in request.resource.data) || request.resource.data.isActive == resource.data.isActive) &&
+            (!('plan' in request.resource.data) || request.resource.data.plan == resource.data.plan) &&
+            (!('subscription' in request.resource.data) || request.resource.data.subscription == resource.data.subscription) &&
+            (!('creatorUid' in request.resource.data) || request.resource.data.creatorUid == resource.data.creatorUid)
+          )
         );
 
-      // إعادة توليد/حذف الكود: أدمن الشركة أو السوبر أدمن بس
-      allow update, delete: if fullyActive() && isAdmin() &&
-        resource.data.companyId == userCompanyId();
+        allow delete: if isSuperAdmin();
+      }
+
+      // ============================================================
+      // companies/{companyId}/codes/current — نسخة عرض للأدمن بس
+      // (المصدر الحقيقي اللي بيتحقق منه وقت الانضمام هو invite_codes، ده للعرض فقط)
+      // ============================================================
+      match /companies/{companyId}/codes/{docId} {
+        allow get, list: if fullyActive() && isAdmin() && userCompanyId() == companyId;
+        allow create, update: if fullyActive() && isAdmin() && userCompanyId() == companyId &&
+          request.resource.data.keys().hasOnly(['adminCode', 'userCode', 'updatedAt']);
+        allow delete: if false;
+      }
+
+      // ============================================================
+      // invite_codes/{code} — بديل joinCode الآمن (لا list خالص)
+      // ============================================================
+      match /invite_codes/{code} {
+        // get فقط لو عارف الكود بالظبط — مفيش list
+        allow get: if isLoggedIn();
+        allow list: if false;
+
+        // الإنشاء مسموح في 3 حالات:
+        //  أ) السوبر أدمن (بينشئ شركة لعميل ويولّد أكوادها)
+        //  ب) نفس الشخص اللي أنشأ الشركة (لحظة الإنشاء، قبل ما يبقى عنده مستند user بالـ companyId)
+        //  ج) أي أدمن حالي للشركة دي (عشان يقدر "يولّد كود جديد" لو الكود القديم ضاع)
+        allow create: if isLoggedIn() &&
+          request.resource.data.companyId != null &&
+          exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
+          (
+            isSuperAdmin() ||
+            get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid ||
+            (fullyActive() && isAdmin() && userCompanyId() == request.resource.data.companyId)
+          );
+
+        // إعادة توليد/حذف الكود: أدمن الشركة أو السوبر أدمن بس
+        allow update, delete: if fullyActive() && isAdmin() &&
+          resource.data.companyId == userCompanyId();
+      }
+
+      // ============================================================
+      // بيانات الشركة — عزل كامل حسب companyId
+      // ============================================================
+
+      match /clients/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /sellers/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /buyers/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // 🔴 مالية — التعديل بعد الإنشاء لـ isAdmin() بس (منع تلاعب موظف بفاتورة مدفوعة)
+      // ✅ استثناء: تغيير orderStatus مسموح لأي فرد في الشركة (شاشة المطبخ)
+      match /invoices/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc() || canUpdateOrderStatus();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /quotations/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /purchases/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /expenses/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // 🔴 المخزون: أي موظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
+      match /inventory/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateInventoryDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /tasks/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /projects/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /suppliers/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /messages/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /patients/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /appointments/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /prescriptions/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /menu_categories/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /raw_materials/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /batches/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // المرتجعات — مالية: الإنشاء لأي فرد، التعديل/الحذف للأدمن
+      match /returns/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // المستخلصات — مالية زي الفواتير
+      match /certificates/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // المعاينات العقارية
+      match /viewings/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // ============================================================
+      // auditLogs/{docId}
+      // ============================================================
+      match /auditLogs/{docId} {
+        allow get:    if fullyActive() && isAdmin() && canAccessCompanyDoc();
+        allow list:   if fullyActive() && isAdmin() && (
+                        isSuperAdmin() ||
+                        (userCompanyId() != null)
+                      );
+        // ✅ إصلاح نهائي: الشكل الحقيقي 100% من utils/auditLogger.js
+        //    - performedBy.uid بيتحقق منه مباشرة (أقوى من مقارنة الإيميل)
+        //    - createdAt هو Timestamp حقيقي (new Date() بيتحول تلقائي) فبنتأكد إنه قريب من وقت السيرفر
+        //      (نافذة ٥ دقايق) عشان نمنع تلاعب بتواريخ قديمة/مستقبلية في السجل
+        allow create: if canCreateForCompany() &&
+          request.resource.data.keys().hasOnly(
+            ['actionType', 'collectionName', 'itemId', 'details', 'performedBy', 'companyId', 'timestamp', 'createdAt']
+          ) &&
+          request.resource.data.performedBy.uid == request.auth.uid &&
+          request.resource.data.performedBy.role == getUserData().role &&
+          request.resource.data.createdAt > request.time - duration.value(5, 'm') &&
+          request.resource.data.createdAt < request.time + duration.value(5, 'm');
+      }
+
+      // ============================================================
+      // fcm_tokens/{userId}
+      // ============================================================
+      match /fcm_tokens/{userId} {
+        allow get:    if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
+        allow create: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
+        allow update: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
+        allow delete: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
+        allow list:   if fullyActive() && isSuperAdmin();
+      }
+
     }
-
-    // ============================================================
-    // بيانات الشركة — عزل كامل حسب companyId
-    // ============================================================
-
-    match /clients/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /sellers/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /buyers/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    // 🔴 مالية — التعديل بعد الإنشاء لـ isAdmin() بس (منع تلاعب موظف بفاتورة مدفوعة)
-    match /invoices/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateFinancialDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /quotations/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateFinancialDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /purchases/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateFinancialDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /expenses/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateFinancialDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    // 🔴 المخزون: أي موظف يقدر يعدّل الكمية، بس السعر لـ isAdmin() بس
-    match /inventory/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateInventoryDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /tasks/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /projects/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /suppliers/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /messages/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /patients/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /appointments/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /prescriptions/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /menu_categories/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    match /raw_materials/{docId} {
-      allow get:    if canAccessCompanyDoc();
-      allow list:   if canAccessCompanyDoc();
-      allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
-      allow delete: if canDeleteCompanyDoc();
-    }
-
-    // ============================================================
-    // auditLogs/{docId}
-    // ============================================================
-    match /auditLogs/{docId} {
-      allow get:    if fullyActive() && isAdmin() && canAccessCompanyDoc();
-      allow list:   if fullyActive() && isAdmin() && (
-                      isSuperAdmin() ||
-                      (userCompanyId() != null)
-                    );
-      // ✅ إصلاح نهائي: الشكل الحقيقي 100% من utils/auditLogger.js
-      //    - performedBy.uid بيتحقق منه مباشرة (أقوى من مقارنة الإيميل)
-      //    - createdAt هو Timestamp حقيقي (new Date() بيتحول تلقائي) فبنتأكد إنه قريب من وقت السيرفر
-      //      (نافذة ٥ دقايق) عشان نمنع تلاعب بتواريخ قديمة/مستقبلية في السجل
-      allow create: if canCreateForCompany() &&
-        request.resource.data.keys().hasOnly(
-          ['actionType', 'collectionName', 'itemId', 'details', 'performedBy', 'companyId', 'timestamp', 'createdAt']
-        ) &&
-        request.resource.data.performedBy.uid == request.auth.uid &&
-        request.resource.data.performedBy.role == getUserData().role &&
-        request.resource.data.createdAt > request.time - duration.value(5, 'm') &&
-        request.resource.data.createdAt < request.time + duration.value(5, 'm');
-    }
-
-    // ============================================================
-    // fcm_tokens/{userId}
-    // ============================================================
-    match /fcm_tokens/{userId} {
-      allow get:    if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
-      allow create: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
-      allow update: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
-      allow delete: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
-      allow list:   if fullyActive() && isSuperAdmin();
-    }
-
   }
-}

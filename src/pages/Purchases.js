@@ -16,6 +16,7 @@ import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getAvailableModules } from "../utils/modules";
 import { logActivity } from "../utils/auditLogger";
+import { createReturn } from "../utils/returns";
 import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
@@ -53,6 +54,56 @@ export default function Purchases() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [paying, setPaying] = useState(false);
+
+  // مرتجع شراء
+  const [returningPurchase, setReturningPurchase] = useState(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnQtys, setReturnQtys] = useState({});
+  const [returnReason, setReturnReason] = useState("");
+  const [returning, setReturning] = useState(false);
+
+  async function submitPurchaseReturn(e) {
+    e.preventDefault();
+    if (!returningPurchase) return;
+    const items = getPurchaseItems(returningPurchase);
+    const lines = items.map((it, idx) => {
+      const rq = parseFloat(returnQtys[idx]) || 0;
+      const oq = parseFloat(it.quantity) || 0;
+      const ratio = oq > 0 ? Math.min(rq, oq) / oq : 0;
+      return {
+        productId: it.productId,
+        quantity: Math.min(rq, oq),
+        weight: it.weight || "",
+        unit: it.unit || "",
+        amount: (parseFloat(it.amount) || 0) * ratio,
+      };
+    }).filter((l) => l.quantity > 0);
+    if (lines.length === 0) { alert("حدد كمية مرتجع أكبر من صفر"); return; }
+    setReturning(true);
+    try {
+      const suppName = suppliers.find((s) => s.id === returningPurchase.supplierId)?.name || "";
+      await createReturn({
+        kind: "purchase",
+        refId: returningPurchase.id,
+        entityId: returningPurchase.supplierId,
+        entityName: suppName,
+        lines,
+        reason: returnReason,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        isTrader,
+      });
+      setShowReturnModal(false);
+      setReturningPurchase(null);
+      setReturnQtys({});
+      setReturnReason("");
+      await Promise.all([resetPagination(), fetchProducts()]);
+      alert("تم تسجيل مرتجع الشراء وخصمه من المخزون");
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+    setReturning(false);
+  }
 
   // ✅ حساب مبلغ الصنف: سعر الوحدة × الوزن (للكيلو) أو × العدد
   const calculateItemAmount = (unit, unitCost, quantity, weight) =>
@@ -995,6 +1046,19 @@ export default function Purchases() {
                               >
                                 <i className="fas fa-edit"></i>
                               </button>
+                              <button
+                                onClick={() => {
+                                  setReturningPurchase(p);
+                                  setReturnQtys({});
+                                  setReturnReason("");
+                                  setShowReturnModal(true);
+                                }}
+                                className="btn-secondary btn-sm"
+                                title="مرتجع شراء"
+                                style={{ borderColor: "#f59e0b", color: "#d97706" }}
+                              >
+                                <i className="fas fa-undo"></i>
+                              </button>
                               {userCanDelete && (
                                 <button
                                   onClick={() => deletePurchase(p.id)}
@@ -1177,11 +1241,54 @@ export default function Purchases() {
                     </>
                   )}
                 </button>
-              </div>
-            </form>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
+
+        {/* ── مودال مرتجع الشراء ── */}
+        {showReturnModal && returningPurchase && (
+          <div className="modal-overlay" onClick={() => setShowReturnModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>
+                  <i className="fas fa-undo" style={{ color: "#d97706" }}></i> مرتجع شراء — هينقص المخزون
+                </h3>
+                <button className="modal-close" onClick={() => setShowReturnModal(false)}>×</button>
+              </div>
+              <form onSubmit={submitPurchaseReturn}>
+                <div className="modal-body">
+                  {getPurchaseItems(returningPurchase).map((it, idx) => {
+                    const prod = products.find((pr) => pr.id === it.productId);
+                    return (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || "صنف"} <span style={{ color: "#94a3b8" }}>(مشترى: {it.quantity})</span></span>
+                        <input type="number" min="0" max={it.quantity} step="0.001" placeholder="مرتجع"
+                          value={returnQtys[idx] || ""}
+                          onChange={(e) => setReturnQtys({ ...returnQtys, [idx]: e.target.value })}
+                          style={{ width: 90, padding: "6px 8px", border: "1px solid #cbd5e1", borderRadius: 8, textAlign: "center" }} />
+                      </div>
+                    );
+                  })}
+                  <div className="form-group" style={{ marginTop: 12 }}>
+                    <label>سبب المرتجع (اختياري)</label>
+                    <input type="text" placeholder="مثال: أصناف تالفة"
+                      value={returnReason} onChange={(e) => setReturnReason(e.target.value)} />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn-secondary" onClick={() => setShowReturnModal(false)}>
+                    {t("common.cancel")}
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={returning}>
+                    {returning ? "جاري الحفظ..." : "تأكيد المرتجع"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }

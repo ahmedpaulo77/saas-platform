@@ -208,6 +208,34 @@ export default function Appointments() {
     }
   }
 
+  // ── تذكير واتساب: wa.me برابط جاهز (الموبايل/الكمبيوتر يفتح المحادثة) ──
+  function waNumber(phone) {
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("002")) return digits.slice(2);
+    if (digits.length === 11 && digits.startsWith("01")) return "2" + digits;
+    if (digits.length === 10 && digits.startsWith("1")) return "20" + digits;
+    return digits;
+  }
+
+  function remindWhatsApp(appt) {
+    const patient = patients.find((p) => p.id === appt.patientId);
+    const phone = patient?.phone || "";
+    const num = waNumber(phone);
+    if (!num) { alert("رقم هاتف المريض غير مسجل"); return; }
+    const msg = `أهلاً ${appt.patientName || patient?.name || ""}، تذكير بموعدك يوم ${appt.date} الساعة ${appt.time}${appt.doctor ? ` مع ${appt.doctor}` : ""}.`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
+  const tomorrowStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const tomorrowAppts = appointments.filter(
+    (a) => a.date === tomorrowStr && (a.status === "scheduled" || a.status === "confirmed")
+  );
+
   const filtered = appointments.filter((a) => {
     const s = searchTerm.toLowerCase();
     const matchesSearch =
@@ -216,6 +244,7 @@ export default function Appointments() {
       (a.date || "").includes(s);
     let matchesFilter = true;
     if (filter === "today") matchesFilter = a.date === todayStr;
+    else if (filter === "tomorrow") matchesFilter = a.date === tomorrowStr && a.status !== "cancelled";
     else if (filter === "upcoming")
       matchesFilter = a.date >= todayStr && (a.status === "scheduled" || a.status === "confirmed");
     else if (filter === "done") matchesFilter = a.status === "done";
@@ -365,11 +394,31 @@ export default function Appointments() {
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="all">{t("appt.filterAll")}</option>
             <option value="today">{t("appt.filterToday")}</option>
+            <option value="tomorrow">مواعيد بكرة</option>
             <option value="upcoming">{t("appt.filterUpcoming")}</option>
             <option value="done">{t("appt.filterDone")}</option>
             <option value="cancelled">{t("appt.filterCancelled")}</option>
           </select>
         </div>
+
+        {/* تذكير مواعيد الغد */}
+        {tomorrowAppts.length > 0 && (
+          <div className="form-card" style={{ border: "2px solid #25D36655", marginBottom: 20 }}>
+            <h3><i className="fab fa-whatsapp" style={{ color: "#25D366" }}></i> تذكير مواعيد بكرة ({tomorrowAppts.length})</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {tomorrowAppts.map((a) => (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
+                  <strong>{a.patientName}</strong>
+                  <span style={{ color: "#2563eb", fontWeight: 700 }}>{a.time}</span>
+                  {a.doctor && <span style={{ color: "#64748b" }}>{a.doctor}</span>}
+                  <button onClick={() => remindWhatsApp(a)} className="btn-sm" style={{ marginRight: "auto", background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 700 }}>
+                    <i className="fab fa-whatsapp"></i> تذكير
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="table-container">
           <div className="table-header">
@@ -414,6 +463,10 @@ export default function Appointments() {
                         </td>
                         <td>
                           <div className="table-actions" style={{ flexWrap: "wrap" }}>
+                            <button onClick={() => remindWhatsApp(a)} className="btn-sm" title="تذكير واتساب"
+                              style={{ background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>
+                              <i className="fab fa-whatsapp"></i>
+                            </button>
                             {a.status === "scheduled" && (
                               <button onClick={() => setStatus(a.id, "confirmed")} className="btn-sm btn-primary" title={t("appt.quickMark")}>
                                 <i className="fas fa-check"></i>

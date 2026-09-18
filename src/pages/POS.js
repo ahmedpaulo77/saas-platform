@@ -28,6 +28,7 @@ export default function POS() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isRestaurant = userIndustry === "restaurant";
+  const isPharmacy = userIndustry === "pharmacy";
 
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -200,17 +201,32 @@ export default function POS() {
     setRepeating(false);
   }
 
-  // فلتر المنتجات
+  // فلتر المنتجات (شامل الباركود للسكانر)
   const filteredProducts = products.filter((p) => {
+    const term = searchTerm.toLowerCase();
     const matchSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.type && p.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.size && p.size.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.color && p.color.toLowerCase().includes(searchTerm.toLowerCase()));
+      p.name.toLowerCase().includes(term) ||
+      (p.category && p.category.toLowerCase().includes(term)) ||
+      (p.type && p.type.toLowerCase().includes(term)) ||
+      (p.size && p.size.toLowerCase().includes(term)) ||
+      (p.color && p.color.toLowerCase().includes(term)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(term));
     const matchCat = filterCategory === "all" || p.category === filterCategory;
     return matchSearch && matchCat;
   });
+
+  // السكانر: Enter على باركود مطابق تماماً يضيف للسلة فوراً
+  function handleSearchKeyDown(e) {
+    if (e.key !== "Enter") return;
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return;
+    const exact = products.find((p) => (p.barcode || "").toLowerCase() === term);
+    if (exact) {
+      e.preventDefault();
+      addToCart(exact);
+      setSearchTerm("");
+    }
+  }
 
   function getCategoryLabel(catId) {
     const found = categories.find((c) => c.id === catId || c.name === catId);
@@ -233,6 +249,11 @@ export default function POS() {
 
   // ── إدارة السلة ──
   function addToCart(product) {
+    // صيدلية: منع بيع صنف منتهي الصلاحية (تاريخ الصنف نفسه)
+    if (isPharmacy && product.expiryDate) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (new Date(product.expiryDate) < today) { alert("هذا الدواء منتهي الصلاحية — البيع موقوف"); return; }
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -407,6 +428,47 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           const currentQty = productDoc.data().quantity || 0;
           await updateDoc(productRef, { quantity: currentQty - item.quantity });
         }
+        // خصم الخامات حسب الوصفة (مطعم)
+        const recipe = (productDoc.exists() && productDoc.data().recipe) || item.recipe || [];
+        if (isRestaurant && recipe.length > 0) {
+          for (const row of recipe) {
+            try {
+              const matRef = doc(db, "raw_materials", row.materialId);
+              const matDoc = await getDoc(matRef);
+              if (matDoc.exists()) {
+                const curQ = parseFloat(matDoc.data().quantity) || 0;
+                await updateDoc(matRef, { quantity: curQ - (parseFloat(row.qty) || 0) * item.quantity });
+              }
+            } catch (e) { console.warn("recipe deduct:", e.message); }
+          }
+        }
+        // صرف FEFO من التشغيلات (صيدلية): الأقدم صلاحية أولاً + منع المنتهي
+        if (isPharmacy) {
+          try {
+            const bSnap = await getDocs(getScopedQuery("batches", userRole, userCompanyId, currentUser?.uid));
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const valid = bSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((b) => b.productId === item.id && (parseFloat(b.quantity) || 0) > 0)
+              .sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
+            const expired = valid.filter((b) => b.expiryDate && new Date(b.expiryDate) < today);
+            const usable = valid.filter((b) => !b.expiryDate || new Date(b.expiryDate) >= today);
+            if (valid.length > 0 && usable.length === 0) {
+              throw new Error(`الدواء "${item.name}" كل تشغيلاته منتهية الصلاحية — البيع موقوف`);
+            }
+            let remaining = item.quantity;
+            for (const b of usable) {
+              if (remaining <= 0) break;
+              const take = Math.min(remaining, parseFloat(b.quantity) || 0);
+              await updateDoc(doc(db, "batches", b.id), { quantity: (parseFloat(b.quantity) || 0) - take });
+              remaining -= take;
+            }
+            if (expired.length > 0) console.warn("expired batches skipped:", expired.map((b) => b.batchNumber));
+          } catch (e) {
+            if (e.message?.includes("منتهية الصلاحية")) throw e;
+            console.warn("FEFO deduct:", e.message);
+          }
+        }
       }
 
       const invDoc = {
@@ -514,9 +576,10 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                 <i className="fas fa-search search-icon"></i>
                 <input
                   type="text"
-                  placeholder={isRestaurant ? "ابحث في المنيو..." : t("pos.search")}
+                  placeholder={isRestaurant ? "ابحث في المنيو..." : "🔍 ابحث بالاسم أو اسكان الباركود..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   autoFocus
                 />
               </div>
@@ -602,6 +665,11 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                         </div>
                       )}
                       <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{product.name}</div>
+                      {!isRestaurant && product.barcode && (
+                        <div style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", direction: "ltr", textAlign: "right" }}>
+                          {product.barcode}
+                        </div>
+                      )}
                       {details && <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 500 }}>{details}</div>}
                       {!isRestaurant && (
                         <div style={{ fontSize: 12, color: "#64748b" }}>{product.category || t("pos.noCat")}</div>

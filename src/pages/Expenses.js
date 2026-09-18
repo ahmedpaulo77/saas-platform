@@ -1,9 +1,9 @@
 // src/pages/Expenses.js - تسجيل مصروفات الشركة (إيجار، مرتبات، فواتير...)
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { canDelete } from "../utils/companyQuery";
+import { canDelete, getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { logActivity } from "../utils/auditLogger";
@@ -37,7 +37,20 @@ export default function Expenses() {
     amount: "",
     date: new Date().toISOString().slice(0, 10),
     description: "",
+    projectId: "",
   });
+
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    async function loadProjects() {
+      if (!userCompanyId) return;
+      try {
+        const snap = await getDocs(getScopedQuery("projects", userRole, userCompanyId, currentUser?.uid));
+        setProjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) { console.error(e); }
+    }
+    loadProjects();
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   const [editingExpense, setEditingExpense] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -99,6 +112,7 @@ export default function Expenses() {
         amount,
         date: newExpense.date || new Date().toISOString().slice(0, 10),
         description: newExpense.description || "",
+        projectId: newExpense.projectId || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
@@ -119,6 +133,7 @@ export default function Expenses() {
         amount: "",
         date: new Date().toISOString().slice(0, 10),
         description: "",
+        projectId: "",
       });
       await resetPagination();
     } catch (err) {
@@ -137,6 +152,7 @@ export default function Expenses() {
         amount,
         date: editingExpense.date,
         description: editingExpense.description || "",
+        projectId: editingExpense.projectId || "",
       });
 
       await logActivity({
@@ -320,6 +336,18 @@ export default function Expenses() {
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
                 />
               </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>🏗️ المشروع (اختياري — للمقاولات)</label>
+                <select
+                  value={newExpense.projectId}
+                  onChange={(e) => setNewExpense({ ...newExpense, projectId: e.target.value })}
+                >
+                  <option value="">— مصروف عام —</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div style={{ marginTop: 16 }}>
               <button type="submit" className="btn-primary" disabled={submitting}>
@@ -391,6 +419,7 @@ export default function Expenses() {
                       <th>{t("expn.category")}</th>
                       <th>{t("common.amount")}</th>
                       <th>{t("common.description")}</th>
+                      <th>🏗️ المشروع</th>
                       <th>{t("common.date")}</th>
                       <th>{t("common.actions")}</th>
                     </tr>
@@ -404,6 +433,9 @@ export default function Expenses() {
                           {(exp.amount || 0).toLocaleString()} {t("currency")}
                         </td>
                         <td>{exp.description || "-"}</td>
+                        <td style={{ fontSize: 12, color: "#64748b" }}>
+                          {exp.projectId ? (projects.find((p) => p.id === exp.projectId)?.name || "مشروع") : "—"}
+                        </td>
                         <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                           {exp.date ? new Date(exp.date).toLocaleDateString() : "-"}
                         </td>
@@ -492,6 +524,18 @@ export default function Expenses() {
                     value={editingExpense.description || ""}
                     onChange={(e) => setEditingExpense({ ...editingExpense, description: e.target.value })}
                   />
+                </div>
+                <div className="form-group">
+                  <label>🏗️ المشروع (اختياري)</label>
+                  <select
+                    value={editingExpense.projectId || ""}
+                    onChange={(e) => setEditingExpense({ ...editingExpense, projectId: e.target.value })}
+                  >
+                    <option value="">— مصروف عام —</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="modal-footer">

@@ -193,6 +193,13 @@ export default function Sidebar() {
       module: "reports",
     },
     {
+      to: "/statements",
+      icon: "fas fa-file-invoice-dollar",
+      label: "كشف حساب",
+      module: "reports",
+      hideFor: ["real_estate"],
+    },
+    {
       to: "/aging",
       icon: "fas fa-clock",
       label: t("nav.aging"),
@@ -224,8 +231,10 @@ export default function Sidebar() {
   const navItems = ALL_NAV_ITEMS.filter((item) =>
     availableModules.has(item.module),
   );
-  const secondaryItems = ALL_SECONDARY_ITEMS.filter((item) =>
-    availableModules.has(item.module),
+  const secondaryItems = ALL_SECONDARY_ITEMS.filter(
+    (item) =>
+      availableModules.has(item.module) &&
+      !(item.hideFor || []).includes(userIndustry),
   );
 
   // ✅ إغلاق القائمة عند تغيير المسار

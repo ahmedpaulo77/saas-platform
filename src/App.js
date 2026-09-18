@@ -47,6 +47,7 @@ import Appointments from "./pages/Appointments";
 import Prescriptions from "./pages/Prescriptions";
 import MenuCategories from "./pages/MenuCategories";
 import RawMaterials from "./pages/RawMaterials";
+import Statements from "./pages/Statements";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import SuperAdminRoute from "./components/common/SuperAdminRoute";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -225,6 +226,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="aging">
               <Aging />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/statements"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="reports">
+              <Statements />
             </IndustryRoute>
           </ProtectedRoute>
         }

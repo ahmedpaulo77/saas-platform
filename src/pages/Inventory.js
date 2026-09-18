@@ -25,9 +25,25 @@ export default function Inventory() {
   const isRestaurant = userIndustry === "restaurant";
   const isRealEstate = userIndustry === "real_estate";
   const isTrader = userIndustry === "trader";
+  const isPharmacy = userIndustry === "pharmacy";
+  const isFashion = isClothing; // أزياء: ملابس/أحذية/إكسسوارات
 
   // ── أقسام المنيو من Firestore (للمطاعم فقط) ──
   const [menuCategories, setMenuCategories] = useState([]);
+  // ── الخامات (للوصفات) ──
+  const [rawMaterials, setRawMaterials] = useState([]);
+
+  const fetchRawMaterials = useCallback(async () => {
+    if (!isRestaurant || !userCompanyId) return;
+    try {
+      const snap = await getDocs(
+        getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid)
+      );
+      setRawMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Error fetching raw materials:", err);
+    }
+  }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
 
   const fetchMenuCategories = useCallback(async () => {
     if (!isRestaurant || !userCompanyId) return;
@@ -56,22 +72,110 @@ export default function Inventory() {
     price: "",
     description: "",
         // تاجر
-     // ملابس
-    type: "", size: "", color: "", brand: "",
+     // أزياء
+    type: "", size: "", color: "", brand: "", model: "",
     expiryDate: "",
+    barcode: "", // سوبر ماركت / صيدلية
+    minQuantity: "", // صيدلية: حد الطلب (النواقص)
+    drugCategory: "", // صيدلية: التصنيف الدوائي
     // مطعم - إضافات
     extras: [], // [{ name, price }]
     preparationNote: "", // ملاحظة تحضير افتراضية
+    recipe: [], // [{ materialId, materialName, unit, qty }]
     unit: "kg",
   });
 
   // إضافة extra مؤقت في النموذج
   const [tempExtra, setTempExtra] = useState({ name: "", price: "" });
+  // وصفة مؤقتة
+  const [tempRecipe, setTempRecipe] = useState({ materialId: "", qty: "" });
+
+  // مولّد الـ variants (أزياء): موديل + مقاسات × ألوان
+  const [genModel, setGenModel] = useState("");
+  const [genSizes, setGenSizes] = useState([]);
+  const [genColors, setGenColors] = useState([]);
+  const [genType, setGenType] = useState("");
+  const [genBrand, setGenBrand] = useState("");
+  const [genPrice, setGenPrice] = useState("");
+  const [genQty, setGenQty] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  // الراكد: آخر بيع لكل صنف من الفواتير
+  const [lastSaleByProduct, setLastSaleByProduct] = useState({});
+  const [deadDays, setDeadDays] = useState(30);
+
+  const fetchLastSales = useCallback(async () => {
+    if (!isFashion || !userCompanyId) return;
+    try {
+      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const map = {};
+      snap.docs.forEach((d) => {
+        const inv = d.data();
+        const dt = new Date(inv.date || inv.createdAt || 0).getTime();
+        (inv.products || inv.items || []).forEach((it) => {
+          if (!it.productId) return;
+          if (!map[it.productId] || dt > map[it.productId]) map[it.productId] = dt;
+        });
+      });
+      setLastSaleByProduct(map);
+    } catch (err) { console.error(err); }
+  }, [isFashion, userRole, userCompanyId, currentUser?.uid]);
+
+  async function generateVariants(e) {
+    e.preventDefault();
+    if (!genModel.trim() || genSizes.length === 0 || genColors.length === 0 || !genPrice) {
+      alert(t("common.fillRequired"));
+      return;
+    }
+    setGenerating(true);
+    try {
+      const now = new Date().toISOString();
+      let created = 0, skipped = 0;
+      for (const size of genSizes) {
+        for (const color of genColors) {
+          const exists = products.some(
+            (p) => (p.model || "") === genModel.trim() && p.size === size && p.color === color
+          );
+          if (exists) { skipped++; continue; }
+          await addDoc(collection(db, "inventory"), {
+            name: `${genModel.trim()} - ${size} - ${color}`,
+            model: genModel.trim(),
+            category: "",
+            quantity: parseInt(genQty) || 0,
+            price: parseFloat(genPrice) || 0,
+            description: "",
+            type: genType || "",
+            size, color,
+            brand: genBrand || "",
+            expiryDate: "",
+            barcode: "",
+            companyId: userCompanyId,
+            createdBy: currentUser?.uid,
+            createdAt: now,
+          });
+          created++;
+        }
+      }
+      await logActivity({
+        actionType: "CREATE", collectionName: "inventory", itemId: "-",
+        details: `Generated ${created} variants for model: ${genModel} (skipped ${skipped})`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenPrice(""); setGenQty("");
+      await fetchProducts();
+      alert(`تم إنشاء ${created} صنف${skipped ? ` (تخطي ${skipped} موجود)` : ""}`);
+    } catch (err) {
+      console.error(err);
+      alert(t("inv.addFail"));
+    }
+    setGenerating(false);
+  }
 
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "" });
+  const [tempEditRecipe, setTempEditRecipe] = useState({ materialId: "", qty: "" });
 
   // ── خيارات ملابس ──
   const types = [
@@ -119,7 +223,19 @@ export default function Inventory() {
   useEffect(() => {
     fetchProducts();
     fetchMenuCategories();
-  }, [fetchProducts, fetchMenuCategories]);
+    fetchRawMaterials();
+    fetchLastSales();
+  }, [fetchProducts, fetchMenuCategories, fetchRawMaterials, fetchLastSales]);
+
+  // ── تكلفة الوصفة وربح الصنف ──
+  function getRecipeCost(recipe) {
+    if (!recipe || recipe.length === 0) return 0;
+    return recipe.reduce((sum, row) => {
+      const mat = rawMaterials.find((m) => m.id === row.materialId);
+      const unitCost = mat ? (parseFloat(mat.costPerUnit) || 0) : (parseFloat(row.unitCost) || 0);
+      return sum + (parseFloat(row.qty) || 0) * unitCost;
+    }, 0);
+  }
 
   // ── helpers للإضافات ──
   function addTempExtra() {
@@ -144,6 +260,47 @@ export default function Inventory() {
   function removeEditExtra(idx) {
     setEditingProduct((prev) => ({ ...prev, extras: (prev.extras || []).filter((_, i) => i !== idx) }));
   }
+  // ── helpers الوصفة ──
+  function addTempRecipe() {
+    if (!tempRecipe.materialId || !tempRecipe.qty) return;
+    const mat = rawMaterials.find((m) => m.id === tempRecipe.materialId);
+    if (!mat) return;
+    if ((newProduct.recipe || []).some((r) => r.materialId === mat.id)) return;
+    setNewProduct((prev) => ({
+      ...prev,
+      recipe: [...(prev.recipe || []), {
+        materialId: mat.id,
+        materialName: mat.name,
+        unit: mat.unit || "",
+        unitCost: parseFloat(mat.costPerUnit) || 0,
+        qty: parseFloat(tempRecipe.qty) || 0,
+      }],
+    }));
+    setTempRecipe({ materialId: "", qty: "" });
+  }
+  function removeTempRecipe(idx) {
+    setNewProduct((prev) => ({ ...prev, recipe: (prev.recipe || []).filter((_, i) => i !== idx) }));
+  }
+  function addEditRecipe() {
+    if (!tempEditRecipe.materialId || !tempEditRecipe.qty) return;
+    const mat = rawMaterials.find((m) => m.id === tempEditRecipe.materialId);
+    if (!mat) return;
+    if ((editingProduct.recipe || []).some((r) => r.materialId === mat.id)) return;
+    setEditingProduct((prev) => ({
+      ...prev,
+      recipe: [...(prev.recipe || []), {
+        materialId: mat.id,
+        materialName: mat.name,
+        unit: mat.unit || "",
+        unitCost: parseFloat(mat.costPerUnit) || 0,
+        qty: parseFloat(tempEditRecipe.qty) || 0,
+      }],
+    }));
+    setTempEditRecipe({ materialId: "", qty: "" });
+  }
+  function removeEditRecipe(idx) {
+    setEditingProduct((prev) => ({ ...prev, recipe: (prev.recipe || []).filter((_, i) => i !== idx) }));
+  }
 
   // ── Add ──
   async function addProduct(e) {
@@ -163,9 +320,14 @@ export default function Inventory() {
         size: isClothing ? newProduct.size || "" : "",
         color: isClothing ? newProduct.color || "" : "",
         brand: isClothing ? newProduct.brand || "" : "",
+        model: isClothing ? (newProduct.model || "").trim() : "",
         expiryDate: newProduct.expiryDate || "",
+        barcode: (newProduct.barcode || "").trim(),
+        minQuantity: isPharmacy ? (parseFloat(newProduct.minQuantity) || 0) : 0,
+        drugCategory: isPharmacy ? (newProduct.drugCategory || "") : "",
         extras: isRestaurant ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
+        recipe: isRestaurant ? (newProduct.recipe || []) : [],
         createdAt: new Date().toISOString(),
       });
       await logActivity({
@@ -173,8 +335,9 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", expiryDate: "", extras: [], preparationNote: "", unit: "kg" });
+      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", minQuantity: "", drugCategory: "", extras: [], preparationNote: "", recipe: [], unit: "kg" });
       setTempExtra({ name: "", price: "" });
+      setTempRecipe({ materialId: "", qty: "" });
       await fetchProducts();
       alert(t("inv.addOk"));
     } catch (error) {
@@ -201,9 +364,14 @@ export default function Inventory() {
         size: isClothing ? editingProduct.size || "" : "",
         color: isClothing ? editingProduct.color || "" : "",
         brand: isClothing ? editingProduct.brand || "" : "",
+        model: isClothing ? (editingProduct.model || "").trim() : "",
         expiryDate: editingProduct.expiryDate || "",
+        barcode: (editingProduct.barcode || "").trim(),
+        minQuantity: isPharmacy ? (parseFloat(editingProduct.minQuantity) || 0) : 0,
+        drugCategory: isPharmacy ? (editingProduct.drugCategory || "") : "",
         extras: isRestaurant ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
+        recipe: isRestaurant ? (editingProduct.recipe || []) : [],
       });
       await logActivity({
         actionType: "UPDATE", collectionName: "inventory", itemId: editingProduct.id,
@@ -241,22 +409,85 @@ export default function Inventory() {
   }
 
   // ── Filter ──
+  const [filterModel, setFilterModel] = useState("all");
+  const modelOptions = [...new Set(products.map((p) => (p.model || "").trim()).filter(Boolean))].sort();
   const filteredProducts = products.filter((product) => {
+    const term = searchTerm.toLowerCase();
     const matchSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.category && product.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.type && product.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.size && product.size.toLowerCase().includes(searchTerm.toLowerCase()));
+      product.name.toLowerCase().includes(term) ||
+      (product.category && product.category.toLowerCase().includes(term)) ||
+      (product.type && product.type.toLowerCase().includes(term)) ||
+      (product.brand && product.brand.toLowerCase().includes(term)) ||
+      (product.size && product.size.toLowerCase().includes(term)) ||
+      (product.model && product.model.toLowerCase().includes(term)) ||
+      (product.barcode && product.barcode.toLowerCase().includes(term));
     const matchCat = filterCategory === "all" || product.category === filterCategory;
-    return matchSearch && matchCat;
+    const matchModel = filterModel === "all" || (product.model || "") === filterModel;
+    return matchSearch && matchCat && matchModel;
   });
+
+  // ── الجرد: تسوية الكمية الفعلية ──
+  const [countCode, setCountCode] = useState("");
+  const [countQty, setCountQty] = useState("");
+  const [counting, setCounting] = useState(false);
+  const isMarket = userIndustry === "super_market" || userIndustry === "pharmacy";
+
+  async function handleStockCount(e) {
+    e.preventDefault();
+    const code = countCode.trim().toLowerCase();
+    if (!code || countQty === "") return;
+    const found = products.find(
+      (p) => (p.barcode || "").toLowerCase() === code || p.id === countCode.trim() || p.name.toLowerCase() === code
+    );
+    if (!found) { alert("الصنف مش موجود — اتأكد من الباركود أو الاسم"); return; }
+    const actual = parseFloat(countQty);
+    if (isNaN(actual) || actual < 0) { alert("اكتب كمية فعلية صحيحة"); return; }
+    const oldQty = parseFloat(found.quantity) || 0;
+    const diff = actual - oldQty;
+    if (diff === 0) { alert("مفيش فرق — الكمية مطابقة"); return; }
+    setCounting(true);
+    try {
+      await updateDoc(doc(db, "inventory", found.id), { quantity: actual });
+      await logActivity({
+        actionType: "UPDATE", collectionName: "inventory", itemId: found.id,
+        details: `Stock count: ${found.name} ${oldQty} → ${actual} (diff ${diff > 0 ? "+" : ""}${diff})`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      setCountCode("");
+      setCountQty("");
+      await fetchProducts();
+      alert(`تمت التسوية: ${found.name}\nالسيستم: ${oldQty} → الفعلي: ${actual} (الفرق ${diff > 0 ? "+" : ""}${diff})`);
+    } catch (err) {
+      console.error(err);
+      alert(t("inv.updFail"));
+    }
+    setCounting(false);
+  }
 
   const getCategoryLabel = (catValue) => {
     const found = menuCategories.find((c) => c.id === catValue || c.name === catValue);
     if (found) return `${found.icon || ""} ${found.name}`;
     return catValue || "—";
   };
+
+  // ── طباعة ملصقات باركود ──
+  function handlePrintLabels() {
+    const withCode = filteredProducts.filter((p) => p.barcode);
+    if (withCode.length === 0) { alert("مفيش أصناف ليها باركود في العرض الحالي"); return; }
+    const labels = withCode.map((p) => `
+      <div style="border:1px dashed #999;border-radius:6px;padding:8px;text-align:center;width:180px;">
+        <div style="font-weight:bold;font-size:12px;">${p.name}</div>
+        <div style="font-family:monospace;font-size:14px;letter-spacing:2px;margin:6px 0;">*${p.barcode}*</div>
+        <div style="font-size:11px;">${p.barcode}</div>
+        <div style="font-weight:bold;font-size:13px;margin-top:4px;">${p.price} ج.م</div>
+      </div>`).join("");
+    const win = window.open("", "_blank", "width=800,height=600");
+    if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }
+    win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>body{font-family:Cairo,Arial;display:flex;flex-wrap:wrap;gap:10px;padding:16px;}@media print{body{padding:0;}}</style></head><body>${labels}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
+  }
 
   const userCanDelete = canDelete(userRole);
 
@@ -364,6 +595,52 @@ export default function Inventory() {
                     </button>
                   </div>
                 </div>
+
+                {/* الوصفة: مكونات الصنف من الخامات */}
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#92400e", marginBottom: 8 }}>
+                    🧪 الوصفة (تتخصم تلقائي من الخامات عند البيع)
+                  </div>
+                  {(newProduct.recipe || []).length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                      {(newProduct.recipe || []).map((row, idx) => (
+                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "white", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
+                          <span style={{ fontWeight: 600 }}>{row.materialName} — {row.qty} {row.unit}</span>
+                          <button type="button" onClick={() => removeTempRecipe(idx)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 14 }}>×</button>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e" }}>
+                        التكلفة: {getRecipeCost(newProduct.recipe).toFixed(2)} {t("currency")}
+                        {parseFloat(newProduct.price) > 0 && (
+                          <span> — الربح المتوقع: {(parseFloat(newProduct.price) - getRecipeCost(newProduct.recipe)).toFixed(2)} {t("currency")}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {rawMaterials.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>ضيف الخامات الأول من صفحة الخامات عشان تربطها هنا</div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <select value={tempRecipe.materialId}
+                        onChange={(e) => setTempRecipe({ ...tempRecipe, materialId: e.target.value })}
+                        style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}>
+                        <option value="">— اختر الخامة —</option>
+                        {rawMaterials.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                        ))}
+                      </select>
+                      <input type="number" step="0.01" min="0" placeholder="الكمية"
+                        value={tempRecipe.qty}
+                        onChange={(e) => setTempRecipe({ ...tempRecipe, qty: e.target.value })}
+                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                      <button type="button" onClick={addTempRecipe}
+                        style={{ background: "#d97706", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                        + إضافة
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
@@ -405,6 +682,32 @@ export default function Inventory() {
               onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
               required
             />
+            {/* الباركود — للسوبر ماركت والصيدلية والتاجر */}
+            {!isRestaurant && !isRealEstate && !isClothing && (
+              <input
+                type="text"
+                placeholder="الباركود (اختياري — للبيع بالسكانر)"
+                value={newProduct.barcode}
+                onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
+              />
+            )}
+            {/* حقول الصيدلية: التصنيف + حد الطلب */}
+            {isPharmacy && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12 }}>
+                <input
+                  type="text"
+                  placeholder="التصنيف الدوائي (مثال: مسكنات، مضاد حيوي...)"
+                  value={newProduct.drugCategory}
+                  onChange={(e) => setNewProduct({ ...newProduct, drugCategory: e.target.value })}
+                />
+                <input
+                  type="number" min="0" step="1"
+                  placeholder="حد الطلب"
+                  value={newProduct.minQuantity}
+                  onChange={(e) => setNewProduct({ ...newProduct, minQuantity: e.target.value })}
+                />
+              </div>
+            )}
             <input
               type="text"
               placeholder={isRealEstate ? "وصف العقار..." : isRestaurant ? "وصف الصنف (اختياري)" : t("inv.phDesc")}
@@ -414,6 +717,8 @@ export default function Inventory() {
             {/* حقول الملابس */}
             {isClothing && (
               <>
+                <input type="text" placeholder="اسم الموديل (مثال: تيشرت قطن كلاسيك)" value={newProduct.model || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
                 <select value={newProduct.type} onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
                   <option value="">النوع</option>
@@ -445,6 +750,188 @@ export default function Inventory() {
           </button>
         </form>
 
+        {/* ── مولّد الموديلات (أزياء) ── */}
+        {isFashion && (
+          <div className="form-card" style={{ border: "2px solid #ec489955", marginTop: 20 }}>
+            <h3>
+              <i className="fas fa-shirt" style={{ color: "#ec4899" }}></i>
+              👗 توليد موديل — مقاسات × ألوان بضغطة واحدة
+            </h3>
+            <form onSubmit={generateVariants}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>اسم الموديل *</label>
+                  <input type="text" placeholder="مثال: تيشرت قطن كلاسيك"
+                    value={genModel} onChange={(e) => setGenModel(e.target.value)} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>النوع</label>
+                    <select value={genType} onChange={(e) => setGenType(e.target.value)}
+                      style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white" }}>
+                      <option value="">—</option>
+                      {types.map((tp) => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>السعر *</label>
+                    <input type="number" min="0" placeholder="0" value={genPrice} onChange={(e) => setGenPrice(e.target.value)} required
+                      style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>رصيد مبدئي</label>
+                    <input type="number" min="0" step="1" placeholder="0" value={genQty} onChange={(e) => setGenQty(e.target.value)}
+                      style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>المقاسات * ({genSizes.length})</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {sizeOptions.map((s) => {
+                    const on = genSizes.includes(s.value);
+                    return (
+                      <button key={s.value + s.category} type="button"
+                        onClick={() => setGenSizes(on ? genSizes.filter((v) => v !== s.value) : [...genSizes, s.value])}
+                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: `2px solid ${on ? "#ec4899" : "#e2e8f0"}`, background: on ? "#fdf2f8" : "white", color: on ? "#be185d" : "#64748b" }}>
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الألوان * ({genColors.length})</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {colors.map((c) => {
+                    const on = genColors.includes(c.value);
+                    return (
+                      <button key={c.value} type="button"
+                        onClick={() => setGenColors(on ? genColors.filter((v) => v !== c.value) : [...genColors, c.value])}
+                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: `2px solid ${on ? "#ec4899" : "#e2e8f0"}`, background: on ? "#fdf2f8" : "white", color: on ? "#be185d" : "#64748b" }}>
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="text" placeholder="الماركة (اختياري)" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
+                  style={{ flex: 1, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14 }} />
+                <button type="submit" className="btn-primary" disabled={generating}>
+                  <i className="fas fa-magic"></i> {generating ? "جاري التوليد..." : `توليد ${genSizes.length * genColors.length} صنف`}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── الراكد (أزياء) ── */}
+        {isFashion && (
+          (() => {
+            const cutoff = Date.now() - deadDays * 24 * 60 * 60 * 1000;
+            const dead = products.filter((p) => {
+              if ((parseFloat(p.quantity) || 0) <= 0) return false;
+              const last = lastSaleByProduct[p.id];
+              return !last || last < cutoff;
+            });
+            if (dead.length === 0) return null;
+            return (
+              <div className="form-card" style={{ border: "2px solid #f59e0b55", marginTop: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <h3 style={{ margin: 0 }}><i className="fas fa-box-open" style={{ color: "#d97706" }}></i> 🐢 الراكد ({dead.length})</h3>
+                  <select value={deadDays} onChange={(e) => setDeadDays(parseInt(e.target.value))}
+                    style={{ marginRight: "auto", padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
+                    <option value={14}>بدون بيع 14 يوم</option>
+                    <option value={30}>بدون بيع 30 يوم</option>
+                    <option value={60}>بدون بيع 60 يوم</option>
+                    <option value={90}>بدون بيع 90 يوم</option>
+                  </select>
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>أصناف برصيد ومتباعتش في الفترة — رشحها لخصم أو تصفية.</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {dead.slice(0, 24).map((p) => {
+                    const last = lastSaleByProduct[p.id];
+                    return (
+                      <span key={p.id} title={last ? `آخر بيع: ${new Date(last).toLocaleDateString("ar-EG")}` : "متباعش خالص"} style={{ background: "#fffbeb", color: "#92400e", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                        {p.model || p.name} {p.size ? `(${p.size}${p.color ? "/" + p.color : ""})` : ""} ×{p.quantity}
+                      </span>
+                    );
+                  })}
+                  {dead.length > 24 && <span style={{ fontSize: 12, color: "#94a3b8" }}>+{dead.length - 24}</span>}
+                </div>
+              </div>
+            );
+          })()
+        )}
+
+        {/* ── الجرد ── */}
+        {isMarket && (
+          <div className="form-card" style={{ border: "2px solid #10b98155", marginTop: 20 }}>
+            <h3>
+              <i className="fas fa-clipboard-check" style={{ color: "#10b981" }}></i>
+              📋 الجرد — تسوية الكمية الفعلية
+            </h3>
+            <form onSubmit={handleStockCount}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 12, alignItems: "end" }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                    الباركود أو اسم الصنف
+                  </label>
+                  <input type="text" placeholder="اسكان أو اكتب الباركود..."
+                    value={countCode} onChange={(e) => setCountCode(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                    الكمية الفعلية *
+                  </label>
+                  <input type="number" min="0" step="1" placeholder="0"
+                    value={countQty} onChange={(e) => setCountQty(e.target.value)} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <button type="submit" className="btn-primary" disabled={counting}>
+                  <i className="fas fa-check"></i> {counting ? "جاري..." : "تسوية"}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
+                بتكتب الفعلي اللي عديته على الرف، والسيستم يحسب الفرق ويسجله في سجل النشاطات.
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ── النواقص (صيدلية) ── */}
+        {isPharmacy && (
+          (() => {
+            const shortages = products.filter((p) => {
+              const q = parseFloat(p.quantity) || 0;
+              const min = parseFloat(p.minQuantity) || 0;
+              return min > 0 ? q <= min : q <= 0;
+            });
+            if (shortages.length === 0) return null;
+            return (
+              <div className="form-card" style={{ border: "2px solid #ef444455", marginBottom: 20 }}>
+                <h3>
+                  <i className="fas fa-exclamation-triangle" style={{ color: "#ef4444" }}></i>
+                  ⚠️ النواقص ({shortages.length})
+                </h3>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {shortages.slice(0, 20).map((p) => (
+                    <span key={p.id} style={{ background: "#fef2f2", color: "#dc2626", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                      {p.name} ({p.quantity || 0})
+                    </span>
+                  ))}
+                  {shortages.length > 20 && (
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>+{shortages.length - 20} أخرى</span>
+                  )}
+                </div>
+              </div>
+            );
+          })()
+        )}
+
         {/* ── Filters ── */}
         <div style={{ marginBottom: "20px", marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <input
@@ -464,13 +951,30 @@ export default function Inventory() {
               {menuCategories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </select>
           )}
+          {isFashion && modelOptions.length > 0 && (
+            <select
+              value={filterModel}
+              onChange={(e) => setFilterModel(e.target.value)}
+              style={{ padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
+            >
+              <option value="all">كل الموديلات</option>
+              {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          )}
         </div>
 
         {/* ── Table ── */}
         <div className="table-container">
           <div className="table-header">
             <h3>{isRealEstate ? "قائمة العقارات" : isRestaurant ? "أصناف المنيو" : t("inv.list")}</h3>
-            <span>{filteredProducts.length} {isRealEstate ? "عقار" : isRestaurant ? "صنف" : t("inv.products")}</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span>{filteredProducts.length} {isRealEstate ? "عقار" : isRestaurant ? "صنف" : t("inv.products")}</span>
+              {isMarket && (
+                <button type="button" onClick={handlePrintLabels} className="btn-secondary btn-sm">
+                  <i className="fas fa-print"></i> طباعة ملصقات
+                </button>
+              )}
+            </div>
           </div>
           {filteredProducts.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
@@ -483,8 +987,11 @@ export default function Inventory() {
                   <th>#</th>
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
                   <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
-                  {isClothing && <><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
+                  {isClothing && <><th>الموديل</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurant && <th>الإضافات</th>}
+                  {isRestaurant && <th>🧪 الوصفة / الربح</th>}
+                  {isPharmacy && <th>التصنيف</th>}
+                  {isMarket && <th>الباركود</th>}
                   {isTrader && <th>{t("trader.unit")}</th>}
                   <th>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</th>
                   <th>{t("inv.price")}</th>
@@ -507,6 +1014,7 @@ export default function Inventory() {
                     <td>{isRestaurant ? getCategoryLabel(product.category) : (product.category || "—")}</td>
                     {isClothing && (
                       <>
+                        <td style={{ fontWeight: 700, color: "#be185d" }}>{product.model || "—"}</td>
                         <td>{product.type === "men" ? "رجالي" : product.type === "women" ? "حريمي" : product.type === "kids" ? "أطفال" : product.type === "unisex" ? "يونيسكس" : "—"}</td>
                         <td style={{ fontWeight: 600 }}>{product.size || "—"}</td>
                         <td>{product.color || "—"}</td>
@@ -515,6 +1023,12 @@ export default function Inventory() {
                     )}
                     {isTrader && (
                       <td>{t(`trader.unit.${product.unit || "piece"}`)}</td>
+                    )}
+                    {isPharmacy && (
+                      <td style={{ fontSize: 12, color: "#64748b" }}>{product.drugCategory || "—"}</td>
+                    )}
+                    {isMarket && (
+                      <td style={{ fontFamily: "monospace", fontSize: 12, direction: "ltr" }}>{product.barcode || "—"}</td>
                     )}
                     {isRestaurant && (
                       <td>
@@ -527,6 +1041,23 @@ export default function Inventory() {
                             ))}
                           </div>
                         ) : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
+                      </td>
+                    )}
+                    {isRestaurant && (
+                      <td>
+                        {(product.recipe || []).length > 0 ? (
+                          <div style={{ fontSize: 11 }}>
+                            <div style={{ color: "#92400e", fontWeight: 700 }}>
+                              تكلفة: {getRecipeCost(product.recipe).toFixed(1)} {t("currency")}
+                            </div>
+                            <div style={{ color: "#16a34a", fontWeight: 700 }}>
+                              ربح: {(parseFloat(product.price || 0) - getRecipeCost(product.recipe)).toFixed(1)}
+                            </div>
+                            <div style={{ color: "#94a3b8" }} title={(product.recipe || []).map((r) => `${r.materialName} ${r.qty}${r.unit}`).join("، ")}>
+                              {(product.recipe || []).length} خامات
+                            </div>
+                          </div>
+                        ) : <span style={{ color: "#94a3b8", fontSize: 12 }}>بدون وصفة</span>}
                       </td>
                     )}
                     <td>
@@ -595,6 +1126,30 @@ export default function Inventory() {
                       onChange={(e) => setEditingProduct({ ...editingProduct, preparationNote: e.target.value })} />
                   </div>
                 )}
+                {/* الباركود */}
+                {isMarket && (
+                  <div style={styles.formGroup}>
+                    <label>الباركود</label>
+                    <input type="text" value={editingProduct.barcode || ""} style={{ ...styles.input, fontFamily: "monospace", direction: "ltr" }}
+                      placeholder="مثال: 6221001001234"
+                      onChange={(e) => setEditingProduct({ ...editingProduct, barcode: e.target.value })} />
+                  </div>
+                )}
+                {/* حقول الصيدلية */}
+                {isPharmacy && (
+                  <>
+                    <div style={styles.formGroup}>
+                      <label>التصنيف الدوائي</label>
+                      <input type="text" value={editingProduct.drugCategory || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, drugCategory: e.target.value })} />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label>حد الطلب (تنبيه النواقص)</label>
+                      <input type="number" min="0" step="1" value={editingProduct.minQuantity || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, minQuantity: e.target.value })} />
+                    </div>
+                  </>
+                )}
                 {isTrader && (
                   <div style={styles.formGroup}>
                     <label>{t("trader.unit")}</label>
@@ -609,6 +1164,11 @@ export default function Inventory() {
                 {/* ملابس */}
                 {isClothing && (
                   <>
+                    <div style={styles.formGroup}>
+                      <label>اسم الموديل</label>
+                      <input type="text" value={editingProduct.model || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, model: e.target.value })} />
+                    </div>
                     <div style={styles.formGroup}>
                       <label>النوع</label>
                       <select value={editingProduct.type || ""} style={styles.input}
@@ -695,6 +1255,44 @@ export default function Inventory() {
                         />
                         <button type="button" onClick={addEditExtra}
                           style={{ background: "#6d28d9", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                          + إضافة
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* الوصفة في التعديل */}
+                {isRestaurant && (
+                  <div style={styles.formGroup}>
+                    <label>🧪 الوصفة (خصم تلقائي من الخامات)</label>
+                    <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: 12 }}>
+                      {(editingProduct.recipe || []).length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                          {(editingProduct.recipe || []).map((row, idx) => (
+                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "white", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
+                              <span style={{ fontWeight: 600 }}>{row.materialName} — {row.qty} {row.unit}</span>
+                              <button type="button" onClick={() => removeEditRecipe(idx)}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 14 }}>×</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <select value={tempEditRecipe.materialId}
+                          onChange={(e) => setTempEditRecipe({ ...tempEditRecipe, materialId: e.target.value })}
+                          style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}>
+                          <option value="">— اختر الخامة —</option>
+                          {rawMaterials.map((m) => (
+                            <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                          ))}
+                        </select>
+                        <input type="number" step="0.01" min="0" placeholder="الكمية"
+                          value={tempEditRecipe.qty}
+                          onChange={(e) => setTempEditRecipe({ ...tempEditRecipe, qty: e.target.value })}
+                          style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                        <button type="button" onClick={addEditRecipe}
+                          style={{ background: "#d97706", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
                           + إضافة
                         </button>
                       </div>
