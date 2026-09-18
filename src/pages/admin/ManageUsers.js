@@ -244,6 +244,8 @@ export default function ManageUsers() {
                           }}
                         >
                           <option value="user">{t('mu.user')}</option>
+                          <option value="cashier">{t('users.roleCashier')}</option>
+                          <option value="kitchen">{t('users.roleKitchen')}</option>
                           <option value="admin">{t('mu.admin')}</option>
                           <option value="super_admin">{t('mu.sa')}</option>
                         </select>
@@ -334,6 +336,8 @@ export default function ManageUsers() {
                   <select value={newUser.role}
                     onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
                     <option value="user">{t('mu.userN')}</option>
+                    <option value="cashier">{t('users.roleCashier')}</option>
+                    <option value="kitchen">{t('users.roleKitchen')}</option>
                     <option value="admin">{t('mu.adminC')}</option>
                     <option value="super_admin">{t('mu.sa')}</option>
                   </select>

@@ -13,8 +13,9 @@ export function getScopedQuery(collectionName, userRole, userCompanyId, _userId)
     return collection(db, collectionName);
   }
 
-  // أدمن وموظف الشركة يشوفوا كل بيانات الشركة (createdBy للسجل فقط)
-  if (userRole === 'admin' || userRole === 'user') {
+  // أدمن وموظف الشركة (بما فيهم الكاشير والمطبخ) يشوفوا بيانات الشركة (createdBy للسجل فقط)
+  // ملحوظة: تقييد الشاشات لكل دور يتم من getAvailableModules، والقواعد تمنع الحذف/تعديل الأسعار لغير الأدمن
+  if (userRole === 'admin' || userRole === 'user' || userRole === 'cashier' || userRole === 'kitchen') {
     return query(
       collection(db, collectionName),
       where('companyId', '==', userCompanyId)

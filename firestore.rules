@@ -487,14 +487,32 @@
         allow delete: if canDeleteCompanyDoc();
       }
 
-      // المعاينات العقارية
-      match /viewings/{docId} {
-        allow get:    if canAccessCompanyDoc();
-        allow list:   if canAccessCompanyDoc();
-        allow create: if canCreateForCompany();
-        allow update: if canUpdateCompanyDoc();
-        allow delete: if canDeleteCompanyDoc();
-      }
+    // المعاينات العقارية
+    match /viewings/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
+    // الاشتراكات المتكررة
+    match /subscriptions/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
+    // تذاكر الدعم
+    match /tickets/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
 
       // ============================================================
       // auditLogs/{docId}

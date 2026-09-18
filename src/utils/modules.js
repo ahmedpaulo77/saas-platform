@@ -107,6 +107,8 @@ export const MODULE_MAP = {
     "purchases",
     "aging",
     "messages",
+    "subscriptions",
+    "tickets",
   ],
 
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
@@ -121,6 +123,8 @@ export const MODULE_MAP = {
     "projects",
     "aging",
     "messages",
+    "subscriptions",
+    "tickets",
   ],
 
   // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
@@ -134,6 +138,8 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "messages",
+    "subscriptions",
+    "tickets",
   ],
 
   // سوبر ماركت - نقطة بيع + صلاحية + مهام ورسائل للفريق
@@ -217,6 +223,24 @@ export function getAvailableModules(industry, userRole) {
       "profile",
       "about",
       "my-company",
+    ]);
+  }
+
+  // 🔥 المطبخ: شاشة المطبخ فقط (لا بيع ولا أسعار ولا بيانات)
+  if (userRole === "kitchen") {
+    return new Set(["kitchen", "notifications", "profile", "about"]);
+  }
+
+  // 💰 الكاشير: بيع + عملاء + طلبات فقط (لا مخزون ولا تقارير ولا إعدادات)
+  if (userRole === "cashier") {
+    return new Set([
+      "dashboard",
+      "pos",
+      "clients",
+      "invoices",
+      "notifications",
+      "profile",
+      "about",
     ]);
   }
 
@@ -356,6 +380,8 @@ export const MODULE_LABEL_KEYS = {
   patients: "modules.patients",
   appointments: "modules.appointments",
   prescriptions: "modules.prescriptions",
+  subscriptions: "modules.subscriptions",
+  tickets: "modules.tickets",
 };
 
 // دالة للحصول على اسم وحدة مترجم

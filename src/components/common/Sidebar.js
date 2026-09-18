@@ -171,6 +171,18 @@ export default function Sidebar() {
       label: t("nav.projects"),
       module: "projects",
     },
+    {
+      to: "/subscriptions",
+      icon: "fas fa-repeat",
+      label: "الاشتراكات",
+      module: "subscriptions",
+    },
+    {
+      to: "/tickets",
+      icon: "fas fa-headset",
+      label: "تذاكر الدعم",
+      module: "tickets",
+    },
   ];
 
   const ALL_SECONDARY_ITEMS = [
@@ -198,6 +210,7 @@ export default function Sidebar() {
       label: "كشف حساب",
       module: "reports",
       hideFor: ["real_estate"],
+      hideRole: ["super_admin"],
     },
     {
       to: "/aging",
@@ -234,7 +247,8 @@ export default function Sidebar() {
   const secondaryItems = ALL_SECONDARY_ITEMS.filter(
     (item) =>
       availableModules.has(item.module) &&
-      !(item.hideFor || []).includes(userIndustry),
+      !(item.hideFor || []).includes(userIndustry) &&
+      !(item.hideRole || []).includes(userRole),
   );
 
   // ✅ إغلاق القائمة عند تغيير المسار
@@ -392,19 +406,6 @@ export default function Sidebar() {
               </span>
               <span style={{ color: "#fcd34d" }}>{t("nav.manageUsers")}</span>
             </Link>
-            <Link
-              to="/audit-log"
-              className={isActive("/audit-log") ? "active" : ""}
-              onClick={closeSidebar}
-            >
-              <span
-                className="icon"
-                style={{ background: "rgba(99,102,241,0.15)" }}
-              >
-                <i className="fas fa-history" style={{ color: "#6366f1" }}></i>
-              </span>
-              <span style={{ color: "#a5b4fc" }}>{t("audit.title")}</span>
-            </Link>
           </>
         )}
       </nav>
@@ -420,7 +421,11 @@ export default function Sidebar() {
               ? `👑 ${t("role.superAdmin")}`
               : userRole === "admin"
                 ? `⚡ ${t("role.admin")}`
-                : `👤 ${t("role.user")}`}
+                : userRole === "cashier"
+                  ? `💰 ${t("role.cashier")}`
+                  : userRole === "kitchen"
+                    ? `🔥 ${t("role.kitchen")}`
+                    : `👤 ${t("role.user")}`}
           </div>
         </div>
       </div>

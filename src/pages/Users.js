@@ -161,13 +161,15 @@ export default function Users() {
         alert(t("errors.roleRestricted"));
         return;
       }
-      if (newRole !== "user" && newRole !== "admin") {
+      if (newRole !== "user" && newRole !== "admin" && newRole !== "cashier" && newRole !== "kitchen") {
         alert(t("errors.roleRestricted"));
         return;
       }
     }
     const roleLabels = {
       user: t("users.roleUser"),
+      cashier: t("users.roleCashier"),
+      kitchen: t("users.roleKitchen"),
       admin: t("users.roleAdmin"),
       super_admin: t("users.roleSuperAdmin"),
     };
@@ -268,6 +270,8 @@ export default function Users() {
   const getRoleLabel = (role) => {
     if (role === "super_admin") return t("users.roleSuperAdmin");
     if (role === "admin") return t("users.roleAdmin");
+    if (role === "cashier") return t("users.roleCashier");
+    if (role === "kitchen") return t("users.roleKitchen");
     return t("users.roleUser");
   };
 
@@ -427,6 +431,8 @@ export default function Users() {
                         }}
                       >
                         <option value="user">{t("users.roleUser")}</option>
+                        <option value="cashier">{t("users.roleCashier")}</option>
+                        <option value="kitchen">{t("users.roleKitchen")}</option>
                         <option value="admin">{t("users.roleAdmin")}</option>
                         {superAdmin && (
                           <option value="super_admin">{t("users.roleSuperAdmin")}</option>
@@ -536,6 +542,8 @@ export default function Users() {
                   style={styles.input}
                 >
                   <option value="user">{t("users.roleUser")}</option>
+                  <option value="cashier">{t("users.roleCashier")}</option>
+                  <option value="kitchen">{t("users.roleKitchen")}</option>
                   <option value="admin">{t("users.roleAdmin")}</option>
                   {superAdmin && (
                     <option value="super_admin">{t("users.roleSuperAdmin")}</option>

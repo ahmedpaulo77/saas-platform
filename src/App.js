@@ -37,7 +37,6 @@ import DailyPrices from "./pages/DailyPrices";
 
 import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
 import ManageUsers from "./pages/admin/ManageUsers";
-import AuditLog from "./pages/AuditLog";
 import MyCompany from "./pages/MyCompany";
 import Sellers from "./pages/Sellers";
 import Buyers from "./pages/Buyers";
@@ -48,6 +47,8 @@ import Prescriptions from "./pages/Prescriptions";
 import MenuCategories from "./pages/MenuCategories";
 import RawMaterials from "./pages/RawMaterials";
 import Statements from "./pages/Statements";
+import Subscriptions from "./pages/Subscriptions";
+import Tickets from "./pages/Tickets";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import SuperAdminRoute from "./components/common/SuperAdminRoute";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -68,6 +69,14 @@ function IndustryRoute({ moduleKey, children }) {
 function AppRoutes() {
   const { userRole } = useAuth();
 
+  // الأدوار التشغيلية لها شاشة رئيسية خاصة (بدل لوحة التحكم المالية)
+  function homeElement() {
+    if (userRole === "super_admin") return <Navigate to="/admin" />;
+    if (userRole === "kitchen") return <Navigate to="/kitchen" />;
+    if (userRole === "cashier") return <Navigate to="/pos" />;
+    return <Dashboard />;
+  }
+
   return (
     <Routes>
       {/* Public */}
@@ -79,15 +88,7 @@ function AppRoutes() {
       {/* Protected */}
       <Route
         path="/dashboard"
-        element={
-          <ProtectedRoute>
-            {userRole === "super_admin" ? (
-              <Navigate to="/admin" />
-            ) : (
-              <Dashboard />
-            )}
-          </ProtectedRoute>
-        }
+        element={<ProtectedRoute>{homeElement()}</ProtectedRoute>}
       />
       <Route
         path="/companies"
@@ -196,6 +197,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="projects">
               <Projects />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/subscriptions"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="subscriptions">
+              <Subscriptions />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tickets"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="tickets">
+              <Tickets />
             </IndustryRoute>
           </ProtectedRoute>
         }
@@ -395,14 +416,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyCompany />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/audit-log"
-        element={
-          <ProtectedRoute>
-            <AuditLog />
           </ProtectedRoute>
         }
       />
