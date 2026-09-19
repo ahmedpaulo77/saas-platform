@@ -92,6 +92,23 @@ export default function Patients() {
     }
   }, [userRole, userCompanyId, currentUser?.uid]);
 
+  // عدد الزيارات الحقيقي = المواعيد المنجزة لكل مريض (الحقل المخزن كان دايماً صفر)
+  const [doneVisitsByPatient, setDoneVisitsByPatient] = useState({});
+  const fetchVisitCounts = useCallback(async () => {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(getScopedQuery("appointments", userRole, userCompanyId, currentUser?.uid));
+      const map = {};
+      snap.docs.forEach((d) => {
+        const a = d.data();
+        if (a.status === "done" && a.patientId) map[a.patientId] = (map[a.patientId] || 0) + 1;
+      });
+      setDoneVisitsByPatient(map);
+    } catch (e) { console.error(e); }
+  }, [userRole, userCompanyId, currentUser?.uid]);
+
+  useEffect(() => { fetchVisitCounts(); }, [fetchVisitCounts]);
+
   const fetchCompanies = useCallback(async () => {
     try {
       if (superAdmin) {
@@ -415,7 +432,7 @@ export default function Patients() {
                       </td>
                       <td style={{ direction: "ltr" }}>{p.phone}</td>
                       <td>{p.bloodType || "—"}</td>
-                      <td>{p.totalVisits || 0}</td>
+                      <td style={{ fontWeight: 700 }}>{doneVisitsByPatient[p.id] ?? p.totalVisits ?? 0}</td>
                       <td>
                         <div className="table-actions">
                           <button onClick={() => openFile(p)} className="btn-primary btn-sm" title="الملف الطبي">
