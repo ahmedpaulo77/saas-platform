@@ -250,6 +250,7 @@ export default function Appointments() {
     else if (filter === "upcoming")
       matchesFilter = a.date >= todayStr && (a.status === "scheduled" || a.status === "confirmed");
     else if (filter === "done") matchesFilter = a.status === "done";
+    else if (filter === "no_show") matchesFilter = a.status === "no_show";
     else if (filter === "cancelled") matchesFilter = a.status === "cancelled";
     return matchesSearch && matchesFilter;
   });
@@ -399,6 +400,7 @@ export default function Appointments() {
             <option value="tomorrow">مواعيد بكرة</option>
             <option value="upcoming">{t("appt.filterUpcoming")}</option>
             <option value="done">{t("appt.filterDone")}</option>
+            <option value="no_show">{t("appt.noShow")}</option>
             <option value="cancelled">{t("appt.filterCancelled")}</option>
           </select>
         </div>

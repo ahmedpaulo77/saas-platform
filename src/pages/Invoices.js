@@ -163,6 +163,8 @@ export default function Invoices() {
     orderStatus: isRestaurant ? "new" : "",
     description: "",
     dueDate: "",
+    discount: "",
+    paymentMethod: "cash",
     orderType: "takeaway",
     orderSource: "direct",
     deliveryAddress: "",
@@ -170,6 +172,17 @@ export default function Invoices() {
     deliveryFee: "",
     customerNote: "",
   };
+
+  const PAYMENT_METHODS = [
+    { value: "cash", label: "نقدي" },
+    { value: "card", label: "فيزا/بطاقة" },
+    { value: "transfer", label: "تحويل بنكي" },
+    { value: "wallet", label: "محفظة إلكترونية" },
+  ];
+
+  function paymentMethodLabel(val) {
+    return PAYMENT_METHODS.find((m) => m.value === val)?.label || "نقدي";
+  }
 
   const [newInvoice, setNewInvoice] = useState(emptyInvoice);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -432,6 +445,9 @@ export default function Invoices() {
         }
       }
       const totalAmount = getTotalAmount;
+      // الخصم لا يتجاوز الإجمالي (منع المبلغ السالب)
+      const discountValue = Math.min(parseFloat(newInvoice.discount) || 0, totalAmount);
+      const netAmount = totalAmount - discountValue;
       const invoiceData = {
         clientId: newInvoice.clientId,
         products: newInvoice.products.map((item) => ({
@@ -466,9 +482,11 @@ export default function Invoices() {
             ? parseFloat(newInvoice.deliveryFee) || 0
             : 0,
         customerNote: isRestaurant ? newInvoice.customerNote || "" : "",
+        discount: discountValue,
+        paymentMethod: newInvoice.paymentMethod || "cash",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        amount: totalAmount,
+        amount: netAmount,
         quantity: hasInventory
           ? newInvoice.products.reduce(
               (sum, item) =>
@@ -487,7 +505,7 @@ export default function Invoices() {
         actionType: "CREATE",
         collectionName: "invoices",
         itemId: docRef.id,
-        details: `Created ${isRestaurant ? "order" : "invoice"} for client ${newInvoice.clientId}, total ${totalAmount}`,
+        details: `Created ${isRestaurant ? "order" : "invoice"} for client ${newInvoice.clientId}, total ${netAmount}`,
         user: {
           uid: currentUser?.uid,
           email: currentUser?.email,
@@ -507,13 +525,17 @@ export default function Invoices() {
   async function updateInvoice(e) {
     e.preventDefault();
     try {
-      const totalAmount =
-        editingInvoice.products?.length > 0
-          ? getEditTotalAmount
-          : parseFloat(editingInvoice.amount) || 0;
+      const hasItems = editingInvoice.products?.length > 0;
+      const totalAmount = hasItems
+        ? getEditTotalAmount
+        : parseFloat(editingInvoice.amount) || 0;
+      // إعادة تطبيق الخصم المحفوظ عند تعديل الأصناف (مع السقف) — الفواتير بلا أصناف مبلغها يدوي
+      const editDiscount = hasItems ? Math.min(parseFloat(editingInvoice.discount) || 0, totalAmount) : 0;
       await updateDoc(doc(db, "invoices", editingInvoice.id), {
         clientId: editingInvoice.clientId,
-        amount: totalAmount,
+        amount: hasItems ? totalAmount - editDiscount : totalAmount,
+        discount: editDiscount,
+        paymentMethod: editingInvoice.paymentMethod || "cash",
         status: editingInvoice.status,
         orderStatus: editingInvoice.orderStatus || "",
         description: editingInvoice.description || "",
@@ -800,6 +822,36 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
   }
 
   const userCanDelete = canDelete(userRole);
+
+  // ── تقرير الإقفال اليومي: كويري مخصص لليوم فقط (دقيق مهما كان عدد الفواتير) ──
+  const [closing, setClosing] = useState({ count: 0, total: 0, paid: 0, byMethod: {} });
+  useEffect(() => {
+    async function fetchClosing() {
+      if (!userCompanyId) return;
+      try {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+        const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+        const byMethod = {};
+        let count = 0, total = 0, paid = 0;
+        snap.docs.forEach((d) => {
+          const inv = d.data();
+          const dt = inv.date || inv.createdAt || "";
+          if (dt >= start && dt < end) {
+            count++;
+            total += parseFloat(inv.amount) || 0;
+            const p = parseFloat(inv.paidAmount) || 0;
+            paid += p;
+            const m = inv.paymentMethod || "cash";
+            byMethod[m] = (byMethod[m] || 0) + p;
+          }
+        });
+        setClosing({ count, total, paid, byMethod });
+      } catch (e) { console.error(e); }
+    }
+    fetchClosing();
+  }, [userRole, userCompanyId, currentUser?.uid, invoices.length]);
 
   // ── Stats ──
   const totalRevenue = filteredInvoices.reduce((sum, inv) => {
@@ -1581,6 +1633,43 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                   />
                 </div>
               )}
+
+              {/* خصم + طريقة دفع (غير المطعم) */}
+              {!isRestaurant && (
+                <>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>خصم ({t("currency")}) — اختياري</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newInvoice.discount}
+                      onChange={(e) =>
+                        setNewInvoice({ ...newInvoice, discount: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>طريقة الدفع</label>
+                    <select
+                      value={newInvoice.paymentMethod}
+                      onChange={(e) =>
+                        setNewInvoice({ ...newInvoice, paymentMethod: e.target.value })
+                      }
+                    >
+                      {PAYMENT_METHODS.map((m) => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {(parseFloat(newInvoice.discount) || 0) > 0 && (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>
+                      الصافي بعد الخصم: {Math.max(0, getTotalAmount - (parseFloat(newInvoice.discount) || 0)).toLocaleString()} {t("currency")}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div style={{ marginTop: 16 }}>
@@ -1640,6 +1729,31 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
               <option value="overdue">{t("in.statusOver")}</option>
             </select>
           )}
+        </div>
+
+        {/* ── تقرير الإقفال اليومي ── */}
+        <div className="form-card" style={{ marginBottom: 20 }}>
+          <h3><i className="fas fa-cash-register" style={{ color: "#16a34a" }}></i> تقرير الإقفال اليومي — {new Date().toLocaleDateString("ar-EG")}</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10 }}>
+            <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>عدد الفواتير</div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{closing.count}</div>
+            </div>
+            <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>الإجمالي</div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{closing.total.toLocaleString()}</div>
+            </div>
+            <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>المُحصّل</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color: "#16a34a" }}>{closing.paid.toLocaleString()}</div>
+            </div>
+            {Object.entries(closing.byMethod).map(([method, amt]) => (
+              <div key={method} style={{ background: "#eef2ff", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>{paymentMethodLabel(method)}</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: "#4338ca" }}>{amt.toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── Table ── */}
@@ -1812,6 +1926,16 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                           {hasInventory && <td>{totalQty}</td>}
                           <td style={{ fontWeight: 700 }}>
                             {(inv.amount || 0).toLocaleString()} {t("currency")}
+                            {(parseFloat(inv.discount) || 0) > 0 && (
+                              <div style={{ fontSize: 11, color: "#16a34a" }}>
+                                خصم: {Number(inv.discount).toLocaleString()}
+                              </div>
+                            )}
+                            {!isRestaurant && inv.paymentMethod && inv.paymentMethod !== "cash" && (
+                              <div style={{ fontSize: 11, color: "#64748b" }}>
+                                {paymentMethodLabel(inv.paymentMethod)}
+                              </div>
+                            )}
                           </td>
                           {isRestaurant && (
                             <td style={{ fontWeight: 700, color: "#059669" }}>
@@ -2190,6 +2314,41 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                         }
                       />
                     </div>
+                  )}
+                  {!isRestaurant && (
+                    <>
+                      <div className="form-group">
+                        <label>خصم ({t("currency")})</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editingInvoice.discount || ""}
+                          onChange={(e) =>
+                            setEditingInvoice({
+                              ...editingInvoice,
+                              discount: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>طريقة الدفع</label>
+                        <select
+                          value={editingInvoice.paymentMethod || "cash"}
+                          onChange={(e) =>
+                            setEditingInvoice({
+                              ...editingInvoice,
+                              paymentMethod: e.target.value,
+                            })
+                          }
+                        >
+                          {PAYMENT_METHODS.map((m) => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   {/* منتجات في التعديل */}

@@ -514,6 +514,15 @@
       allow delete: if canDeleteCompanyDoc();
     }
 
+    // التحاليل والأشعة والسونار (الملف الطبي)
+    match /medical_attachments/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
       // ============================================================
       // auditLogs/{docId}
       // ============================================================
