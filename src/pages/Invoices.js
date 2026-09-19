@@ -210,6 +210,34 @@ export default function Invoices() {
     return 0;
   };
 
+  // بند يدوي حر (للعيادة: اسم الدواء/الخدمة يُكتب بدون مخزون)
+  const [freeItem, setFreeItem] = useState({ name: "", price: "", quantity: "1" });
+
+  function addFreeItem() {
+    if (!freeItem.name.trim() || !freeItem.price) {
+      alert(t("common.fillRequired"));
+      return;
+    }
+    const qty = parseFloat(freeItem.quantity) || 0;
+    const price = parseFloat(freeItem.price) || 0;
+    setNewInvoice({
+      ...newInvoice,
+      products: [
+        ...newInvoice.products,
+        {
+          productId: "",
+          freeName: freeItem.name.trim(),
+          isFree: true,
+          quantity: freeItem.quantity || "1",
+          unit: "",
+          weight: "",
+          amount: (qty * price).toString(),
+        },
+      ],
+    });
+    setFreeItem({ name: "", price: "", quantity: "1" });
+  }
+
   const getTotalAmount = useMemo(
     () =>
       newInvoice.products.reduce(
@@ -334,7 +362,7 @@ export default function Invoices() {
       const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
       const productNames =
         inv.products?.map(
-          (p) => products.find((pr) => pr.id === p.productId)?.name || "",
+          (p) => products.find((pr) => pr.id === p.productId)?.name || p.freeName || "",
         ) || [];
       return (
         clientName.toLowerCase().includes(term) ||
@@ -380,6 +408,7 @@ export default function Invoices() {
     try {
       if (hasInventory && newInvoice.products.length > 0) {
         for (const item of newInvoice.products) {
+          if (!item.productId) continue; // بند حر — مفيش خصم مخزون
           const productRef = doc(db, "inventory", item.productId);
           const productDoc = await getDoc(productRef);
           if (productDoc.exists()) {
@@ -406,7 +435,9 @@ export default function Invoices() {
       const invoiceData = {
         clientId: newInvoice.clientId,
         products: newInvoice.products.map((item) => ({
-          productId: item.productId,
+          productId: item.productId || "",
+          freeName: item.freeName || "",
+          isFree: !!item.isFree,
           quantity: item.quantity,
           amount: item.amount,
           paidAmount: item.paidAmount || 0,
@@ -502,7 +533,9 @@ export default function Invoices() {
             : 0,
         customerNote: editingInvoice.customerNote || "",
         products: editingInvoice.products.map((item) => ({
-          productId: item.productId,
+          productId: item.productId || "",
+          freeName: item.freeName || "",
+          isFree: !!item.isFree,
           quantity: item.quantity,
           amount: item.amount,
           paidAmount: item.paidAmount || 0,
@@ -760,6 +793,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
       invoice.products?.map(
         (p) =>
           products.find((pr) => pr.id === p.productId)?.name ||
+          p.freeName ||
           t("common.unspecified"),
       ) || [];
     exportInvoicePDF(invoice, clientName, productNames.join(", "));
@@ -1074,6 +1108,51 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                         : chooseProductPlaceholder
                     }
                   />
+                  {/* بند حر للعيادة: كتابة اسم الدواء/الخدمة بدون مخزون */}
+                  {isClinic && (
+                    <div style={{ marginTop: 8, background: "#f0fdf4", border: "1px dashed #86efac", borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontSize: 12, color: "#15803d", marginBottom: 6, fontWeight: 700 }}>+ بند يدوي (اسم + سعر + كمية)</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input type="text" placeholder="اسم الدواء / الخدمة"
+                          value={freeItem.name} onChange={(e) => setFreeItem({ ...freeItem, name: e.target.value })}
+                          style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                        <input type="number" min="0" step="0.01" placeholder="السعر"
+                          value={freeItem.price} onChange={(e) => setFreeItem({ ...freeItem, price: e.target.value })}
+                          style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                        <input type="number" min="0" step="1" placeholder="الكمية"
+                          value={freeItem.quantity} onChange={(e) => setFreeItem({ ...freeItem, quantity: e.target.value })}
+                          style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                        <button type="button" onClick={addFreeItem}
+                          style={{ background: "#16a34a", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                          + ضيف
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* بند حر للعيادة: يظهر حتى بدون مخزون (العيادة بلا مخزون) */}
+              {isClinic && !hasInventory && (
+                <div className="form-group">
+                  <label>بنود الفاتورة * (اسم + سعر + كمية)</label>
+                  <div style={{ background: "#f0fdf4", border: "1px dashed #86efac", borderRadius: 8, padding: 10 }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="text" placeholder="اسم الدواء / الخدمة (مثال: كشف، تحاليل)"
+                        value={freeItem.name} onChange={(e) => setFreeItem({ ...freeItem, name: e.target.value })}
+                        style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                      <input type="number" min="0" step="0.01" placeholder="السعر"
+                        value={freeItem.price} onChange={(e) => setFreeItem({ ...freeItem, price: e.target.value })}
+                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                      <input type="number" min="0" step="1" placeholder="الكمية"
+                        value={freeItem.quantity} onChange={(e) => setFreeItem({ ...freeItem, quantity: e.target.value })}
+                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                      <button type="button" onClick={addFreeItem}
+                        style={{ background: "#16a34a", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                        + ضيف
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1101,17 +1180,23 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                       const product = products.find(
                         (p) => p.id === item.productId,
                       );
-                      const productName = product ? product.name : "—";
+                      const productName = product ? product.name : (item.freeName || "—");
                       // ✅ الصنف بالكيلو؟ (للتاجر) → نظهر خانة الوزن
                       const showWeight =
                         isTrader &&
                         isKgUnit(item.unit || getProductUnit(product));
-                      const recalc = (qty, weight) =>
-                        calculateProductAmount(
+                      const recalc = (qty, weight) => {
+                        if (item.isFree || !item.productId) {
+                          const oldQty = parseFloat(item.quantity) || 1;
+                          const unitPrice = (parseFloat(item.amount) || 0) / (oldQty || 1);
+                          return ((parseFloat(qty) || 0) * unitPrice).toString();
+                        }
+                        return calculateProductAmount(
                           item.productId,
                           qty,
                           weight,
                         ).toString();
+                      };
                       return (
                         <div
                           key={idx}
@@ -1628,7 +1713,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                           const pr = products.find(
                             (item) => item.id === p.productId,
                           );
-                          return `${pr ? pr.name : t("common.unspecified")} (${p.quantity || 1})`;
+                          return `${pr ? pr.name : (p.freeName || t("common.unspecified"))} (${p.quantity || 1})`;
                         }) || [];
                       const productStr =
                         productDetails.length > 0
@@ -2151,7 +2236,7 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                           );
                           const productName = product
                             ? product.name
-                            : "منتج غير محدد";
+                            : (item.freeName || "منتج غير محدد");
                           return (
                             <div
                               key={idx}
@@ -2240,13 +2325,16 @@ ${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><
                                     const newQty =
                                       parseFloat(e.target.value) || 1;
                                     // ✅ للتاجر: الحساب بالوزن لو الصنف بالكيلو
+                                    // ✅ البند الحر: اشتقاق سعر الوحدة من المبلغ الحالي
                                     const newAmount = isTrader
                                       ? calculateProductAmount(
                                           item.productId,
                                           newQty,
                                           item.weight,
                                         ).toString()
-                                      : (
+                                      : item.isFree || !item.productId
+                                        ? (((parseFloat(item.amount) || 0) / (parseFloat(item.quantity) || 1)) * newQty).toString()
+                                        : (
                                           (product
                                             ? parseFloat(product.price) || 0
                                             : 0) * newQty

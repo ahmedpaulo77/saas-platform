@@ -197,15 +197,16 @@ export const MODULE_MAP = {
     "messages",
   ],
 
-  // طبيب / عيادة - مرضى ومواعيد وروشتات فقط (بدون أعمار ديون)
+  // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة (بدون مخزون وبدون صلاحية:
+  // العيادة لا تبيع أدوية — الدواء يُكتب في الروشتة ويُشترى من الصيدلية)
   clinic: [
     "patients",
     "appointments",
     "prescriptions",
     "invoices",
     "tasks",
-    "expiry",
     "messages",
+    "search",
   ],
 };
 
@@ -250,6 +251,11 @@ export function getAvailableModules(industry, userRole) {
   } else {
     // لو مفيش مجال محدد → نعطي الوحدات العامة
     MODULE_MAP.general.forEach((m) => modules.add(m));
+  }
+
+  // العيادة بدون مخزون: الفواتير ببنود حرة تُكتب يدوياً (لا بيع أدوية من العيادة)
+  if (industry === "clinic") {
+    modules.delete("inventory");
   }
 
   // صفحات ثابتة للجميع
@@ -304,6 +310,7 @@ export const ROUTE_MODULE_MAP = {
   "/patients": "patients",
   "/appointments": "appointments",
   "/prescriptions": "prescriptions",
+  "/search": "search",
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
@@ -380,6 +387,7 @@ export const MODULE_LABEL_KEYS = {
   patients: "modules.patients",
   appointments: "modules.appointments",
   prescriptions: "modules.prescriptions",
+  search: "modules.search",
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
 };

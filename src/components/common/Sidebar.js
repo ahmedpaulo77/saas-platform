@@ -66,6 +66,12 @@ export default function Sidebar() {
       module: "prescriptions",
     },
     {
+      to: "/search",
+      icon: "fas fa-search",
+      label: "بحث شامل",
+      module: "search",
+    },
+    {
       to: "/clients",
       icon: "fas fa-user-friends",
       label: isRestaurant ? t("nav.clients.restaurant") : t("nav.clients"),

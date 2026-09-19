@@ -44,6 +44,7 @@ import Messages from "./pages/Messages";
 import Patients from "./pages/Patients";
 import Appointments from "./pages/Appointments";
 import Prescriptions from "./pages/Prescriptions";
+import GlobalSearch from "./pages/GlobalSearch";
 import MenuCategories from "./pages/MenuCategories";
 import RawMaterials from "./pages/RawMaterials";
 import Statements from "./pages/Statements";
@@ -377,6 +378,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="prescriptions">
               <Prescriptions />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="search">
+              <GlobalSearch />
             </IndustryRoute>
           </ProtectedRoute>
         }
