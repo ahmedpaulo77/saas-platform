@@ -235,9 +235,7 @@ export default function Appointments() {
   const tomorrowAppts = appointments.filter(
     (a) => a.date === tomorrowStr && (a.status === "scheduled" || a.status === "confirmed")
   );
-  const overdueAppts = appointments.filter(
-    (a) => a.date < todayStr && (a.status === "scheduled" || a.status === "confirmed")
-  );
+
   const filtered = appointments.filter((a) => {
     const s = searchTerm.toLowerCase();
     const matchesSearch =
@@ -250,7 +248,6 @@ export default function Appointments() {
     else if (filter === "upcoming")
       matchesFilter = a.date >= todayStr && (a.status === "scheduled" || a.status === "confirmed");
     else if (filter === "done") matchesFilter = a.status === "done";
-    else if (filter === "no_show") matchesFilter = a.status === "no_show";
     else if (filter === "cancelled") matchesFilter = a.status === "cancelled";
     return matchesSearch && matchesFilter;
   });
@@ -400,31 +397,11 @@ export default function Appointments() {
             <option value="tomorrow">مواعيد بكرة</option>
             <option value="upcoming">{t("appt.filterUpcoming")}</option>
             <option value="done">{t("appt.filterDone")}</option>
-            <option value="no_show">{t("appt.noShow")}</option>
             <option value="cancelled">{t("appt.filterCancelled")}</option>
           </select>
         </div>
-        {overdueAppts.length > 0 && (
-          <div className="form-card" style={{ border: "2px solid #ef444455", marginBottom: 20 }}>
-            <h3><i className="fas fa-exclamation-triangle" style={{ color: "#ef4444" }}></i> متابعات متأخرة ({overdueAppts.length})</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {overdueAppts.map((a) => (
-                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
-                  <strong>{a.patientName}</strong>
-                  <span style={{ color: "#ef4444", fontWeight: 700 }}>{a.date}</span>
-                  <button onClick={() => setStatus(a.id, "no_show")} className="btn-sm" style={{ marginRight: "auto", background: "#fef3c7", color: "#b45309", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
-                    لم يحضر
-                  </button>
-                  <button onClick={() => remindWhatsApp(a)} className="btn-sm" style={{ background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>
-                    <i className="fab fa-whatsapp"></i>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-         {/* تذكير مواعيد الغد */}
+        {/* تذكير مواعيد الغد */}
         {tomorrowAppts.length > 0 && (
           <div className="form-card" style={{ border: "2px solid #25D36655", marginBottom: 20 }}>
             <h3><i className="fab fa-whatsapp" style={{ color: "#25D366" }}></i> تذكير مواعيد بكرة ({tomorrowAppts.length})</h3>

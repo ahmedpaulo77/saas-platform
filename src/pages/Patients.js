@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery";
+import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -40,97 +40,29 @@ export default function Patients() {
 
   // الملف الطبي
   const [filePatient, setFilePatient] = useState(null);
-  const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [], attachments: [] });
+  const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [] });
   const [fileLoading, setFileLoading] = useState(false);
-  const [newAttach, setNewAttach] = useState({ type: "lab", title: "", date: "", notes: "" });
-  const [addingAttach, setAddingAttach] = useState(false);
-  const userCanDelete = canDelete(userRole);
-
-  const ATTACH_TYPES = [
-    { value: "lab", label: "🧪 تحاليل" },
-    { value: "xray", label: "🩻 أشعة" },
-    { value: "ultrasound", label: "📡 سونار" },
-    { value: "other", label: "📎 أخرى" },
-  ];
-
-  function attachTypeLabel(val) {
-    return ATTACH_TYPES.find((x) => x.value === val)?.label || val || "";
-  }
 
   async function openFile(patient) {
     setFilePatient(patient);
     setFileLoading(true);
-    setFileData({ appointments: [], prescriptions: [], invoices: [], attachments: [] });
-    setNewAttach({ type: "lab", title: "", date: "", notes: "" });
+    setFileData({ appointments: [], prescriptions: [], invoices: [] });
     try {
       const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
-      const [aSnap, rSnap, iSnap, atSnap] = await Promise.all([
+      const [aSnap, rSnap, iSnap] = await Promise.all([
         getDocs(q("appointments")),
         getDocs(q("prescriptions")),
         getDocs(q("invoices")),
-        getDocs(q("medical_attachments")),
       ]);
       const byPatient = (docs) => docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.patientId === patient.id || x.clientId === patient.id);
       const appointments = byPatient(aSnap.docs).sort((a, b) => new Date((b.date || "") + "T" + (b.time || "00:00")) - new Date((a.date || "") + "T" + (a.time || "00:00")));
       const prescriptions = byPatient(rSnap.docs).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const invoices = byPatient(iSnap.docs).sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
-      const attachments = byPatient(atSnap.docs).sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
-      setFileData({ appointments, prescriptions, invoices, attachments });
+      setFileData({ appointments, prescriptions, invoices });
     } catch (e) {
       console.error(e);
     }
     setFileLoading(false);
-  }
-
-  async function addAttachment(e) {
-    e.preventDefault();
-    if (!filePatient || !newAttach.title.trim() || !newAttach.date) {
-      alert(t("common.fillRequired"));
-      return;
-    }
-    setAddingAttach(true);
-    try {
-      const docRef = await addDoc(collection(db, "medical_attachments"), {
-        patientId: filePatient.id,
-        patientName: filePatient.name || "",
-        type: newAttach.type,
-        title: newAttach.title.trim(),
-        date: newAttach.date,
-        notes: newAttach.notes || "",
-        companyId: userCompanyId,
-        createdBy: currentUser?.uid,
-        createdAt: new Date().toISOString(),
-      });
-      await logActivitySafe("CREATE", docRef.id, newAttach.title);
-      setNewAttach({ type: "lab", title: "", date: "", notes: "" });
-      await openFile({ ...filePatient });
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
-    }
-    setAddingAttach(false);
-  }
-
-  async function logActivitySafe(actionType, itemId, title) {
-    try {
-      const { logActivity } = await import("../utils/auditLogger");
-      await logActivity({
-        actionType, collectionName: "medical_attachments", itemId,
-        details: `Medical record: ${title} for ${filePatient?.name || ""}`,
-        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
-      });
-    } catch (e) { console.warn(e.message); }
-  }
-
-  async function deleteAttachment(id) {
-    if (!window.confirm(t("common.confirmDelete"))) return;
-    try {
-      await deleteDoc(doc(db, "medical_attachments", id));
-      await openFile({ ...filePatient });
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
-    }
   }
 
   const stats = {
@@ -159,23 +91,6 @@ export default function Patients() {
       setLoading(false);
     }
   }, [userRole, userCompanyId, currentUser?.uid]);
-
-  // عدد الزيارات الحقيقي = المواعيد المنجزة لكل مريض (الحقل المخزن كان دايماً صفر)
-  const [doneVisitsByPatient, setDoneVisitsByPatient] = useState({});
-  const fetchVisitCounts = useCallback(async () => {
-    if (!userCompanyId) return;
-    try {
-      const snap = await getDocs(getScopedQuery("appointments", userRole, userCompanyId, currentUser?.uid));
-      const map = {};
-      snap.docs.forEach((d) => {
-        const a = d.data();
-        if (a.status === "done" && a.patientId) map[a.patientId] = (map[a.patientId] || 0) + 1;
-      });
-      setDoneVisitsByPatient(map);
-    } catch (e) { console.error(e); }
-  }, [userRole, userCompanyId, currentUser?.uid]);
-
-  useEffect(() => { fetchVisitCounts(); }, [fetchVisitCounts]);
 
   const fetchCompanies = useCallback(async () => {
     try {
@@ -500,7 +415,7 @@ export default function Patients() {
                       </td>
                       <td style={{ direction: "ltr" }}>{p.phone}</td>
                       <td>{p.bloodType || "—"}</td>
-                      <td style={{ fontWeight: 700 }}>{doneVisitsByPatient[p.id] ?? p.totalVisits ?? 0}</td>
+                      <td>{p.totalVisits || 0}</td>
                       <td>
                         <div className="table-actions">
                           <button onClick={() => openFile(p)} className="btn-primary btn-sm" title="الملف الطبي">
@@ -611,48 +526,12 @@ export default function Patients() {
                   )}
                   <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>🧾 الفواتير ({fileData.invoices.length})</h4>
                   {fileData.invoices.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد فواتير</p> : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", marginBottom: 14 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto" }}>
                       {fileData.invoices.map((inv) => (
                         <div key={inv.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8 }}>
                           <strong>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "—"}</strong>
                           <span>الإجمالي: {Number(inv.amount || 0).toLocaleString()}</span>
                           <span style={{ color: "#16a34a" }}>المدفوع: {Number(inv.paidAmount || 0).toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* التحاليل والأشعة والسونار */}
-                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>🔬 التحاليل والأشعة ({fileData.attachments.length})</h4>
-                  <form onSubmit={addAttachment} style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                    <select value={newAttach.type} onChange={(e) => setNewAttach({ ...newAttach, type: e.target.value })}
-                      style={{ padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 12, background: "white" }}>
-                      {ATTACH_TYPES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
-                    </select>
-                    <input type="text" placeholder="الاسم (مثال: صورة دم كاملة)" value={newAttach.title}
-                      onChange={(e) => setNewAttach({ ...newAttach, title: e.target.value })} required
-                      style={{ flex: 2, minWidth: 140, padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 12 }} />
-                    <input type="date" value={newAttach.date}
-                      onChange={(e) => setNewAttach({ ...newAttach, date: e.target.value })} required
-                      style={{ padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 12 }} />
-                    <input type="text" placeholder="النتيجة/ملاحظة" value={newAttach.notes}
-                      onChange={(e) => setNewAttach({ ...newAttach, notes: e.target.value })}
-                      style={{ flex: 1, minWidth: 100, padding: "6px 8px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 12 }} />
-                    <button type="submit" disabled={addingAttach}
-                      style={{ background: "#7c3aed", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
-                      {addingAttach ? "..." : "+ سجّل"}
-                    </button>
-                  </form>
-                  {fileData.attachments.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد تحاليل مسجلة</p> : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
-                      {fileData.attachments.map((at) => (
-                        <div key={at.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontWeight: 800, color: "#7c3aed" }}>{attachTypeLabel(at.type)}</span>
-                          <strong>{at.title}</strong>
-                          <span style={{ color: "#2563eb", fontWeight: 700 }}>{at.date ? new Date(at.date + "T00:00:00").toLocaleDateString("ar-EG") : "—"}</span>
-                          {at.notes && <span style={{ color: "#64748b" }}>— {at.notes}</span>}
-                          {userCanDelete && (
-                            <button onClick={() => deleteAttachment(at.id)} style={{ marginRight: "auto", background: "none", border: "none", color: "#ef4444", cursor: "pointer" }}>✕</button>
-                          )}
                         </div>
                       ))}
                     </div>

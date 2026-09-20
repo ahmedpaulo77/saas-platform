@@ -67,7 +67,7 @@ export const INDUSTRIES = [
 
 // للتوافق مع الكود القديم (مباشر)
 export const INDUSTRY_LABELS = {
-  general: "🏢 شركة / مكتب عام",
+  general: "🏢 توريدات وتجارة عامة",
   trader: "📦 تاجر / استيراد وتصدير",
   contractor: "🏗️ مقاولات",
   real_estate: "🏠 عقارات",
@@ -197,16 +197,15 @@ export const MODULE_MAP = {
     "messages",
   ],
 
-  // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة (بدون مخزون وبدون صلاحية:
-  // العيادة لا تبيع أدوية — الدواء يُكتب في الروشتة ويُشترى من الصيدلية)
+  // طبيب / عيادة - مرضى ومواعيد وروشتات فقط (بدون أعمار ديون)
   clinic: [
     "patients",
     "appointments",
     "prescriptions",
     "invoices",
     "tasks",
+    "expiry",
     "messages",
-    "search",
   ],
 };
 
@@ -251,11 +250,6 @@ export function getAvailableModules(industry, userRole) {
   } else {
     // لو مفيش مجال محدد → نعطي الوحدات العامة
     MODULE_MAP.general.forEach((m) => modules.add(m));
-  }
-
-  // العيادة بدون مخزون: الفواتير ببنود حرة تُكتب يدوياً (لا بيع أدوية من العيادة)
-  if (industry === "clinic") {
-    modules.delete("inventory");
   }
 
   // صفحات ثابتة للجميع
@@ -310,13 +304,12 @@ export const ROUTE_MODULE_MAP = {
   "/patients": "patients",
   "/appointments": "appointments",
   "/prescriptions": "prescriptions",
-  "/search": "search",
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
 export function getIndustryShortLabel(industry) {
   const labels = {
-    general: "🏢 عام",
+    general: "🏢 تجارة عامة",
     trader: "📦 تاجر",
     contractor: "🏗️ مقاولات",
     real_estate: "🏠 عقارات",
@@ -327,16 +320,16 @@ export function getIndustryShortLabel(industry) {
   clothing: "🛍️ أزياء",
     clinic: "🩺 عيادة",
   };
-  return labels[industry] || "🏢 عام";
+  return labels[industry] || "🏢 تجارة عامة";
 }
 
-// دالة جديدة للحصول على الاسم المترجم
+ // دالة جديدة للحصول على الاسم المترجم
 export function getIndustryLabel(industryId, t) {
   const industry = INDUSTRIES.find((ind) => ind.id === industryId);
   if (industry && t) {
     return `${industry.icon} ${t(industry.labelKey)}`;
   }
-  return INDUSTRY_LABELS[industryId] || "🏢 عام";
+  return INDUSTRY_LABELS[industryId] || "🏢 تجارة عامة";
 }
 
 // دالة للحصول على قائمة المجالات مع ترجمة
@@ -387,7 +380,6 @@ export const MODULE_LABEL_KEYS = {
   patients: "modules.patients",
   appointments: "modules.appointments",
   prescriptions: "modules.prescriptions",
-  search: "modules.search",
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
 };
