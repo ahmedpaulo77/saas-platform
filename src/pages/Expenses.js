@@ -25,7 +25,8 @@ const CATEGORIES = [
 
 export default function Expenses() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
+  const isContractor = userIndustry === "contractor";
   const isAdmin = userRole === "admin" || userRole === "super_admin";
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,14 +44,14 @@ export default function Expenses() {
   const [projects, setProjects] = useState([]);
   useEffect(() => {
     async function loadProjects() {
-      if (!userCompanyId) return;
+      if (!userCompanyId || userIndustry !== "contractor") return;
       try {
         const snap = await getDocs(getScopedQuery("projects", userRole, userCompanyId, currentUser?.uid));
         setProjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (e) { console.error(e); }
     }
     loadProjects();
-  }, [userRole, userCompanyId, currentUser?.uid]);
+  }, [userRole, userCompanyId, currentUser?.uid, userIndustry]);
 
   const [editingExpense, setEditingExpense] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -336,8 +337,9 @@ export default function Expenses() {
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
                 />
               </div>
+              {isContractor && (
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>🏗️ المشروع (اختياري — للمقاولات)</label>
+                <label>🏗️ المشروع (اختياري)</label>
                 <select
                   value={newExpense.projectId}
                   onChange={(e) => setNewExpense({ ...newExpense, projectId: e.target.value })}
@@ -348,6 +350,7 @@ export default function Expenses() {
                   ))}
                 </select>
               </div>
+              )}
             </div>
             <div style={{ marginTop: 16 }}>
               <button type="submit" className="btn-primary" disabled={submitting}>
@@ -419,7 +422,7 @@ export default function Expenses() {
                       <th>{t("expn.category")}</th>
                       <th>{t("common.amount")}</th>
                       <th>{t("common.description")}</th>
-                      <th>🏗️ المشروع</th>
+                      {isContractor && <th>🏗️ المشروع</th>}
                       <th>{t("common.date")}</th>
                       <th>{t("common.actions")}</th>
                     </tr>
@@ -433,9 +436,11 @@ export default function Expenses() {
                           {(exp.amount || 0).toLocaleString()} {t("currency")}
                         </td>
                         <td>{exp.description || "-"}</td>
+                        {isContractor && (
                         <td style={{ fontSize: 12, color: "#64748b" }}>
                           {exp.projectId ? (projects.find((p) => p.id === exp.projectId)?.name || "مشروع") : "—"}
                         </td>
+                        )}
                         <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                           {exp.date ? new Date(exp.date).toLocaleDateString() : "-"}
                         </td>
@@ -525,6 +530,7 @@ export default function Expenses() {
                     onChange={(e) => setEditingExpense({ ...editingExpense, description: e.target.value })}
                   />
                 </div>
+                {isContractor && (
                 <div className="form-group">
                   <label>🏗️ المشروع (اختياري)</label>
                   <select
@@ -537,6 +543,7 @@ export default function Expenses() {
                     ))}
                   </select>
                 </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setShowEditModal(false)}>
