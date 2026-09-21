@@ -16,6 +16,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import * as XLSX from "xlsx";
 
 export default function Inventory() {
   const { t } = useLanguage();
@@ -76,8 +77,10 @@ export default function Inventory() {
     type: "", size: "", color: "", brand: "", model: "",
     expiryDate: "",
     barcode: "", // سوبر ماركت / صيدلية
+    purchasePrice: "", // سعر الشراء (رأس المال) — صيدلية/ماركت
     minQuantity: "", // صيدلية: حد الطلب (النواقص)
     drugCategory: "", // صيدلية: التصنيف الدوائي
+    activeIngredient: "", // صيدلية: المادة الفعالة (للبدائل)
     // مطعم - إضافات
     extras: [], // [{ name, price }]
     preparationNote: "", // ملاحظة تحضير افتراضية
@@ -323,8 +326,10 @@ export default function Inventory() {
         model: isClothing ? (newProduct.model || "").trim() : "",
         expiryDate: newProduct.expiryDate || "",
         barcode: (newProduct.barcode || "").trim(),
+        purchasePrice: isMarket ? (parseFloat(newProduct.purchasePrice) || 0) : 0,
         minQuantity: isPharmacy ? (parseFloat(newProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (newProduct.drugCategory || "") : "",
+        activeIngredient: isPharmacy ? (newProduct.activeIngredient || "").trim() : "",
         extras: isRestaurant ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
         recipe: isRestaurant ? (newProduct.recipe || []) : [],
@@ -335,7 +340,7 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", minQuantity: "", drugCategory: "", extras: [], preparationNote: "", recipe: [], unit: "kg" });
+      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", recipe: [], unit: "kg" });
       setTempExtra({ name: "", price: "" });
       setTempRecipe({ materialId: "", qty: "" });
       await fetchProducts();
@@ -367,8 +372,10 @@ export default function Inventory() {
         model: isClothing ? (editingProduct.model || "").trim() : "",
         expiryDate: editingProduct.expiryDate || "",
         barcode: (editingProduct.barcode || "").trim(),
+        purchasePrice: isMarket ? (parseFloat(editingProduct.purchasePrice) || 0) : 0,
         minQuantity: isPharmacy ? (parseFloat(editingProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (editingProduct.drugCategory || "") : "",
+        activeIngredient: isPharmacy ? (editingProduct.activeIngredient || "").trim() : "",
         extras: isRestaurant ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
         recipe: isRestaurant ? (editingProduct.recipe || []) : [],
@@ -420,7 +427,8 @@ export default function Inventory() {
       (product.brand && product.brand.toLowerCase().includes(term)) ||
       (product.size && product.size.toLowerCase().includes(term)) ||
       (product.model && product.model.toLowerCase().includes(term)) ||
-      (product.barcode && product.barcode.toLowerCase().includes(term));
+      (product.barcode && product.barcode.toLowerCase().includes(term)) ||
+      (product.activeIngredient && product.activeIngredient.toLowerCase().includes(term));
     const matchCat = filterCategory === "all" || product.category === filterCategory;
     const matchModel = filterModel === "all" || (product.model || "") === filterModel;
     return matchSearch && matchCat && matchModel;
@@ -470,7 +478,80 @@ export default function Inventory() {
     return catValue || "—";
   };
 
-  // ── طباعة ملصقات باركود ──
+  // ── فتح بحث DrugEye (دليل الأدوية) مع نسخ الاسم للحصق ──
+  async function openDrugEye(productName) {
+    try {
+      await navigator.clipboard.writeText(productName || "");
+    } catch { /* تجاهل — الفتح هو المهم */ }
+    window.open("https://drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx", "_blank");
+  }
+
+  // ── البدائل (صيدلية): نفس المادة الفعالة من المخزون ──
+  const [altProduct, setAltProduct] = useState(null);
+  function getAlternatives(product) {
+    const key = (product.activeIngredient || "").trim().toLowerCase();
+    if (!key) return [];
+    return products.filter(
+      (p) => p.id !== product.id && (p.activeIngredient || "").trim().toLowerCase() === key
+    );
+  }
+
+  // ── استيراد أسعار Excel (ماركت/صيدلية): مطابقة بالباركود ──
+  const [importing, setImporting] = useState(false);
+
+  function downloadPriceTemplate() {
+    const rows = products.map((p) => ({
+      "الباركود": p.barcode || "",
+      "الاسم": p.name || "",
+      "سعر البيع": p.price || 0,
+      "سعر الشراء": p.purchasePrice || 0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "الباركود": "622200200001", "الاسم": "مثال", "سعر البيع": 0, "سعر الشراء": 0 }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الأسعار");
+    XLSX.writeFile(wb, "price-template.xlsx");
+  }
+
+  async function handlePriceImport(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      const byBarcode = {};
+      products.forEach((p) => { if (p.barcode) byBarcode[String(p.barcode).trim()] = p; });
+      let updated = 0;
+      const notFound = [];
+      for (const row of rows) {
+        const code = String(row["الباركود"] ?? row["barcode"] ?? "").trim();
+        if (!code) continue;
+        const prod = byBarcode[code];
+        const sell = parseFloat(row["سعر البيع"] ?? row["price"]);
+        const cost = parseFloat(row["سعر الشراء"] ?? row["purchasePrice"]);
+        if (!prod) { notFound.push(code); continue; }
+        const patch = {};
+        if (!isNaN(sell) && sell >= 0) patch.price = sell;
+        if (!isNaN(cost) && cost >= 0) patch.purchasePrice = cost;
+        if (Object.keys(patch).length === 0) continue;
+        await updateDoc(doc(db, "inventory", prod.id), patch);
+        updated++;
+      }
+      await logActivity({
+        actionType: "UPDATE", collectionName: "inventory", itemId: "-",
+        details: `Price import: ${updated} updated, ${notFound.length} not found`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      await fetchProducts();
+      alert(`تم تحديث ${updated} صنف${notFound.length ? `\nباركود غير موجود (${notFound.length}): ${notFound.slice(0, 10).join("، ")}${notFound.length > 10 ? "..." : ""}` : ""}`);
+    } catch (err) {
+      console.error(err);
+      alert("تعذر قراءة الملف — اتأكد أنه Excel بعناوين: الباركود، سعر البيع، سعر الشراء");
+    }
+    setImporting(false);
+  }
   function handlePrintLabels() {
     const withCode = filteredProducts.filter((p) => p.barcode);
     if (withCode.length === 0) { alert("مفيش أصناف ليها باركود في العرض الحالي"); return; }
@@ -682,6 +763,15 @@ export default function Inventory() {
               onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
               required
             />
+            {/* سعر الشراء — ماركت/صيدلية (لرأس المال) */}
+            {isMarket && (
+              <input
+                type="number" step="0.01" min="0"
+                placeholder="سعر الشراء (ج.م) — لحساب رأس المال"
+                value={newProduct.purchasePrice}
+                onChange={(e) => setNewProduct({ ...newProduct, purchasePrice: e.target.value })}
+              />
+            )}
             {/* الباركود — للسوبر ماركت والصيدلية والتاجر */}
             {!isRestaurant && !isRealEstate && !isClothing && (
               <input
@@ -691,22 +781,30 @@ export default function Inventory() {
                 onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
               />
             )}
-            {/* حقول الصيدلية: التصنيف + حد الطلب */}
+            {/* حقول الصيدلية: التصنيف + حد الطلب + المادة الفعالة */}
             {isPharmacy && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12 }}>
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="التصنيف الدوائي (مثال: مسكنات، مضاد حيوي...)"
+                    value={newProduct.drugCategory}
+                    onChange={(e) => setNewProduct({ ...newProduct, drugCategory: e.target.value })}
+                  />
+                  <input
+                    type="number" min="0" step="1"
+                    placeholder="حد الطلب"
+                    value={newProduct.minQuantity}
+                    onChange={(e) => setNewProduct({ ...newProduct, minQuantity: e.target.value })}
+                  />
+                </div>
                 <input
                   type="text"
-                  placeholder="التصنيف الدوائي (مثال: مسكنات، مضاد حيوي...)"
-                  value={newProduct.drugCategory}
-                  onChange={(e) => setNewProduct({ ...newProduct, drugCategory: e.target.value })}
+                  placeholder="المادة الفعالة (مثال: باراسيتامول — للبدائل)"
+                  value={newProduct.activeIngredient}
+                  onChange={(e) => setNewProduct({ ...newProduct, activeIngredient: e.target.value })}
                 />
-                <input
-                  type="number" min="0" step="1"
-                  placeholder="حد الطلب"
-                  value={newProduct.minQuantity}
-                  onChange={(e) => setNewProduct({ ...newProduct, minQuantity: e.target.value })}
-                />
-              </div>
+              </>
             )}
             <input
               type="text"
@@ -932,6 +1030,41 @@ export default function Inventory() {
           })()
         )}
 
+        {/* ── رأس مال البضاعة (ماركت/صيدلية) ── */}
+        {isMarket && (
+          (() => {
+            const capital = products.reduce((s, p) => s + (parseFloat(p.quantity) || 0) * (parseFloat(p.purchasePrice) || 0), 0);
+            const retail = products.reduce((s, p) => s + (parseFloat(p.quantity) || 0) * (parseFloat(p.price) || 0), 0);
+            const noCost = products.filter((p) => !(parseFloat(p.purchasePrice) > 0)).length;
+            return (
+              <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", marginBottom: 20 }}>
+                <div className="stat-card indigo">
+                  <div className="stat-icon"><i className="fas fa-vault"></i></div>
+                  <div className="stat-value" style={{ fontSize: 17 }}>{capital.toLocaleString()}</div>
+                  <div className="stat-label">رأس المال (بسعر الشراء) {t("currency")}</div>
+                </div>
+                <div className="stat-card green">
+                  <div className="stat-icon"><i className="fas fa-tag"></i></div>
+                  <div className="stat-value" style={{ fontSize: 17 }}>{retail.toLocaleString()}</div>
+                  <div className="stat-label">القيمة بسعر البيع {t("currency")}</div>
+                </div>
+                <div className="stat-card amber">
+                  <div className="stat-icon"><i className="fas fa-chart-line"></i></div>
+                  <div className="stat-value" style={{ fontSize: 17, color: retail - capital >= 0 ? "#16a34a" : "#dc2626" }}>{(retail - capital).toLocaleString()}</div>
+                  <div className="stat-label">الهامش المتوقع</div>
+                </div>
+                {noCost > 0 && (
+                  <div className="stat-card red">
+                    <div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div>
+                    <div className="stat-value">{noCost}</div>
+                    <div className="stat-label">أصناف بلا سعر شراء</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        )}
+
         {/* ── Filters ── */}
         <div style={{ marginBottom: "20px", marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <input
@@ -974,6 +1107,17 @@ export default function Inventory() {
                   <i className="fas fa-print"></i> طباعة ملصقات
                 </button>
               )}
+              {isMarket && (
+                <>
+                  <button type="button" onClick={downloadPriceTemplate} className="btn-secondary btn-sm" title="ملف Excel بأصنافك وأسعارها الحالية — عدّل الأسعار وارفعه تاني">
+                    <i className="fas fa-download"></i> نموذج الأسعار
+                  </button>
+                  <label className="btn-secondary btn-sm" style={{ cursor: importing ? "wait" : "pointer", opacity: importing ? 0.6 : 1 }} title="ارفع شيت الأسعار بعد تعديله (مطابقة بالباركود)">
+                    <i className="fas fa-upload"></i> {importing ? "جاري..." : "استيراد أسعار"}
+                    <input type="file" accept=".xlsx,.xls,.csv" onChange={handlePriceImport} disabled={importing} style={{ display: "none" }} />
+                  </label>
+                </>
+              )}
             </div>
           </div>
           {filteredProducts.length === 0 ? (
@@ -1003,7 +1147,24 @@ export default function Inventory() {
                   <tr key={product.id}>
                     <td>{index + 1}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{product.name}</div>
+                      <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>{product.name}</span>
+                        {isPharmacy && (
+                          <button type="button" onClick={() => openDrugEye(product.name)} title="بحث في دليل DrugEye (الاسم بيتنسخ تلقائي)"
+                            style={{ background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe", borderRadius: 8, padding: "2px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                            🔍 DrugEye
+                          </button>
+                        )}
+                        {isPharmacy && (product.activeIngredient || "").trim() && (
+                          <button type="button" onClick={() => setAltProduct(product)} title={`البدائل بنفس المادة: ${product.activeIngredient}`}
+                            style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac", borderRadius: 8, padding: "2px 8px", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                            🔄 البدائل ({getAlternatives(product).length})
+                          </button>
+                        )}
+                      </div>
+                      {isPharmacy && product.activeIngredient && (
+                        <div style={{ fontSize: 11, color: "#7c3aed" }}>المادة: {product.activeIngredient}</div>
+                      )}
                       {isRestaurant && product.preparationNote && (
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{product.preparationNote}</div>
                       )}
@@ -1065,7 +1226,11 @@ export default function Inventory() {
                         {product.quantity}
                       </span>
                     </td>
-                    <td>{product.price} {t("currency")}</td>
+                    <td>{product.price} {t("currency")}
+                      {isMarket && (parseFloat(product.purchasePrice) > 0) && (
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>شراء: {product.purchasePrice}</div>
+                      )}
+                    </td>
                     <td>
                       <button onClick={() => { setEditingProduct({ ...product }); setShowEditModal(true); }}
                         className="btn-primary" style={{ marginLeft: "8px", padding: "6px 14px", fontSize: "13px" }}>
@@ -1084,6 +1249,37 @@ export default function Inventory() {
           )}
         </div>
       </div>
+
+      {/* ── مودال البدائل (صيدلية) ── */}
+      {altProduct && (
+        <div style={styles.modalOverlay} onClick={() => setAltProduct(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h3><i className="fas fa-exchange-alt" style={{ color: "#15803d" }}></i> بدائل {altProduct.name}</h3>
+              <button onClick={() => setAltProduct(null)} style={styles.closeBtn}>&times;</button>
+            </div>
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "8px 12px", fontSize: 13, marginBottom: 12 }}>
+              المادة الفعالة: <strong>{altProduct.activeIngredient}</strong>
+            </div>
+            {getAlternatives(altProduct).length === 0 ? (
+              <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 16 }}>مفيش بدائل بنفس المادة في مخزونك — سجّل المادة الفعالة للأصناف عشان تظهر هنا</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {getAlternatives(altProduct).map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px", fontSize: 13 }}>
+                    <strong>{p.name}</strong>
+                    <span style={{ color: "#64748b" }}>{p.drugCategory || ""}</span>
+                    <span style={{ marginRight: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+                      <span className={`badge ${parseFloat(p.quantity) < 5 ? "badge-expired" : "badge-active"}`}>متاح: {p.quantity}</span>
+                      <strong style={{ color: "#16a34a" }}>{p.price} {t("currency")}</strong>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Edit Modal ── */}
       {showEditModal && editingProduct && (
@@ -1135,6 +1331,14 @@ export default function Inventory() {
                       onChange={(e) => setEditingProduct({ ...editingProduct, barcode: e.target.value })} />
                   </div>
                 )}
+                {/* سعر الشراء */}
+                {isMarket && (
+                  <div style={styles.formGroup}>
+                    <label>سعر الشراء ({t("currency")})</label>
+                    <input type="number" min="0" step="0.01" value={editingProduct.purchasePrice || ""} style={styles.input}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, purchasePrice: e.target.value })} />
+                  </div>
+                )}
                 {/* حقول الصيدلية */}
                 {isPharmacy && (
                   <>
@@ -1142,6 +1346,12 @@ export default function Inventory() {
                       <label>التصنيف الدوائي</label>
                       <input type="text" value={editingProduct.drugCategory || ""} style={styles.input}
                         onChange={(e) => setEditingProduct({ ...editingProduct, drugCategory: e.target.value })} />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label>المادة الفعالة (للبدائل)</label>
+                      <input type="text" value={editingProduct.activeIngredient || ""} style={styles.input}
+                        placeholder="مثال: باراسيتامول"
+                        onChange={(e) => setEditingProduct({ ...editingProduct, activeIngredient: e.target.value })} />
                     </div>
                     <div style={styles.formGroup}>
                       <label>حد الطلب (تنبيه النواقص)</label>

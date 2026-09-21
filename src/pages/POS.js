@@ -81,9 +81,120 @@ export default function POS() {
     } catch (e) { console.error(e); }
   }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
 
+  // ── الوردية والتقفيل اليدوي ──
+  const [shift, setShift] = useState(null); // التقفيلة المفتوحة
+  const [closings, setClosings] = useState([]);
+  const [openingCash, setOpeningCash] = useState("");
+  const [opening, setOpening] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [closeForm, setCloseForm] = useState({ countedCash: "", receiver: "", notes: "" });
+  const [closePreview, setClosePreview] = useState(null);
+  const [closing, setClosing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fetchShift = useCallback(async () => {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(getScopedQuery("closings", userRole, userCompanyId, currentUser?.uid));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      setClosings(data.slice(0, 10));
+      setShift(data.find((c) => c.status === "open") || null);
+    } catch (e) { console.error(e); }
+  }, [userRole, userCompanyId, currentUser?.uid]);
+
+  async function openShift(e) {
+    e?.preventDefault();
+    if (!userCompanyId) return;
+    setOpening(true);
+    try {
+      const maxNo = closings.reduce((m, c) => Math.max(m, parseInt(c.number) || 0), 0);
+      await addDoc(collection(db, "closings"), {
+        number: maxNo + 1,
+        status: "open",
+        openedAt: new Date().toISOString(),
+        openedBy: currentUser?.uid || null,
+        openedByEmail: currentUser?.email || "",
+        openingCash: parseFloat(openingCash) || 0,
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdAt: new Date().toISOString(),
+      });
+      setOpeningCash("");
+      await fetchShift();
+    } catch (err) {
+      console.error(err);
+      alert("تعذر فتح الوردية");
+    }
+    setOpening(false);
+  }
+
+  // حساب مبيعات الوردية المفتوحة (من فتحها لحد دلوقتي)
+  async function previewClosing() {
+    if (!shift) return;
+    try {
+      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const from = new Date(shift.openedAt || shift.createdAt).getTime();
+      const now = Date.now();
+      const byMethod = {};
+      let count = 0, total = 0, paid = 0;
+      snap.docs.forEach((d) => {
+        const inv = d.data();
+        const ts = new Date(inv.date || inv.createdAt || 0).getTime();
+        if (ts >= from && ts <= now) {
+          count++;
+          total += parseFloat(inv.amount) || 0;
+          const p = parseFloat(inv.paidAmount) || 0;
+          paid += p;
+          const m = inv.paymentMethod || inv.source || "cash";
+          byMethod[m] = (byMethod[m] || 0) + p;
+        }
+      });
+      setClosePreview({ count, total, paid, byMethod });
+      setShowCloseModal(true);
+    } catch (err) {
+      console.error(err);
+      alert("تعذر حساب مبيعات الوردية");
+    }
+  }
+
+  async function submitClosing(e) {
+    e.preventDefault();
+    if (!shift || !closePreview) return;
+    setClosing(true);
+    try {
+      const counted = parseFloat(closeForm.countedCash) || 0;
+      const expected = (parseFloat(shift.openingCash) || 0) + closePreview.paid;
+      await updateDoc(doc(db, "closings", shift.id), {
+        status: "closed",
+        closedAt: new Date().toISOString(),
+        closedBy: currentUser?.uid || null,
+        closedByEmail: currentUser?.email || "",
+        salesCount: closePreview.count,
+        salesTotal: closePreview.total,
+        paidTotal: closePreview.paid,
+        byMethod: closePreview.byMethod,
+        countedCash: counted,
+        expectedCash: expected,
+        difference: counted - expected,
+        receiver: closeForm.receiver || "",
+        notes: closeForm.notes || "",
+      });
+      setShowCloseModal(false);
+      setCloseForm({ countedCash: "", receiver: "", notes: "" });
+      setClosePreview(null);
+      await fetchShift();
+      alert("تم تقفيل الوردية وحفظ التسليم");
+    } catch (err) {
+      console.error(err);
+      alert("تعذر التقفيل");
+    }
+    setClosing(false);
+  }
+
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchClients(), fetchCategories()]);
-  }, [fetchProducts, fetchClients, fetchCategories]);
+    Promise.all([fetchProducts(), fetchClients(), fetchCategories(), fetchShift()]);
+  }, [fetchProducts, fetchClients, fetchCategories, fetchShift]);
 
   // ── عميل جديد سريع: حفظ في العملاء واختياره فوراً ──
   async function handleQuickAddClient() {
@@ -566,6 +677,54 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           </div>
         </div>
 
+        {/* ── شريط الوردية ── */}
+        {!shift ? (
+          <form onSubmit={openShift} style={{ display: "flex", gap: 8, alignItems: "center", background: "#fffbeb", border: "2px dashed #f59e0b", borderRadius: 10, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>🕐 مفيش وردية مفتوحة</span>
+            <input type="number" min="0" step="0.01" placeholder="كاش بداية الوردية (اختياري)"
+              value={openingCash} onChange={(e) => setOpeningCash(e.target.value)}
+              style={{ padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, width: 200 }} />
+            <button type="submit" disabled={opening} className="btn-primary btn-sm">{opening ? "..." : "فتح وردية"}</button>
+            {closings.length > 0 && (
+              <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">التقفيلات السابقة ({closings.length})</button>
+            )}
+          </form>
+        ) : (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#f0fdf4", border: "2px solid #86efac", borderRadius: 10, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#15803d" }}>
+              🟢 وردية #{shift.number} مفتوحة منذ {shift.openedAt ? new Date(shift.openedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : "—"}
+            </span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>كاش البداية: {(shift.openingCash || 0).toLocaleString()}</span>
+            <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginRight: "auto" }}>تقفيل الوردية</button>
+            <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">السجل</button>
+          </div>
+        )}
+
+        {showHistory && closings.length > 0 && (
+          <div className="table-container" style={{ marginBottom: 16 }}>
+            <div className="table-header"><h3>تقفيلات سابقة</h3></div>
+            <table>
+              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
+              <tbody>
+                {closings.map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 700 }}>#{c.number}</td>
+                    <td style={{ fontSize: 12 }}>{c.openedAt ? new Date(c.openedAt).toLocaleString("ar-EG") : "—"}</td>
+                    <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString("ar-EG") : <span style={{ color: "#16a34a", fontWeight: 700 }}>مفتوحة</span>}</td>
+                    <td>{c.salesCount ?? "—"}</td>
+                    <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(c.paidTotal).toLocaleString() : "—"}</td>
+                    <td>{c.countedCash != null ? Number(c.countedCash).toLocaleString() : "—"}</td>
+                    <td style={{ fontWeight: 800, color: (c.difference || 0) === 0 ? "#16a34a" : (c.difference || 0) > 0 ? "#2563eb" : "#dc2626" }}>
+                      {c.difference != null ? `${c.difference > 0 ? "+" : ""}${Number(c.difference).toLocaleString()}` : "—"}
+                    </td>
+                    <td style={{ fontSize: 12 }}>{c.receiver || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 20, alignItems: "start" }}>
 
           {/* ── المنتجات / المنيو ── */}
@@ -965,6 +1124,71 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
             </button>
           </div>
         </div>
+
+        {/* ── مودال تقفيل الوردية وتسليم الشيفت ── */}
+        {showCloseModal && shift && closePreview && (
+          <div className="modal-overlay" onClick={() => setShowCloseModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3><i className="fas fa-cash-register" style={{ color: "#16a34a" }}></i> تقفيل وردية #{shift.number}</h3>
+                <button className="modal-close" onClick={() => setShowCloseModal(false)}>×</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>فواتير الوردية</div>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.count}</div>
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>إجمالي</div>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.total.toLocaleString()}</div>
+                  </div>
+                  <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>المحصل</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: "#16a34a" }}>{closePreview.paid.toLocaleString()}</div>
+                  </div>
+                </div>
+                {Object.keys(closePreview.byMethod).length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    {Object.entries(closePreview.byMethod).map(([m, amt]) => (
+                      <span key={m} style={{ background: "#eef2ff", color: "#4338ca", padding: "4px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                        {m}: {amt.toLocaleString()}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <form onSubmit={submitClosing}>
+                  <div className="form-group">
+                    <label>الكاش المعدود في الدرج * ({t("currency")})</label>
+                    <input type="number" min="0" step="0.01" placeholder="0.00"
+                      value={closeForm.countedCash} onChange={(e) => setCloseForm({ ...closeForm, countedCash: e.target.value })} required />
+                  </div>
+                  <div className="form-group">
+                    <label>المستلم (الشيفت اللي بعدك)</label>
+                    <input type="text" placeholder="اسم المستلم"
+                      value={closeForm.receiver} onChange={(e) => setCloseForm({ ...closeForm, receiver: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label>ملاحظات التسليم</label>
+                    <input type="text" placeholder="مثال: دواء ناقص، عميل هيستلم..."
+                      value={closeForm.notes} onChange={(e) => setCloseForm({ ...closeForm, notes: e.target.value })} />
+                  </div>
+                  {closeForm.countedCash !== "" && (
+                    <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
+                      background: ((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) === 0 ? "#f0fdf4" : "#fef2f2",
+                      color: ((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) === 0 ? "#16a34a" : "#dc2626" }}>
+                      المتوقع: {((parseFloat(shift.openingCash) || 0) + closePreview.paid).toLocaleString()} — الفرق: {(((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid))).toLocaleString()}
+                    </div>
+                  )}
+                  <div className="modal-footer" style={{ marginTop: 12 }}>
+                    <button type="button" className="btn-secondary" onClick={() => setShowCloseModal(false)}>{t("common.cancel")}</button>
+                    <button type="submit" className="btn-primary" disabled={closing}>{closing ? "..." : "تأكيد التقفيل والتسليم"}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -183,6 +183,12 @@ export default function Sidebar() {
       label: "تذاكر الدعم",
       module: "tickets",
     },
+    {
+      to: "/attendance",
+      icon: "fas fa-clock",
+      label: "الحضور والانصراف",
+      module: "attendance",
+    },
   ];
 
   const ALL_SECONDARY_ITEMS = [

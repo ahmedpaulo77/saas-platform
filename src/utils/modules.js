@@ -153,6 +153,7 @@ export const MODULE_MAP = {
     "expiry",
     "tasks",
     "messages",
+    "attendance",
   ],
 
   // صيدلية - نقطة بيع + تشغيلة + تصنيف أدوية + مهام ورسائل
@@ -168,6 +169,7 @@ export const MODULE_MAP = {
     "drug_categories",
     "tasks",
     "messages",
+    "attendance",
   ],
 
   // مطعم / كافيه - ديليفري وتيك أواي فقط
@@ -183,6 +185,7 @@ export const MODULE_MAP = {
     "expiry",
     "tasks",
     "messages",
+    "attendance",
   ],
 
   // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام ورسائل للموظفين
@@ -382,6 +385,7 @@ export const MODULE_LABEL_KEYS = {
   prescriptions: "modules.prescriptions",
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
+  attendance: "modules.attendance",
 };
 
 // دالة للحصول على اسم وحدة مترجم

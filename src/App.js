@@ -49,6 +49,7 @@ import RawMaterials from "./pages/RawMaterials";
 import Statements from "./pages/Statements";
 import Subscriptions from "./pages/Subscriptions";
 import Tickets from "./pages/Tickets";
+import Attendance from "./pages/Attendance";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import SuperAdminRoute from "./components/common/SuperAdminRoute";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -217,6 +218,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="tickets">
               <Tickets />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/attendance"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="attendance">
+              <Attendance />
             </IndustryRoute>
           </ProtectedRoute>
         }

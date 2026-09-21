@@ -523,6 +523,25 @@
       allow delete: if canDeleteCompanyDoc();
     }
 
+    // تقفيل الورديات — الإنشاء والتقفيل لأي فرد (الكاشير بيقفل ورديته)، الحذف للأدمن
+    // ملحوظة: الواجهة لا تعرض تعديل التقفيلات المغلقة — المراجعة من السجل فقط
+    match /closings/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
+    // الحضور والانصراف — تسجيل لأي فرد، الحذف للأدمن
+    match /attendance/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
       // ============================================================
       // auditLogs/{docId}
       // ============================================================
