@@ -772,8 +772,8 @@ export default function Inventory() {
                 onChange={(e) => setNewProduct({ ...newProduct, purchasePrice: e.target.value })}
               />
             )}
-            {/* الباركود — للسوبر ماركت والصيدلية والتاجر */}
-            {!isRestaurant && !isRealEstate && !isClothing && (
+            {/* الباركود — ماركت/صيدلية فقط */}
+            {isMarket && (
               <input
                 type="text"
                 placeholder="الباركود (اختياري — للبيع بالسكانر)"
@@ -837,7 +837,7 @@ export default function Inventory() {
               </>
             )}
 
-            {!isRestaurant && (
+            {isMarket && (
               <input type="date" placeholder={t("inv.phExpiry")} value={newProduct.expiryDate}
                 onChange={(e) => setNewProduct({ ...newProduct, expiryDate: e.target.value })} />
             )}
@@ -1427,8 +1427,8 @@ export default function Inventory() {
                     onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                 </div>
 
-                {!isRestaurant && (
-                  <div style={{ ...styles.formGroup, display: isRealEstate ? "none" : "block" }}>
+                {isMarket && (
+                  <div style={styles.formGroup}>
                     <label>تاريخ الصلاحية (اختياري)</label>
                     <input type="date" value={editingProduct.expiryDate || ""} style={styles.input}
                       onChange={(e) => setEditingProduct({ ...editingProduct, expiryDate: e.target.value })} />

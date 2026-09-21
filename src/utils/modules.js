@@ -182,7 +182,6 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "kitchen",
-    "expiry",
     "tasks",
     "messages",
     "attendance",
@@ -200,15 +199,16 @@ export const MODULE_MAP = {
     "messages",
   ],
 
-  // طبيب / عيادة - مرضى ومواعيد وروشتات فقط (بدون أعمار ديون)
+  // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة + بحث شامل
+  // (بدون مخزون: الفواتير ببنود حرة — وبدون صلاحية وبدون أعمار ديون)
   clinic: [
     "patients",
     "appointments",
     "prescriptions",
     "invoices",
     "tasks",
-    "expiry",
     "messages",
+    "search",
   ],
 };
 
@@ -253,6 +253,11 @@ export function getAvailableModules(industry, userRole) {
   } else {
     // لو مفيش مجال محدد → نعطي الوحدات العامة
     MODULE_MAP.general.forEach((m) => modules.add(m));
+  }
+
+  // العيادة بدون مخزون: الفواتير ببنود حرة تُكتب يدوياً (لا بيع أدوية من العيادة)
+  if (industry === "clinic") {
+    modules.delete("inventory");
   }
 
   // صفحات ثابتة للجميع

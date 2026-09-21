@@ -21,7 +21,9 @@ import PasswordStrengthMeter, { getPasswordStrength } from "../components/common
 
 export default function Users() {
   const { t } = useLanguage();
-  const { currentUser, userRole, userCompanyId } = useAuth();
+  const { currentUser, userRole, userCompanyId, userIndustry } = useAuth();
+  // أدوار الكاشير/المطبخ خاصة بنشاط المطعم فقط
+  const showShiftRoles = userIndustry === "restaurant";
   const superAdmin = isSuperAdmin(userRole);
   const hasAccess = canManageUsers(userRole);
 
@@ -108,7 +110,9 @@ export default function Users() {
 
     let targetRole = newUser.role;
     if (!superAdmin) {
-      if (targetRole !== "user" && targetRole !== "admin") {
+      const allowedRoles = ["user", "admin"];
+      if (userIndustry === "restaurant") allowedRoles.push("cashier", "kitchen");
+      if (!allowedRoles.includes(targetRole)) {
         targetRole = "user";
       }
     }
@@ -161,7 +165,10 @@ export default function Users() {
         alert(t("errors.roleRestricted"));
         return;
       }
-      if (newRole !== "user" && newRole !== "admin" && newRole !== "cashier" && newRole !== "kitchen") {
+      const allowedRoles = ["user", "admin"];
+      // أدوار الورديات للمطعم فقط
+      if (userIndustry === "restaurant") allowedRoles.push("cashier", "kitchen");
+      if (!allowedRoles.includes(newRole)) {
         alert(t("errors.roleRestricted"));
         return;
       }
@@ -431,8 +438,12 @@ export default function Users() {
                         }}
                       >
                         <option value="user">{t("users.roleUser")}</option>
-                        <option value="cashier">{t("users.roleCashier")}</option>
-                        <option value="kitchen">{t("users.roleKitchen")}</option>
+                        {showShiftRoles && (
+                          <>
+                            <option value="cashier">{t("users.roleCashier")}</option>
+                            <option value="kitchen">{t("users.roleKitchen")}</option>
+                          </>
+                        )}
                         <option value="admin">{t("users.roleAdmin")}</option>
                         {superAdmin && (
                           <option value="super_admin">{t("users.roleSuperAdmin")}</option>
@@ -542,8 +553,12 @@ export default function Users() {
                   style={styles.input}
                 >
                   <option value="user">{t("users.roleUser")}</option>
-                  <option value="cashier">{t("users.roleCashier")}</option>
-                  <option value="kitchen">{t("users.roleKitchen")}</option>
+                  {showShiftRoles && (
+                    <>
+                      <option value="cashier">{t("users.roleCashier")}</option>
+                      <option value="kitchen">{t("users.roleKitchen")}</option>
+                    </>
+                  )}
                   <option value="admin">{t("users.roleAdmin")}</option>
                   {superAdmin && (
                     <option value="super_admin">{t("users.roleSuperAdmin")}</option>
