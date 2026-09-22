@@ -168,7 +168,10 @@
 
         allow list: if fullyActive() && (
           isSuperAdmin() ||
-          (isAdmin() && userCompanyId() != null)
+          (isAdmin() && userCompanyId() != null) ||
+          // أي فرد نشط يقدر يشوف أعضاء شركته (لصفحة الرسائل) — الكويري في الكود
+          // بيفلتر بـ companyId، وبنفس نموذج باقي كولكشنز الشركة
+          (userCompanyId() != null)
         );
 
         // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
@@ -565,9 +568,22 @@
           request.resource.data.createdAt < request.time + duration.value(5, 'm');
       }
 
-      // ============================================================
-      // fcm_tokens/{userId}
-      // ============================================================
+    // ============================================================
+    // profitCoverage/{companyId} — إعداد الكفر في صفحة الأرباح (مستند واحد لكل شركة)
+    // ============================================================
+    match /profitCoverage/{companyId} {
+      allow get: if fullyActive() &&
+        (isSuperAdmin() || userCompanyId() == companyId);
+      allow list: if fullyActive() && isSuperAdmin();
+      allow create, update: if fullyActive() && isAdmin() &&
+        (isSuperAdmin() || userCompanyId() == companyId) &&
+        request.resource.data.keys().hasOnly(['companyId', 'amount', 'enabled', 'updatedAt', 'updatedBy']);
+      allow delete: if fullyActive() && isSuperAdmin();
+    }
+
+    // ============================================================
+    // fcm_tokens/{userId}
+    // ============================================================
       match /fcm_tokens/{userId} {
         allow get:    if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;
         allow create: if requestingUserIsActive() && isLoggedIn() && request.auth.uid == userId;

@@ -55,6 +55,7 @@ export default function Profits() {
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [returns, setReturns] = useState([]);
 
   // خانة الكفر (احتياطي مالي اختياري)
   const [coverageEnabled, setCoverageEnabled] = useState(false);
@@ -78,14 +79,16 @@ export default function Profits() {
       if (!userCompanyId) return;
       setLoading(true);
       try {
-        const [invSnap, expSnap, purSnap] = await Promise.all([
+        const [invSnap, expSnap, purSnap, retSnap] = await Promise.all([
           getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "expenses"), where("companyId", "==", userCompanyId))),
           getDocs(query(collection(db, "purchases"), where("companyId", "==", userCompanyId))),
+          getDocs(query(collection(db, "returns"), where("companyId", "==", userCompanyId))),
         ]);
         setInvoices(invSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setExpenses(expSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setPurchases(purSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setReturns(retSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
       }
@@ -112,8 +115,8 @@ export default function Profits() {
     loadCoverage();
   }, [userCompanyId]);
 
-  // -------- حساب إيراد/مشتريات/مصروف/ربح فترة معينة --------
-  // الربح = المحصّل من المبيعات − المدفوع للموردين − المصروفات (منها الهالك)
+  // -------- حساب إيراد/مشتريات/مصروف/مرتجعات/ربح فترة معينة --------
+  // الربح = (المحصّل من المبيعات − مرتجعات البيع) − (المدفوع للموردين − مرتجعات الشراء) − المصروفات
   const calcPeriod = useCallback(
     (start, end) => {
       const inRange = (dateStr) => {
@@ -132,6 +135,15 @@ export default function Profits() {
         0,
       );
 
+      let saleReturns = 0;
+      let purchaseReturns = 0;
+      returns.forEach((r) => {
+        if (!inRange(r.date || r.createdAt)) return;
+        const amt = parseFloat(r.amount) || 0;
+        if (r.kind === "purchase") purchaseReturns += amt;
+        else saleReturns += amt;
+      });
+
       let expenseTotal = 0;
       let wasteTotal = 0;
       expenses.forEach((e) => {
@@ -144,13 +156,15 @@ export default function Profits() {
       return {
         revenue,
         purchases: purchasesTotal,
+        saleReturns,
+        purchaseReturns,
         expenses: expenseTotal,
         waste: wasteTotal,
         otherExpenses: expenseTotal - wasteTotal,
-        profit: revenue - purchasesTotal - expenseTotal,
+        profit: (revenue - saleReturns) - (purchasesTotal - purchaseReturns) - expenseTotal,
       };
     },
-    [invoices, expenses, purchases],
+    [invoices, expenses, purchases, returns],
   );
 
   // -------- حساب شهر معين --------
@@ -391,6 +405,17 @@ export default function Profits() {
               </div>
               <div className="stat-label">{t("profits.waste")}</div>
             </div>
+            {(dayData.saleReturns > 0 || dayData.purchaseReturns > 0) && (
+              <div className="stat-card amber">
+                <div className="stat-icon">
+                  <i className="fas fa-undo"></i>
+                </div>
+                <div className="stat-value" style={{ fontSize: 18 }}>
+                  {dayData.saleReturns.toLocaleString()} {t("currency")}
+                </div>
+                <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
+              </div>
+            )}
             <div className="stat-card indigo">
               <div className="stat-icon">
                 <i className="fas fa-receipt"></i>
@@ -487,6 +512,17 @@ export default function Profits() {
               {currentMonthData.waste.toLocaleString()})
             </div>
           </div>
+          {(currentMonthData.saleReturns > 0 || currentMonthData.purchaseReturns > 0) && (
+            <div className="stat-card amber">
+              <div className="stat-icon">
+                <i className="fas fa-undo"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 20 }}>
+                {currentMonthData.saleReturns.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
+            </div>
+          )}
           <div className={`stat-card ${currentMonthData.profit >= 0 ? "indigo" : "red"}`}>
             <div className="stat-icon">
               <i className="fas fa-sack-dollar"></i>
