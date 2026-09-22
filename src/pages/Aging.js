@@ -46,9 +46,13 @@ function getBucket(days) {
 
 export default function Aging() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId } = useAuth();
+  const { userRole, userCompanyId, userIndustry } = useAuth();
   const superAdmin = userRole === 'super_admin';
   const isAdmin = userRole === 'admin' || superAdmin;
+  // العيادة: الأرصدة على المرضى (patients) مش العملاء
+  const isClinic = userIndustry === 'clinic';
+  const entityCollection = isClinic ? 'patients' : 'clients';
+  const entityLabel = isClinic ? 'المريض' : 'العميل';
 
   const [agingData, setAgingData] = useState([]);
   const [totals, setTotals] = useState({ total: 0, buckets: BUCKETS.map(() => 0) });
@@ -73,8 +77,8 @@ export default function Aging() {
     try {
       const clientsSnap = await getDocs(
         superAdmin
-          ? collection(db, 'clients')
-          : query(collection(db, 'clients'), where('companyId', '==', userCompanyId))
+          ? collection(db, entityCollection)
+          : query(collection(db, entityCollection), where('companyId', '==', userCompanyId))
       );
       const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -140,7 +144,7 @@ export default function Aging() {
     } finally {
       setLoading(false);
     }
-  }, [superAdmin, userCompanyId, isAdmin]);
+  }, [superAdmin, userCompanyId, isAdmin, entityCollection]);
 
   useEffect(() => { fetchAgingData(); }, [fetchAgingData]);
 
@@ -314,7 +318,7 @@ export default function Aging() {
         <div className="table-container">
           <div className="table-header">
             <h3><i className="fas fa-table"></i> {t('ag.table')}</h3>
-            <span className="table-count">{t('ag.nClients', { n: filtered.length })}</span>
+            <span className="table-count">{filtered.length} {entityLabel}</span>
           </div>
 
           {filtered.length === 0 ? (

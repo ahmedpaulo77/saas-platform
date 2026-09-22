@@ -197,6 +197,7 @@ export const MODULE_MAP = {
     "sizes_colors",
     "tasks",
     "messages",
+    "aging",
   ],
 
   // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة + بحث شامل
@@ -209,6 +210,7 @@ export const MODULE_MAP = {
     "tasks",
     "messages",
     "search",
+    "aging",
   ],
 };
 
