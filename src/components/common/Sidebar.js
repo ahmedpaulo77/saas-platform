@@ -186,19 +186,19 @@ export default function Sidebar() {
     {
       to: "/certificates",
       icon: "fas fa-file-contract",
-      label: "المستخلصات",
+      label: t("nav.certificates"),
       module: "certificates",
     },
     {
       to: "/subscriptions",
       icon: "fas fa-repeat",
-      label: "الاشتراكات",
+      label: t("nav.subscriptions"),
       module: "subscriptions",
     },
     {
       to: "/tickets",
       icon: "fas fa-headset",
-      label: "تذاكر الدعم",
+      label: t("nav.tickets"),
       module: "tickets",
     },
     {
