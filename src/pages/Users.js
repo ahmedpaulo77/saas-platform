@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin, canManageUsers } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
+import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
 
@@ -386,6 +387,11 @@ export default function Users() {
                 : t("users.noUsers")}
             </p>
           ) : (
+            <Pagination
+              data={filteredUsers}
+              pageSize={20}
+              resetKey={searchTerm}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -398,12 +404,12 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user, index) => (
+                {pageItems.map((user, index) => (
                   <tr
                     key={user.id}
                     style={{ opacity: user.isActive === false ? 0.5 : 1 }}
                   >
-                    <td>{index + 1}</td>
+                    <td>{start + index + 1}</td>
                     <td>{user.email}</td>
                     <td>
                       <span className={`badge ${getRoleBadgeClass(user.role)}`}>
@@ -496,6 +502,8 @@ export default function Users() {
                 ))}
               </tbody>
             </table>
+              )}
+            />
           )}
         </div>
       </div>

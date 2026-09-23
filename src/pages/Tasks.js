@@ -12,6 +12,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Tasks() {
@@ -288,6 +289,11 @@ export default function Tasks() {
                 : t("tk.empty")}
             </p>
           ) : (
+            <Pagination
+              data={sortedTasks}
+              pageSize={20}
+              resetKey={searchTerm}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -302,9 +308,9 @@ export default function Tasks() {
                 </tr>
               </thead>
               <tbody>
-                {sortedTasks.map((task, index) => (
+                {pageItems.map((task, index) => (
                   <tr key={task.id}>
-                    <td>{index + 1}</td>
+                    <td>{start + index + 1}</td>
                     <td>{task.title}</td>
                     <td>{task.description || "-"}</td>
                     <td>
@@ -368,6 +374,8 @@ export default function Tasks() {
                 ))}
               </tbody>
             </table>
+              )}
+            />
           )}
         </div>
       </div>

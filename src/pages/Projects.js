@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
+import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Projects() {
@@ -376,6 +377,11 @@ export default function Projects() {
               {searchTerm ? t("common.noResults") : t("pr.empty")}
             </p>
           ) : (
+            <Pagination
+              data={filteredProjects}
+              pageSize={20}
+              resetKey={searchTerm}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -391,9 +397,9 @@ export default function Projects() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProjects.map((project, index) => (
+                {pageItems.map((project, index) => (
                   <tr key={project.id}>
-                    <td>{index + 1}</td>
+                    <td>{start + index + 1}</td>
                     <td>{project.name}</td>
                     <td>{project.description || "-"}</td>
                     <td>{new Date(project.startDate).toLocaleDateString()}</td>
@@ -454,6 +460,8 @@ export default function Projects() {
                 ))}
               </tbody>
             </table>
+              )}
+            />
           )}
         </div>
 

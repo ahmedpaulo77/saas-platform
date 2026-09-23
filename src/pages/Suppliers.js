@@ -5,6 +5,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Suppliers() {
@@ -299,6 +300,11 @@ export default function Suppliers() {
               {searchTerm ? t("common.noResults") : t("sup.empty")}
             </p>
           ) : (
+            <Pagination
+              data={filteredSuppliers}
+              pageSize={20}
+              resetKey={searchTerm}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -314,12 +320,12 @@ export default function Suppliers() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSuppliers.map((supplier, index) => {
+                {pageItems.map((supplier, index) => {
                   // ✅ المتبقي عليه = فواتير الشراء − المدفوع (تلقائي)
                   const { remaining } = supplierTotals(supplier.id);
                   return (
-                  <tr key={supplier.id}>
-                    <td>{index + 1}</td>
+                    <tr key={supplier.id}>
+                    <td>{start + index + 1}</td>
                     <td style={{ fontWeight: 600 }}>{supplier.name}</td>
                     <td>{supplier.phone || "-"}</td>
                     <td>{supplier.email || "-"}</td>
@@ -361,6 +367,8 @@ export default function Suppliers() {
                 })}
               </tbody>
             </table>
+              )}
+            />
           )}
         </div>
       </div>

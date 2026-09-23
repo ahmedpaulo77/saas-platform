@@ -5,6 +5,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
+import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import AddSellerModal from "../components/sellers/AddSellerModal";
 
@@ -201,6 +202,11 @@ export default function Sellers() {
           </div>
         ) : (
           <div className="table-container">
+            <Pagination
+              data={filtered}
+              pageSize={20}
+              resetKey={searchTerm}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -215,10 +221,10 @@ export default function Sellers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((seller, index) => (
+                {pageItems.map((seller, index) => (
                   <React.Fragment key={seller.id}>
                     <tr>
-                      <td>{index + 1}</td>
+                      <td>{start + index + 1}</td>
                       <td><strong>{seller.name}</strong></td>
                       <td>{seller.developer || "-"}</td>
                       <td>{seller.project || "-"}</td>
@@ -302,6 +308,8 @@ export default function Sellers() {
                 ))}
               </tbody>
             </table>
+              )}
+            />
           </div>
         )}
       </div>
