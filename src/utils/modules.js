@@ -101,8 +101,6 @@ export const MODULE_MAP = {
     "purchases",
     "aging",
     "messages",
-    "subscriptions",
-    "tickets",
   ],
 
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
@@ -119,8 +117,6 @@ export const MODULE_MAP = {
     "aging",
     "suppliers",
     "purchases",
-    "subscriptions",
-    "tickets",
   ],
 
   // سوبر ماركت - نقطة بيع + صلاحية + مهام ورسائل للفريق

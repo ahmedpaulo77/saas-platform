@@ -14,8 +14,10 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Certificates() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [certificates, setCertificates] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -117,11 +119,11 @@ export default function Certificates() {
   async function addCertificate(e) {
     e.preventDefault();
     if (!newCert.projectId || !newCert.amount) {
-      alert("يرجى اختيار المشروع وإدخال المبلغ");
+      alert(t("cert.needProject"));
       return;
     }
     if (!userCompanyId) {
-      alert("لا يوجد شركة مرتبطة");
+      alert(t("co.fillAll"));
       return;
     }
     setSubmitting(true);
@@ -183,7 +185,7 @@ export default function Certificates() {
   async function updateCertificate(e) {
     e.preventDefault();
     if (!editingCert.projectId || editingCert.amount === "" || editingCert.amount == null) {
-      alert("يرجى اختيار المشروع وإدخال المبلغ");
+      alert(t("cert.needProject"));
       return;
     }
     try {
@@ -220,7 +222,7 @@ export default function Certificates() {
   }
 
   async function deleteCertificate(id) {
-    if (!window.confirm("هل أنت متأكد من حذف المستخلص؟")) return;
+    if (!window.confirm(t("cert.confirmDelete"))) return;
     try {
       await deleteDoc(doc(db, "certificates", id));
       await logActivity({
@@ -245,9 +247,9 @@ export default function Certificates() {
   const userCanDelete = canDelete(userRole);
 
   const statusLabel = (s) => {
-    if (s === "approved") return "معتمد";
-    if (s === "paid") return "مدفوع";
-    return "معلق";
+    if (s === "approved") return t("cert.approved");
+    if (s === "paid") return t("cert.paid");
+    return t("cert.pending");
   };
 
   const statusBadge = (s) => {
@@ -277,9 +279,9 @@ export default function Certificates() {
           <div>
             <h1>
               <i className="fas fa-file-contract" style={{ color: "#6366f1", marginLeft: 10 }}></i>
-              المستخلصات (Certificates)
+              {t("cert.title")}
             </h1>
-            <p className="subtitle">إدارة مستخلصات المقاولين حسب المشروع</p>
+            <p className="subtitle">{t("cert.subtitle")}</p>
           </div>
         </div>
 
@@ -290,46 +292,46 @@ export default function Certificates() {
               <i className="fas fa-layer-group"></i>
             </div>
             <div className="stat-value">{stats.total}</div>
-            <div className="stat-label">الإجمالي</div>
+            <div className="stat-label">{t("cert.total")}</div>
           </div>
           <div className="stat-card amber">
             <div className="stat-icon">
               <i className="fas fa-clock"></i>
             </div>
             <div className="stat-value">{stats.pending}</div>
-            <div className="stat-label">معلق</div>
+            <div className="stat-label">{t("cert.pending")}</div>
           </div>
           <div className="stat-card indigo">
             <div className="stat-icon">
               <i className="fas fa-check-double"></i>
             </div>
             <div className="stat-value">{stats.approved}</div>
-            <div className="stat-label">معتمد</div>
+            <div className="stat-label">{t("cert.approved")}</div>
           </div>
           <div className="stat-card green">
             <div className="stat-icon">
               <i className="fas fa-money-bill-wave"></i>
             </div>
             <div className="stat-value">{stats.paid}</div>
-            <div className="stat-label">مدفوع</div>
+            <div className="stat-label">{t("cert.paid")}</div>
           </div>
         </div>
 
         {/* Add Form */}
         <div className="form-card">
           <h3>
-            <i className="fas fa-plus-circle" style={{ color: "#6366f1" }}></i> إضافة مستخلص جديد
+            <i className="fas fa-plus-circle" style={{ color: "#6366f1" }}></i> {t("cert.add")}
           </h3>
           <form onSubmit={addCertificate}>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>المشروع *</label>
+                <label>{t("cert.project")} *</label>
                 <select
                   value={newCert.projectId}
                   onChange={(e) => setNewCert({ ...newCert, projectId: e.target.value })}
                   required
                 >
-                  <option value="">— اختر المشروع —</option>
+                  <option value="">{t("cert.chooseProject")}</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -338,7 +340,7 @@ export default function Certificates() {
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>المبلغ *</label>
+                <label>{t("cert.amount")} *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -350,7 +352,7 @@ export default function Certificates() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>المبلغ المدفوع</label>
+                <label>{t("cert.paidAmount")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -361,18 +363,18 @@ export default function Certificates() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>الحالة</label>
+                <label>{t("cert.status")}</label>
                 <select
                   value={newCert.status}
                   onChange={(e) => setNewCert({ ...newCert, status: e.target.value })}
                 >
-                  <option value="pending">معلق</option>
-                  <option value="approved">معتمد</option>
-                  <option value="paid">مدفوع</option>
+                  <option value="pending">{t("cert.pending")}</option>
+                  <option value="approved">{t("cert.approved")}</option>
+                  <option value="paid">{t("cert.paid")}</option>
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>تاريخ الاستحقاق</label>
+                <label>{t("cert.dueDate")}</label>
                 <input
                   type="date"
                   value={newCert.dueDate}
@@ -380,10 +382,10 @@ export default function Certificates() {
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>الوصف</label>
+                <label>{t("cert.description")}</label>
                 <input
                   type="text"
-                  placeholder="وصف المستخلص (اختياري)"
+                  placeholder={t("cert.description")}
                   value={newCert.description}
                   onChange={(e) => setNewCert({ ...newCert, description: e.target.value })}
                 />
@@ -393,11 +395,11 @@ export default function Certificates() {
               <button type="submit" className="btn-primary" disabled={submitting}>
                 {submitting ? (
                   <>
-                    <i className="fas fa-spinner fa-spin"></i> جاري الإضافة...
+                    <i className="fas fa-spinner fa-spin"></i> {t("common.adding")}
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-plus"></i> إضافة مستخلص
+                    <i className="fas fa-plus"></i> {t("cert.add")}
                   </>
                 )}
               </button>
@@ -408,22 +410,22 @@ export default function Certificates() {
         {/* Filters */}
         <div className="filter-bar">
           <div className="search-wrapper" style={{ flex: 1 }}>
-            <i className="fas fa-search search-icon"></i>
+              <i className="fas fa-search search-icon"></i>
             <input
               type="text"
-              placeholder="بحث (مشروع، وصف، مبلغ...)"
+              placeholder={t("cert.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">كل الحالات</option>
-            <option value="pending">معلق</option>
-            <option value="approved">معتمد</option>
-            <option value="paid">مدفوع</option>
+            <option value="all">{t("cert.allStatus")}</option>
+            <option value="pending">{t("cert.pending")}</option>
+            <option value="approved">{t("cert.approved")}</option>
+            <option value="paid">{t("cert.paid")}</option>
           </select>
           <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}>
-            <option value="all">كل المشاريع</option>
+            <option value="all">{t("cert.allProjects")}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -436,10 +438,10 @@ export default function Certificates() {
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-list"></i> قائمة المستخلصات
+              <i className="fas fa-list"></i> {t("cert.list")}
             </h3>
             <span className="table-count">
-              {filtered.length} مستخلص
+              {filtered.length} {t("cert.title")}
             </span>
           </div>
           <div className="table-wrapper">
@@ -452,8 +454,8 @@ export default function Certificates() {
                   <i className="fas fa-file-contract"></i>
                   <p>
                     {searchTerm || filterStatus !== "all" || filterProject !== "all"
-                      ? "لا توجد نتائج"
-                      : "لا توجد مستخلصات بعد"}
+                      ? t("cert.noResults")
+                      : t("cert.empty")}
                   </p>
                 </div>
               }
@@ -462,14 +464,14 @@ export default function Certificates() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>المشروع</th>
-                      <th>المبلغ</th>
-                      <th>المدفوع</th>
-                      <th>المتبقي</th>
-                      <th>الحالة</th>
-                      <th>الاستحقاق</th>
-                      <th>الوصف</th>
-                      <th>الإجراءات</th>
+                      <th>{t("cert.project")}</th>
+                      <th>{t("cert.amount")}</th>
+                      <th>{t("cert.paidAmount")}</th>
+                      <th>{t("cert.remaining")}</th>
+                      <th>{t("cert.status")}</th>
+                      <th>{t("cert.dueDate")}</th>
+                      <th>{t("cert.description")}</th>
+                      <th>{t("common.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -547,7 +549,7 @@ export default function Certificates() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                <i className="fas fa-edit" style={{ color: "#6366f1" }}></i> تعديل المستخلص
+                <i className="fas fa-edit" style={{ color: "#6366f1" }}></i> {t("cert.edit")}
               </h3>
               <button className="modal-close" onClick={closeEditModal}>
                 ×
@@ -556,7 +558,7 @@ export default function Certificates() {
             <form onSubmit={updateCertificate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>المشروع *</label>
+                  <label>{t("cert.project")} *</label>
                   <select
                     value={editingCert.projectId}
                     onChange={(e) =>
@@ -564,7 +566,7 @@ export default function Certificates() {
                     }
                     required
                   >
-                    <option value="">— اختر المشروع —</option>
+                    <option value="">{t("cert.chooseProject")}</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -573,7 +575,7 @@ export default function Certificates() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>المبلغ *</label>
+                  <label>{t("cert.amount")} *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -585,7 +587,7 @@ export default function Certificates() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>المبلغ المدفوع</label>
+                  <label>{t("cert.paidAmount")}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -596,20 +598,20 @@ export default function Certificates() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>الحالة</label>
+                  <label>{t("cert.status")}</label>
                   <select
                     value={editingCert.status}
                     onChange={(e) =>
                       setEditingCert({ ...editingCert, status: e.target.value })
                     }
                   >
-                    <option value="pending">معلق</option>
-                    <option value="approved">معتمد</option>
-                    <option value="paid">مدفوع</option>
+                    <option value="pending">{t("cert.pending")}</option>
+                    <option value="approved">{t("cert.approved")}</option>
+                    <option value="paid">{t("cert.paid")}</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>تاريخ الاستحقاق</label>
+                  <label>{t("cert.dueDate")}</label>
                   <input
                     type="date"
                     value={editingCert.dueDate || ""}
@@ -619,7 +621,7 @@ export default function Certificates() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>الوصف</label>
+                  <label>{t("cert.description")}</label>
                   <input
                     type="text"
                     value={editingCert.description || ""}
@@ -631,10 +633,10 @@ export default function Certificates() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={closeEditModal}>
-                  إلغاء
+                  {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">
-                  <i className="fas fa-save"></i> حفظ
+                  <i className="fas fa-save"></i> {t("common.save")}
                 </button>
               </div>
             </form>

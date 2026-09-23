@@ -54,8 +54,6 @@ const Prescriptions = lazy(() => import("./pages/Prescriptions"));
 const MenuCategories = lazy(() => import("./pages/MenuCategories"));
 const RawMaterials = lazy(() => import("./pages/RawMaterials"));
 const Statements = lazy(() => import("./pages/Statements"));
-const Subscriptions = lazy(() => import("./pages/Subscriptions"));
-const Tickets = lazy(() => import("./pages/Tickets"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const Certificates = lazy(() => import("./pages/Certificates"));
 const Viewings = lazy(() => import("./pages/Viewings"));
@@ -212,26 +210,6 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="certificates">
               <Certificates />
-            </IndustryRoute>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/subscriptions"
-        element={
-          <ProtectedRoute>
-            <IndustryRoute moduleKey="subscriptions">
-              <Subscriptions />
-            </IndustryRoute>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/tickets"
-        element={
-          <ProtectedRoute>
-            <IndustryRoute moduleKey="tickets">
-              <Tickets />
             </IndustryRoute>
           </ProtectedRoute>
         }

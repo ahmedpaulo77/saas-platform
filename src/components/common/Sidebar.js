@@ -190,18 +190,6 @@ export default function Sidebar() {
       module: "certificates",
     },
     {
-      to: "/subscriptions",
-      icon: "fas fa-repeat",
-      label: t("nav.subscriptions"),
-      module: "subscriptions",
-    },
-    {
-      to: "/tickets",
-      icon: "fas fa-headset",
-      label: t("nav.tickets"),
-      module: "tickets",
-    },
-    {
       to: "/attendance",
       icon: "fas fa-clock",
       label: "الحضور والانصراف",
