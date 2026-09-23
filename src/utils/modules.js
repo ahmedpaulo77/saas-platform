@@ -108,7 +108,7 @@ export const MODULE_MAP = {
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
   real_estate: ["sellers", "buyers", "viewings", "tasks", "projects", "messages"],
 
-  // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
+  // عام - وحدات عامة بدون sellers وbuyers وبدون رسائل (للشركات الصغيرة)
   general: [
     "clients",
     "invoices",
@@ -119,7 +119,6 @@ export const MODULE_MAP = {
     "aging",
     "suppliers",
     "purchases",
-    "messages",
     "subscriptions",
     "tickets",
   ],
@@ -170,7 +169,7 @@ export const MODULE_MAP = {
     "attendance",
   ],
 
-  // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام ورسائل للموظفين
+  // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام للموظفين (بدون رسائل)
   clothing: [
     "clients",
     "invoices",
@@ -179,7 +178,6 @@ export const MODULE_MAP = {
     "purchases",
     "sizes_colors",
     "tasks",
-    "messages",
     "aging",
   ],
 
