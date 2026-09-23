@@ -9,18 +9,30 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
-const _env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
 function envVal(viteKey, craKey) {
-  return _env[viteKey] || process.env[craKey] || process.env[viteKey] || '';
+  try {
+    const meta = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+    if (meta[viteKey]) return meta[viteKey];
+  } catch {}
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env[craKey]) return process.env[craKey];
+      if (process.env[viteKey]) return process.env[viteKey];
+    }
+  } catch {}
+  return '';
 }
 const firebaseConfig = {
-  apiKey: envVal('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY'),
-  authDomain: envVal('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN'),
-  projectId: envVal('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID'),
-  storageBucket: envVal('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: envVal('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: envVal('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID'),
+  apiKey: envVal('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY') || "AIzaSyAcakZzub29Lp4T41TGDIMLPoFkupzd2is",
+  authDomain: envVal('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN') || "saas-platform-5d7a3.firebaseapp.com",
+  projectId: envVal('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID') || "saas-platform-5d7a3",
+  storageBucket: envVal('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET') || "saas-platform-5d7a3.firebasestorage.app",
+  messagingSenderId: envVal('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID') || "91595383960",
+  appId: envVal('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID') || "1:91595383960:web:51611912db0635d2e9dced",
 };
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("your_")) {
+  console.error("Firebase config missing apiKey", firebaseConfig);
+}
 
 const app = initializeApp(firebaseConfig);
 
