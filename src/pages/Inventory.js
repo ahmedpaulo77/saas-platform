@@ -16,6 +16,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import Pagination from "../components/common/Pagination";
 import * as XLSX from "xlsx";
 
 export default function Inventory() {
@@ -1125,6 +1126,12 @@ export default function Inventory() {
               {searchTerm || filterCategory !== "all" ? t("common.noResults") : isRealEstate ? "لا توجد عقارات" : isRestaurant ? "لا توجد أصناف في المنيو بعد" : t("inv.empty")}
             </p>
           ) : (
+            <Pagination
+              data={filteredProducts}
+              pageSize={20}
+              resetKey={`${searchTerm}-${filterCategory}-${filterModel}`}
+              empty={<p style={{ textAlign: "center", padding: "20px", color: "#999" }}>{t("common.noResults")}</p>}
+              render={(pageItems, total, start) => (
             <table>
               <thead>
                 <tr>
@@ -1143,9 +1150,9 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product, index) => (
+                {pageItems.map((product, index) => (
                   <tr key={product.id}>
-                    <td>{index + 1}</td>
+                    <td>{start + index + 1}</td>
                     <td>
                       <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                         <span>{product.name}</span>
@@ -1246,8 +1253,10 @@ export default function Inventory() {
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
+              )}
+            />
+           )}
+         </div>
       </div>
 
       {/* ── مودال البدائل (صيدلية) ── */}
