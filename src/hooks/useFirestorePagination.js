@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { query, orderBy, limit, startAfter, getDocs, where } from 'firebase/firestore';
+import { query, orderBy, limit, startAfter, getDocs, where, getCountFromServer } from 'firebase/firestore';
 import { getScopedQuery } from '../utils/companyQuery';
 
 export function useFirestorePagination(collectionName, userRole, userCompanyId, userId, options = {}) {
@@ -154,6 +154,10 @@ export function useTotalCount(collectionName, userRole, userCompanyId, userId, f
   useEffect(() => {
     let active = true;
     async function getCount() {
+      if (!userCompanyId && collectionName !== 'companies') {
+        if (active) { setCount(0); setLoading(false); }
+        return;
+      }
       setLoading(true);
       try {
         let baseQuery = getScopedQuery(collectionName, userRole, userCompanyId, userId);
@@ -161,10 +165,21 @@ export function useTotalCount(collectionName, userRole, userCompanyId, userId, f
         parsedFilters.forEach(([field, op, value]) => {
           baseQuery = query(baseQuery, where(field, op, value));
         });
-        const snap = await getDocs(baseQuery);
-        if (active) setCount(snap.size);
+        // ✅ getCountFromServer بدل getDocs().size — توفير 100x قراءات
+        const snap = await getCountFromServer(baseQuery);
+        if (active) setCount(snap.data().count);
       } catch (e) {
         console.error('Count error:', e);
+        // fallback: حاول getDocs لو index ناقص
+        try {
+          let baseQuery = getScopedQuery(collectionName, userRole, userCompanyId, userId);
+          const parsedFilters = JSON.parse(filtersSerialized);
+          parsedFilters.forEach(([field, op, value]) => {
+            baseQuery = query(baseQuery, where(field, op, value));
+          });
+          const snap = await getDocs(baseQuery);
+          if (active) setCount(snap.size);
+        } catch {}
       } finally {
         if (active) setLoading(false);
       }

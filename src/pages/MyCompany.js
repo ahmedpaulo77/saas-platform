@@ -33,10 +33,10 @@ export default function MyCompany() {
       // التأكد من وجود الكودين
       let updates = {};
       if (!data.adminInviteCode) {
-        updates.adminInviteCode = generateInviteCode('ADMIN_' + (data.name || ''));
+        updates.adminInviteCode = generateInviteCode('ADMIN');
       }
       if (!data.userInviteCode) {
-        updates.userInviteCode = generateInviteCode('USER_' + (data.name || ''));
+        updates.userInviteCode = generateInviteCode('USER');
       }
       
       if (Object.keys(updates).length > 0) {
@@ -61,8 +61,8 @@ export default function MyCompany() {
     if (!userCompanyId) return;
     setRegenerating(prev => ({ ...prev, [type]: true }));
     try {
-      const prefix = type === 'admin' ? 'ADMIN_' : 'USER_';
-      const newCode = generateInviteCode(prefix + (company?.name || ''));
+      const prefix = type === 'admin' ? 'ADMIN' : 'USER';
+      const newCode = generateInviteCode(prefix);
       const companyRef = doc(db, 'companies', userCompanyId);
       const field = type === 'admin' ? 'adminInviteCode' : 'userInviteCode';
       await updateDoc(companyRef, { [field]: newCode });

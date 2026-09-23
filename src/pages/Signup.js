@@ -97,9 +97,9 @@ export default function Signup() {
         });
         companyId = companyRef.id;
 
-        // ✅ توليد الأكواد في كولكشن منفصل invite_codes بدل ما تكون حقول جوا الشركة
-        const adminCode = generateInviteCode('ADMIN_' + formData.companyName);
-        const userCode = generateInviteCode('USER_' + formData.companyName);
+        // ✅ توليد الأكواد في كولكشن منفصل invite_codes - 10 حروف + crypto
+        const adminCode = generateInviteCode('ADMIN');
+        const userCode = generateInviteCode('USER');
 
         await setDoc(doc(db, 'invite_codes', adminCode), {
           companyId,

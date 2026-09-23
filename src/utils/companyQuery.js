@@ -58,15 +58,33 @@ export function getUsersQuery(userRole, userCompanyId) {
 }
 
 /**
- * ✅ توليد كود انضمام للشركة مع بادئة
+ * ✅ توليد كود انضمام للشركة - آمن مع crypto.getRandomValues
+ * الطول 12 حرف (مقاوم للتخمين) + بادئة اختيارية
  */
 export function generateInviteCode(prefix = '') {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const len = 10; // 32^10 = 1.1 تريليون احتمال
   let random = '';
-  for (let i = 0; i < 6; i++) {
-    random += chars[Math.floor(Math.random() * chars.length)];
+  const arr = new Uint32Array(len);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(arr);
+    for (let i = 0; i < len; i++) random += chars[arr[i] % chars.length];
+  } else {
+    for (let i = 0; i < len; i++) random += chars[Math.floor(Math.random() * chars.length)];
   }
-  return `${prefix}${random}`.toUpperCase();
+  // صيغة: PREFIX-XXXX-XXXX (أسهل للقراءة والنسخ)
+  const a = random.slice(0, 5);
+  const b = random.slice(5, 10);
+  const core = `${a}-${b}`;
+  return prefix ? `${prefix.toUpperCase()}-${core}` : core;
+}
+
+/** تحقق من صيغة الكود */
+export function isValidInviteCodeFormat(code) {
+  if (!code || typeof code !== 'string') return false;
+  const c = code.trim().toUpperCase();
+  // يقبل PREFIX-XXXX-XXXX أو XXXX-XXXX أو القديم 6 حروف
+  return /^([A-Z0-9]+-)?[A-Z2-9]{4,5}-[A-Z2-9]{4,5}$/.test(c) || /^[A-Z2-9]{6,12}$/.test(c.replace(/-/g, ''));
 }
 
 export const ERROR_MESSAGES = {

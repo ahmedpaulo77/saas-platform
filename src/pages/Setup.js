@@ -27,8 +27,8 @@ export default function Setup() {
         name: companyName.trim(),
         email: currentUser.email,
         industry: industry,
-        adminInviteCode: generateInviteCode('ADM'),
-        userInviteCode: generateInviteCode('USR'),
+        adminInviteCode: generateInviteCode('ADMIN'),
+        userInviteCode: generateInviteCode('USER'),
         createdAt: new Date().toISOString(),
         isActive: true,
       });
