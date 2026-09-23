@@ -32,21 +32,6 @@ export default function Inventory() {
 
   // ── أقسام المنيو من Firestore (للمطاعم فقط) ──
   const [menuCategories, setMenuCategories] = useState([]);
-  // ── الخامات (للوصفات) ──
-  const [rawMaterials, setRawMaterials] = useState([]);
-
-  const fetchRawMaterials = useCallback(async () => {
-    if (!isRestaurant || !userCompanyId) return;
-    try {
-      const snap = await getDocs(
-        getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid)
-      );
-      setRawMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    } catch (err) {
-      console.error("Error fetching raw materials:", err);
-    }
-  }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
-
   const fetchMenuCategories = useCallback(async () => {
     if (!isRestaurant || !userCompanyId) return;
     try {
@@ -85,14 +70,11 @@ export default function Inventory() {
     // مطعم - إضافات
     extras: [], // [{ name, price }]
     preparationNote: "", // ملاحظة تحضير افتراضية
-    recipe: [], // [{ materialId, materialName, unit, qty }]
     unit: "kg",
   });
 
   // إضافة extra مؤقت في النموذج
   const [tempExtra, setTempExtra] = useState({ name: "", price: "" });
-  // وصفة مؤقتة
-  const [tempRecipe, setTempRecipe] = useState({ materialId: "", qty: "" });
 
   // مولّد الـ variants (أزياء): موديل + مقاسات × ألوان
   const [genModel, setGenModel] = useState("");
@@ -179,7 +161,6 @@ export default function Inventory() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "" });
-  const [tempEditRecipe, setTempEditRecipe] = useState({ materialId: "", qty: "" });
 
   // ── خيارات ملابس ──
   const types = [
@@ -227,19 +208,8 @@ export default function Inventory() {
   useEffect(() => {
     fetchProducts();
     fetchMenuCategories();
-    fetchRawMaterials();
     fetchLastSales();
-  }, [fetchProducts, fetchMenuCategories, fetchRawMaterials, fetchLastSales]);
-
-  // ── تكلفة الوصفة وربح الصنف ──
-  function getRecipeCost(recipe) {
-    if (!recipe || recipe.length === 0) return 0;
-    return recipe.reduce((sum, row) => {
-      const mat = rawMaterials.find((m) => m.id === row.materialId);
-      const unitCost = mat ? (parseFloat(mat.costPerUnit) || 0) : (parseFloat(row.unitCost) || 0);
-      return sum + (parseFloat(row.qty) || 0) * unitCost;
-    }, 0);
-  }
+  }, [fetchProducts, fetchMenuCategories, fetchLastSales]);
 
   // ── helpers للإضافات ──
   function addTempExtra() {
@@ -263,47 +233,6 @@ export default function Inventory() {
   }
   function removeEditExtra(idx) {
     setEditingProduct((prev) => ({ ...prev, extras: (prev.extras || []).filter((_, i) => i !== idx) }));
-  }
-  // ── helpers الوصفة ──
-  function addTempRecipe() {
-    if (!tempRecipe.materialId || !tempRecipe.qty) return;
-    const mat = rawMaterials.find((m) => m.id === tempRecipe.materialId);
-    if (!mat) return;
-    if ((newProduct.recipe || []).some((r) => r.materialId === mat.id)) return;
-    setNewProduct((prev) => ({
-      ...prev,
-      recipe: [...(prev.recipe || []), {
-        materialId: mat.id,
-        materialName: mat.name,
-        unit: mat.unit || "",
-        unitCost: parseFloat(mat.costPerUnit) || 0,
-        qty: parseFloat(tempRecipe.qty) || 0,
-      }],
-    }));
-    setTempRecipe({ materialId: "", qty: "" });
-  }
-  function removeTempRecipe(idx) {
-    setNewProduct((prev) => ({ ...prev, recipe: (prev.recipe || []).filter((_, i) => i !== idx) }));
-  }
-  function addEditRecipe() {
-    if (!tempEditRecipe.materialId || !tempEditRecipe.qty) return;
-    const mat = rawMaterials.find((m) => m.id === tempEditRecipe.materialId);
-    if (!mat) return;
-    if ((editingProduct.recipe || []).some((r) => r.materialId === mat.id)) return;
-    setEditingProduct((prev) => ({
-      ...prev,
-      recipe: [...(prev.recipe || []), {
-        materialId: mat.id,
-        materialName: mat.name,
-        unit: mat.unit || "",
-        unitCost: parseFloat(mat.costPerUnit) || 0,
-        qty: parseFloat(tempEditRecipe.qty) || 0,
-      }],
-    }));
-    setTempEditRecipe({ materialId: "", qty: "" });
-  }
-  function removeEditRecipe(idx) {
-    setEditingProduct((prev) => ({ ...prev, recipe: (prev.recipe || []).filter((_, i) => i !== idx) }));
   }
 
   // ── Add ──
@@ -333,7 +262,6 @@ export default function Inventory() {
         activeIngredient: isPharmacy ? (newProduct.activeIngredient || "").trim() : "",
         extras: isRestaurant ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
-        recipe: isRestaurant ? (newProduct.recipe || []) : [],
         createdAt: new Date().toISOString(),
       });
       await logActivity({
@@ -341,9 +269,8 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", recipe: [], unit: "kg" });
+      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
       setTempExtra({ name: "", price: "" });
-      setTempRecipe({ materialId: "", qty: "" });
       await fetchProducts();
       alert(t("inv.addOk"));
     } catch (error) {
@@ -379,7 +306,6 @@ export default function Inventory() {
         activeIngredient: isPharmacy ? (editingProduct.activeIngredient || "").trim() : "",
         extras: isRestaurant ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
-        recipe: isRestaurant ? (editingProduct.recipe || []) : [],
       });
       await logActivity({
         actionType: "UPDATE", collectionName: "inventory", itemId: editingProduct.id,
@@ -676,52 +602,6 @@ export default function Inventory() {
                       + إضافة
                     </button>
                   </div>
-                </div>
-
-                {/* الوصفة: مكونات الصنف من الخامات */}
-                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#92400e", marginBottom: 8 }}>
-                    🧪 الوصفة (تتخصم تلقائي من الخامات عند البيع)
-                  </div>
-                  {(newProduct.recipe || []).length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-                      {(newProduct.recipe || []).map((row, idx) => (
-                        <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "white", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
-                          <span style={{ fontWeight: 600 }}>{row.materialName} — {row.qty} {row.unit}</span>
-                          <button type="button" onClick={() => removeTempRecipe(idx)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 14 }}>×</button>
-                        </div>
-                      ))}
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e" }}>
-                        التكلفة: {getRecipeCost(newProduct.recipe).toFixed(2)} {t("currency")}
-                        {parseFloat(newProduct.price) > 0 && (
-                          <span> — الربح المتوقع: {(parseFloat(newProduct.price) - getRecipeCost(newProduct.recipe)).toFixed(2)} {t("currency")}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {rawMaterials.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "#94a3b8" }}>ضيف الخامات الأول من صفحة الخامات عشان تربطها هنا</div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <select value={tempRecipe.materialId}
-                        onChange={(e) => setTempRecipe({ ...tempRecipe, materialId: e.target.value })}
-                        style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}>
-                        <option value="">— اختر الخامة —</option>
-                        {rawMaterials.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                        ))}
-                      </select>
-                      <input type="number" step="0.01" min="0" placeholder="الكمية"
-                        value={tempRecipe.qty}
-                        onChange={(e) => setTempRecipe({ ...tempRecipe, qty: e.target.value })}
-                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
-                      <button type="button" onClick={addTempRecipe}
-                        style={{ background: "#d97706", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
-                        + إضافة
-                      </button>
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -1140,7 +1020,6 @@ export default function Inventory() {
                   <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
                   {isClothing && <><th>الموديل</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurant && <th>الإضافات</th>}
-                  {isRestaurant && <th>🧪 الوصفة / الربح</th>}
                   {isPharmacy && <th>التصنيف</th>}
                   {isMarket && <th>الباركود</th>}
                   {isTrader && <th>{t("trader.unit")}</th>}
@@ -1209,23 +1088,6 @@ export default function Inventory() {
                             ))}
                           </div>
                         ) : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
-                      </td>
-                    )}
-                    {isRestaurant && (
-                      <td>
-                        {(product.recipe || []).length > 0 ? (
-                          <div style={{ fontSize: 11 }}>
-                            <div style={{ color: "#92400e", fontWeight: 700 }}>
-                              تكلفة: {getRecipeCost(product.recipe).toFixed(1)} {t("currency")}
-                            </div>
-                            <div style={{ color: "#16a34a", fontWeight: 700 }}>
-                              ربح: {(parseFloat(product.price || 0) - getRecipeCost(product.recipe)).toFixed(1)}
-                            </div>
-                            <div style={{ color: "#94a3b8" }} title={(product.recipe || []).map((r) => `${r.materialName} ${r.qty}${r.unit}`).join("، ")}>
-                              {(product.recipe || []).length} خامات
-                            </div>
-                          </div>
-                        ) : <span style={{ color: "#94a3b8", fontSize: 12 }}>بدون وصفة</span>}
                       </td>
                     )}
                     <td>
@@ -1474,44 +1336,6 @@ export default function Inventory() {
                         />
                         <button type="button" onClick={addEditExtra}
                           style={{ background: "#6d28d9", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
-                          + إضافة
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* الوصفة في التعديل */}
-                {isRestaurant && (
-                  <div style={styles.formGroup}>
-                    <label>🧪 الوصفة (خصم تلقائي من الخامات)</label>
-                    <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: 12 }}>
-                      {(editingProduct.recipe || []).length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-                          {(editingProduct.recipe || []).map((row, idx) => (
-                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "white", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
-                              <span style={{ fontWeight: 600 }}>{row.materialName} — {row.qty} {row.unit}</span>
-                              <button type="button" onClick={() => removeEditRecipe(idx)}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 14 }}>×</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <select value={tempEditRecipe.materialId}
-                          onChange={(e) => setTempEditRecipe({ ...tempEditRecipe, materialId: e.target.value })}
-                          style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}>
-                          <option value="">— اختر الخامة —</option>
-                          {rawMaterials.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                          ))}
-                        </select>
-                        <input type="number" step="0.01" min="0" placeholder="الكمية"
-                          value={tempEditRecipe.qty}
-                          onChange={(e) => setTempEditRecipe({ ...tempEditRecipe, qty: e.target.value })}
-                          style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
-                        <button type="button" onClick={addEditRecipe}
-                          style={{ background: "#d97706", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
                           + إضافة
                         </button>
                       </div>

@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { logActivity } from "../utils/auditLogger";
 
 export default function Prescriptions() {
   const { t, lang } = useLanguage();
@@ -37,6 +38,7 @@ export default function Prescriptions() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [viewingRx, setViewingRx] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState(null);
 
   const stats = {
     total: prescriptions.length,
@@ -230,6 +232,59 @@ export default function Prescriptions() {
       console.error(e);
       alert(t("rx.delFail"));
     }
+  }
+
+  // تحويل الروشتة لفاتورة - Following Quotations.js convertToInvoice pattern
+  async function convertToInvoice(rx) {
+    const clientId = rx.patientId || rx.patient || "";
+    if (!clientId) {
+      alert("لا يوجد مريض مرتبط بهذه الروشتة");
+      return;
+    }
+    if (!window.confirm("تحويل هذه الروشتة لفاتورة؟")) return;
+    setConverting(rx.id);
+    try {
+      const invoiceData = {
+        clientId: clientId,
+        products: (rx.medicines || []).map((m) => ({
+          productId: m.name || m.id || "unknown",
+          quantity: 1,
+          amount: 0,
+        })),
+        amount: 0,
+        quantity: (rx.medicines || []).length,
+        status: "pending",
+        description: `من روشتة ${rx.rxNumber || rx.id}`,
+        companyId: rx.companyId || userCompanyId,
+        createdBy: currentUser?.uid,
+        createdAt: new Date().toISOString(),
+        date: new Date().toISOString(),
+        dueDate: null,
+        paidAmount: 0,
+        fromPrescriptionId: rx.id,
+      };
+
+      const invRef = await addDoc(collection(db, "invoices"), invoiceData);
+
+      await logActivity({
+        actionType: "CREATE",
+        collectionName: "invoices",
+        itemId: invRef.id,
+        details: `Converted prescription ${rx.id} (${rx.rxNumber || ""}) to invoice ${invRef.id} for client ${clientId}`,
+        user: {
+          uid: currentUser?.uid,
+          email: currentUser?.email,
+          role: userRole,
+          companyId: rx.companyId || userCompanyId,
+        },
+      });
+
+      alert("تم إنشاء الفاتورة بنجاح");
+    } catch (e) {
+      console.error(e);
+      alert("فشل إنشاء الفاتورة");
+    }
+    setConverting(null);
   }
 
   function printRx(rx) {
@@ -433,6 +488,19 @@ export default function Prescriptions() {
                       <td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}</td>
                       <td>
                         <div className="table-actions">
+                          <button
+                            onClick={() => convertToInvoice(r)}
+                            className="btn-success btn-sm"
+                            title="حول لفاتورة"
+                            disabled={converting === r.id}
+                          >
+                            {converting === r.id ? (
+                              <i className="fas fa-spinner fa-spin"></i>
+                            ) : (
+                              <i className="fas fa-file-invoice"></i>
+                            )}{" "}
+                            حول لفاتورة
+                          </button>
                           <button onClick={() => printRx(r)} className="btn-primary btn-sm" title={t("rx.print")}>
                             <i className="fas fa-print"></i>
                           </button>

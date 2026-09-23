@@ -95,6 +95,7 @@ export const MODULE_MAP = {
     "invoices",
     "quotations",
     "projects",
+    "certificates",
     "tasks",
     "suppliers",
     "purchases",
@@ -105,7 +106,7 @@ export const MODULE_MAP = {
   ],
 
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
-  real_estate: ["sellers", "buyers", "tasks", "projects", "messages"],
+  real_estate: ["sellers", "buyers", "viewings", "tasks", "projects", "messages"],
 
   // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
   general: [
@@ -114,6 +115,7 @@ export const MODULE_MAP = {
     "quotations",
     "tasks",
     "projects",
+    "certificates",
     "aging",
     "suppliers",
     "purchases",
@@ -146,6 +148,7 @@ export const MODULE_MAP = {
     "barcode",
     "expiry",
     "batch",
+    "batches",
     "drug_categories",
     "tasks",
     "messages",
@@ -264,6 +267,7 @@ export function canAccess(moduleKey, industry, userRole) {
 
 // خريطة المسارات → الوحدات
 export const ROUTE_MODULE_MAP = {
+  "/batches": "batches",
   "/dashboard": "dashboard",
   "/expenses": "expenses",
   "/profits": "profits",
@@ -275,6 +279,7 @@ export const ROUTE_MODULE_MAP = {
   "/daily-prices": "daily-prices",
   "/tasks": "tasks",
   "/projects": "projects",
+  "/certificates": "certificates",
   "/users": "users",
   "/reports": "reports",
   "/aging": "aging",
@@ -290,6 +295,7 @@ export const ROUTE_MODULE_MAP = {
   "/expiry": "expiry",
   "/sellers": "sellers",
   "/buyers": "buyers",
+  "/viewings": "viewings",
   "/messages": "messages",
   "/patients": "patients",
   "/appointments": "appointments",
@@ -343,6 +349,7 @@ export const MODULE_LABEL_KEYS = {
   quotations: "modules.quotations",
   tasks: "modules.tasks",
   projects: "modules.projects",
+  certificates: "modules.certificates",
   aging: "modules.aging",
   pos: "modules.pos",
   suppliers: "modules.suppliers",
@@ -350,6 +357,7 @@ export const MODULE_LABEL_KEYS = {
   barcode: "modules.barcode",
   expiry: "modules.expiry",
   batch: "modules.batch",
+  batches: "modules.batch",
   drug_categories: "modules.drug_categories",
   orders: "modules.orders",
   tables: "modules.tables",
@@ -365,6 +373,7 @@ export const MODULE_LABEL_KEYS = {
   "my-company": "modules.my_company",
   sellers: "modules.sellers",
   buyers: "modules.buyers",
+  viewings: "modules.viewings",
   messages: "modules.messages",
   patients: "modules.patients",
   appointments: "modules.appointments",

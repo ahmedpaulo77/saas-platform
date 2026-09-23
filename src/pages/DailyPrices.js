@@ -1,12 +1,13 @@
 // src/pages/DailyPrices.js - تعديل سعر اليوم لكل الأصناف في شاشة واحدة (تاجر فقط)
 import React, { useState, useEffect, useCallback } from "react";
-import { getDocs, writeBatch, doc } from "firebase/firestore";import { db } from "../firebase/config";
+import { getDocs, writeBatch, doc, updateDoc } from "firebase/firestore";import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getProductUnit, TRADER_UNITS } from "../utils/traderUnits";
 import { logActivity } from "../utils/auditLogger";
+import * as XLSX from "xlsx";
 
 export default function DailyPrices() {
   const { t } = useLanguage();
@@ -16,6 +17,10 @@ export default function DailyPrices() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  // alias for task spec compatibility (products / fetchProducts)
+  const products = rows;
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -53,6 +58,94 @@ export default function DailyPrices() {
   );
 
   const changed = rows.filter((r) => parseFloat(r.price) !== r.originalPrice);
+
+  function downloadTemplate() {
+    const data = products.map((p) => ({
+      name: p.name || "",
+      price: parseFloat(p.price) || 0,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ name: "مثال", price: 0 }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Prices");
+    XLSX.writeFile(wb, "daily-prices-template.xlsx");
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0];
+    // reset input to allow re-selecting same file
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
+      if (json.length === 0) {
+        alert("الملف فارغ");
+        return;
+      }
+      // build lookup maps by id and by lower-cased name
+      const byId = {};
+      const byName = {};
+      products.forEach((p) => {
+        byId[String(p.id).trim()] = p;
+        byName[String(p.name).trim().toLowerCase()] = p;
+      });
+      let updated = 0;
+      const notFound = [];
+      const now = new Date().toISOString();
+      const batchPromises = [];
+
+      for (const row of json) {
+        // support columns: name / price (case-insensitive) + Arabic header + id
+        const rawName = String(row["name"] ?? row["Name"] ?? row["NAME"] ?? row["الاسم"] ?? row["اسم المنتج"] ?? "").trim();
+        const rawId = String(row["id"] ?? row["ID"] ?? row["Id"] ?? row["productId"] ?? row["product_id"] ?? "").trim();
+        const rawPriceVal = row["price"] ?? row["Price"] ?? row["PRICE"] ?? row["السعر"] ?? row["سعر البيع"] ?? row["price "] ?? row[" Price"];
+        const price = parseFloat(rawPriceVal);
+        if (isNaN(price) || price < 0) continue;
+
+        let prod = null;
+        if (rawId && byId[rawId]) prod = byId[rawId];
+        else if (rawName && byName[rawName.toLowerCase()]) prod = byName[rawName.toLowerCase()];
+
+        if (!prod) {
+          notFound.push(rawName || rawId || "—");
+          continue;
+        }
+        // update via updateDoc in batch (collect promises and await together)
+        batchPromises.push(
+          updateDoc(doc(db, "inventory", prod.id), {
+            price: price,
+            priceUpdatedAt: now,
+          })
+        );
+        updated++;
+      }
+
+      if (batchPromises.length > 0) {
+        await Promise.all(batchPromises);
+        await logActivity({
+          actionType: "UPDATE",
+          collectionName: "inventory",
+          itemId: "bulk-prices-import",
+          details: `Excel import: updated ${updated} prices, ${notFound.length} not found`,
+          user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        });
+        await fetchProducts();
+      }
+      // toast feedback (using alert as fallback for toast)
+      alert(`تم تحديث ${updated} سعر${notFound.length ? `\nغير موجود (${notFound.length}): ${notFound.slice(0, 10).join("، ")}${notFound.length > 10 ? "..." : ""}` : ""}`);
+      if (updated === 0 && notFound.length > 0) {
+        console.warn("Import: no matches", notFound);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("تعذر قراءة الملف — تأكد أن الملف Excel بعناوين: name, price");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function saveAll(e) {
     e.preventDefault();
@@ -126,6 +219,16 @@ export default function DailyPrices() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <button type="button" onClick={downloadTemplate} className="btn-secondary">
+              <i className="fas fa-download"></i> تحميل النموذج
+            </button>
+            <label
+              className="btn-secondary"
+              style={{ cursor: importing ? "wait" : "pointer", opacity: importing ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6, margin: 0 }}
+            >
+              <i className="fas fa-file-excel"></i> {importing ? "جاري..." : "استيراد Excel"}
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleImport} disabled={importing} style={{ display: "none" }} />
+            </label>
             <button type="submit" className="btn-primary" disabled={saving || changed.length === 0}>
               {saving ? (
                 <>

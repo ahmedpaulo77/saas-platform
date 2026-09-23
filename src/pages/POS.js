@@ -539,20 +539,6 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           const currentQty = productDoc.data().quantity || 0;
           await updateDoc(productRef, { quantity: currentQty - item.quantity });
         }
-        // خصم الخامات حسب الوصفة (مطعم)
-        const recipe = (productDoc.exists() && productDoc.data().recipe) || item.recipe || [];
-        if (isRestaurant && recipe.length > 0) {
-          for (const row of recipe) {
-            try {
-              const matRef = doc(db, "raw_materials", row.materialId);
-              const matDoc = await getDoc(matRef);
-              if (matDoc.exists()) {
-                const curQ = parseFloat(matDoc.data().quantity) || 0;
-                await updateDoc(matRef, { quantity: curQ - (parseFloat(row.qty) || 0) * item.quantity });
-              }
-            } catch (e) { console.warn("recipe deduct:", e.message); }
-          }
-        }
         // صرف FEFO من التشغيلات (صيدلية): الأقدم صلاحية أولاً + منع المنتهي
         if (isPharmacy) {
           try {

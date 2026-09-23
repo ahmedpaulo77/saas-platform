@@ -37,6 +37,7 @@ const Aging = lazy(() => import("./pages/Aging"));
 const POS = lazy(() => import("./pages/POS"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Expiry = lazy(() => import("./pages/Expiry"));
+const Batches = lazy(() => import("./pages/Batches"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const About = lazy(() => import("./pages/About"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -56,6 +57,8 @@ const Statements = lazy(() => import("./pages/Statements"));
 const Subscriptions = lazy(() => import("./pages/Subscriptions"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const Attendance = lazy(() => import("./pages/Attendance"));
+const Certificates = lazy(() => import("./pages/Certificates"));
+const Viewings = lazy(() => import("./pages/Viewings"));
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
@@ -204,6 +207,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/certificates"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="certificates">
+              <Certificates />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/subscriptions"
         element={
           <ProtectedRoute>
@@ -229,6 +242,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="attendance">
               <Attendance />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/viewings"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="viewings">
+              <Viewings />
             </IndustryRoute>
           </ProtectedRoute>
         }
@@ -299,6 +322,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="expiry">
               <Expiry />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/batches"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="batches">
+              <Batches />
             </IndustryRoute>
           </ProtectedRoute>
         }

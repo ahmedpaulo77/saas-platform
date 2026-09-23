@@ -172,6 +172,12 @@ export default function Sidebar() {
       module: "projects",
     },
     {
+      to: "/certificates",
+      icon: "fas fa-file-contract",
+      label: "المستخلصات",
+      module: "certificates",
+    },
+    {
       to: "/subscriptions",
       icon: "fas fa-repeat",
       label: "الاشتراكات",
