@@ -1,5 +1,5 @@
 // src/App.js
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -8,48 +8,48 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
-import Purchases from "./pages/Purchases";
-import Expenses from "./pages/Expenses";
-import Profits from "./pages/Profits";
-import Kitchen from "./pages/Kitchen";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Setup from "./pages/Setup";
-import Dashboard from "./pages/Dashboard";
-import Companies from "./pages/Companies";
-import Clients from "./pages/Clients";
-import Invoices from "./pages/Invoices";
-import Quotations from "./pages/Quotations";
-import Inventory from "./pages/Inventory";
- import Tasks from "./pages/Tasks";
-import Projects from "./pages/Projects";
-import Users from "./pages/Users";
-import Reports from "./pages/Reports";
-import Aging from "./pages/Aging";
-import POS from "./pages/POS";
-import Suppliers from "./pages/Suppliers";
-import Expiry from "./pages/Expiry";
-import Notifications from "./pages/Notifications";
-import About from "./pages/About";
-import Profile from "./pages/Profile";
-import DailyPrices from "./pages/DailyPrices";
-
-import SuperAdminDashboard from "./pages/admin/SuperAdminDashboard";
-import ManageUsers from "./pages/admin/ManageUsers";
-import MyCompany from "./pages/MyCompany";
-import Sellers from "./pages/Sellers";
-import Buyers from "./pages/Buyers";
-import Messages from "./pages/Messages";
-import Patients from "./pages/Patients";
-import Appointments from "./pages/Appointments";
-import Prescriptions from "./pages/Prescriptions";
-import MenuCategories from "./pages/MenuCategories";
-import RawMaterials from "./pages/RawMaterials";
-import Statements from "./pages/Statements";
-import Subscriptions from "./pages/Subscriptions";
-import Tickets from "./pages/Tickets";
-import Attendance from "./pages/Attendance";
+// ✅ Code-splitting: كل صفحة تتحمل عند الطلب فقط
+const Purchases = lazy(() => import("./pages/Purchases"));
+const Expenses = lazy(() => import("./pages/Expenses"));
+const Profits = lazy(() => import("./pages/Profits"));
+const Kitchen = lazy(() => import("./pages/Kitchen"));
+const Landing = lazy(() => import("./pages/Landing"));
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Setup = lazy(() => import("./pages/Setup"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Companies = lazy(() => import("./pages/Companies"));
+const Clients = lazy(() => import("./pages/Clients"));
+const Invoices = lazy(() => import("./pages/Invoices"));
+const Quotations = lazy(() => import("./pages/Quotations"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Projects = lazy(() => import("./pages/Projects"));
+const Users = lazy(() => import("./pages/Users"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Aging = lazy(() => import("./pages/Aging"));
+const POS = lazy(() => import("./pages/POS"));
+const Suppliers = lazy(() => import("./pages/Suppliers"));
+const Expiry = lazy(() => import("./pages/Expiry"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const About = lazy(() => import("./pages/About"));
+const Profile = lazy(() => import("./pages/Profile"));
+const DailyPrices = lazy(() => import("./pages/DailyPrices"));
+const SuperAdminDashboard = lazy(() => import("./pages/admin/SuperAdminDashboard"));
+const ManageUsers = lazy(() => import("./pages/admin/ManageUsers"));
+const MyCompany = lazy(() => import("./pages/MyCompany"));
+const Sellers = lazy(() => import("./pages/Sellers"));
+const Buyers = lazy(() => import("./pages/Buyers"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Patients = lazy(() => import("./pages/Patients"));
+const Appointments = lazy(() => import("./pages/Appointments"));
+const Prescriptions = lazy(() => import("./pages/Prescriptions"));
+const MenuCategories = lazy(() => import("./pages/MenuCategories"));
+const RawMaterials = lazy(() => import("./pages/RawMaterials"));
+const Statements = lazy(() => import("./pages/Statements"));
+const Subscriptions = lazy(() => import("./pages/Subscriptions"));
+const Tickets = lazy(() => import("./pages/Tickets"));
+const Attendance = lazy(() => import("./pages/Attendance"));
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import SuperAdminRoute from "./components/common/SuperAdminRoute";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -452,6 +452,13 @@ function AppRoutes() {
   );
 }
 
+function AppFallback() {
+  return (
+    <div className="loading">
+      <div className="spinner"></div> جاري التحميل...
+    </div>
+  );
+}
 function App() {
   return (
     <LanguageProvider>
@@ -461,7 +468,9 @@ function App() {
               userCompanyId و userRole، وبرا AppRoutes عشان Sidebar (اللي
               بيتعرض جوه أي صفحة) يقدر يقرا unreadCount في أي وقت */}
           <NotificationsProvider>
-            <AppRoutes />
+            <Suspense fallback={<AppFallback />}>
+              <AppRoutes />
+            </Suspense>
           </NotificationsProvider>
         </AuthProvider>
       </Router>

@@ -9,13 +9,17 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
+const _env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+function envVal(viteKey, craKey) {
+  return _env[viteKey] || process.env[craKey] || process.env[viteKey] || '';
+}
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  apiKey: envVal('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY'),
+  authDomain: envVal('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN'),
+  projectId: envVal('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID'),
+  storageBucket: envVal('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: envVal('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: envVal('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID'),
 };
 
 const app = initializeApp(firebaseConfig);
@@ -57,7 +61,7 @@ export async function requestNotificationPermission() {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
       const token = await getToken(messaging, {
-        vapidKey: process.env.REACT_APP_FIREBASE_VAPID_KEY,
+        vapidKey: envVal('VITE_FIREBASE_VAPID_KEY', 'REACT_APP_FIREBASE_VAPID_KEY'),
       });
       return token;
     }
