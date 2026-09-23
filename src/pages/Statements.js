@@ -87,19 +87,19 @@ export default function Statements() {
       invoices.filter((i) => i.clientId === entityId && !i.isReturn && inRange(i)).forEach((i) => {
         const amount = parseFloat(i.amount) || 0;
         const paid = parseFloat(i.paidAmount) || 0;
-        rows.push({ date: i.date || i.createdAt, type: "فاتورة بيع", ref: i.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
+        rows.push({ date: i.date || i.createdAt, type: t("st.invoiceSale"), ref: i.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
       });
       returns.filter((r) => r.kind === "sale" && r.entityId === entityId && inRange(r)).forEach((r) => {
-        rows.push({ date: r.date || r.createdAt, type: "مرتجع بيع", ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
+        rows.push({ date: r.date || r.createdAt, type: t("st.returnSale"), ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
       });
     } else {
       purchases.filter((p) => p.supplierId === entityId && inRange(p)).forEach((p) => {
         const amount = parseFloat(p.amount) || 0;
         const paid = parseFloat(p.paidAmount) || 0;
-        rows.push({ date: p.date || p.createdAt, type: "فاتورة شراء", ref: p.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
+        rows.push({ date: p.date || p.createdAt, type: t("st.invoicePurchase"), ref: p.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
       });
       returns.filter((r) => r.kind === "purchase" && r.entityId === entityId && inRange(r)).forEach((r) => {
-        rows.push({ date: r.date || r.createdAt, type: "مرتجع شراء", ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
+        rows.push({ date: r.date || r.createdAt, type: t("st.returnPurchase"), ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
       });
     }
     rows.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
@@ -131,10 +131,10 @@ export default function Statements() {
     win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/>
       <style>body{font-family:Cairo,Arial;padding:20px;}table{width:100%;border-collapse:collapse;font-size:13px;}th,td{border:1px solid #ccc;padding:6px;text-align:center;}th{background:#f1f5f9;}</style>
       </head><body>
-      <h2>كشف حساب ${tab === "clients" ? entityLabel : "مورد"}: ${entityName}</h2>
-      <div>الفترة: ${fromDate || "..."} → ${toDateStr || "..."}</div>
-      <table style="margin-top:12px"><thead><tr><th>#</th><th>التاريخ</th><th>الحركة</th><th>مرجع</th><th>مدين</th><th>دائن (مرتجع)</th><th>مدفوع</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-      <div style="margin-top:12px;font-weight:bold;">إجمالي الفواتير: ${totals.debit.toLocaleString()} — المدفوع: ${totals.paid.toLocaleString()} — المرتجع: ${totals.credit.toLocaleString()} — الرصيد المتبقي: ${totals.balance.toLocaleString()} ${t("currency")}</div>
+      <h2>${t("st.title")} ${tab === "clients" ? entityLabel : t("st.tabSuppliers")}: ${entityName}</h2>
+      <div>${t("st.period")}: ${fromDate || "..."} → ${toDateStr || "..."}</div>
+      <table style="margin-top:12px"><thead><tr><th>#</th><th>${t("st.date")}</th><th>${t("st.movement")}</th><th>${t("st.ref")}</th><th>${t("st.debit")}</th><th>${t("st.credit")}</th><th>${t("st.paid")}</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+      <div style="margin-top:12px;font-weight:bold;">${t("st.totalInvoices")}: ${totals.debit.toLocaleString()} — ${t("st.paid")}: ${totals.paid.toLocaleString()} — ${t("st.returned")}: ${totals.credit.toLocaleString()} — ${t("st.balance")}: ${totals.balance.toLocaleString()} ${t("currency")}</div>
       </body></html>`);
     win.document.close();
     win.focus();
@@ -157,12 +157,12 @@ export default function Statements() {
         <div className="main-content">
           <div className="header">
             <div>
-              <h1><i className="fas fa-file-invoice-dollar" style={{ color: "#6366f1", marginLeft: 10 }}></i>كشف حساب</h1>
-              <p className="subtitle">فواتير + مرتجعات + الرصيد لكل عميل ومورد</p>
+              <h1><i className="fas fa-file-invoice-dollar" style={{ color: "#6366f1", marginLeft: 10 }}></i>{t("st.title")}</h1>
+              <p className="subtitle">{t("st.subtitle")}</p>
             </div>
           </div>
           <div className="card" style={{ textAlign: "center", padding: "30px" }}>
-            <p style={{ color: "#64748b" }}>كشف الحساب غير متاح لنشاط العقارات (التعامل عبر البائعين والمشترين بدون فواتير).</p>
+            <p style={{ color: "#64748b" }}>{t("st.notAvailable")}</p>
           </div>
         </div>
       </div>
@@ -175,18 +175,18 @@ export default function Statements() {
       <div className="main-content">
         <div className="header">
           <div>
-            <h1><i className="fas fa-file-invoice-dollar" style={{ color: "#6366f1", marginLeft: 10 }}></i>كشف حساب</h1>
-            <p className="subtitle">فواتير + مرتجعات + الرصيد {hasSuppliersTab ? "لكل عميل ومورد" : `لكل ${entityLabel}`}</p>
+            <h1><i className="fas fa-file-invoice-dollar" style={{ color: "#6366f1", marginLeft: 10 }}></i>{t("st.title")}</h1>
+            <p className="subtitle">{hasSuppliersTab ? t("st.subtitle") : t("st.subtitleClinic")}</p>
           </div>
           {movements.length > 0 && (
-            <button onClick={handlePrint} className="btn-secondary"><i className="fas fa-print"></i> طباعة</button>
+            <button onClick={handlePrint} className="btn-secondary"><i className="fas fa-print"></i> {t("st.print")}</button>
           )}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {[
-            ...(hasClientsTab ? [{ v: "clients", l: isClinic ? "🧑‍⚕️ المرضى" : "👥 العملاء" }] : []),
-            ...(hasSuppliersTab ? [{ v: "suppliers", l: "🚚 الموردين" }] : []),
+            ...(hasClientsTab ? [{ v: "clients", l: isClinic ? `🧑‍⚕️ ${t("st.tabPatients")}` : `👥 ${t("st.tabClients")}` }] : []),
+            ...(hasSuppliersTab ? [{ v: "suppliers", l: `🚚 ${t("st.tabSuppliers")}` }] : []),
           ].map((tb) => (
             <button key={tb.v} type="button" onClick={() => setTab(tb.v)}
               style={{ flex: 1, padding: "10px", fontSize: 14, fontWeight: 700, border: `2px solid ${tab === tb.v ? "#6366f1" : "#e2e8f0"}`, borderRadius: 10, background: tab === tb.v ? "#eef2ff" : "white", color: tab === tb.v ? "#4338ca" : "#64748b", cursor: "pointer" }}>
@@ -199,28 +199,28 @@ export default function Statements() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px", gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                {tab === "clients" ? `${entityLabel} *` : "المورد *"}
+                {tab === "clients" ? `${entityLabel} *` : `${t("st.tabSuppliers")} *`}
               </label>
               <select value={entityId} onChange={(e) => setEntityId(e.target.value)}
                 style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", boxSizing: "border-box" }}>
-                <option value="">— اختر —</option>
+                <option value="">{t("st.choose")}</option>
                 {entities.map((e) => (
                   <option key={e.id} value={e.id}>{e.name}{e.phone ? ` — ${e.phone}` : ""}</option>
                 ))}
               </select>
               {entities.length === 0 && (
                 <div style={{ fontSize: 12, color: "#d97706", marginTop: 6 }}>
-                  لا يوجد {tab === "clients" ? (isClinic ? "مرضى" : "عملاء") : "موردون"} مسجلون — أضف أولاً من صفحة {tab === "clients" ? (isClinic ? "المرضى" : "العملاء") : "الموردين"}.
+                  {t("st.noEntities", { label: tab === "clients" ? (isClinic ? t("st.tabPatients") : t("st.tabClients")) : t("st.tabSuppliers"), page: tab === "clients" ? (isClinic ? t("st.tabPatients") : t("st.tabClients")) : t("st.tabSuppliers") })}
                 </div>
               )}
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>من</label>
+              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("st.from")}</label>
               <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
                 style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>إلى</label>
+              <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("st.to")}</label>
               <input type="date" value={toDateStr} onChange={(e) => setToDateStr(e.target.value)}
                 style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
             </div>
@@ -230,19 +230,19 @@ export default function Statements() {
         {entityId && (
           <>
             <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", marginBottom: 20 }}>
-              <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.debit.toLocaleString()}</div><div className="stat-label">إجمالي الفواتير</div></div>
-              <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.paid.toLocaleString()}</div><div className="stat-label">المدفوع</div></div>
-              <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-undo"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.credit.toLocaleString()}</div><div className="stat-label">المرتجع</div></div>
-              <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.balance.toLocaleString()}</div><div className="stat-label">الرصيد المتبقي ({t("currency")})</div></div>
+              <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.debit.toLocaleString()}</div><div className="stat-label">{t("st.totalInvoices")}</div></div>
+              <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.paid.toLocaleString()}</div><div className="stat-label">{t("st.paid")}</div></div>
+              <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-undo"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.credit.toLocaleString()}</div><div className="stat-label">{t("st.returned")}</div></div>
+              <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.balance.toLocaleString()}</div><div className="stat-label">{t("st.balance")} ({t("currency")})</div></div>
             </div>
 
             <div className="table-container">
-              <div className="table-header"><h3><i className="fas fa-list"></i> الحركات ({movements.length})</h3><span>{entityName}</span></div>
+              <div className="table-header"><h3><i className="fas fa-list"></i> {t("st.movements")} ({movements.length})</h3><span>{entityName}</span></div>
               {movements.length === 0 ? (
-                <div className="empty-state" style={{ padding: "30px" }}><p>لا توجد حركات في الفترة</p></div>
+                <div className="empty-state" style={{ padding: "30px" }}><p>{t("st.noMovements")}</p></div>
               ) : (
                 <table>
-                  <thead><tr><th>#</th><th>التاريخ</th><th>الحركة</th><th>مرجع</th><th>مدين</th><th>دائن (مرتجع)</th><th>مدفوع</th><th>المتبقي</th></tr></thead>
+                  <thead><tr><th>#</th><th>{t("st.date")}</th><th>{t("st.movement")}</th><th>{t("st.ref")}</th><th>{t("st.debit")}</th><th>{t("st.credit")}</th><th>{t("st.paid")}</th><th>{t("st.remaining")}</th></tr></thead>
                   <tbody>
                     {movements.map((m, i) => (
                       <tr key={i}>

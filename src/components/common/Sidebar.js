@@ -219,7 +219,7 @@ export default function Sidebar() {
     {
       to: "/statements",
       icon: "fas fa-file-invoice-dollar",
-      label: "كشف حساب",
+      label: t("nav.statements"),
       module: "reports",
       hideFor: ["real_estate"],
       hideRole: ["super_admin"],
