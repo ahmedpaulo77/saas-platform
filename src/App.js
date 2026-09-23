@@ -8,6 +8,12 @@ import {
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
+import ProtectedRoute from "./components/common/ProtectedRoute";
+import SuperAdminRoute from "./components/common/SuperAdminRoute";
+import { LanguageProvider } from "./i18n/LanguageContext";
+import { getAvailableModules } from "./utils/modules";
+import "./App.css";
+
 // ✅ Code-splitting: كل صفحة تتحمل عند الطلب فقط
 const Purchases = lazy(() => import("./pages/Purchases"));
 const Expenses = lazy(() => import("./pages/Expenses"));
@@ -50,11 +56,6 @@ const Statements = lazy(() => import("./pages/Statements"));
 const Subscriptions = lazy(() => import("./pages/Subscriptions"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const Attendance = lazy(() => import("./pages/Attendance"));
-import ProtectedRoute from "./components/common/ProtectedRoute";
-import SuperAdminRoute from "./components/common/SuperAdminRoute";
-import { LanguageProvider } from "./i18n/LanguageContext";
-import { getAvailableModules } from "./utils/modules";
-import "./App.css";
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
