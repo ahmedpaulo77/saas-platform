@@ -1,69 +1,68 @@
-// src/utils/companyQuery.js - مع دعم createdBy وكودين
+// @ts-check
+// src/utils/companyQuery.js - مع Types عبر JSDoc (يعمل مع TS بدون كسر الـ build)
+/**
+ * @typedef {'super_admin' | 'admin' | 'user' | 'cashier' | 'kitchen'} UserRole
+ * @typedef {string | null | undefined} CompanyId
+ */
 import { collection, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
-/** ✅ Returns a Firestore query scoped to the user's company and role */
+/**
+ * @param {string} collectionName
+ * @param {UserRole | string | null} userRole
+ * @param {CompanyId} userCompanyId
+ * @param {string | null} [_userId]
+ * @returns {import('firebase/firestore').Query | import('firebase/firestore').CollectionReference}
+ */
 export function getScopedQuery(collectionName, userRole, userCompanyId, _userId) {
-  // ✅ لو مفيش companyId، ارجع query مش هيجيب حاجة
   if (!userCompanyId) {
     return query(collection(db, collectionName), where('companyId', '==', '__none__'));
   }
-
   if (userRole === 'super_admin') {
     return collection(db, collectionName);
   }
-
-  // أدمن وموظف الشركة (بما فيهم الكاشير والمطبخ) يشوفوا بيانات الشركة (createdBy للسجل فقط)
-  // ملحوظة: تقييد الشاشات لكل دور يتم من getAvailableModules، والقواعد تمنع الحذف/تعديل الأسعار لغير الأدمن
   if (userRole === 'admin' || userRole === 'user' || userRole === 'cashier' || userRole === 'kitchen') {
-    return query(
-      collection(db, collectionName),
-      where('companyId', '==', userCompanyId)
-    );
+    return query(collection(db, collectionName), where('companyId', '==', userCompanyId));
   }
-  
   return query(collection(db, collectionName), where('companyId', '==', '__none__'));
 }
 
-/** Fetch the current user's company document. */
+/** @param {CompanyId} userCompanyId */
 export async function fetchUserCompany(userCompanyId) {
   if (!userCompanyId) return null;
   const snap = await getDoc(doc(db, 'companies', userCompanyId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-/** Whether the user can manage all companies (super_admin only). */
+/** @param {string | null} userRole */
 export function isSuperAdmin(userRole) {
   return userRole === 'super_admin';
 }
-
-/** Whether the user can manage users (admin or super_admin). */
+/** @param {string | null} userRole */
 export function canManageUsers(userRole) {
   return userRole === 'super_admin' || userRole === 'admin';
 }
-
-/** ✅ Whether the user can delete data (admin or super_admin only). */
+/** @param {string | null} userRole */
 export function canDelete(userRole) {
   return userRole === 'super_admin' || userRole === 'admin';
 }
-
-/** ✅ Whether the user can edit others' data (admin or super_admin only). */
+/** @param {string | null} userRole */
 export function canEditOthers(userRole) {
   return userRole === 'super_admin' || userRole === 'admin';
 }
-
-/** Scoped query for the users collection. */
+/** @param {UserRole | string | null} userRole @param {CompanyId} userCompanyId */
 export function getUsersQuery(userRole, userCompanyId) {
   return getScopedQuery('users', userRole, userCompanyId);
 }
 
 /**
- * ✅ توليد كود انضمام للشركة - آمن مع crypto.getRandomValues
- * الطول 12 حرف (مقاوم للتخمين) + بادئة اختيارية
+ * توليد كود انضمام - آمن مع crypto.getRandomValues
+ * @param {string} [prefix='']
+ * @returns {string}
  */
 export function generateInviteCode(prefix = '') {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const len = 10; // 32^10 = 1.1 تريليون احتمال
+  const len = 10;
   let random = '';
   const arr = new Uint32Array(len);
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -72,18 +71,16 @@ export function generateInviteCode(prefix = '') {
   } else {
     for (let i = 0; i < len; i++) random += chars[Math.floor(Math.random() * chars.length)];
   }
-  // صيغة: PREFIX-XXXX-XXXX (أسهل للقراءة والنسخ)
   const a = random.slice(0, 5);
   const b = random.slice(5, 10);
   const core = `${a}-${b}`;
   return prefix ? `${prefix.toUpperCase()}-${core}` : core;
 }
 
-/** تحقق من صيغة الكود */
+/** @param {unknown} code @returns {boolean} */
 export function isValidInviteCodeFormat(code) {
   if (!code || typeof code !== 'string') return false;
   const c = code.trim().toUpperCase();
-  // يقبل PREFIX-XXXX-XXXX أو XXXX-XXXX أو القديم 6 حروف
   return /^([A-Z0-9]+-)?[A-Z2-9]{4,5}-[A-Z2-9]{4,5}$/.test(c) || /^[A-Z2-9]{6,12}$/.test(c.replace(/-/g, ''));
 }
 
