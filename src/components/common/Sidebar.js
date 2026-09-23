@@ -84,6 +84,18 @@ export default function Sidebar() {
       module: "buyers",
     },
     {
+      to: "/viewings",
+      icon: "fas fa-eye",
+      label: "المعاينات",
+      module: "viewings",
+    },
+    {
+      to: "/batches",
+      icon: "fas fa-layer-group",
+      label: "التشغيلات",
+      module: "batches",
+    },
+    {
       to: "/messages",
       icon: "fas fa-envelope",
       label: t("nav.messages"),
