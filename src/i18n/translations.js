@@ -1301,8 +1301,9 @@ export const translations = {
     // ============================================================
     // ========== أنواع الشركات (Industries) ==========
     // ============================================================
-    "industries.general.label": "توريدات وتجارة عامة",
-    "industries.general.desc": "توريدات متنوعة: عملاء وموردين وفواتير وعروض أسعار ومشاريع",
+    "industries.general.label": "أعمال عامة",
+    "industries.general.desc": "إدارة شاملة للعملاء والفواتير والموردين والمشاريع والمهام",
+
     "industries.trader.label": "تاجر / استيراد وتصدير",
     "industries.trader.desc": "إدارة العملاء والفواتير والموردين والمخزون",
     "industries.contractor.label": "مقاولات",
@@ -1310,8 +1311,8 @@ export const translations = {
     "industries.real_estate.label": "عقارات",
     "industries.real_estate.desc":
       "إدارة البائعين والمشترين والعقارات والعملاء",
-    "industries.services.label": "خدمات",
-    "industries.services.desc": "إدارة العملاء والفواتير والمهام والمشاريع",
+    "industries.services.label": "أعمال عامة",
+    "industries.services.desc": "إدارة شاملة للعملاء والفواتير والموردين والمشاريع والمهام",
     "industries.super_market.label": "سوبر ماركت",
     "industries.super_market.desc": "نقطة بيع، باركود، صلاحية، موردين، خصومات",
     "industries.pharmacy.label": "صيدلية",
@@ -2751,9 +2752,9 @@ export const translations = {
     "industries.clinic.label": "Doctor / Clinic",
     "industries.clinic.desc":
       "Patients, appointment booking, prescriptions, visit invoices, tasks and medical reports",
-    "industries.general.label": "General Trading & Supplies",
+    "industries.general.label": "General Business",
     "industries.general.desc":
-      "Supplies: clients, suppliers, invoices, quotations and projects",
+      "Complete management for clients, invoices, suppliers, projects and tasks",
     "users.addUser": "Add user",
     "users.title": "Users",
     "users.searchPlaceholder": "Search for a user...",

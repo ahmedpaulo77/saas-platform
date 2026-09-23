@@ -92,7 +92,6 @@ export default function Setup() {
                 { value: 'trader', label: t('industry.trader'), icon: 'fas fa-box-open' },
                 { value: 'contractor', label: t('industry.contractor'), icon: 'fas fa-hard-hat' },
                 { value: 'real_estate', label: t('industry.real_estate'), icon: 'fas fa-home' },
-                { value: 'services', label: t('industry.services'), icon: 'fas fa-briefcase' },
                 { value: 'super_market', label: t('industry.super_market'), icon: 'fas fa-store' },
                 { value: 'pharmacy', label: t('industry.pharmacy'), icon: 'fas fa-pills' },
                 { value: 'restaurant', label: t('industry.restaurant'), icon: 'fas fa-utensils' },

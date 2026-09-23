@@ -28,12 +28,6 @@ export const INDUSTRIES = [
     icon: "🏠",
   },
   {
-    id: "services",
-    labelKey: "industries.services.label",
-    descKey: "industries.services.desc",
-    icon: "💼",
-  },
-  {
     id: "super_market",
     labelKey: "industries.super_market.label",
     descKey: "industries.super_market.desc",
@@ -67,11 +61,10 @@ export const INDUSTRIES = [
 
 // للتوافق مع الكود القديم (مباشر)
 export const INDUSTRY_LABELS = {
-  general: "🏢 توريدات وتجارة عامة",
+  general: "🏢 أعمال عامة",
   trader: "📦 تاجر / استيراد وتصدير",
   contractor: "🏗️ مقاولات",
   real_estate: "🏠 عقارات",
-  services: "💼 خدمات",
   super_market: "🏪 سوبر ماركت",
   pharmacy: "💊 صيدلية",
   restaurant: "🍽️ مطعم / كافيه",
@@ -113,19 +106,6 @@ export const MODULE_MAP = {
 
   // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
   real_estate: ["sellers", "buyers", "tasks", "projects", "messages"],
-
-  // خدمات (عملاء، فواتير، مشاريع، مهام - بدون موردين وبائعين ومشترين)
-  services: [
-    "clients",
-    "invoices",
-    "quotations",
-    "tasks",
-    "projects",
-    "aging",
-    "messages",
-    "subscriptions",
-    "tickets",
-  ],
 
   // عام - وحدات عامة بدون sellers وbuyers (دول للعقارات فقط)
   general: [
@@ -319,18 +299,17 @@ export const ROUTE_MODULE_MAP = {
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
 export function getIndustryShortLabel(industry) {
   const labels = {
-    general: "🏢 تجارة عامة",
+    general: "🏢 أعمال عامة",
     trader: "📦 تاجر",
     contractor: "🏗️ مقاولات",
     real_estate: "🏠 عقارات",
-    services: "💼 خدمات",
     super_market: "🏪 سوبر ماركت",
     pharmacy: "💊 صيدلية",
     restaurant: "🍽️ مطعم",
   clothing: "🛍️ أزياء",
     clinic: "🩺 عيادة",
   };
-  return labels[industry] || "🏢 تجارة عامة";
+  return labels[industry] || "🏢 أعمال عامة";
 }
 
  // دالة جديدة للحصول على الاسم المترجم
