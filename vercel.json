@@ -3,6 +3,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install",
+  "installCommand": "npm install --legacy-peer-deps",
   "framework": "vite"
 }
