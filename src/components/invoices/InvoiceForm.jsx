@@ -176,7 +176,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                   <div className="form-group" style={{ marginBottom: 0 }}><label>📞 رقم الهاتف (اختياري)</label><input type="tel" placeholder="رقم الهاتف" value={newInvoice.deliveryPhone} onChange={(e) => setNewInvoice({ ...newInvoice, deliveryPhone: e.target.value })} /></div>
                 </>
               )}
-              <div className="form-group" style={{ marginBottom: 0 }}><label>📝 ملاحظة الزبون (اختياري)</label><input type="text" placeholder="مثال: بدون بصل، صوص على الجانب..." value={newInvoice.customerNote} onChange={(e) => setNewInvoice({ ...newInvoice, customerNote: e.target.value })} /></div>
+              <div className="form-group" style={{ marginBottom: 0 }}><label>📝 ملاحظة الزبون (اختياري)</label><input type="text" placeholder="" value={newInvoice.customerNote} onChange={(e) => setNewInvoice({ ...newInvoice, customerNote: e.target.value })} /></div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>حالة الطلب</label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
