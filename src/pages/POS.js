@@ -27,7 +27,7 @@ const ORDER_SOURCES = [
 export default function POS() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const isRestaurant = userIndustry === "restaurant";
+  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
   const isPharmacy = userIndustry === "pharmacy";
 
   const [products, setProducts] = useState([]);

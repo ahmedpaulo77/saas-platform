@@ -46,6 +46,12 @@ export const INDUSTRIES = [
     icon: "🍽️",
   },
   {
+    id: "cafe",
+    labelKey: "industries.cafe.label",
+    descKey: "industries.cafe.desc",
+    icon: "☕",
+  },
+  {
     id: "clothing",
     labelKey: "industries.clothing.label",
     descKey: "industries.clothing.desc",
@@ -67,7 +73,8 @@ export const INDUSTRY_LABELS = {
   real_estate: "🏠 عقارات",
   super_market: "🏪 سوبر ماركت",
   pharmacy: "💊 صيدلية",
-  restaurant: "🍽️ مطعم / كافيه",
+  restaurant: "🍽️ مطعم",
+  cafe: "☕ كافيه",
     clothing: "🛍️ أزياء",
   clinic: "🩺 طبيب / عيادة",
 };
@@ -150,7 +157,7 @@ export const MODULE_MAP = {
     "attendance",
   ],
 
-  // مطعم / كافيه - صالة + ديليفري وتيك أواي + طاولات
+  // مطعم - صالة + ديليفري وتيك أواي + مطبخ + طاولات
   restaurant: [
     "pos",
     "menu-categories",
@@ -160,6 +167,19 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "kitchen",
+    "tables",
+    "tasks",
+    "messages",
+    "attendance",
+  ],
+  // كافيه - تيك أواي + صالة + طاولات (بدون مطبخ وبدون خامات مطبخ)
+  cafe: [
+    "pos",
+    "menu-categories",
+    "clients",
+    "invoices",
+    "suppliers",
+    "purchases",
     "tables",
     "tasks",
     "messages",
@@ -309,6 +329,7 @@ export function getIndustryShortLabel(industry) {
     super_market: "🏪 سوبر ماركت",
     pharmacy: "💊 صيدلية",
     restaurant: "🍽️ مطعم",
+    cafe: "☕ كافيه",
   clothing: "🛍️ أزياء",
     clinic: "🩺 عيادة",
   };

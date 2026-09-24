@@ -15,7 +15,7 @@ export function useInvoices() {
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isClinic = userIndustry === "clinic";
-  const isRestaurant = userIndustry === "restaurant";
+  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
   const isTrader = userIndustry === "trader";
   const entityCollection = isClinic ? "patients" : "clients";
 

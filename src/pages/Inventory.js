@@ -24,7 +24,7 @@ export default function Inventory() {
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
 
   const isClothing = userIndustry === "clothing";
-  const isRestaurant = userIndustry === "restaurant";
+  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
   const isRealEstate = userIndustry === "real_estate";
   const isTrader = userIndustry === "trader";
   const isPharmacy = userIndustry === "pharmacy";

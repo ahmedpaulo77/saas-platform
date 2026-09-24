@@ -19,7 +19,7 @@ import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers
 export default function Invoices() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const isRestaurant = userIndustry === "restaurant";
+  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
   const isTrader = userIndustry === "trader";
 
   const {

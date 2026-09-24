@@ -18,7 +18,7 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // ✅ تعريف القوائم جوه المكون (عشان الترجمة)
-  const isRestaurant = userIndustry === "restaurant";
+  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
     const isRealEstate = userIndustry === "real_estate";
 
   const ALL_NAV_ITEMS = [
