@@ -464,6 +464,14 @@
         allow delete: if canDeleteCompanyDoc();
       }
 
+      match /tables/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
       match /batches/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
