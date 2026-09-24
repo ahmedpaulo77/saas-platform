@@ -33,7 +33,7 @@ export default function Invoices() {
   const emptyInvoice = {
     clientId: "", products: [], status: isRestaurant ? "new" : "pending",
     orderStatus: isRestaurant ? "new" : "", description: "", dueDate: "",
-    orderType: "takeaway", orderSource: "direct", deliveryAddress: "", deliveryPhone: "", deliveryFee: "", customerNote: "",
+    orderType: "takeaway", orderSource: "direct", deliveryAddress: "", deliveryPhone: "", deliveryFee: "", customerNote: "", tableNumber: "",
   };
   const [newInvoice, setNewInvoice] = useState(emptyInvoice);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -87,6 +87,7 @@ export default function Invoices() {
         deliveryAddress: isRestaurant && newInvoice.orderType === "delivery" ? newInvoice.deliveryAddress || "" : "",
         deliveryPhone: isRestaurant ? newInvoice.deliveryPhone || "" : "",
         deliveryFee: isRestaurant && newInvoice.orderType === "delivery" ? parseFloat(newInvoice.deliveryFee) || 0 : 0,
+        tableNumber: isRestaurant && newInvoice.orderType === "dine_in" ? newInvoice.tableNumber || "" : "",
         customerNote: isRestaurant ? newInvoice.customerNote || "" : "",
         companyId: userCompanyId, createdBy: currentUser?.uid, amount: totalAmount,
         quantity: hasInventory ? newInvoice.products.reduce((s, it) => s + (isTrader ? stockDelta(it.unit || "piece", it.quantity, it.weight) : parseFloat(it.quantity || 0)), 0) : 0,
@@ -106,7 +107,8 @@ export default function Invoices() {
       const totalAmount = editingInvoice.products?.length > 0 ? getEditTotalAmount : parseFloat(editingInvoice.amount) || 0;
       await updateDoc(doc(db, "invoices", editingInvoice.id), {
         clientId: editingInvoice.clientId, amount: totalAmount, status: editingInvoice.status, orderStatus: editingInvoice.orderStatus || "", description: editingInvoice.description || "", dueDate: editingInvoice.dueDate || null,
-        orderType: editingInvoice.orderType || "", deliveryAddress: editingInvoice.orderType === "delivery" ? editingInvoice.deliveryAddress || "" : "", deliveryPhone: editingInvoice.orderType === "delivery" ? editingInvoice.deliveryPhone || "" : "", deliveryFee: editingInvoice.orderType === "delivery" ? parseFloat(editingInvoice.deliveryFee) || 0 : 0,
+        orderType: editingInvoice.orderType || "", deliveryAddress: editingInvoice.orderType === "delivery" ? editingInvoice.deliveryAddress || "" : "", deliveryPhone: editingInvoice.deliveryPhone || "" , deliveryFee: editingInvoice.orderType === "delivery" ? parseFloat(editingInvoice.deliveryFee) || 0 : 0,
+        tableNumber: editingInvoice.orderType === "dine_in" ? editingInvoice.tableNumber || "" : "",
         customerNote: editingInvoice.customerNote || "",
         products: editingInvoice.products.map((it) => ({ productId: it.productId, quantity: it.quantity, amount: it.amount, paidAmount: it.paidAmount || 0, weight: it.weight || "", unit: it.unit || "" })),
       });

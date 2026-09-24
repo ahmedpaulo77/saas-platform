@@ -57,6 +57,7 @@ const Statements = lazy(() => import("./pages/Statements"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const Certificates = lazy(() => import("./pages/Certificates"));
 const Viewings = lazy(() => import("./pages/Viewings"));
+const Tables = lazy(() => import("./pages/Tables"));
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
@@ -430,6 +431,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="kitchen">
               <Kitchen />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tables"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="tables">
+              <Tables />
             </IndustryRoute>
           </ProtectedRoute>
         }

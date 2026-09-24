@@ -148,6 +148,12 @@ export default function Sidebar() {
   module: "kitchen",
 },
     {
+      to: "/tables",
+      icon: "fas fa-chair",
+      label: t("nav.tables") || "الطاولات",
+      module: "tables",
+    },
+    {
       to: "/suppliers",
       icon: "fas fa-truck",
       label: t("nav.suppliers"),

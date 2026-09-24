@@ -83,6 +83,12 @@ export default function InvoiceModals({
                         <div className="form-group"><label>🛵 رسوم التوصيل</label><input type="number" step="0.5" min="0" value={editingInvoice.deliveryFee || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, deliveryFee: e.target.value })} /></div>
                       </>
                     )}
+                    {(editingInvoice.orderType || "takeaway") === "dine_in" && (
+                      <>
+                        <div className="form-group"><label>{t("in.tableNumber") || "رقم الطاولة"}</label><input type="number" min="1" placeholder={t("in.tableNumberPh") || "مثال: 5"} value={editingInvoice.tableNumber || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, tableNumber: e.target.value })} /></div>
+                        <div className="form-group"><label>📞 هاتف (اختياري)</label><input type="tel" value={editingInvoice.deliveryPhone || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, deliveryPhone: e.target.value })} /></div>
+                      </>
+                    )}
                     <div className="form-group"><label>📝 ملاحظة الزبون</label><input type="text" value={editingInvoice.customerNote || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, customerNote: e.target.value })} /></div>
                   </>
                 )}

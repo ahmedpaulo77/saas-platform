@@ -150,7 +150,7 @@ export const MODULE_MAP = {
     "attendance",
   ],
 
-  // مطعم / كافيه - ديليفري وتيك أواي فقط
+  // مطعم / كافيه - صالة + ديليفري وتيك أواي + طاولات
   restaurant: [
     "pos",
     "menu-categories",
@@ -160,6 +160,7 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "kitchen",
+    "tables",
     "tasks",
     "messages",
     "attendance",
@@ -294,6 +295,8 @@ export const ROUTE_MODULE_MAP = {
   "/patients": "patients",
   "/appointments": "appointments",
   "/prescriptions": "prescriptions",
+  "/kitchen": "kitchen",
+  "/tables": "tables",
 };
 
 // دالة تحويل كود المجال لاسم عربي مختصر (للتوافق القديم)
@@ -375,6 +378,7 @@ export const MODULE_LABEL_KEYS = {
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
   attendance: "modules.attendance",
+  kitchen: "modules.kitchen",
 };
 
 // دالة للحصول على اسم وحدة مترجم

@@ -167,6 +167,12 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                   <div className="form-group" style={{ marginBottom: 0 }}><label>🛵 رسوم التوصيل ({t("currency")})</label><input type="number" step="0.5" min="0" placeholder="0" value={newInvoice.deliveryFee} onChange={(e) => setNewInvoice({ ...newInvoice, deliveryFee: e.target.value })} /></div>
                 </>
               )}
+              {newInvoice.orderType === "dine_in" && (
+                <>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label>{t("in.tableNumber") || "رقم الطاولة"}</label><input type="number" min="1" placeholder={t("in.tableNumberPh") || "مثال: 5"} value={newInvoice.tableNumber || ""} onChange={(e) => setNewInvoice({ ...newInvoice, tableNumber: e.target.value })} /></div>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label>📞 رقم الهاتف (اختياري)</label><input type="tel" placeholder="رقم الهاتف" value={newInvoice.deliveryPhone} onChange={(e) => setNewInvoice({ ...newInvoice, deliveryPhone: e.target.value })} /></div>
+                </>
+              )}
               <div className="form-group" style={{ marginBottom: 0 }}><label>📝 ملاحظة الزبون (اختياري)</label><input type="text" placeholder="مثال: بدون بصل، صوص على الجانب..." value={newInvoice.customerNote} onChange={(e) => setNewInvoice({ ...newInvoice, customerNote: e.target.value })} /></div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>حالة الطلب</label>

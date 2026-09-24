@@ -122,6 +122,8 @@ export default function InvoiceTable({
                               <span style={{ fontWeight: 600 }}>{orderTypeCfg?.label || inv.orderType || "—"}</span>
                               {inv.orderType === "delivery" && inv.deliveryAddress && <span style={{ fontSize: 11, color: "#64748b" }} title={inv.deliveryAddress}>📍 {inv.deliveryAddress.slice(0, 20)}{inv.deliveryAddress.length > 20 ? "..." : ""}</span>}
                               {inv.orderType === "delivery" && inv.deliveryPhone && <span style={{ fontSize: 11, color: "#64748b" }}>📞 {inv.deliveryPhone}</span>}
+                              {inv.orderType === "dine_in" && inv.tableNumber && <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 700 }}>🪑 طاولة {inv.tableNumber}</span>}
+                              {inv.orderType === "dine_in" && inv.deliveryPhone && <span style={{ fontSize: 11, color: "#64748b" }}>📞 {inv.deliveryPhone}</span>}
                             </div>
                           </td>
                         )}

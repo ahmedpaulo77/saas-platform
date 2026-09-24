@@ -49,6 +49,7 @@ export default function POS() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryPhone, setDeliveryPhone] = useState("");
   const [deliveryFee, setDeliveryFee] = useState("");
+  const [tableNumber, setTableNumber] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
   const [repeating, setRepeating] = useState(false);
@@ -303,6 +304,7 @@ export default function POS() {
       if (restored.length === 0) { alert("أصناف آخر أوردر مش متاحة حالياً"); return; }
       setCart(restored);
       if (last.deliveryAddress) setDeliveryAddress(last.deliveryAddress);
+      if (last.tableNumber) setTableNumber(String(last.tableNumber));
       if (last.orderType) setOrderType(last.orderType);
       if (last.source) setOrderSource(last.source);
     } catch (e) {
@@ -435,6 +437,9 @@ export default function POS() {
         <strong>📍 العنوان:</strong> ${deliveryAddress || "—"}<br/>
         ${deliveryPhone ? `<strong>📞 هاتف:</strong> ${deliveryPhone}` : ""}
         ${deliveryFeeNum > 0 ? `<br/><strong>🛵 رسوم التوصيل:</strong> ${deliveryFeeNum} ج.م` : ""}
+      </div>` : orderType === "dine_in" && tableNumber ? `
+      <div style="margin:6px 0;font-size:12px;">
+        <strong>🪑 رقم الطاولة:</strong> ${tableNumber}
       </div>` : "";
 
     const printContent = `<!DOCTYPE html>
@@ -605,6 +610,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         orderStatus: isRestaurant ? "new" : "",
         deliveryAddress: isRestaurant && orderType === "delivery" ? deliveryAddress : "",
         deliveryPhone: isRestaurant ? deliveryPhone.trim() : "",
+        tableNumber: isRestaurant && orderType === "dine_in" ? tableNumber : "",
         customerNote: isRestaurant ? customerNote : "",
         date: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -625,6 +631,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
       setDeliveryAddress("");
       setDeliveryPhone("");
       setDeliveryFee("");
+      setTableNumber("");
       setCustomerNote("");
       setPhoneHint("");
       setCartItemNotes({});
@@ -921,6 +928,16 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                 </button>
                 <input type="number" step="0.5" min="0" placeholder="🛵 رسوم التوصيل"
                   value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)}
+                  style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+            )}
+
+            {/* رقم الطاولة للصالة */}
+            {isRestaurant && orderType === "dine_in" && (
+              <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <input type="number" min="1" placeholder={t("in.tableNumberPh") || "رقم الطاولة"}
+                  value={tableNumber} onChange={(e) => setTableNumber(e.target.value)}
                   style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
                 />
               </div>
