@@ -1179,7 +1179,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                   </div>
                   <div className="form-group">
                     <label>ملاحظات التسليم</label>
-                    <input type="text" placeholder="مثال: دواء ناقص، عميل هيستلم..."
+                    <input type="text" placeholder="ملاحظه"
                       value={closeForm.notes} onChange={(e) => setCloseForm({ ...closeForm, notes: e.target.value })} />
                   </div>
                   {closeForm.countedCash !== "" && (

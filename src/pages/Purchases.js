@@ -46,6 +46,16 @@ export default function Purchases() {
     dueDate: "",
   });
 
+  // إضافة مورد/منتج سريع من نفس الصفحة
+  const [showQuickSupplier, setShowQuickSupplier] = useState(false);
+  const [quickSupplierName, setQuickSupplierName] = useState("");
+  const [quickSupplierPhone, setQuickSupplierPhone] = useState("");
+  const [addingSupplier, setAddingSupplier] = useState(false);
+  const [showQuickProduct, setShowQuickProduct] = useState(false);
+  const [quickProductName, setQuickProductName] = useState("");
+  const [quickProductPrice, setQuickProductPrice] = useState("");
+  const [addingProduct, setAddingProduct] = useState(false);
+
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -190,6 +200,45 @@ export default function Purchases() {
   useEffect(() => {
     resetPagination();
   }, [filterStatus, resetPagination]);
+
+  async function handleQuickAddSupplier() {
+    if (!quickSupplierName.trim()) { alert(t("common.fillRequired")); return; }
+    if (!userCompanyId) return;
+    setAddingSupplier(true);
+    try {
+      const docRef = await addDoc(collection(db, "suppliers"), {
+        name: quickSupplierName.trim(),
+        phone: quickSupplierPhone.trim() || "",
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid,
+        createdAt: new Date().toISOString(),
+      });
+      await fetchSuppliers();
+      setNewPurchase((p) => ({ ...p, supplierId: docRef.id }));
+      setQuickSupplierName(""); setQuickSupplierPhone(""); setShowQuickSupplier(false);
+    } catch (e) { console.error(e); alert(t("common.errorGeneric")); }
+    setAddingSupplier(false);
+  }
+  async function handleQuickAddProduct() {
+    if (!quickProductName.trim() || !quickProductPrice) { alert(t("common.fillRequired")); return; }
+    if (!userCompanyId) return;
+    setAddingProduct(true);
+    try {
+      const docRef = await addDoc(collection(db, "inventory"), {
+        name: quickProductName.trim(),
+        price: parseFloat(quickProductPrice) || 0,
+        quantity: 0,
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid,
+        createdAt: new Date().toISOString(),
+      });
+      await fetchProducts();
+      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0 };
+      setProducts((prev) => [...prev, prod]);
+      setQuickProductName(""); setQuickProductPrice(""); setShowQuickProduct(false);
+    } catch (e) { console.error(e); alert(t("common.errorGeneric")); }
+    setAddingProduct(false);
+  }
 
   const filteredPurchases = useMemo(() => {
     if (!searchTerm.trim()) return purchases;
@@ -613,6 +662,16 @@ export default function Purchases() {
                   placeholder={t("pur.chooseSupplier")}
                   required
                 />
+                <button type="button" onClick={() => setShowQuickSupplier(!showQuickSupplier)} style={{ marginTop: 6, background: "none", border: "none", color: "#0891b2", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
+                  {showQuickSupplier ? "✕ إلغاء" : "+ مورد جديد"}
+                </button>
+                {showQuickSupplier && (
+                  <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input type="text" placeholder="اسم المورد *" value={quickSupplierName} onChange={(e) => setQuickSupplierName(e.target.value)} />
+                    <input type="text" placeholder="الهاتف (اختياري)" value={quickSupplierPhone} onChange={(e) => setQuickSupplierPhone(e.target.value)} />
+                    <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddSupplier} disabled={addingSupplier}>{addingSupplier ? "جاري..." : "حفظ المورد"}</button>
+                  </div>
+                )}
               </div>
               {hasInventory && (
                 <div className="form-group" style={{ marginBottom: 0 }}>
@@ -661,6 +720,20 @@ export default function Purchases() {
                     }}
                     placeholder={t("pur.chooseProduct")}
                   />
+                </div>
+              )}
+              {hasInventory && (
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" onClick={() => setShowQuickProduct(!showQuickProduct)} style={{ background: "none", border: "none", color: "#0891b2", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
+                    {showQuickProduct ? "✕ إلغاء" : "+ منتج جديد"}
+                  </button>
+                  {showQuickProduct && (
+                    <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
+                      <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
+                      <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddProduct} disabled={addingProduct}>{addingProduct ? "جاري..." : "حفظ المنتج"}</button>
+                    </div>
+                  )}
                 </div>
               )}
               {hasInventory && (newPurchase.items || []).length > 0 && (
