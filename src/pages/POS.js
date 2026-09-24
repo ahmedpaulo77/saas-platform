@@ -27,8 +27,13 @@ const ORDER_SOURCES = [
 export default function POS() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isPharmacy = userIndustry === "pharmacy";
+  const foodLabel = isCafe ? "الكافيه" : "المطعم";
+  const foodIcon = isCafe ? "☕" : "🍽️";
 
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -461,7 +466,7 @@ export default function POS() {
 </style>
 </head>
 <body>
-<h2>🍗 فاتورة المطعم</h2>
+<h2>${foodIcon} فاتورة ${foodLabel}</h2>
 <div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
 <div class="divider"></div>
 <div style="font-size:12px;margin-bottom:4px;">
@@ -664,9 +669,9 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           <div>
             <h1>
               <i className="fas fa-cash-register" style={{ color: "#10b981", marginLeft: 10 }}></i>
-              {isRestaurant ? "🍗 كاشير المطعم" : t("pos.title")}
+              {isRestaurant ? `${foodIcon} كاشير ${foodLabel}` : t("pos.title")}
             </h1>
-            <p className="subtitle">{isRestaurant ? "تسجيل طلبات تيك أواي وتوصيل سريع" : t("pos.subtitle")}</p>
+            <p className="subtitle">{isRestaurant ? `تسجيل طلبات ${foodLabel} ـ تيك أواي وتوصيل سريع` : t("pos.subtitle")}</p>
           </div>
         </div>
 
@@ -728,7 +733,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                 <i className="fas fa-search search-icon"></i>
                 <input
                   type="text"
-                  placeholder={isRestaurant ? "ابحث في المنيو..." : "🔍 ابحث بالاسم أو اسكان الباركود..."}
+                  placeholder={isRestaurant ? (isCafe ? "ابحث في منيو الكافيه..." : "ابحث في منيو المطعم...") : "🔍 ابحث بالاسم أو اسكان الباركود..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleSearchKeyDown}

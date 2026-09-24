@@ -30,12 +30,14 @@ const CATEGORY_ICONS = [
 
 export default function MenuCategories() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
+  const isCafe = userIndustry === "cafe";
+  const defaultCatIcon = isCafe ? "☕" : "🍽️";
   const userCanDelete = canDelete(userRole);
 
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newCategory, setNewCategory] = useState({ name: "", icon: "🍗", description: "" });
+  const [newCategory, setNewCategory] = useState({ name: "", icon: defaultCatIcon, description: "" });
   const [editingCategory, setEditingCategory] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
@@ -91,7 +93,7 @@ export default function MenuCategories() {
     try {
       const docRef = await addDoc(collection(db, "menu_categories"), {
         name: newCategory.name.trim(),
-        icon: newCategory.icon || "🍗",
+        icon: newCategory.icon || defaultCatIcon,
         description: newCategory.description.trim() || "",
         order: categories.length,
         companyId: userCompanyId,
@@ -103,7 +105,7 @@ export default function MenuCategories() {
         details: `Created menu category: ${newCategory.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewCategory({ name: "", icon: "🍗", description: "" });
+      setNewCategory({ name: "", icon: defaultCatIcon, description: "" });
       await fetchCategories();
     } catch (err) {
       console.error(err);
@@ -117,7 +119,7 @@ export default function MenuCategories() {
     try {
       await updateDoc(doc(db, "menu_categories", editingCategory.id), {
         name: editingCategory.name.trim(),
-        icon: editingCategory.icon || "🍗",
+        icon: editingCategory.icon || defaultCatIcon,
         description: editingCategory.description || "",
       });
       await logActivity({

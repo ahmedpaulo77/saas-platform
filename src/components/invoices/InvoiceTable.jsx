@@ -32,7 +32,10 @@ export default function InvoiceTable({
 }) {
   const { t } = useLanguage();
   const { userRole, userIndustry } = useAuth();
-  const isRestaurant = userIndustry === "restaurant";
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
   const userCanDelete = canDelete(userRole);

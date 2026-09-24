@@ -24,7 +24,10 @@ export default function Inventory() {
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
 
   const isClothing = userIndustry === "clothing";
-  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isRealEstate = userIndustry === "real_estate";
   const isTrader = userIndustry === "trader";
   const isPharmacy = userIndustry === "pharmacy";
@@ -518,8 +521,8 @@ export default function Inventory() {
       <Sidebar />
       <div className="main-content">
         <h2 style={{ color: "#333", marginBottom: "20px" }}>
-          {isRestaurant ? "🍽️" : userIndustry === "real_estate" ? "🏠" : "📦"}{" "}
-          {isRestaurant ? "المنيو" : t(userIndustry === "real_estate" ? "inv.title.real_estate" : "inv.title")}
+          {isRestaurant ? (isCafe ? "☕ منيو الكافيه" : "🍽️ منيو المطعم") : userIndustry === "real_estate" ? "🏠" : "📦"}{" "}
+          {!isRestaurant && t(userIndustry === "real_estate" ? "inv.title.real_estate" : "inv.title")}
         </h2>
 
         {/* ── Add Form ── */}
@@ -527,7 +530,7 @@ export default function Inventory() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <input
               type="text"
-              placeholder={isRealEstate ? "اسم العقار / الوحدة" : isRestaurant ? "اسم الصنف (مثال: فراخ كرسبي)" : t("inv.phName")}
+              placeholder={isRealEstate ? "اسم العقار / الوحدة" : isRestaurant ? (isCafe ? "اسم الصنف (مثال: كابتشينو / لاتيه)" : "اسم الصنف (مثال: فراخ كرسبي)") : t("inv.phName")}
               value={newProduct.name}
               onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
               required
@@ -541,9 +544,9 @@ export default function Inventory() {
                   onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
                 >
-                  <option value="">— اختر قسم المنيو —</option>
+                  <option value="">{isCafe ? "— اختر قسم منيو الكافيه —" : "— اختر قسم منيو المطعم —"}</option>
                   {menuCategories.length === 0 && (
-                    <option disabled>لا توجد أقسام — أضفها من صفحة أقسام المنيو</option>
+                    <option disabled>{isCafe ? "لا توجد أقسام — أضفها من صفحة أقسام منيو الكافيه" : "لا توجد أقسام — أضفها من صفحة أقسام منيو المطعم"}</option>
                   )}
                   {menuCategories.map((c) => (
                     <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
@@ -725,7 +728,7 @@ export default function Inventory() {
           </div>
           <button type="submit" className="btn-primary" style={{ marginTop: 12 }}>
             <i className="fas fa-plus"></i>{" "}
-            {isRealEstate ? "إضافة عقار" : isRestaurant ? "إضافة صنف للمنيو" : t("inv.add")}
+            {isRealEstate ? "إضافة عقار" : isRestaurant ? (isCafe ? "إضافة صنف لمنيو الكافيه" : "إضافة صنف لمنيو المطعم") : t("inv.add")}
           </button>
         </form>
 
@@ -950,7 +953,7 @@ export default function Inventory() {
         <div style={{ marginBottom: "20px", marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <input
             type="text"
-            placeholder={isRealEstate ? "🔍 ابحث عن عقار..." : isRestaurant ? "🔍 ابحث في المنيو..." : t("inv.search")}
+            placeholder={isRealEstate ? "🔍 ابحث عن عقار..." : isRestaurant ? (isCafe ? "🔍 ابحث في منيو الكافيه..." : "🔍 ابحث في منيو المطعم...") : t("inv.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ flex: 1, minWidth: 200, padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "15px", outline: "none" }}
@@ -980,7 +983,7 @@ export default function Inventory() {
         {/* ── Table ── */}
         <div className="table-container">
           <div className="table-header">
-            <h3>{isRealEstate ? "قائمة العقارات" : isRestaurant ? "أصناف المنيو" : t("inv.list")}</h3>
+            <h3>{isRealEstate ? "قائمة العقارات" : isRestaurant ? (isCafe ? "أصناف منيو الكافيه" : "أصناف منيو المطعم") : t("inv.list")}</h3>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span>{filteredProducts.length} {isRealEstate ? "عقار" : isRestaurant ? "صنف" : t("inv.products")}</span>
               {isMarket && (
@@ -1003,7 +1006,7 @@ export default function Inventory() {
           </div>
           {filteredProducts.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm || filterCategory !== "all" ? t("common.noResults") : isRealEstate ? "لا توجد عقارات" : isRestaurant ? "لا توجد أصناف في المنيو بعد" : t("inv.empty")}
+              {searchTerm || filterCategory !== "all" ? t("common.noResults") : isRealEstate ? "لا توجد عقارات" : isRestaurant ? (isCafe ? "لا توجد أصناف في منيو الكافيه بعد" : "لا توجد أصناف في منيو المطعم بعد") : t("inv.empty")}
             </p>
           ) : (
             <Pagination
@@ -1157,7 +1160,7 @@ export default function Inventory() {
         <div style={styles.modalOverlay} onClick={() => setShowEditModal(false)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3><i className="fas fa-edit"></i> {isRealEstate ? "تعديل بيانات العقار" : isRestaurant ? "تعديل صنف المنيو" : t("inv.editTitle")}</h3>
+              <h3><i className="fas fa-edit"></i> {isRealEstate ? "تعديل بيانات العقار" : isRestaurant ? (isCafe ? "تعديل صنف منيو الكافيه" : "تعديل صنف منيو المطعم") : t("inv.editTitle")}</h3>
               <button onClick={() => setShowEditModal(false)} style={styles.closeBtn}>&times;</button>
             </div>
             <form onSubmit={updateProduct}>
@@ -1171,7 +1174,7 @@ export default function Inventory() {
 
                 {/* القسم / الفئة */}
                 <div style={styles.formGroup}>
-                  <label>{isRestaurant ? "قسم المنيو" : isRealEstate ? "نوع العقار" : t("inv.category")}</label>
+                  <label>{isRestaurant ? (isCafe ? "قسم منيو الكافيه" : "قسم منيو المطعم") : isRealEstate ? "نوع العقار" : t("inv.category")}</label>
                   {isRestaurant ? (
                     <select value={editingProduct.category || ""} style={styles.input}
                       onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}>

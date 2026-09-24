@@ -19,8 +19,12 @@ import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers
 export default function Invoices() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
+  const foodLabel = isCafe ? "الكافيه" : "المطعم";
 
   const {
     filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
@@ -166,7 +170,7 @@ export default function Invoices() {
 
   function handleThermalPrint(invoice) {
     const clientName = clients.find((c) => c.id === invoice.clientId)?.name || "زبون";
-    const html = buildThermalPrintHTML({ invoice, clientName, products, isTrader, getProductUnit, isKgUnit, t });
+    const html = buildThermalPrintHTML({ invoice, clientName, products, isTrader, getProductUnit, isKgUnit, t, isCafe });
     openThermalPrint(html);
   }
   function handleExportPDF(invoice) {
@@ -181,7 +185,7 @@ export default function Invoices() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        <div className="header"><div><h1><i className="fas fa-file-invoice" style={{ color: "#f59e0b", marginLeft: 10 }}></i>{isRestaurant ? "🧾 الطلبات" : t("in.title")}</h1><p className="subtitle">{isRestaurant ? "تسجيل ومتابعة طلبات المطعم" : t("in.subtitle")}</p></div></div>
+        <div className="header"><div><h1><i className="fas fa-file-invoice" style={{ color: "#f59e0b", marginLeft: 10 }}></i>{isRestaurant ? `🧾 طلبات ${foodLabel}` : t("in.title")}</h1><p className="subtitle">{isRestaurant ? `تسجيل ومتابعة طلبات ${foodLabel}` : t("in.subtitle")}</p></div></div>
         {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "12px 16px", borderRadius: 10, marginBottom: 16, fontSize: 13 }}><i className="fas fa-exclamation-circle"></i> {error.message || t("common.errorGeneric")}</div>}
 
         {isAdmin ? (

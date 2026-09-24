@@ -18,7 +18,10 @@ export default function InvoiceModals({
 }) {
   const { t } = useLanguage();
   const { userIndustry, userRole } = useAuth();
-  const isRestaurant = userIndustry === "restaurant";
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
@@ -122,7 +125,7 @@ export default function InvoiceModals({
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>+ {isRestaurant ? "إضافة صنف" : t("in.addProduct") || "إضافة منتج جديد"}</label>
-                      <AutocompleteInput key={`inv-edit-${editingInvoice.products?.length || 0}`} items={products.map((p) => ({ id: p.id, label: p.name, sublabel: `${t("currency")} ${p.price || 0}` }))} value="" onChange={(productId) => { if (!productId || editingInvoice.products?.some((p) => p.productId === productId)) return; setEditingInvoice({ ...editingInvoice, products: [...(editingInvoice.products || []), { productId, quantity: 1, unit: getProductUnit(products.find((p) => p.id === productId)), weight: "", amount: calculateProductAmount(productId, 1).toString() }] }); }} placeholder={isRestaurant ? "اختر صنف من المنيو..." : t("in.chooseProduct") || "اختر المنتج..."} />
+                      <AutocompleteInput key={`inv-edit-${editingInvoice.products?.length || 0}`} items={products.map((p) => ({ id: p.id, label: p.name, sublabel: `${t("currency")} ${p.price || 0}` }))} value="" onChange={(productId) => { if (!productId || editingInvoice.products?.some((p) => p.productId === productId)) return; setEditingInvoice({ ...editingInvoice, products: [...(editingInvoice.products || []), { productId, quantity: 1, unit: getProductUnit(products.find((p) => p.id === productId)), weight: "", amount: calculateProductAmount(productId, 1).toString() }] }); }} placeholder={isRestaurant ? (isCafe ? "اختر صنف من منيو الكافيه..." : "اختر صنف من منيو المطعم...") : t("in.chooseProduct") || "اختر المنتج..."} />
                     </div>
                   </div>
                 )}

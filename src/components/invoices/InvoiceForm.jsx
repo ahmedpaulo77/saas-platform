@@ -12,7 +12,10 @@ import { getAvailableModules } from "../../utils/modules";
 export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients }) {
   const { t } = useLanguage();
   const { userCompanyId, currentUser, userIndustry, userRole } = useAuth();
-  const isRestaurant = userIndustry === "restaurant";
+  const isCafe = userIndustry === "cafe";
+  const isRestaurantOnly = userIndustry === "restaurant";
+  const isRestaurant = (isRestaurantOnly || isCafe);
+  const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
@@ -104,7 +107,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                     products: [...newInvoice.products, { productId, quantity: "1", unit: getProductUnit(prod), weight: "", amount: calculateProductAmount(productId, 1).toString() }],
                   });
                 }}
-                placeholder={isRestaurant ? "ابحث واختر صنف من المنيو..." : chooseProductPlaceholder}
+                placeholder={isRestaurant ? (isCafe ? "ابحث واختر صنف من منيو الكافيه..." : "ابحث واختر صنف من منيو المطعم...") : chooseProductPlaceholder}
               />
             </div>
           )}
