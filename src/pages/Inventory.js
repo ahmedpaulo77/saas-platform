@@ -263,7 +263,7 @@ export default function Inventory() {
         minQuantity: isPharmacy ? (parseFloat(newProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (newProduct.drugCategory || "") : "",
         activeIngredient: isPharmacy ? (newProduct.activeIngredient || "").trim() : "",
-        extras: isRestaurant ? (newProduct.extras || []) : [],
+        extras: isRestaurantOnly ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
         createdAt: new Date().toISOString(),
       });
@@ -307,7 +307,7 @@ export default function Inventory() {
         minQuantity: isPharmacy ? (parseFloat(editingProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (editingProduct.drugCategory || "") : "",
         activeIngredient: isPharmacy ? (editingProduct.activeIngredient || "").trim() : "",
-        extras: isRestaurant ? (editingProduct.extras || []) : [],
+        extras: isRestaurantOnly ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
       });
       await logActivity({
@@ -561,7 +561,7 @@ export default function Inventory() {
                   onChange={(e) => setNewProduct({ ...newProduct, preparationNote: e.target.value })}
                 />
 
-                {/* الإضافات */}
+                {isRestaurantOnly && ( <>
                 <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
                     🧩 الإضافات الاختيارية (Extras)
@@ -606,6 +606,7 @@ export default function Inventory() {
                     </button>
                   </div>
                 </div>
+                </>)}
               </>
             )}
 
@@ -1022,7 +1023,7 @@ export default function Inventory() {
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
                   <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
                   {isClothing && <><th>الموديل</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
-                  {isRestaurant && <th>الإضافات</th>}
+                  {isRestaurantOnly && <th>الإضافات</th>}
                   {isPharmacy && <th>التصنيف</th>}
                   {isMarket && <th>الباركود</th>}
                   {isTrader && <th>{t("trader.unit")}</th>}
@@ -1080,7 +1081,7 @@ export default function Inventory() {
                     {isMarket && (
                       <td style={{ fontFamily: "monospace", fontSize: 12, direction: "ltr" }}>{product.barcode || "—"}</td>
                     )}
-                    {isRestaurant && (
+                    {isRestaurantOnly && (
                       <td>
                         {(product.extras || []).length > 0 ? (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1310,7 +1311,7 @@ export default function Inventory() {
                 )}
 
                 {/* إضافات المطعم في التعديل */}
-                {isRestaurant && (
+                {isRestaurantOnly && (
                   <div style={styles.formGroup}>
                     <label>الإضافات الاختيارية</label>
                     <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>

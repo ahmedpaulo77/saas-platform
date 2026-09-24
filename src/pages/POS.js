@@ -400,9 +400,10 @@ export default function POS() {
     }));
   }
 
-  // حساب سعر صنف مع الإضافات
+  // حساب سعر صنف مع الإضافات — للمطعم فقط (مخفي للكافيه)
   function getItemTotalPrice(item) {
     const basePrice = (item.price || 0) * item.quantity;
+    if (!isRestaurantOnly) return basePrice;
     const extras = item.extras || [];
     const selectedExtraIdxs = cartItemExtras[item.id] || [];
     const extrasTotal = selectedExtraIdxs.reduce((sum, idx) => {
@@ -424,7 +425,7 @@ export default function POS() {
 
     const itemsRows = cart.map((item) => {
       const selectedExtraIdxs = cartItemExtras[item.id] || [];
-      const extras = (item.extras || []).filter((_, i) => selectedExtraIdxs.includes(i));
+      const extras = isRestaurantOnly ? (item.extras || []).filter((_, i) => selectedExtraIdxs.includes(i)) : [];
       const extrasText = extras.length > 0 ? `<div style="font-size:10px;color:#666;padding-right:8px;">+ ${extras.map((e) => e.name).join(", ")}</div>` : "";
       const noteText = cartItemNotes[item.id] ? `<div style="font-size:10px;color:#888;font-style:italic;padding-right:8px;">📝 ${cartItemNotes[item.id]}</div>` : "";
       return `<tr>
@@ -592,7 +593,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
             productName: item.name,
             quantity: item.quantity,
             price: item.price || 0,
-            extras: selectedExtras,
+            extras: isRestaurantOnly ? selectedExtras : [],
             note: cartItemNotes[item.id] || "",
             itemTotal: getItemTotalPrice(item),
             // حقول الملابس
@@ -837,8 +838,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                           {product.quantity} {t("pos.remaining")}
                         </span>
                       </div>
-                      {/* إضافات المنيو */}
-                      {isRestaurant && (product.extras || []).length > 0 && (
+                      {/* إضافات المنيو — للمطعم فقط */}
+                      {isRestaurantOnly && (product.extras || []).length > 0 && (
                         <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
                           {product.extras.slice(0, 3).map((ex, i) => (
                             <span key={i} style={{ fontSize: 9, background: "#ede9fe", color: "#6d28d9", padding: "1px 6px", borderRadius: 10 }}>
@@ -1032,7 +1033,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                           <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{item.name}</div>
                           <div style={{ fontSize: 11, color: "#94a3b8" }}>
                             {item.price} {t("currency")} × {item.quantity}
-                            {selectedExtraIdxs.length > 0 && (
+                            {isRestaurantOnly && selectedExtraIdxs.length > 0 && (
                               <span style={{ color: "#6d28d9" }}>
                                 {" "}+ {selectedExtraIdxs.reduce((s, idx) => s + (item.extras?.[idx]?.price || 0), 0) * item.quantity} {t("currency")} إضافات
                               </span>
@@ -1048,8 +1049,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                         </button>
                       </div>
 
-                      {/* إضافات الصنف */}
-                      {isRestaurant && (item.extras || []).length > 0 && (
+                      {/* إضافات الصنف — للمطعم فقط */}
+                      {isRestaurantOnly && (item.extras || []).length > 0 && (
                         <div style={{ marginTop: 6, paddingRight: 4 }}>
                           <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>الإضافات:</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
