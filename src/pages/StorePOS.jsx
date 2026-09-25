@@ -15,7 +15,8 @@ const NAVY = "#1e3a8a";
 const TYPE_LABELS = { men: "رجالي", women: "حريمي", kids: "أطفال", unisex: "يونيسكس" };
 
 export default function StorePOS() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const timeLocale = lang === "en" ? "en-US" : "ar-EG";
   const { userRole, userCompanyId, currentUser } = useAuth();
 
   const [products, setProducts] = useState([]);
@@ -136,7 +137,7 @@ export default function StorePOS() {
       await fetchShift();
     } catch (err) {
       console.error(err);
-      alert("تعذر فتح الوردية");
+      alert(t("shift.openFail"));
     }
     setOpening(false);
   }
@@ -182,7 +183,7 @@ export default function StorePOS() {
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
-      alert("تعذر حساب مبيعات الوردية");
+      alert(t("shift.calcFail"));
     }
   }
 
@@ -225,10 +226,10 @@ export default function StorePOS() {
       setCloseForm({ countedCash: "", receiver: "", notes: "", cashIn: "", cashOut: "" });
       setClosePreview(null);
       await fetchShift();
-      alert("تم تقفيل الوردية وحفظ التسليم");
+      alert(t("shift.closedOk"));
     } catch (err) {
       console.error(err);
-      alert("تعذر التقفيل");
+      alert(t("shift.closeFail"));
     }
     setClosing(false);
   }
@@ -562,37 +563,37 @@ export default function StorePOS() {
         {/* ── شريط الوردية (NAVY theme) ── */}
         {!shift ? (
           <form onSubmit={openShift} style={{ display: "flex", gap: 8, alignItems: "center", background: "#eff6ff", border: `2px dashed ${NAVY}`, borderRadius: 10, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>🕐 مفيش وردية مفتوحة</span>
-            <input type="number" min="0" step="0.01" placeholder="كاش بداية الوردية (اختياري)"
+            <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>🕐 {t("shift.noShift")}</span>
+            <input type="number" min="0" step="0.01" placeholder={t("shift.startCashPh")}
               value={openingCash} onChange={(e) => setOpeningCash(e.target.value)}
               style={{ padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, width: 200 }} />
-            <button type="submit" disabled={opening} className="btn-primary btn-sm" style={{ background: NAVY }}>{opening ? (t("common.loading") || "...") : "فتح وردية"}</button>
+            <button type="submit" disabled={opening} className="btn-primary btn-sm" style={{ background: NAVY }}>{opening ? (t("common.loading") || "...") : t("shift.open")}</button>
             {closings.length > 0 && (
-              <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">التقفيلات السابقة ({closings.length})</button>
+              <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">{t("shift.history")} ({closings.length})</button>
             )}
           </form>
         ) : (
           <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#eff6ff", border: `2px solid ${NAVY}`, borderRadius: 10, padding: "8px 12px", marginBottom: 16, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
-              🟢 وردية #{shift.number} مفتوحة منذ {shift.openedAt ? new Date(shift.openedAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }) : "—"}
+              🟢 {t("shift.openSince", { n: shift.number, time: shift.openedAt ? new Date(shift.openedAt).toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" }) : "—" })}
             </span>
-            <span style={{ fontSize: 12, color: "#64748b" }}>كاش البداية: {(shift.openingCash || 0).toLocaleString()}</span>
-            <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginRight: "auto", background: NAVY }}>تقفيل الوردية</button>
-            <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">السجل</button>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{t("shift.startCash")}: {(shift.openingCash || 0).toLocaleString()}</span>
+            <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginRight: "auto", background: NAVY }}>{t("shift.close")}</button>
+            <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">{t("shift.historyShort")}</button>
           </div>
         )}
 
         {showHistory && closings.length > 0 && (
           <div className="table-container" style={{ marginBottom: 16 }}>
-            <div className="table-header"><h3>تقفيلات سابقة</h3></div>
+            <div className="table-header"><h3>{t("shift.pastTitle")}</h3></div>
             <table>
-              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>مرتجع عدد</th><th>مرتجع مبلغ</th><th>داخل</th><th>خارج</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
+              <thead><tr><th>#</th><th>{t("shift.thOpen")}</th><th>{t("shift.thClose")}</th><th>{t("shift.thInvoices")}</th><th>{t("shift.thCollected")}</th><th>{t("shift.thRetCount")}</th><th>{t("shift.thRetAmt")}</th><th>{t("shift.thIn")}</th><th>{t("shift.thOut")}</th><th>{t("shift.thCounted")}</th><th>{t("shift.thDiff")}</th><th>{t("shift.thReceiver")}</th></tr></thead>
               <tbody>
                 {closings.map((c) => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 700 }}>#{c.number}</td>
-                    <td style={{ fontSize: 12 }}>{c.openedAt ? new Date(c.openedAt).toLocaleString("ar-EG") : "—"}</td>
-                    <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString("ar-EG") : <span style={{ color: "#16a34a", fontWeight: 700 }}>مفتوحة</span>}</td>
+                    <td style={{ fontSize: 12 }}>{c.openedAt ? new Date(c.openedAt).toLocaleString(timeLocale) : "—"}</td>
+                    <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString(timeLocale) : <span style={{ color: "#16a34a", fontWeight: 700 }}>{t("shift.openLabel")}</span>}</td>
                     <td>{c.salesCount ?? "—"}</td>
                     <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(c.paidTotal).toLocaleString() : "—"}</td>
                     <td>{c.returnsCount ?? "—"}</td>
@@ -968,25 +969,25 @@ export default function StorePOS() {
           <div className="modal-overlay" onClick={() => setShowCloseModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><i className="fas fa-cash-register" style={{ color: NAVY }}></i> تقفيل وردية #{shift.number}</h3>
+                <h3><i className="fas fa-cash-register" style={{ color: NAVY }}></i> {t("shift.modalTitle", { n: shift.number })}</h3>
                 <button className="modal-close" onClick={() => setShowCloseModal(false)}>×</button>
               </div>
               <div className="modal-body">
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                   <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>فواتير الوردية</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statInvoices")}</div>
                     <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.count}</div>
                   </div>
                   <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>إجمالي</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statTotal")}</div>
                     <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.total.toLocaleString()}</div>
                   </div>
                   <div style={{ background: "#eff6ff", borderRadius: 8, padding: 10, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>المحصل</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statCollected")}</div>
                     <div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>{closePreview.paid.toLocaleString()}</div>
                   </div>
                   <div style={{ background: "#fffbeb", borderRadius: 8, padding: 10, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>مرتجعات ({closePreview.returnsCount || 0})</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statReturns")} ({closePreview.returnsCount || 0})</div>
                     <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{(closePreview.returnsTotal || 0).toLocaleString()}</div>
                   </div>
                 </div>
@@ -1001,9 +1002,9 @@ export default function StorePOS() {
                       ))}
                     </div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
-                      مبيعات الكاش: {(closePreview.cashSales ?? 0).toLocaleString()} {t("currency")}
+                      {t("shift.cashSales")}: {(closePreview.cashSales ?? 0).toLocaleString()} {t("currency")}
                       {(closePreview.returnsTotal || 0) > 0 && (
-                        <span style={{ color: "#b45309" }}> — مرتجعات تُخصم: {(closePreview.returnsTotal || 0).toLocaleString()}</span>
+                        <span style={{ color: "#b45309" }}> — {t("shift.returnsDeduct")}: {(closePreview.returnsTotal || 0).toLocaleString()}</span>
                       )}
                     </div>
                   </div>
@@ -1022,17 +1023,17 @@ export default function StorePOS() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>الكاش المعدود في الدرج * ({t("currency")})</label>
+                    <label>{t("shift.counted")} ({t("currency")})</label>
                     <input type="number" min="0" step="0.01" placeholder="0.00"
                       value={closeForm.countedCash} onChange={(e) => setCloseForm({ ...closeForm, countedCash: e.target.value })} required />
                   </div>
                   <div className="form-group">
-                    <label>المستلم (الشيفت اللي بعدك)</label>
-                    <input type="text" placeholder="اسم المستلم"
+                    <label>{t("shift.receiver")}</label>
+                    <input type="text" placeholder={t("shift.receiverPh")}
                       value={closeForm.receiver} onChange={(e) => setCloseForm({ ...closeForm, receiver: e.target.value })} />
                   </div>
                   <div className="form-group">
-                    <label>ملاحظات التسليم</label>
+                    <label>{t("shift.notes")}</label>
                     <input type="text" placeholder="ملاحظه"
                       value={closeForm.notes} onChange={(e) => setCloseForm({ ...closeForm, notes: e.target.value })} />
                   </div>
@@ -1045,7 +1046,7 @@ export default function StorePOS() {
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>
                     <button type="button" className="btn-secondary" onClick={() => setShowCloseModal(false)}>{t("common.cancel") || "إلغاء"}</button>
-                    <button type="submit" className="btn-primary" style={{ background: NAVY }} disabled={closing}>{closing ? (t("common.loading") || "...") : "تأكيد التقفيل والتسليم"}</button>
+                    <button type="submit" className="btn-primary" style={{ background: NAVY }} disabled={closing}>{closing ? (t("common.loading") || "...") : t("shift.confirm")}</button>
                   </div>
                 </form>
               </div>
