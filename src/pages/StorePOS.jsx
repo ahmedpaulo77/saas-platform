@@ -1,6 +1,6 @@
 // src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
@@ -155,6 +155,8 @@ export default function StorePOS() {
       let count = 0, total = 0, paid = 0, cashSales = 0;
       snap.docs.forEach((d) => {
         const inv = d.data();
+        const ap = inv.approval || "validated";
+        if (ap !== "validated") return;
         const ts = new Date(inv.date || inv.createdAt || 0).getTime();
         if (ts >= from && ts <= now) {
           count++;
@@ -169,7 +171,7 @@ export default function StorePOS() {
       let returnsCount = 0, returnsTotal = 0;
       retSnap.docs.forEach((d) => {
         const r = d.data();
-        if (r.kind !== "sale") return;
+        if (r.kind && r.kind !== "sale") return;
         const ts = new Date(r.date || r.createdAt || 0).getTime();
         if (ts >= from && ts <= now) {
           returnsCount++;
@@ -456,17 +458,19 @@ export default function StorePOS() {
     }
     setSubmitting(true);
     try {
-      // خصم المخزون مع التحقق من التوفر
-      for (const item of cart) {
-        const productRef = doc(db, "inventory", item.id);
-        const productDoc = await getDoc(productRef);
-        if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
-        const currentQty = productDoc.data().quantity || 0;
-        if (currentQty < item.quantity) {
-          throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
+      // خصم المخزون مع التحقق من التوفر (transaction — يلغي الكل لو صنف ناقص)
+      await runTransaction(db, async (tx) => {
+        for (const item of cart) {
+          const productRef = doc(db, "inventory", item.id);
+          const productDoc = await tx.get(productRef);
+          if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
+          const currentQty = productDoc.data().quantity || 0;
+          if (currentQty < item.quantity) {
+            throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
+          }
+          tx.update(productRef, { quantity: currentQty - item.quantity });
         }
-        await updateDoc(productRef, { quantity: currentQty - item.quantity });
-      }
+      });
 
       const now = new Date().toISOString();
       const invRef = await addDoc(collection(db, "invoices"), {

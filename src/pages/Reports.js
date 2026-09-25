@@ -232,7 +232,7 @@ export default function Reports() {
       let saleReturnsTotal = 0,
         returnsCount = 0;
       returnsData.forEach((r) => {
-        if (r.kind !== "sale") return;
+        if (r.kind && r.kind !== "sale") return;
         returnsCount++;
         saleReturnsTotal += parseFloat(r.amount) || 0;
       });
@@ -303,7 +303,7 @@ export default function Reports() {
         const nowD = new Date();
         const curKey = `${monthNames[nowD.getMonth()]} ${nowD.getFullYear()}`;
         returnsData.forEach((r) => {
-          if (r.kind !== "sale") return;
+          if (r.kind && r.kind !== "sale") return;
           const amt = parseFloat(r.amount) || 0;
           if (amt <= 0) return;
           let key = curKey;
@@ -367,6 +367,7 @@ export default function Reports() {
       const clientMap = {};
 
       invoicesData.forEach((inv) => {
+        if (inv.approval && inv.approval !== "validated") return;
         // --- top sellers by createdBy (all industries) ---
         const sellerKey = inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown";
         const sellerEmail = inv.createdByEmail || "";

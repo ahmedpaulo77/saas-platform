@@ -24,8 +24,8 @@ export default function InvoiceTable({
   filterApproval = "all",
   setFilterApproval = () => {},
   onOrderStatusChange,
-  onSendToReview = () => {},
-  onValidate = () => {},
+  onSendToReview = null,
+  onValidate = null,
   onEdit,
   onPay,
   onReturn,
@@ -163,8 +163,8 @@ export default function InvoiceTable({
                         <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "-"}</td>
                         <td>
                           <div className="table-actions">
-                            {!isRestaurant && getApproval(inv) === "new" && <button onClick={() => onSendToReview(inv)} className="btn-secondary btn-sm" title={t("in.sendToReview")} style={{ borderColor: "#c7d2fe", color: "#4338ca" }}><i className="fas fa-share"></i> {t("in.sendToReview")}</button>}
-                            {!isRestaurant && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
+                            {!isRestaurant && onSendToReview && getApproval(inv) === "new" && <button onClick={() => onSendToReview(inv)} className="btn-secondary btn-sm" title={t("in.sendToReview")} style={{ borderColor: "#c7d2fe", color: "#4338ca" }}><i className="fas fa-share"></i> {t("in.sendToReview")}</button>}
+                            {!isRestaurant && onValidate && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
                             {isRestaurant && <button onClick={() => onThermalPrint(inv)} className="btn-primary btn-sm" title="طباعة فاتورة"><i className="fas fa-print"></i></button>}
                             {!isRestaurant && <button onClick={() => onExportPDF(inv)} className="btn-primary btn-sm" title={t("in.pdf")}><i className="fas fa-file-pdf"></i> PDF</button>}
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}

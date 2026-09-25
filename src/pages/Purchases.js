@@ -8,6 +8,8 @@ import {
   updateDoc,
   getDoc,
   getDocs,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -58,6 +60,7 @@ export default function Purchases() {
   const [quickProductSize, setQuickProductSize] = useState("");
   const [quickProductColor, setQuickProductColor] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
+  const [variantCodes, setVariantCodes] = useState([]);
 
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -78,14 +81,30 @@ export default function Purchases() {
   async function submitPurchaseReturn(e) {
     e.preventDefault();
     if (!returningPurchase) return;
+    // Prevent double returns: sum prior returned qty per productId for this purchase
+    let priorMap = {};
+    try {
+      const rq = query(collection(db, "returns"), where("refId", "==", returningPurchase.id), where("companyId", "==", userCompanyId));
+      const priorSnap = await getDocs(rq);
+      priorSnap.docs.forEach((d) => {
+        const rd = d.data();
+        (rd.items || rd.lines || []).forEach((l) => {
+          if (!l.productId) return;
+          priorMap[l.productId] = (priorMap[l.productId] || 0) + (parseFloat(l.quantity) || 0);
+        });
+      });
+    } catch (err) { console.warn("prior returns fetch:", err?.message); }
     const items = getPurchaseItems(returningPurchase);
     const lines = items.map((it, idx) => {
       const rq = parseFloat(returnQtys[idx]) || 0;
       const oq = parseFloat(it.quantity) || 0;
-      const ratio = oq > 0 ? Math.min(rq, oq) / oq : 0;
+      const already = priorMap[it.productId] || 0;
+      const remaining = Math.max(0, oq - already);
+      const allowed = Math.min(rq, remaining);
+      const ratio = oq > 0 ? allowed / oq : 0;
       return {
         productId: it.productId,
-        quantity: Math.min(rq, oq),
+        quantity: allowed,
         weight: it.weight || "",
         unit: it.unit || "",
         amount: (parseFloat(it.amount) || 0) * ratio,
@@ -225,6 +244,19 @@ export default function Purchases() {
     fetchSuppliers();
     fetchProducts();
   }, [fetchSuppliers, fetchProducts]);
+
+  useEffect(() => {
+    if (!userCompanyId) return;
+    (async () => {
+      try {
+        const snap = await getDocs(getScopedQuery("variant_codes", userRole, userCompanyId, currentUser?.uid));
+        setVariantCodes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) { console.error(e); }
+    })();
+  }, [userRole, userCompanyId, currentUser?.uid]);
+
+  const quickSizeOptions = [...new Set(variantCodes.filter((c) => c.kind === "size").map((c) => c.name || c.code).filter(Boolean))].sort();
+  const quickColorOptions = [...new Set(variantCodes.filter((c) => c.kind === "color").map((c) => c.name || c.code).filter(Boolean))].sort();
 
   useEffect(() => {
     resetPagination();
@@ -613,6 +645,7 @@ export default function Purchases() {
     const MAX_PER_ITEM = 50;
     let capped = false;
     const labels = [];
+    const barcodePersist = [];
     items.forEach((it) => {
       const prod = products.find((pr) => pr.id === it.productId) || {};
       const brand = storeName || (prod.brand || "").toString().trim() || "—";
@@ -634,6 +667,10 @@ export default function Purchases() {
         barcodeValue = `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-");
       }
       barcodeValue = asciiSafe(barcodeValue, String(purchase.id || "0000").slice(0, 4));
+      // Persist printed barcode so POS scan finds the label later
+      if (it.productId && !prod.barcode && !it.barcode) {
+        barcodePersist.push(updateDoc(doc(db, "inventory", it.productId), { barcode: barcodeValue }).catch((e) => console.warn("barcode persist:", e?.message)));
+      }
 
       const priceNum = parseFloat(it.unitCost) || parseFloat(prod.price) || 0;
       const priceLine = `${priceNum.toLocaleString()} EGP`;
@@ -650,6 +687,12 @@ export default function Purchases() {
     if (labels.length === 0) {
       alert("لا توجد أصناف قابلة للطباعة");
       return;
+    }
+    if (barcodePersist.length > 0) {
+      try {
+        await Promise.all(barcodePersist);
+        await fetchProducts();
+      } catch (e) { console.warn("barcode persist batch:", e?.message); }
     }
     if (capped) {
       alert(`تنبيه: تم تحديد الحد الأقصى ${MAX_PER_ITEM} ملصق لكل صنف لتفادي طباعة مئات الملصقات`);
@@ -962,8 +1005,22 @@ ${labelDivs}
                       <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
                       <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
                       <div style={{ display: "flex", gap: 8 }}>
-                        <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
-                        <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
+                        {quickSizeOptions.length > 0 ? (
+                          <select value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }}>
+                            <option value="">المقاس (اختياري)</option>
+                            {quickSizeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
+                        )}
+                        {quickColorOptions.length > 0 ? (
+                          <select value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }}>
+                            <option value="">اللون (اختياري)</option>
+                            {quickColorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
+                        )}
                       </div>
                       <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddProduct} disabled={addingProduct}>{addingProduct ? "جاري..." : "حفظ المنتج"}</button>
                     </div>

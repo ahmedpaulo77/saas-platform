@@ -151,6 +151,8 @@ export default function POS() {
       let count = 0, total = 0, paid = 0, cashSales = 0;
       snap.docs.forEach((d) => {
         const inv = d.data();
+        const ap = inv.approval || "validated";
+        if (ap !== "validated") return;
         const ts = new Date(inv.date || inv.createdAt || 0).getTime();
         if (ts >= from && ts <= now) {
           count++;
@@ -165,7 +167,7 @@ export default function POS() {
       let returnsCount = 0, returnsTotal = 0;
       retSnap.docs.forEach((d) => {
         const r = d.data();
-        if (r.kind !== "sale") return;
+        if (r.kind && r.kind !== "sale") return;
         const ts = new Date(r.date || r.createdAt || 0).getTime();
         if (ts >= from && ts <= now) {
           returnsCount++;

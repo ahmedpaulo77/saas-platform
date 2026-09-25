@@ -1,6 +1,6 @@
 // src/pages/Invoices.js - thin orchestrator after split (was 2564 lines)
 import React, { useState, useMemo } from "react";
-import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, where, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -137,25 +137,25 @@ export default function Invoices() {
     if (cur === "validated") { alert(t("in.alreadyValidated")); return; }
     if (!window.confirm(t("in.confirmAsk"))) return;
     try {
-      // Deduct stock now (same delta logic as creation used to do). Abort on insufficient stock.
+      // Deduct stock now (transaction — aborts all on insufficient stock).
       if (hasInventory && (invoice.products || []).length > 0) {
-        for (const item of invoice.products) {
-          const ref = doc(db, "inventory", item.productId);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            const curQty = snap.data().quantity || 0;
-            const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-            if (delta > 0 && curQty - delta < 0) { alert(t("in.qtyOver")); return; }
-          }
-        }
-        for (const item of invoice.products) {
-          const ref = doc(db, "inventory", item.productId);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            const curQty = snap.data().quantity || 0;
-            const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-            if (delta > 0) await updateDoc(ref, { quantity: curQty - delta });
-          }
+        try {
+          await runTransaction(db, async (tx) => {
+            for (const item of invoice.products) {
+              const ref = doc(db, "inventory", item.productId);
+              const snap = await tx.get(ref);
+              if (!snap.exists()) continue;
+              const curQty = snap.data().quantity || 0;
+              const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
+              if (delta > 0) {
+                if (curQty - delta < 0) throw new Error("INSUFFICIENT_STOCK");
+                tx.update(ref, { quantity: curQty - delta });
+              }
+            }
+          });
+        } catch (txErr) {
+          if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return; }
+          throw txErr;
         }
       }
       await updateDoc(doc(db, "invoices", invoice.id), {
@@ -212,15 +212,27 @@ export default function Invoices() {
 
   async function submitSaleReturn(e) {
     e.preventDefault(); if (!returningInvoice) return;
-    const lines = (returningInvoice.products || []).map((p) => {
-      const rq = parseFloat(returnQtys[returningInvoice.products.indexOf(p)]) || 0; // idx based
-      // fix index mapping - use entries
-      return { productId: p.productId, quantity: rq, weight: p.weight || "", unit: p.unit || "", amount: (parseFloat(p.amount) || 0) * (rq / (parseFloat(p.quantity) || 1)) };
-    });
-    // correct lines with proper idx
+    // Prevent double returns: sum prior returned qty per productId for this invoice
+    let priorMap = {};
+    try {
+      const rq = query(collection(db, "returns"), where("refId", "==", returningInvoice.id), where("companyId", "==", userCompanyId));
+      const priorSnap = await getDocs(rq);
+      priorSnap.docs.forEach((d) => {
+        const rd = d.data();
+        (rd.items || rd.lines || []).forEach((l) => {
+          if (!l.productId) return;
+          priorMap[l.productId] = (priorMap[l.productId] || 0) + (parseFloat(l.quantity) || 0);
+        });
+      });
+    } catch (err) { console.warn("prior returns fetch:", err?.message); }
+    // correct lines with proper idx, clamped so prior+new <= original
     const correctLines = (returningInvoice.products || []).map((p, idx) => {
-      const rq = parseFloat(returnQtys[idx]) || 0; const oq = parseFloat(p.quantity) || 0; const ratio = oq > 0 ? Math.min(rq, oq) / oq : 0;
-      return { productId: p.productId, quantity: Math.min(rq, oq), weight: p.weight || "", unit: p.unit || "", amount: (parseFloat(p.amount) || 0) * ratio };
+      const rq = parseFloat(returnQtys[idx]) || 0; const oq = parseFloat(p.quantity) || 0;
+      const already = priorMap[p.productId] || 0;
+      const remaining = Math.max(0, oq - already);
+      const allowed = Math.min(rq, remaining);
+      const ratio = oq > 0 ? allowed / oq : 0;
+      return { productId: p.productId, quantity: allowed, weight: p.weight || "", unit: p.unit || "", amount: (parseFloat(p.amount) || 0) * ratio };
     }).filter((l) => l.quantity > 0);
     if (correctLines.length === 0) { alert("حدد كمية مرتجع أكبر من صفر"); return; }
     setReturning(true);
@@ -284,8 +296,8 @@ export default function Invoices() {
           searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterStatus={filterStatus} setFilterStatus={setFilterStatus}
           filterApproval={filterApproval} setFilterApproval={setFilterApproval}
           onOrderStatusChange={handleOrderStatusChange}
-          onSendToReview={sendToReview}
-          onValidate={validateInvoice}
+          onSendToReview={isAdmin ? sendToReview : null}
+          onValidate={isAdmin ? validateInvoice : null}
           onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
           onReturn={(inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); }}

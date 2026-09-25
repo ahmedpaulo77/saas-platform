@@ -440,7 +440,7 @@ export default function Inventory() {
   const filteredProducts = products.filter((product) => {
     const term = searchTerm.toLowerCase();
     const matchSearch =
-      product.name.toLowerCase().includes(term) ||
+      (product.name || "").toLowerCase().includes(term) ||
       (product.category && product.category.toLowerCase().includes(term)) ||
       (product.type && product.type.toLowerCase().includes(term)) ||
       (product.brand && product.brand.toLowerCase().includes(term)) ||
@@ -464,7 +464,7 @@ export default function Inventory() {
     const code = countCode.trim().toLowerCase();
     if (!code || countQty === "") return;
     const found = products.find(
-      (p) => (p.barcode || "").toLowerCase() === code || p.id === countCode.trim() || p.name.toLowerCase() === code
+      (p) => (p.barcode || "").toLowerCase() === code || p.id === countCode.trim() || (p.name || "").toLowerCase() === code
     );
     if (!found) { alert("الصنف مش موجود — اتأكد من الباركود أو الاسم"); return; }
     const actual = parseFloat(countQty);

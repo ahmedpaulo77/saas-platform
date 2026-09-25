@@ -6,6 +6,7 @@ import {
   where,
   getCountFromServer,
   getAggregateFromServer,
+  getDocs,
   sum,
   doc,
   getDoc,
@@ -356,7 +357,22 @@ export default function Dashboard() {
           }).then((s) => s.data().total || 0),
         ]);
 
-        const totalRevenue = (paidSum || 0) + (unpaidSum || 0);
+        // Subtract sale returns (client-side sum — avoids new composite index)
+        let returnsTotal = 0;
+        try {
+          const retRef = collection(db, "returns");
+          const retQ = isSuper ? retRef : query(retRef, where("companyId", "==", userCompanyId));
+          const retSnap = await getDocs(retQ);
+          retSnap.docs.forEach((d) => {
+            const r = d.data();
+            if (r.kind && r.kind !== "sale") return;
+            returnsTotal += parseFloat(r.amount) || 0;
+          });
+        } catch (e) {
+          console.warn("returns sum:", e?.message);
+        }
+
+        const totalRevenue = (paidSum || 0) + (unpaidSum || 0) - returnsTotal;
 
         if (cancelled) return;
 
