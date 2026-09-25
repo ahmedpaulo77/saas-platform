@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 import AutocompleteInput from "../common/AutocompleteInput";
 import { ORDER_STATUSES, ORDER_TYPES, ORDER_SOURCES } from "../../utils/invoiceHelpers";
+import { EGYPT_PAYMENTS } from "../../utils/paymentMethods";
 import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits";
 import { getAvailableModules } from "../../utils/modules";
 
@@ -143,6 +144,15 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label>{t("in.amountReq")}</label>
             <input type="number" step="0.01" placeholder="0.00" value={getTotalAmount || ""} readOnly={newInvoice.products.length > 0} onChange={(e) => { if (newInvoice.products.length === 0) setNewInvoice({ ...newInvoice, amount: e.target.value }); }} required />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>{t("pay.title") || "طريقة الدفع"}</label>
+            <select value={newInvoice.paymentMethod || "cash"} onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value })}>
+              {EGYPT_PAYMENTS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
           </div>
 
           {isRestaurant && (

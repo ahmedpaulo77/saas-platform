@@ -6,6 +6,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
 
 // بيرجع أول وآخر يوم في شهر معين (year, monthIndex 0-11)
 function monthRange(year, monthIndex) {
@@ -14,8 +15,28 @@ function monthRange(year, monthIndex) {
   return { start, end };
 }
 
+function quarterRange(year, quarter) {
+  const start = new Date(year, quarter * 3, 1);
+  const end = new Date(year, quarter * 3 + 3, 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function halfRange(year, half) {
+  const start = new Date(year, half * 6, 1);
+  const end = new Date(year, half * 6 + 6, 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function yearRange(year) {
+  const start = new Date(year, 0, 1);
+  const end = new Date(year, 11, 31, 23, 59, 59, 999);
+  return { start, end };
+}
+
 // إيراد الفاتورة زي ما بتتحسب في باقي الصفحات (paid = amount / غير كده = paidAmount)
+// الفواتير غير المؤكدة (approval new/waiting) لا تُحتسب — القديمة بدون approval تُعامل كمؤكدة
 function invoiceRevenue(inv) {
+  if (inv.approval && inv.approval !== "validated") return 0;
   if (inv.status === "paid") return parseFloat(inv.amount) || 0;
   return parseFloat(inv.paidAmount) || 0;
 }
@@ -66,6 +87,10 @@ export default function Profits() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-11
+  // Period selector: monthly (default) / quarterly / half / yearly
+  const [periodType, setPeriodType] = useState("monthly");
+  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(now.getMonth() / 3)); // 0-3
+  const [selectedHalf, setSelectedHalf] = useState(now.getMonth() < 6 ? 0 : 1); // 0-1
   // ✅ اليوم المختار لتقرير اليومية (default = النهاردة)
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
@@ -167,7 +192,7 @@ export default function Profits() {
     [invoices, expenses, purchases, returns],
   );
 
-  // -------- حساب شهر معين --------
+  // -------- حساب شهر معين (يُستخدم لمنتقي الشهور) --------
   const calcMonth = useCallback(
     (year, monthIndex) => {
       const { start, end } = monthRange(year, monthIndex);
@@ -176,16 +201,86 @@ export default function Profits() {
     [calcPeriod],
   );
 
-  const currentMonthData = useMemo(
-    () => calcMonth(selectedYear, selectedMonth),
-    [calcMonth, selectedYear, selectedMonth]
+  // -------- الفترات: شهري / ربع سنوي / نص سنوي / سنوي --------
+  const periodRanges = useMemo(() => {
+    if (periodType === "quarterly") {
+      const cur = quarterRange(selectedYear, selectedQuarter);
+      const pq = selectedQuarter === 0 ? 3 : selectedQuarter - 1;
+      const py = selectedQuarter === 0 ? selectedYear - 1 : selectedYear;
+      return { cur, prev: quarterRange(py, pq) };
+    }
+    if (periodType === "half") {
+      const cur = halfRange(selectedYear, selectedHalf);
+      const ph = selectedHalf === 0 ? 1 : 0;
+      const py = selectedHalf === 0 ? selectedYear - 1 : selectedYear;
+      return { cur, prev: halfRange(py, ph) };
+    }
+    if (periodType === "yearly") {
+      return { cur: yearRange(selectedYear), prev: yearRange(selectedYear - 1) };
+    }
+    const cur = monthRange(selectedYear, selectedMonth);
+    const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const py = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    return { cur, prev: monthRange(py, pm) };
+  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf]);
+
+  const periodData = useMemo(
+    () => calcPeriod(periodRanges.cur.start, periodRanges.cur.end),
+    [calcPeriod, periodRanges]
+  );
+  const prevPeriodData = useMemo(
+    () => calcPeriod(periodRanges.prev.start, periodRanges.prev.end),
+    [calcPeriod, periodRanges]
   );
 
-  const prevMonthData = useMemo(() => {
-    const prevMonthIndex = selectedMonth === 0 ? 11 : selectedMonth - 1;
-    const prevYear = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
-    return calcMonth(prevYear, prevMonthIndex);
-  }, [calcMonth, selectedYear, selectedMonth]);
+  const periodLabel = useMemo(() => {
+    if (periodType === "quarterly") {
+      const q = lang === "en" ? `Q${selectedQuarter + 1}` : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][selectedQuarter]}`;
+      return `${q} ${selectedYear}`;
+    }
+    if (periodType === "half") {
+      const h = lang === "en" ? (selectedHalf === 0 ? "H1" : "H2") : (selectedHalf === 0 ? "النصف الأول" : "النصف الثاني");
+      return `${h} ${selectedYear}`;
+    }
+    if (periodType === "yearly") return `${selectedYear}`;
+    return monthLabel(selectedYear, selectedMonth);
+  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, lang, monthLabel]);
+
+  const prevPeriodLabel = useMemo(() => {
+    if (periodType === "quarterly") {
+      const pq = selectedQuarter === 0 ? 3 : selectedQuarter - 1;
+      const py = selectedQuarter === 0 ? selectedYear - 1 : selectedYear;
+      const q = lang === "en" ? `Q${pq + 1}` : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][pq]}`;
+      return `${q} ${py}`;
+    }
+    if (periodType === "half") {
+      const ph = selectedHalf === 0 ? 1 : 0;
+      const py = selectedHalf === 0 ? selectedYear - 1 : selectedYear;
+      const h = lang === "en" ? (ph === 0 ? "H1" : "H2") : (ph === 0 ? "النصف الأول" : "النصف الثاني");
+      return `${h} ${py}`;
+    }
+    if (periodType === "yearly") return `${selectedYear - 1}`;
+    const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const py = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+    return monthLabel(py, pm);
+  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, lang, monthLabel]);
+
+  // -------- الإيراد حسب طريقة الدفع للفترة الحالية --------
+  const revenueByMethod = useMemo(() => {
+    const { start, end } = periodRanges.cur;
+    const grouped = {};
+    invoices.forEach((inv) => {
+      const d = inv.date || inv.createdAt;
+      if (!d) return;
+      const dt = new Date(d);
+      if (dt < start || dt > end) return;
+      const rev = invoiceRevenue(inv);
+      if (!rev) return;
+      const m = inv.paymentMethod || "cash";
+      grouped[m] = (grouped[m] || 0) + rev;
+    });
+    return grouped;
+  }, [invoices, periodRanges]);
 
   // -------- يومية اليوم المختار --------
   const dayData = useMemo(() => {
@@ -233,8 +328,8 @@ export default function Profits() {
 
   const coverageValue = parseFloat(coverageAmount) || 0;
   const netAfterCoverage = coverageEnabled
-    ? currentMonthData.profit - coverageValue
-    : currentMonthData.profit;
+    ? periodData.profit - coverageValue
+    : periodData.profit;
 
   const monthLabel = useCallback(
     (year, monthIndex) => {
@@ -289,6 +384,52 @@ export default function Profits() {
 
   const isViewingCurrentMonth =
     selectedYear === now.getFullYear() && selectedMonth === now.getMonth();
+
+  function goToPrevPeriod() {
+    if (periodType === "quarterly") {
+      if (selectedQuarter === 0) { setSelectedQuarter(3); setSelectedYear((y) => y - 1); }
+      else setSelectedQuarter((q) => q - 1);
+    } else if (periodType === "half") {
+      if (selectedHalf === 0) { setSelectedHalf(1); setSelectedYear((y) => y - 1); }
+      else setSelectedHalf(0);
+    } else if (periodType === "yearly") {
+      setSelectedYear((y) => y - 1);
+    } else {
+      goToPrevMonth();
+    }
+  }
+
+  function goToNextPeriod() {
+    if (isViewingCurrentPeriod) return;
+    if (periodType === "quarterly") {
+      if (selectedQuarter === 3) { setSelectedQuarter(0); setSelectedYear((y) => y + 1); }
+      else setSelectedQuarter((q) => q + 1);
+    } else if (periodType === "half") {
+      if (selectedHalf === 1) { setSelectedHalf(0); setSelectedYear((y) => y + 1); }
+      else setSelectedHalf(1);
+    } else if (periodType === "yearly") {
+      setSelectedYear((y) => y + 1);
+    } else {
+      goToNextMonth();
+    }
+  }
+
+  const isViewingCurrentPeriod = useMemo(() => {
+    if (periodType === "quarterly") {
+      return selectedYear === now.getFullYear() && selectedQuarter === Math.floor(now.getMonth() / 3);
+    }
+    if (periodType === "half") {
+      return selectedYear === now.getFullYear() && selectedHalf === (now.getMonth() < 6 ? 0 : 1);
+    }
+    if (periodType === "yearly") return selectedYear === now.getFullYear();
+    return selectedYear === now.getFullYear() && selectedMonth === now.getMonth();
+  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, now.getFullYear, now.getMonth]);
+
+  function deltaFmt(cur, prev) {
+    const d = (parseFloat(cur) || 0) - (parseFloat(prev) || 0);
+    const sign = d > 0 ? "+" : "";
+    return { value: d, text: `${sign}${d.toLocaleString()} ${t("currency")}`, positive: d >= 0 };
+  }
 
   if (loading) {
     return (
@@ -437,7 +578,28 @@ export default function Profits() {
           </div>
         </div>
 
-        {/* منتقي الشهر */}
+        {/* منتقي الفترة: شهري / ربع سنوي / نص سنوي / سنوي */}
+        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{t("profits.period") || "الفترة"}:</span>
+          {[
+            { v: "monthly", label: t("profits.periodMonthly") || "شهري" },
+            { v: "quarterly", label: t("profits.periodQuarterly") || "ربع سنوي" },
+            { v: "half", label: t("profits.periodHalf") || "نص سنوي" },
+            { v: "yearly", label: t("profits.periodYearly") || "سنوي" },
+          ].map((p) => (
+            <button key={p.v} type="button" onClick={() => setPeriodType(p.v)}
+              style={{
+                padding: "6px 14px", fontSize: 13, fontWeight: 700, borderRadius: 20, cursor: "pointer",
+                border: `2px solid ${periodType === p.v ? "#10b981" : "#e2e8f0"}`,
+                background: periodType === p.v ? "#ecfdf5" : "white",
+                color: periodType === p.v ? "#059669" : "#64748b",
+              }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* منتقي الشهر/الفترة */}
         <div
           className="card"
           style={{
@@ -449,12 +611,12 @@ export default function Profits() {
             marginBottom: 20,
           }}
         >
-          <button className="btn-secondary btn-sm" onClick={goToPrevMonth} title={t("profits.prevMonth")}>
+          <button className="btn-secondary btn-sm" onClick={periodType === "monthly" ? goToPrevMonth : goToPrevPeriod} title={t("profits.prevMonth")}>
             <i className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}></i>
           </button>
           <div style={{ fontWeight: 800, fontSize: 16, minWidth: 160, textAlign: "center" }}>
-            {monthLabel(selectedYear, selectedMonth)}
-            {isViewingCurrentMonth && (
+            {periodType === "monthly" ? monthLabel(selectedYear, selectedMonth) : periodLabel}
+            {(periodType === "monthly" ? isViewingCurrentMonth : isViewingCurrentPeriod) && (
               <span
                 style={{
                   marginRight: 8,
@@ -472,22 +634,22 @@ export default function Profits() {
           </div>
           <button
             className="btn-secondary btn-sm"
-            onClick={goToNextMonth}
-            disabled={isViewingCurrentMonth}
+            onClick={periodType === "monthly" ? goToNextMonth : goToNextPeriod}
+            disabled={periodType === "monthly" ? isViewingCurrentMonth : isViewingCurrentPeriod}
             title={t("profits.nextMonth")}
           >
             <i className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}></i>
           </button>
         </div>
 
-        {/* إحصائيات الشهر المختار */}
+        {/* إحصائيات الفترة المختارة */}
         <div className="stats-row">
           <div className="stat-card green">
             <div className="stat-icon">
               <i className="fas fa-arrow-trend-up"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {currentMonthData.revenue.toLocaleString()} {t("currency")}
+              {periodData.revenue.toLocaleString()} {t("currency")}
             </div>
             <div className="stat-label">{t("profits.revenue")}</div>
           </div>
@@ -496,7 +658,7 @@ export default function Profits() {
               <i className="fas fa-cart-arrow-down"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {currentMonthData.purchases.toLocaleString()} {t("currency")}
+              {periodData.purchases.toLocaleString()} {t("currency")}
             </div>
             <div className="stat-label">{t("pur.title")}</div>
           </div>
@@ -505,30 +667,30 @@ export default function Profits() {
               <i className="fas fa-arrow-trend-down"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {currentMonthData.expenses.toLocaleString()} {t("currency")}
+              {periodData.expenses.toLocaleString()} {t("currency")}
             </div>
             <div className="stat-label">
               {t("profits.expenses")} ({t("profits.waste")}:{" "}
-              {currentMonthData.waste.toLocaleString()})
+              {periodData.waste.toLocaleString()})
             </div>
           </div>
-          {(currentMonthData.saleReturns > 0 || currentMonthData.purchaseReturns > 0) && (
+          {(periodData.saleReturns > 0 || periodData.purchaseReturns > 0) && (
             <div className="stat-card amber">
               <div className="stat-icon">
                 <i className="fas fa-undo"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {currentMonthData.saleReturns.toLocaleString()} {t("currency")}
+                {periodData.saleReturns.toLocaleString()} {t("currency")}
               </div>
               <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
             </div>
           )}
-          <div className={`stat-card ${currentMonthData.profit >= 0 ? "indigo" : "red"}`}>
+          <div className={`stat-card ${periodData.profit >= 0 ? "indigo" : "red"}`}>
             <div className="stat-icon">
               <i className="fas fa-sack-dollar"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {currentMonthData.profit.toLocaleString()} {t("currency")}
+              {periodData.profit.toLocaleString()} {t("currency")}
             </div>
             <div className="stat-label">{t("profits.profit")}</div>
           </div>
@@ -545,16 +707,13 @@ export default function Profits() {
           )}
         </div>
 
-        {/* مقارنة سريعة بالشهر اللي فات */}
+        {/* مقارنة بالفترة السابقة + الفرق */}
         <div className="table-container" style={{ marginBottom: 24 }}>
           <div className="table-header">
             <h3>
-              <i className="fas fa-clock-rotate-left"></i> {t("profits.previousMonth")}
+              <i className="fas fa-clock-rotate-left"></i> {t("profits.comparison") || t("profits.previousMonth")}
             </h3>
-            <span className="table-count">{monthLabel(
-              selectedMonth === 0 ? selectedYear - 1 : selectedYear,
-              selectedMonth === 0 ? 11 : selectedMonth - 1
-            )}</span>
+            <span className="table-count">{prevPeriodLabel}</span>
           </div>
           <div className="table-wrapper">
             <table>
@@ -564,25 +723,79 @@ export default function Profits() {
                   <th>{t("pur.title")}</th>
                   <th>{t("profits.expenses")}</th>
                   <th>{t("profits.profit")}</th>
+                  <th>{t("profits.delta") || "الفرق"}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td style={{ fontWeight: 700, color: "#059669" }}>
-                    {prevMonthData.revenue.toLocaleString()} {t("currency")}
+                    {prevPeriodData.revenue.toLocaleString()} {t("currency")}
                   </td>
                   <td style={{ fontWeight: 700, color: "#d97706" }}>
-                    {prevMonthData.purchases.toLocaleString()} {t("currency")}
+                    {prevPeriodData.purchases.toLocaleString()} {t("currency")}
                   </td>
                   <td style={{ fontWeight: 700, color: "#dc2626" }}>
-                    {prevMonthData.expenses.toLocaleString()} {t("currency")}
+                    {prevPeriodData.expenses.toLocaleString()} {t("currency")}
                   </td>
-                  <td style={{ fontWeight: 800, color: prevMonthData.profit >= 0 ? "#4338ca" : "#dc2626" }}>
-                    {prevMonthData.profit.toLocaleString()} {t("currency")}
+                  <td style={{ fontWeight: 800, color: prevPeriodData.profit >= 0 ? "#4338ca" : "#dc2626" }}>
+                    {prevPeriodData.profit.toLocaleString()} {t("currency")}
+                  </td>
+                  <td style={{ fontWeight: 800, color: deltaFmt(periodData.profit, prevPeriodData.profit).positive ? "#059669" : "#dc2626" }}>
+                    {deltaFmt(periodData.profit, prevPeriodData.profit).text}
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* الإيراد حسب طريقة الدفع للفترة الحالية */}
+        <div className="table-container" style={{ marginBottom: 24 }}>
+          <div className="table-header">
+            <h3>
+              <i className="fas fa-wallet"></i> {t("profits.byMethod") || "الإيراد حسب طريقة الدفع"}
+            </h3>
+            <span className="table-count">{periodLabel}</span>
+          </div>
+          <div className="table-wrapper">
+            {Object.keys(revenueByMethod).length === 0 ? (
+              <p style={{ color: "#94a3b8", fontSize: 13, padding: "12px 16px", margin: 0 }}>لا توجد إيرادات في هذه الفترة</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>طريقة الدفع</th>
+                    <th>{t("profits.revenue")}</th>
+                    <th>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {EGYPT_PAYMENTS.filter((p) => revenueByMethod[p.value] > 0).map((p) => {
+                    const amt = revenueByMethod[p.value] || 0;
+                    const pct = periodData.revenue > 0 ? ((amt / periodData.revenue) * 100).toFixed(1) : "0.0";
+                    return (
+                      <tr key={p.value}>
+                        <td style={{ fontWeight: 700 }}>{getPaymentLabel(p.value, lang)}</td>
+                        <td style={{ fontWeight: 700, color: "#059669" }}>{amt.toLocaleString()} {t("currency")}</td>
+                        <td style={{ color: "#64748b" }}>{pct}%</td>
+                      </tr>
+                    );
+                  })}
+                  {Object.entries(revenueByMethod)
+                    .filter(([m]) => !EGYPT_PAYMENTS.some((p) => p.value === m))
+                    .map(([m, amt]) => {
+                      const pct = periodData.revenue > 0 ? ((amt / periodData.revenue) * 100).toFixed(1) : "0.0";
+                      return (
+                        <tr key={m}>
+                          <td style={{ fontWeight: 700 }}>{getPaymentLabel(m, lang)}</td>
+                          <td style={{ fontWeight: 700, color: "#059669" }}>{amt.toLocaleString()} {t("currency")}</td>
+                          <td style={{ color: "#64748b" }}>{pct}%</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

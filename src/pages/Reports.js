@@ -109,6 +109,19 @@ export default function Reports() {
   // 👗 Fashion-specific: الأكثر مبيعاً بالمقاس/اللون (clothing only)
   const [topSizes, setTopSizes] = useState([]);
   const [topColors, setTopColors] = useState([]);
+  // 👗 الأكثر مبيعاً حسب النوع + المنتج (clothing only, joined with inventory)
+  const [topTypes, setTopTypes] = useState([]);
+  const [topProductsSold, setTopProductsSold] = useState([]);
+  const [productSales, setProductSales] = useState([]);
+  // 🏆 top sellers (createdBy) + top clients — all industries
+  const [topSellers, setTopSellers] = useState([]);
+  const [topClients, setTopClients] = useState([]);
+  const [usersMap, setUsersMap] = useState({});
+  // 🔎 combined filter (clothing)
+  const [filterType, setFilterType] = useState("");
+  const [filterSize, setFilterSize] = useState("");
+  const [filterColor, setFilterColor] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
 
   const fetchAllData = useCallback(async () => {
     // ✅ لو مش Admin، ميجيبش حاجة
@@ -138,15 +151,17 @@ export default function Reports() {
       let invoicesData = [];
       let productsData = [];
       let tasksData = [];
+      let usersData = [];
 
       if (superAdmin) {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap] = await Promise.all([
           getDocs(collection(db, "clients")),
           getDocs(collection(db, "sellers")),
           getDocs(collection(db, "buyers")),
           getDocs(collection(db, "invoices")),
           getDocs(collection(db, "inventory")),
           getDocs(collection(db, "tasks")),
+          getDocs(collection(db, "users")),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -154,14 +169,16 @@ export default function Reports() {
         invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } else {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap] = await Promise.all([
           getDocs(getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("sellers", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("buyers", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("tasks", userRole, userCompanyId, currentUser?.uid)),
+          getDocs(getScopedQuery("users", userRole, userCompanyId, currentUser?.uid)),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -169,6 +186,7 @@ export default function Reports() {
         invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
 
       const cMap = {};
@@ -177,11 +195,19 @@ export default function Reports() {
       });
       setClientsMap(cMap);
 
+      const uMap = {};
+      usersData.forEach((u) => {
+        uMap[u.id] = u.name || u.displayName || u.email || t('rep.sellerFallback');
+      });
+      setUsersMap(uMap);
+
       let revenue = 0,
         paid = 0,
         pending = 0,
         overdue = 0;
       invoicesData.forEach((inv) => {
+        // Only validated invoices count in revenue (legacy docs without `approval` count as validated)
+        if (inv.approval && inv.approval !== "validated") return;
         const amount = parseFloat(inv.amount) || 0;
         if (inv.status === "paid") {
           revenue += amount;
@@ -241,6 +267,7 @@ export default function Reports() {
       const revenueMap = {};
       invoicesData.forEach((inv) => {
         if (!inv.date) return;
+        if (inv.approval && inv.approval !== "validated") return;
         let paidAmount = 0;
         if (inv.status === "paid") {
           paidAmount = parseFloat(inv.amount) || 0;
@@ -289,37 +316,120 @@ export default function Reports() {
         })),
       );
 
-      // 👗 Fashion-specific report: الأكثر مبيعاً بالمقاس/اللون (clothing only)
-      // يجمع الكميات المباعة من الفواتير حسب المقاس واللون
-      if (userIndustry === "clothing") {
-        const sizeMap = {};
-        const colorMap = {};
-        invoicesData.forEach((inv) => {
-          const items = inv.products || inv.items || [];
-          if (!Array.isArray(items)) return;
-          items.forEach((item) => {
-            const qty = parseFloat(item.quantity) || 0;
-            if (qty <= 0) return;
-            const sizeKey = (item.size ?? item.Size ?? "").toString().trim() || "غير محدد";
-            const colorKey = (item.color ?? item.Color ?? "").toString().trim() || "غير محدد";
-            sizeMap[sizeKey] = (sizeMap[sizeKey] || 0) + qty;
-            colorMap[colorKey] = (colorMap[colorKey] || 0) + qty;
-          });
+      // 👗 Fashion analytics: join invoice items (productId/qty) with inventory
+      // (size/color/type/brand/model) + top sellers (createdBy) + top clients — all industries
+      const norm = (v) => (v ?? "").toString().trim();
+      const productMap = {};
+      productsData.forEach((p) => {
+        productMap[p.id] = p;
+      });
+      const typeMap = {};
+      const sizeMap = {};
+      const colorMap = {};
+      const prodMap = {};
+      const sellerMap = {};
+      const clientMap = {};
+
+      invoicesData.forEach((inv) => {
+        // --- top sellers by createdBy (all industries) ---
+        const sellerKey = inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown";
+        const sellerEmail = inv.createdByEmail || "";
+        const invAmount = parseFloat(inv.amount) || 0;
+        if (!sellerMap[sellerKey]) {
+          sellerMap[sellerKey] = { key: sellerKey, email: sellerEmail, revenue: 0, count: 0 };
+        }
+        sellerMap[sellerKey].revenue += invAmount;
+        sellerMap[sellerKey].count += 1;
+        if (sellerEmail && !sellerMap[sellerKey].email) sellerMap[sellerKey].email = sellerEmail;
+
+        // --- top clients by clientId (all industries) ---
+        const cliKey = inv.clientId || "unknown";
+        if (!clientMap[cliKey]) {
+          clientMap[cliKey] = { key: cliKey, revenue: 0, count: 0 };
+        }
+        clientMap[cliKey].revenue += invAmount;
+        clientMap[cliKey].count += 1;
+
+        // --- clothing: aggregate sold qty per item joined with inventory ---
+        const items = inv.products || inv.items || [];
+        if (!Array.isArray(items)) return;
+        items.forEach((item) => {
+          const qty = parseFloat(item.quantity) || 0;
+          if (qty <= 0) return;
+          const prod = productMap[item.productId] || productMap[item.id] || {};
+          const sizeKey = norm(item.size ?? item.Size ?? prod.size ?? prod.Size) || t('common.unspecified');
+          const colorKey = norm(item.color ?? item.Color ?? prod.color ?? prod.Color) || t('common.unspecified');
+          const typeKey = norm(item.type ?? prod.type ?? prod.category ?? prod.Category) || t('common.unspecified');
+          const brandKey = norm(item.brand ?? prod.brand);
+          const modelKey = norm(item.model ?? prod.model ?? item.name ?? prod.name);
+          const prodName = prod.name || item.name || t('rep.product');
+          const prodKey = item.productId || item.id || `${prodName}|${typeKey}|${sizeKey}|${colorKey}`;
+
+          sizeMap[sizeKey] = (sizeMap[sizeKey] || 0) + qty;
+          colorMap[colorKey] = (colorMap[colorKey] || 0) + qty;
+          typeMap[typeKey] = (typeMap[typeKey] || 0) + qty;
+
+          if (!prodMap[prodKey]) {
+            prodMap[prodKey] = {
+              key: prodKey,
+              name: prodName,
+              type: typeKey,
+              size: sizeKey,
+              color: colorKey,
+              brand: brandKey || "—",
+              model: modelKey || prodName,
+              qty: 0,
+            };
+          }
+          prodMap[prodKey].qty += qty;
         });
-        const sizesArr = Object.entries(sizeMap)
+      });
+
+      const toSorted = (map) =>
+        Object.entries(map)
           .map(([name, quantity]) => ({ name, quantity }))
           .sort((a, b) => b.quantity - a.quantity)
           .slice(0, 6);
-        const colorsArr = Object.entries(colorMap)
-          .map(([name, quantity]) => ({ name, quantity }))
-          .sort((a, b) => b.quantity - a.quantity)
+
+      if (userIndustry === "clothing") {
+        setTopSizes(toSorted(sizeMap));
+        setTopColors(toSorted(colorMap));
+        setTopTypes(toSorted(typeMap));
+        const prodArr = Object.values(prodMap)
+          .sort((a, b) => b.qty - a.qty)
           .slice(0, 6);
-        setTopSizes(sizesArr);
-        setTopColors(colorsArr);
+        setTopProductsSold(prodArr);
+        setProductSales(
+          Object.values(prodMap).sort((a, b) => b.qty - a.qty)
+        );
       } else {
         setTopSizes([]);
         setTopColors([]);
+        setTopTypes([]);
+        setTopProductsSold([]);
+        setProductSales([]);
       }
+
+      // --- top 5 sellers: resolve display name via users collection ---
+      const sellersArr = Object.values(sellerMap)
+        .map((s) => ({
+          ...s,
+          name: uMap[s.key] || s.email || t('rep.sellerFallback'),
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+      setTopSellers(sellersArr);
+
+      // --- top 5 clients: resolve names from clients collection ---
+      const clientsArr = Object.values(clientMap)
+        .filter((c) => c.key !== "unknown")
+        .map((c) => ({
+          ...c,
+          name: cMap[c.key] || t('common.unspecified'),
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+      setTopClients(clientsArr);
 
       setRecentInvoices(
         [...invoicesData]
@@ -335,6 +445,7 @@ export default function Reports() {
         invoicesData,
         productsData,
         tasksData,
+        usersData,
       });
     } catch (e) {
       console.error(e);
@@ -545,6 +656,33 @@ export default function Reports() {
     { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
   ];
   const statCards = ALL_STAT_CARDS.filter((s) => availableModules.has(s.module));
+
+  // 🔎 clothing combined filter: derived options + filtered aggregated results
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+  const allTypes = uniq(productSales.map((p) => p.type));
+  const allSizes = uniq(productSales.map((p) => p.size));
+  const allColors = uniq(productSales.map((p) => p.color));
+  const filteredSales = productSales.filter((p) => {
+    if (filterType && p.type !== filterType) return false;
+    if (filterSize && p.size !== filterSize) return false;
+    if (filterColor && p.color !== filterColor) return false;
+    if (filterSearch) {
+      const q = filterSearch.trim().toLowerCase();
+      const hay = `${p.name} ${p.model} ${p.brand} ${p.type} ${p.size} ${p.color}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const rankRow = (item, idx, color) => (
+    <div key={`${item.name}-${idx}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: idx === 0 ? "#f8fafc" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: idx === 0 ? "1px solid #e2e8f0" : "1px solid transparent" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", background: idx === 0 ? color : "#e2e8f0", color: idx === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{idx + 1}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{item.name || item.model}</span>
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 800, color }}>{item.quantity ?? item.qty}</span>
+    </div>
+  );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -925,6 +1063,190 @@ export default function Reports() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {userIndustry === "clothing" && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <h3 style={{ marginBottom: 16 }}>
+              <i className="fas fa-tshirt" style={{ color: "#8b5cf6", marginLeft: 8 }}></i>
+              {t('rep.clothingTitle')}
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+              <div>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>🏷️ {t('rep.topType')}</h4>
+                {topTypes.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
+                  <><ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={topTypes.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#8b5cf6" radius={[6, 6, 0, 0]} barSize={26} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {topTypes.slice(0, 5).map((it, i) => rankRow(it, i, "#8b5cf6"))}</>}
+              </div>
+              <div>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>📏 {t('rep.topSize')}</h4>
+                {topSizes.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
+                  <><ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={topSizes.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#6366f1" radius={[6, 6, 0, 0]} barSize={26} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {topSizes.slice(0, 5).map((it, i) => rankRow(it, i, "#6366f1"))}</>}
+              </div>
+              <div>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>🎨 {t('rep.topColor')}</h4>
+                {topColors.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
+                  <><ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={topColors.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#ec4899" radius={[6, 6, 0, 0]} barSize={26} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {topColors.slice(0, 5).map((it, i) => rankRow(it, i, "#ec4899"))}</>}
+              </div>
+              <div>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>👕 {t('rep.topProduct')}</h4>
+                {topProductsSold.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
+                  topProductsSold.slice(0, 5).map((it, i) => (
+                    <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "var(--gray-50)", borderRadius: 8, marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: i === 0 ? "#10b981" : "#e2e8f0", color: i === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{i + 1}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{it.model !== it.name ? `${it.name} (${it.model})` : it.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{it.brand} • {it.type} • {it.size} • {it.color}</span></span>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#10b981" }}>{it.qty}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {userIndustry === "clothing" && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <h3 style={{ marginBottom: 16 }}>
+              <i className="fas fa-filter" style={{ color: "#6366f1", marginLeft: 8 }}></i>
+              {t('rep.filterTitle')}
+            </h3>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontFamily: "Cairo", fontSize: 13 }}>
+                <option value="">{t('rep.filterType')}: {t('rep.showAll')}</option>
+                {allTypes.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
+              </select>
+              <select value={filterSize} onChange={(e) => setFilterSize(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontFamily: "Cairo", fontSize: 13 }}>
+                <option value="">{t('rep.filterSize')}: {t('rep.showAll')}</option>
+                {allSizes.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={filterColor} onChange={(e) => setFilterColor(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontFamily: "Cairo", fontSize: 13 }}>
+                <option value="">{t('rep.filterColor')}: {t('rep.showAll')}</option>
+                {allColors.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder={t('rep.searchProduct')} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontFamily: "Cairo", fontSize: 13, minWidth: 180 }} />
+              {(filterType || filterSize || filterColor || filterSearch) && (
+                <button onClick={() => { setFilterType(""); setFilterSize(""); setFilterColor(""); setFilterSearch(""); }} className="btn-secondary" style={{ fontSize: 12 }}>{t('common.clearAll') || "✕"}</button>
+              )}
+            </div>
+            <div className="table-wrapper">
+              {filteredSales.length === 0 ? (
+                <div className="table-empty"><i className="fas fa-search"></i><p>{t('common.noResults')}</p></div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{t('rep.col.product')}</th>
+                      <th>{t('rep.type')}</th>
+                      <th>{t('rep.size')}</th>
+                      <th>{t('rep.color')}</th>
+                      <th>{t('rep.brand')}</th>
+                      <th>{t('rep.soldQty')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSales.slice(0, 50).map((p, i) => (
+                      <tr key={p.key}>
+                        <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{p.model !== p.name ? `${p.name} (${p.model})` : p.name}</td>
+                        <td>{p.type}</td>
+                        <td><span className="badge badge-pending">{p.size}</span></td>
+                        <td>{p.color}</td>
+                        <td style={{ color: "var(--gray-500)", fontSize: 12 }}>{p.brand}</td>
+                        <td style={{ fontWeight: 800, color: "#6366f1" }}>{p.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {availableModules.has("invoices") && (topSellers.length > 0 || topClients.length > 0) && (
+          <div className="grid-2" style={{ marginBottom: 24 }}>
+            <div className="card">
+              <h3 style={{ marginBottom: 14 }}>
+                <i className="fas fa-trophy" style={{ color: "#f59e0b", marginLeft: 8 }}></i>
+                {t('rep.topSeller')}
+              </h3>
+              {topSellers.length === 0 ? (
+                <div className="empty-state" style={{ padding: "20px 0" }}><p style={{ fontSize: 13 }}>{t('rep.noData')}</p></div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <BarChart data={topSellers} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="revenue" name={t('rep.revenue')} fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {topSellers.map((s, i) => (
+                    <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#fffbeb" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #fde68a" : "1px solid transparent" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {s.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{s.email} • {s.count} {t('rep.invoicesCount')}</span></span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#d97706" }}>{s.revenue.toLocaleString()} {t('currency')}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+            <div className="card">
+              <h3 style={{ marginBottom: 14 }}>
+                <i className="fas fa-crown" style={{ color: "#10b981", marginLeft: 8 }}></i>
+                {t('rep.topClient')}
+              </h3>
+              {topClients.length === 0 ? (
+                <div className="empty-state" style={{ padding: "20px 0" }}><p style={{ fontSize: 13 }}>{t('rep.noData')}</p></div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <BarChart data={topClients} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="revenue" name={t('rep.revenue')} fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {topClients.map((c, i) => (
+                    <div key={c.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#f0fdf4" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #bbf7d0" : "1px solid transparent" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {c.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{c.count} {t('rep.invoicesCount')}</span></span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{c.revenue.toLocaleString()} {t('currency')}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         )}

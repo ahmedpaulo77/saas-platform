@@ -10,6 +10,18 @@ import { useFirestorePagination } from "./useFirestorePagination";
 
 const PAGE_SIZE = 25;
 
+// Backward compat: invoices without `approval` field behave as validated (POS + legacy).
+export function isInvoiceValidated(inv) {
+  if (!inv) return false;
+  if (!inv.approval) return true;
+  return inv.approval === "validated";
+}
+
+export function getInvoiceApproval(inv) {
+  if (!inv?.approval) return "validated";
+  return inv.approval;
+}
+
 export function useInvoices() {
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
@@ -26,6 +38,7 @@ export function useInvoices() {
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterApproval, setFilterApproval] = useState("all");
 
   const filters = useMemo(() => {
     const f = [];
@@ -79,9 +92,17 @@ export function useInvoices() {
   }, [filterStatus, resetPagination]);
 
   const filteredInvoices = useMemo(() => {
-    if (!searchTerm.trim()) return invoices;
+    let list = invoices;
+    // Approval filter (client-side so legacy docs without `approval` still match "validated")
+    if (filterApproval !== "all") {
+      list = list.filter((inv) => {
+        const ap = inv.approval || "validated";
+        return ap === filterApproval;
+      });
+    }
+    if (!searchTerm.trim()) return list;
     const term = searchTerm.toLowerCase();
-    return invoices.filter((inv) => {
+    return list.filter((inv) => {
       const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
       const productNames = inv.products?.map((p) => products.find((pr) => pr.id === p.productId)?.name || "") || [];
       return (
@@ -92,18 +113,20 @@ export function useInvoices() {
         (inv.deliveryAddress || "").toLowerCase().includes(term)
       );
     });
-  }, [invoices, searchTerm, clients, products]);
+  }, [invoices, searchTerm, clients, products, filterApproval]);
 
   const stats = useMemo(() => {
-    const totalRevenue = filteredInvoices.reduce((sum, inv) => {
+    // Revenue counts only validated invoices (legacy docs without `approval` count as validated)
+    const validated = filteredInvoices.filter((inv) => isInvoiceValidated(inv));
+    const totalRevenue = validated.reduce((sum, inv) => {
       if (inv.status === "paid") return sum + (parseFloat(inv.amount) || 0);
       return sum + (parseFloat(inv.paidAmount) || 0);
     }, 0);
-    const paidCount = filteredInvoices.filter((i) => i.status === "paid").length;
-    const pendingCount = filteredInvoices.filter((i) => i.status === "pending").length;
-    const newOrdersCount = isRestaurant ? filteredInvoices.filter((i) => i.orderStatus === "new").length : 0;
-    const preparingCount = isRestaurant ? filteredInvoices.filter((i) => i.orderStatus === "preparing").length : 0;
-    const totalOverdue = filteredInvoices.reduce((sum, inv) => {
+    const paidCount = validated.filter((i) => i.status === "paid").length;
+    const pendingCount = validated.filter((i) => i.status === "pending").length;
+    const newOrdersCount = isRestaurant ? validated.filter((i) => i.orderStatus === "new").length : 0;
+    const preparingCount = isRestaurant ? validated.filter((i) => i.orderStatus === "preparing").length : 0;
+    const totalOverdue = validated.reduce((sum, inv) => {
       if (inv.status === "overdue") return sum + ((parseFloat(inv.amount) || 0) - (parseFloat(inv.paidAmount) || 0));
       return sum;
     }, 0);
@@ -147,6 +170,8 @@ export function useInvoices() {
     setSearchTerm,
     filterStatus,
     setFilterStatus,
+    filterApproval,
+    setFilterApproval,
     stats,
     handleOrderStatusChange,
     isRestaurant,

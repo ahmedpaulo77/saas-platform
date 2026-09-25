@@ -21,7 +21,11 @@ export default function InvoiceTable({
   setSearchTerm,
   filterStatus,
   setFilterStatus,
+  filterApproval = "all",
+  setFilterApproval = () => {},
   onOrderStatusChange,
+  onSendToReview = () => {},
+  onValidate = () => {},
   onEdit,
   onPay,
   onReturn,
@@ -39,6 +43,12 @@ export default function InvoiceTable({
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
   const userCanDelete = canDelete(userRole);
+  const getApproval = (inv) => inv.approval || "validated";
+  const approvalStyle = (ap) => ap === "validated"
+    ? { background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" }
+    : ap === "waiting"
+      ? { background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d" }
+      : { background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe" };
   const entityColumnLabel = isClinic ? t("in.patientColumn") || "المريض" : t("in.client") || "العميل";
 
   return (
@@ -60,6 +70,14 @@ export default function InvoiceTable({
             <option value="paid">{t("in.statusPaid")}</option>
             <option value="pending">{t("in.statusWait")}</option>
             <option value="overdue">{t("in.statusOver")}</option>
+          </select>
+        )}
+        {!isRestaurant && setFilterApproval && (
+          <select value={filterApproval} onChange={(e) => setFilterApproval(e.target.value)} title={t("in.approval.label")}>
+            <option value="all">{t("in.approval.all")}</option>
+            <option value="new">{t("in.approval.new")}</option>
+            <option value="waiting">{t("in.approval.waiting")}</option>
+            <option value="validated">{t("in.approval.validated")}</option>
           </select>
         )}
       </div>
@@ -95,6 +113,7 @@ export default function InvoiceTable({
                     {!isRestaurant && <th>{t("in.paid")}</th>}
                     {!isRestaurant && <th>{t("in.remaining")}</th>}
                     {!isRestaurant && <th>{t("common.status")}</th>}
+                    {!isRestaurant && <th>{t("in.approval.label")}</th>}
                     <th>{t("common.date")}</th>
                     <th>{t("common.actions")}</th>
                   </tr>
@@ -139,10 +158,13 @@ export default function InvoiceTable({
                           <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}</td>
                           <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>{remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}</td>
                           <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span></td>
+                          <td><span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", ...approvalStyle(getApproval(inv)) }}>{t(`in.approval.${getApproval(inv)}`)}</span></td>
                         </>}
                         <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "-"}</td>
                         <td>
                           <div className="table-actions">
+                            {!isRestaurant && getApproval(inv) === "new" && <button onClick={() => onSendToReview(inv)} className="btn-secondary btn-sm" title={t("in.sendToReview")} style={{ borderColor: "#c7d2fe", color: "#4338ca" }}><i className="fas fa-share"></i> {t("in.sendToReview")}</button>}
+                            {!isRestaurant && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
                             {isRestaurant && <button onClick={() => onThermalPrint(inv)} className="btn-primary btn-sm" title="طباعة فاتورة"><i className="fas fa-print"></i></button>}
                             {!isRestaurant && <button onClick={() => onExportPDF(inv)} className="btn-primary btn-sm" title={t("in.pdf")}><i className="fas fa-file-pdf"></i> PDF</button>}
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}

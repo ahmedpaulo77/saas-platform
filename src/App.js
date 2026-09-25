@@ -57,6 +57,7 @@ const Statements = lazy(() => import("./pages/Statements"));
 const Attendance = lazy(() => import("./pages/Attendance"));
 const Certificates = lazy(() => import("./pages/Certificates"));
 const Viewings = lazy(() => import("./pages/Viewings"));
+const VariantCodes = lazy(() => import("./pages/VariantCodes"));
 const Tables = lazy(() => import("./pages/Tables"));
 
 // مكون لحماية المسارات حسب مجال العمل
@@ -231,6 +232,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="viewings">
               <Viewings />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/variant-codes"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="variant-codes">
+              <VariantCodes />
             </IndustryRoute>
           </ProtectedRoute>
         }

@@ -30,6 +30,7 @@ export default function Invoices() {
     filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
     clients, products, fetchClients, fetchProducts,
     searchTerm, setSearchTerm, filterStatus, setFilterStatus,
+    filterApproval, setFilterApproval,
     stats, handleOrderStatusChange, hasInventory, isAdmin, isClinic, PAGE_SIZE,
   } = useInvoices();
 
@@ -37,7 +38,7 @@ export default function Invoices() {
   const emptyInvoice = {
     clientId: "", products: [], status: isRestaurant ? "new" : "pending",
     orderStatus: isRestaurant ? "new" : "", description: "", dueDate: "",
-    orderType: "takeaway", orderSource: "direct", deliveryAddress: "", deliveryPhone: "", deliveryFee: "", customerNote: "", tableNumber: "",
+    orderType: "takeaway", orderSource: "direct", deliveryAddress: "", deliveryPhone: "", deliveryFee: "", customerNote: "", tableNumber: "", paymentMethod: "cash",
   };
   const [newInvoice, setNewInvoice] = useState(emptyInvoice);
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -68,23 +69,13 @@ export default function Invoices() {
     if (!newInvoice.clientId || newInvoice.products.length === 0) return;
     setSubmitting(true);
     try {
-      if (hasInventory && newInvoice.products.length > 0) {
-        for (const item of newInvoice.products) {
-          const ref = doc(db, "inventory", item.productId);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            const cur = snap.data().quantity || 0;
-            const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-            if (delta > 0 && cur - delta < 0) { alert(t("in.qtyOver")); setSubmitting(false); return; }
-            if (delta > 0) await updateDoc(ref, { quantity: cur - delta });
-          }
-        }
-      }
+      // NOTE: stock is NOT deducted here — deduction happens on confirmation (validateInvoice).
       const totalAmount = getTotalAmount;
       const invoiceData = {
         clientId: newInvoice.clientId,
         products: newInvoice.products.map((item) => ({ productId: item.productId, quantity: item.quantity, amount: item.amount, paidAmount: item.paidAmount || 0, weight: item.weight || "", unit: item.unit || "" })),
         status: isRestaurant ? "pending" : newInvoice.status,
+        approval: "new",
         orderStatus: isRestaurant ? newInvoice.orderStatus || "new" : "",
         description: newInvoice.description || "", dueDate: newInvoice.dueDate || null,
         orderType: isRestaurant ? newInvoice.orderType : "", orderSource: isRestaurant ? (newInvoice.orderSource || "direct") : "", source: isRestaurant ? (newInvoice.orderSource || "direct") : "",
@@ -93,6 +84,7 @@ export default function Invoices() {
         deliveryFee: isRestaurant && newInvoice.orderType === "delivery" ? parseFloat(newInvoice.deliveryFee) || 0 : 0,
         tableNumber: isRestaurant && newInvoice.orderType === "dine_in" ? newInvoice.tableNumber || "" : "",
         customerNote: isRestaurant ? newInvoice.customerNote || "" : "",
+        paymentMethod: newInvoice.paymentMethod || "cash",
         companyId: userCompanyId, createdBy: currentUser?.uid, amount: totalAmount,
         quantity: hasInventory ? newInvoice.products.reduce((s, it) => s + (isTrader ? stockDelta(it.unit || "piece", it.quantity, it.weight) : parseFloat(it.quantity || 0)), 0) : 0,
         date: new Date().toISOString(), createdAt: new Date().toISOString(),
@@ -101,8 +93,59 @@ export default function Invoices() {
       await logActivity({ actionType: "CREATE", collectionName: "invoices", itemId: docRef.id, details: `Created ${isRestaurant ? "order" : "invoice"} for client ${newInvoice.clientId}, total ${totalAmount}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       setNewInvoice({ ...emptyInvoice });
       await Promise.all([resetPagination(), fetchProducts()]);
+      alert(t("in.createdPending"));
     } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
     setSubmitting(false);
+  }
+
+  async function sendToReview(invoice) {
+    const cur = invoice.approval || "validated";
+    if (cur === "validated") { alert(t("in.alreadyValidated")); return; }
+    if (cur === "waiting") return;
+    if (!window.confirm(t("in.sendToReview") + "؟")) return;
+    try {
+      await updateDoc(doc(db, "invoices", invoice.id), { approval: "waiting" });
+      await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: invoice.id, details: `Invoice sent to review (new→waiting)`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
+      await resetPagination();
+      alert(t("in.sentToReview"));
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
+  }
+
+  async function validateInvoice(invoice) {
+    const cur = invoice.approval || "validated";
+    if (cur === "validated") { alert(t("in.alreadyValidated")); return; }
+    if (!window.confirm(t("in.confirmAsk"))) return;
+    try {
+      // Deduct stock now (same delta logic as creation used to do). Abort on insufficient stock.
+      if (hasInventory && (invoice.products || []).length > 0) {
+        for (const item of invoice.products) {
+          const ref = doc(db, "inventory", item.productId);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            const curQty = snap.data().quantity || 0;
+            const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
+            if (delta > 0 && curQty - delta < 0) { alert(t("in.qtyOver")); return; }
+          }
+        }
+        for (const item of invoice.products) {
+          const ref = doc(db, "inventory", item.productId);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            const curQty = snap.data().quantity || 0;
+            const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
+            if (delta > 0) await updateDoc(ref, { quantity: curQty - delta });
+          }
+        }
+      }
+      await updateDoc(doc(db, "invoices", invoice.id), {
+        approval: "validated",
+        validatedBy: currentUser?.uid || null,
+        validatedAt: new Date().toISOString(),
+      });
+      await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: invoice.id, details: `Invoice validated (${cur}→validated), stock deducted`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
+      await Promise.all([resetPagination(), fetchProducts()]);
+      alert(t("in.validatedOk"));
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
   }
 
   async function updateInvoice(e) {
@@ -114,6 +157,7 @@ export default function Invoices() {
         orderType: editingInvoice.orderType || "", deliveryAddress: editingInvoice.orderType === "delivery" ? editingInvoice.deliveryAddress || "" : "", deliveryPhone: editingInvoice.deliveryPhone || "" , deliveryFee: editingInvoice.orderType === "delivery" ? parseFloat(editingInvoice.deliveryFee) || 0 : 0,
         tableNumber: editingInvoice.orderType === "dine_in" ? editingInvoice.tableNumber || "" : "",
         customerNote: editingInvoice.customerNote || "",
+        paymentMethod: editingInvoice.paymentMethod || "cash",
         products: editingInvoice.products.map((it) => ({ productId: it.productId, quantity: it.quantity, amount: it.amount, paidAmount: it.paidAmount || 0, weight: it.weight || "", unit: it.unit || "" })),
       });
       await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: editingInvoice.id, details: `Updated invoice, status: ${editingInvoice.status}, orderStatus: ${editingInvoice.orderStatus}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
@@ -203,7 +247,10 @@ export default function Invoices() {
           filteredInvoices={filteredInvoices} clients={clients} products={products}
           loading={loading} loadingMore={loadingMore} hasMore={hasMore} loadMore={loadMore} resetPagination={resetPagination}
           searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+          filterApproval={filterApproval} setFilterApproval={setFilterApproval}
           onOrderStatusChange={handleOrderStatusChange}
+          onSendToReview={sendToReview}
+          onValidate={validateInvoice}
           onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
           onReturn={(inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); }}

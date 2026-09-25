@@ -123,6 +123,12 @@ export default function Sidebar() {
         : t("nav.inventory"),
       module: "inventory",
     },
+    {
+      to: "/variant-codes",
+      icon: "fas fa-barcode",
+      label: "أكواد الألوان والمقاسات",
+      module: "variant-codes",
+    },
         {
       to: "/daily-prices",
       icon: "fas fa-tags",

@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
 
 // أنواع الطلبات للمطعم - تيك أواي وديليفري بس
 const ORDER_TYPES = [
@@ -93,10 +94,11 @@ export default function POS() {
   const [openingCash, setOpeningCash] = useState("");
   const [opening, setOpening] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [closeForm, setCloseForm] = useState({ countedCash: "", receiver: "", notes: "" });
+  const [closeForm, setCloseForm] = useState({ countedCash: "", receiver: "", notes: "", cashIn: "", cashOut: "" });
   const [closePreview, setClosePreview] = useState(null);
   const [closing, setClosing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
 
   const fetchShift = useCallback(async () => {
     if (!userCompanyId) return;
@@ -143,7 +145,7 @@ export default function POS() {
       const from = new Date(shift.openedAt || shift.createdAt).getTime();
       const now = Date.now();
       const byMethod = {};
-      let count = 0, total = 0, paid = 0;
+      let count = 0, total = 0, paid = 0, cashSales = 0;
       snap.docs.forEach((d) => {
         const inv = d.data();
         const ts = new Date(inv.date || inv.createdAt || 0).getTime();
@@ -154,14 +156,20 @@ export default function POS() {
           paid += p;
           const m = inv.paymentMethod || inv.source || "cash";
           byMethod[m] = (byMethod[m] || 0) + p;
+          if (m === "cash" || m === "direct") cashSales += p;
         }
       });
-      setClosePreview({ count, total, paid, byMethod });
+      setClosePreview({ count, total, paid, cashSales, byMethod });
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
       alert("تعذر حساب مبيعات الوردية");
     }
+  }
+
+  function closingExpected(preview, openingCashVal, cashInVal, cashOutVal) {
+    const cashSales = preview?.cashSales ?? preview?.paid ?? 0;
+    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(cashInVal) || 0) - (parseFloat(cashOutVal) || 0);
   }
 
   async function submitClosing(e) {
@@ -170,7 +178,9 @@ export default function POS() {
     setClosing(true);
     try {
       const counted = parseFloat(closeForm.countedCash) || 0;
-      const expected = (parseFloat(shift.openingCash) || 0) + closePreview.paid;
+      const cashIn = parseFloat(closeForm.cashIn) || 0;
+      const cashOut = parseFloat(closeForm.cashOut) || 0;
+      const expected = closingExpected(closePreview, shift.openingCash, cashIn, cashOut);
       await updateDoc(doc(db, "closings", shift.id), {
         status: "closed",
         closedAt: new Date().toISOString(),
@@ -179,15 +189,18 @@ export default function POS() {
         salesCount: closePreview.count,
         salesTotal: closePreview.total,
         paidTotal: closePreview.paid,
+        cashSales: closePreview.cashSales ?? closePreview.paid,
         byMethod: closePreview.byMethod,
         countedCash: counted,
         expectedCash: expected,
         difference: counted - expected,
+        cashIn,
+        cashOut,
         receiver: closeForm.receiver || "",
         notes: closeForm.notes || "",
       });
       setShowCloseModal(false);
-      setCloseForm({ countedCash: "", receiver: "", notes: "" });
+      setCloseForm({ countedCash: "", receiver: "", notes: "", cashIn: "", cashOut: "" });
       setClosePreview(null);
       await fetchShift();
       alert("تم تقفيل الوردية وحفظ التسليم");
@@ -609,6 +622,10 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         amount: total,
         status: "paid",
         paidAmount: total,
+        paymentMethod: paymentMethod || "cash",
+        approval: "validated",
+        validatedBy: currentUser?.uid || null,
+        validatedAt: new Date().toISOString(),
         // حقول المطعم
         orderType: isRestaurant ? orderType : "",
         orderSource: isRestaurant ? orderSource : "",
@@ -631,6 +648,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
       // reset
       setCart([]);
       setSelectedClient("");
+      setPaymentMethod("cash");
       setNewClientName("");
       setOrderType("takeaway");
       setOrderSource("direct");
@@ -703,7 +721,7 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           <div className="table-container" style={{ marginBottom: 16 }}>
             <div className="table-header"><h3>تقفيلات سابقة</h3></div>
             <table>
-              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
+              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>داخل</th><th>خارج</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
               <tbody>
                 {closings.map((c) => (
                   <tr key={c.id}>
@@ -712,6 +730,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                     <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString("ar-EG") : <span style={{ color: "#16a34a", fontWeight: 700 }}>مفتوحة</span>}</td>
                     <td>{c.salesCount ?? "—"}</td>
                     <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(c.paidTotal).toLocaleString() : "—"}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? Number(c.cashIn).toLocaleString() : "—"}</td>
+                    <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? Number(c.cashOut).toLocaleString() : "—"}</td>
                     <td>{c.countedCash != null ? Number(c.countedCash).toLocaleString() : "—"}</td>
                     <td style={{ fontWeight: 800, color: (c.difference || 0) === 0 ? "#16a34a" : (c.difference || 0) > 0 ? "#2563eb" : "#dc2626" }}>
                       {c.difference != null ? `${c.difference > 0 ? "+" : ""}${Number(c.difference).toLocaleString()}` : "—"}
@@ -1093,6 +1113,17 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
               )}
             </div>
 
+            {/* طريقة الدفع */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 6 }}>{t("pay.title") || "طريقة الدفع"}</label>
+              <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}>
+                {EGYPT_PAYMENTS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+
             {/* الإجمالي */}
             <div style={{ background: "#f8fafc", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -1158,15 +1189,33 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                   </div>
                 </div>
                 {Object.keys(closePreview.byMethod).length > 0 && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                    {Object.entries(closePreview.byMethod).map(([m, amt]) => (
-                      <span key={m} style={{ background: "#eef2ff", color: "#4338ca", padding: "4px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                        {m}: {amt.toLocaleString()}
-                      </span>
-                    ))}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>{t("close.byMethod") || "التحصيل حسب طريقة الدفع"}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {Object.entries(closePreview.byMethod).map(([m, amt]) => (
+                        <span key={m} style={{ background: "#eef2ff", color: "#4338ca", padding: "4px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                          {getPaymentLabel(m)}: {amt.toLocaleString()}
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
+                      مبيعات الكاش: {(closePreview.cashSales ?? 0).toLocaleString()} {t("currency")}
+                    </div>
                   </div>
                 )}
                 <form onSubmit={submitClosing}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label>{t("close.cashIn") || "نقدية داخلة (إيداع)"} ({t("currency")})</label>
+                      <input type="number" min="0" step="0.01" placeholder="0.00"
+                        value={closeForm.cashIn} onChange={(e) => setCloseForm({ ...closeForm, cashIn: e.target.value })} />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 8 }}>
+                      <label>{t("close.cashOut") || "نقدية خارجة (مسحوبات)"} ({t("currency")})</label>
+                      <input type="number" min="0" step="0.01" placeholder="0.00"
+                        value={closeForm.cashOut} onChange={(e) => setCloseForm({ ...closeForm, cashOut: e.target.value })} />
+                    </div>
+                  </div>
                   <div className="form-group">
                     <label>الكاش المعدود في الدرج * ({t("currency")})</label>
                     <input type="number" min="0" step="0.01" placeholder="0.00"
@@ -1184,9 +1233,9 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                   </div>
                   {closeForm.countedCash !== "" && (
                     <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
-                      background: ((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) === 0 ? "#f0fdf4" : "#fef2f2",
-                      color: ((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) === 0 ? "#16a34a" : "#dc2626" }}>
-                      المتوقع: {((parseFloat(shift.openingCash) || 0) + closePreview.paid).toLocaleString()} — الفرق: {(((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - ((parseFloat(shift.openingCash) || 0) + closePreview.paid))).toLocaleString()}
+                      background: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) === 0 ? "#f0fdf4" : "#fef2f2",
+                      color: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) === 0 ? "#16a34a" : "#dc2626" }}>
+                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut))).toLocaleString()}
                     </div>
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>

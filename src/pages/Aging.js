@@ -89,7 +89,8 @@ export default function Aging() {
       );
       const invoices = invoicesSnap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .filter(inv => inv.status !== 'paid');
+        .filter(inv => inv.status !== 'paid')
+        .filter(inv => !inv.approval || inv.approval === 'validated');
 
       const clientMap = {};
       clients.forEach(c => {

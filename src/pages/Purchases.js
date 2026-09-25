@@ -20,6 +20,7 @@ import { createReturn } from "../utils/returns";
 import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
+import JsBarcode from "jsbarcode";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
 const PAGE_SIZE = 25;
 
@@ -54,6 +55,8 @@ export default function Purchases() {
   const [showQuickProduct, setShowQuickProduct] = useState(false);
   const [quickProductName, setQuickProductName] = useState("");
   const [quickProductPrice, setQuickProductPrice] = useState("");
+  const [quickProductSize, setQuickProductSize] = useState("");
+  const [quickProductColor, setQuickProductColor] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
 
   const [editingPurchase, setEditingPurchase] = useState(null);
@@ -115,9 +118,35 @@ export default function Purchases() {
     setReturning(false);
   }
 
+  // ✅ وصف المقاس/اللون للمنتج (مخزون الملابس: size/color/type)
+  const variantLabel = (prod) => {
+    if (!prod) return "";
+    return [prod.size, prod.color].filter(Boolean).join(" / ");
+  };
+
   // ✅ حساب مبلغ الصنف: سعر الوحدة × الوزن (للكيلو) أو × العدد
   const calculateItemAmount = (unit, unitCost, quantity, weight) =>
     lineAmount(unit || "piece", unitCost, quantity, weight);
+
+  // ✅ إجمالي الفاتورة = مجموع مبالغ الأصناف (مقفول مثل فواتير البيع)
+  const itemsTotal = useMemo(
+    () =>
+      (newPurchase.items || []).reduce(
+        (s, it) => s + (parseFloat(it.amount) || 0),
+        0,
+      ),
+    [newPurchase.items],
+  );
+  const hasItems = (newPurchase.items || []).length > 0;
+  // ✅ إجمالي العدد = مجموع الكميات (قطع)
+  const formTotalQty = useMemo(
+    () =>
+      (newPurchase.items || []).reduce(
+        (s, it) => s + (parseFloat(it.quantity) || 0),
+        0,
+      ),
+    [newPurchase.items],
+  );
 
   // ✅ أصناف الفاتورة: الجديدة (items) أو القديمة (productId مفرد) للتوافق
   const getPurchaseItems = (p) => {
@@ -228,14 +257,16 @@ export default function Purchases() {
         name: quickProductName.trim(),
         price: parseFloat(quickProductPrice) || 0,
         quantity: 0,
+        size: quickProductSize.trim() || "",
+        color: quickProductColor.trim() || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
       await fetchProducts();
-      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0 };
+      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0, size: quickProductSize.trim() || "", color: quickProductColor.trim() || "" };
       setProducts((prev) => [...prev, prod]);
-      setQuickProductName(""); setQuickProductPrice(""); setShowQuickProduct(false);
+      setQuickProductName(""); setQuickProductPrice(""); setQuickProductSize(""); setQuickProductColor(""); setShowQuickProduct(false);
     } catch (e) { console.error(e); alert(t("common.errorGeneric")); }
     setAddingProduct(false);
   }
@@ -246,7 +277,10 @@ export default function Purchases() {
     return purchases.filter((p) => {
       const supplierName = suppliers.find((s) => s.id === p.supplierId)?.name || "";
       const itemNames = getPurchaseItems(p)
-        .map((it) => products.find((x) => x.id === it.productId)?.name || "")
+        .map((it) => {
+          const pr = products.find((x) => x.id === it.productId);
+          return [pr?.name, pr?.size, pr?.color].filter(Boolean).join(" ");
+        })
         .join(" ");
       return (
         supplierName.toLowerCase().includes(term) ||
@@ -259,10 +293,14 @@ export default function Purchases() {
 
   async function addPurchase(e) {
     e.preventDefault();
-    if (!newPurchase.supplierId || !newPurchase.amount) return;
+    const items = newPurchase.items || [];
+    // ✅ الإجمالي مقفول: مجموع الأصناف عند وجودها، ويدوي فقط عند عدم وجود أصناف
+    const effectiveAmount = hasItems
+      ? items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0)
+      : parseFloat(newPurchase.amount) || 0;
+    if (!newPurchase.supplierId || !(effectiveAmount > 0)) return;
     setSubmitting(true);
     try {
-      const items = newPurchase.items || [];
       // ✅ كل صنف مختار بيزوّد كميته في المخزون (بالوزن للكيلو)
       if (hasInventory) {
         for (const item of items) {
@@ -282,7 +320,7 @@ export default function Purchases() {
         }
       }
 
-      const amount = parseFloat(newPurchase.amount) || 0;
+      const amount = effectiveAmount;
       const totalQty = items.reduce(
         (sum, it) =>
           sum + stockDelta(it.unit || "piece", it.quantity, it.weight),
@@ -435,8 +473,10 @@ export default function Purchases() {
       suppliers.find((s) => s.id === purchase.supplierId)?.name || "مورد";
     const itemsRows = getPurchaseItems(purchase)
       .map((it) => {
-        const name =
-          products.find((pr) => pr.id === it.productId)?.name || "صنف";
+        const prod = products.find((pr) => pr.id === it.productId);
+        const name = prod?.name || "صنف";
+        const variant = variantLabel(prod);
+        const displayName = variant ? `${name} (${variant})` : name;
         const amount = parseFloat(it.amount) || 0;
         const qty = parseFloat(it.quantity) || 0;
         const w = parseFloat(it.weight) || 0;
@@ -444,7 +484,7 @@ export default function Purchases() {
         const qtyLabel = isKg ? `${qty} × ${it.weight} كجم` : `${qty}`;
         const unitCost = parseFloat(it.unitCost) || 0;
         return `<tr>
-        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${name}</td>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${displayName}</td>
         <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${qtyLabel}</td>
         <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${unitCost}</td>
         <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${amount.toFixed(2)}</td>
@@ -514,6 +554,182 @@ export default function Purchases() {
       win.print();
       win.close();
     }, 300);
+  }
+
+  // ── طباعة باركود الأصناف (ملصق 38mm × 25mm لكل وحدة) ──
+  // Label (top→bottom, centered): brand / model / "{size}-of {color}" / Code128(code) / price
+  async function handlePrintBarcodes(purchase) {
+    // Reference to keep the jsbarcode import bundled (rendering happens in print window via CDN fallback)
+    void JsBarcode;
+    const escHtml = (s) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
+    // Code128 needs ASCII — strip anything outside printable ASCII so Arabic names can't break encoding
+    const asciiSafe = (s, fb) => {
+      const v = String(s ?? "").replace(/[^\x20-\x7E]/g, "").trim();
+      return v || fb || "0";
+    };
+
+    // Fetch variant_codes (kind: color/size → code) to resolve colorCode/sizeCode by name
+    let variantCodes = [];
+    try {
+      const snap = await getDocs(
+        getScopedQuery("variant_codes", userRole, userCompanyId, currentUser?.uid)
+      );
+      variantCodes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error("variant_codes fetch failed, using raw values", e);
+    }
+    const colorMap = {};
+    const sizeMap = {};
+    variantCodes.forEach((vc) => {
+      const nameKey = String(vc.name || "").trim().toLowerCase();
+      const code = String(vc.code || "").trim();
+      if (!nameKey || !code) return;
+      if (vc.kind === "color") colorMap[nameKey] = code;
+      else if (vc.kind === "size") sizeMap[nameKey] = code;
+    });
+
+    const items = getPurchaseItems(purchase);
+    if (items.length === 0) {
+      alert("لا توجد أصناف في هذه الفاتورة لطباعة الباركود");
+      return;
+    }
+
+    const MAX_PER_ITEM = 50;
+    let capped = false;
+    const labels = [];
+    items.forEach((it) => {
+      const prod = products.find((pr) => pr.id === it.productId) || {};
+      const brand = (prod.brand || "GenAlpha").toString().trim() || "GenAlpha";
+      const model = (prod.model || prod.name || "").toString().trim() || "—";
+      const size = (prod.size ?? it.size ?? "").toString().trim();
+      const color = (prod.color ?? it.color ?? "").toString().trim();
+      const sizeColorLine =
+        size && color ? `${size}-of ${color}` : size || color || "";
+      const colorCode = asciiSafe(colorMap[color.toLowerCase()] ?? color, "0");
+      const sizeCode = asciiSafe(sizeMap[size.toLowerCase()] ?? size, "0");
+
+      // barcode value: product.barcode || item.barcode, else `${base}-${colorCode}-${sizeCode}`
+      let barcodeValue = (prod.barcode || it.barcode || "").toString().trim();
+      if (!barcodeValue) {
+        const base = asciiSafe(
+          String(purchase.id || prod.id || "0000").slice(0, 4),
+          "0000"
+        );
+        barcodeValue = `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-");
+      }
+      barcodeValue = asciiSafe(barcodeValue, String(purchase.id || "0000").slice(0, 4));
+
+      const priceNum = parseFloat(it.unitCost) || parseFloat(prod.price) || 0;
+      const priceLine = `${priceNum.toLocaleString()} EGP`;
+
+      const rawQty = Math.floor(parseFloat(it.quantity) || 1);
+      const qty = Math.max(1, rawQty);
+      const printQty = Math.min(qty, MAX_PER_ITEM);
+      if (qty > MAX_PER_ITEM) capped = true;
+      for (let k = 0; k < printQty; k++) {
+        labels.push({ brand, model, sizeColorLine, barcodeValue, priceLine });
+      }
+    });
+
+    if (labels.length === 0) {
+      alert("لا توجد أصناف قابلة للطباعة");
+      return;
+    }
+    if (capped) {
+      alert(`تنبيه: تم تحديد الحد الأقصى ${MAX_PER_ITEM} ملصق لكل صنف لتفادي طباعة مئات الملصقات`);
+    }
+
+    const labelDivs = labels
+      .map(
+        (lb, idx) => `<div class="label">
+        <div class="l-brand">${escHtml(lb.brand)}</div>
+        <div class="l-model">${escHtml(lb.model)}</div>
+        ${lb.sizeColorLine ? `<div class="l-variant">${escHtml(lb.sizeColorLine)}</div>` : ""}
+        <svg class="bc" data-idx="${idx}" data-value="${escAttr(lb.barcodeValue)}"></svg>
+        <div class="l-price">${escHtml(lb.priceLine)}</div>
+      </div>`
+      )
+      .join("");
+
+    const printContent = `<!DOCTYPE html>
+<html dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<title>Barcode labels 38x25</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: Arial, Helvetica, sans-serif; }
+  .cap-note { font-family: Arial, sans-serif; font-size: 12px; direction: rtl; text-align: center; padding: 10px; background: #fef3c7; color: #92400e; }
+  .label {
+    width: 38mm; height: 25mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; overflow: hidden; padding: 1mm 1.5mm;
+    page-break-after: always; break-after: page;
+  }
+  .label:last-child { page-break-after: auto; break-after: auto; }
+  .l-brand { font-size: 8px; font-weight: 700; line-height: 1.15; }
+  .l-model { font-size: 8px; font-weight: 700; line-height: 1.15; }
+  .l-variant { font-size: 7px; line-height: 1.2; }
+  svg.bc { width: 34mm; height: 9mm; display: block; }
+  .l-price { font-size: 8px; font-weight: 800; line-height: 1.2; }
+  @page { size: 38mm 25mm; margin: 0; }
+  @media print {
+    .cap-note { display: none; }
+    .label { page-break-after: always; break-after: page; }
+    .label:last-child { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body>
+${capped ? `<div class="cap-note">تم تحديد الحد الأقصى ${MAX_PER_ITEM} ملصق لكل صنف</div>` : ""}
+${labelDivs}
+<script>
+  function renderAll() {
+    try {
+      document.querySelectorAll('svg.bc').forEach(function(svg) {
+        var val = svg.getAttribute('data-value') || '';
+        try {
+          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 10, height: 28, width: 1.2, margin: 0 });
+        } catch (e) {
+          var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.setAttribute('x', '50%'); t.setAttribute('y', '50%');
+          t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '8');
+          t.textContent = val;
+          svg.appendChild(t);
+        }
+      });
+    } catch (e) { console.error(e); }
+  }
+  function waitJsBarcode(tries, done) {
+    if (typeof JsBarcode !== 'undefined') return done();
+    if (tries <= 0) return done();
+    setTimeout(function() { waitJsBarcode(tries - 1, done); }, 200);
+  }
+  window.onload = function() {
+    waitJsBarcode(15, function() {
+      renderAll();
+      setTimeout(function() { window.focus(); window.print(); }, 400);
+    });
+  };
+<\/script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=500,height=600");
+    if (!win) {
+      alert("السماح بالـ popups مطلوب للطباعة");
+      return;
+    }
+    win.document.write(printContent);
+    win.document.close();
+    win.focus();
   }
 
   const userCanDelete = canDelete(userRole);
@@ -678,11 +894,14 @@ export default function Purchases() {
                   <label>{t("pur.productOpt")}</label>
                   <AutocompleteInput
                     key={`pur-add-${(newPurchase.items || []).length}`}
-                    items={products.map((p) => ({
-                      id: p.id,
-                      label: p.name,
-                      sublabel: `${p.quantity || 0} ${t("in.remaining")}`,
-                    }))}
+                    items={products.map((p) => {
+                      const v = variantLabel(p);
+                      return {
+                        id: p.id,
+                        label: v ? `${p.name} (${v})` : p.name,
+                        sublabel: `${p.quantity || 0} ${t("in.remaining")}`,
+                      };
+                    })}
                     value=""
                     onChange={(productId) => {
                       if (
@@ -731,6 +950,10 @@ export default function Purchases() {
                     <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                       <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
                       <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
+                        <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
+                      </div>
                       <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddProduct} disabled={addingProduct}>{addingProduct ? "جاري..." : "حفظ المنتج"}</button>
                     </div>
                   )}
@@ -746,6 +969,9 @@ export default function Purchases() {
                 >
                   <h4 style={{ margin: "0 0 8px", fontSize: 13, color: "#334155" }}>
                     {t("in.selectedProducts")} ({(newPurchase.items || []).length})
+                    <span style={{ marginRight: 8, background: "#ecfeff", color: "#0e7490", border: "1px solid #a5f3fc", borderRadius: 12, padding: "2px 10px", fontSize: 12, fontWeight: 800 }}>
+                      إجمالي العدد: {formTotalQty} قطعة
+                    </span>
                   </h4>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {(newPurchase.items || []).map((item, idx) => {
@@ -794,6 +1020,21 @@ export default function Purchases() {
                           >
                             <span style={{ fontWeight: 700, fontSize: 13 }}>
                               {prod?.name || "—"}
+                              {prod?.size ? (
+                                <span style={{ marginRight: 6, background: "#ede9fe", color: "#6d28d9", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
+                                  📏 {prod.size}
+                                </span>
+                              ) : null}
+                              {prod?.color ? (
+                                <span style={{ marginRight: 4, background: "#fdf2f8", color: "#be185d", border: "1px solid #f9a8d4", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
+                                  🎨 {prod.color}
+                                </span>
+                              ) : null}
+                              {prod?.type ? (
+                                <span style={{ marginRight: 4, background: "#f1f5f9", color: "#475569", borderRadius: 10, padding: "1px 8px", fontSize: 11 }}>
+                                  {prod.type}
+                                </span>
+                              ) : null}
                               {showWeight && item.weight ? (
                                 <span style={{ color: "#b45309" }}>
                                   {" "}
@@ -905,10 +1146,18 @@ export default function Purchases() {
                   type="number"
                   step="0.01"
                   placeholder="0.00"
-                  value={newPurchase.amount}
+                  value={hasItems ? itemsTotal.toFixed(2) : newPurchase.amount}
                   onChange={(e) => setNewPurchase({ ...newPurchase, amount: e.target.value })}
                   required
+                  readOnly={hasItems}
+                  style={hasItems ? { background: "#f1f5f9", color: "#0f172a", fontWeight: 800 } : undefined}
+                  title={hasItems ? "يُحسب تلقائياً من مجموع الأصناف (مجموع quantity × unitCost)" : ""}
                 />
+                {hasItems && (
+                  <small style={{ color: "#64748b", fontSize: 11 }}>
+                    🔒 يُحسب تلقائياً من الأصناف — احذف الأصناف للإدخال اليدوي
+                  </small>
+                )}
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("common.status")}</label>
@@ -1038,17 +1287,27 @@ export default function Purchases() {
                               {purchaseItems.length === 0
                                 ? t("common.unspecified")
                                 : purchaseItems.map((it, idx) => {
-                                    const nm =
-                                      products.find((x) => x.id === it.productId)
-                                        ?.name || "—";
+                                    const prod = products.find((x) => x.id === it.productId);
+                                    const nm = prod?.name || "—";
                                     const w = parseFloat(it.weight) || 0;
                                     const showW =
                                       isTrader &&
                                       isKgUnit(it.unit || "piece") &&
                                       w > 0;
                                     return (
-                                      <div key={idx}>
-                                        {nm} — {it.quantity}
+                                      <div key={idx} style={{ marginBottom: 2 }}>
+                                        {nm}{" "}
+                                        {prod?.size ? (
+                                          <span style={{ background: "#ede9fe", color: "#6d28d9", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
+                                            📏 {prod.size}
+                                          </span>
+                                        ) : null}{" "}
+                                        {prod?.color ? (
+                                          <span style={{ background: "#fdf2f8", color: "#be185d", border: "1px solid #f9a8d4", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
+                                            🎨 {prod.color}
+                                          </span>
+                                        ) : null}{" "}
+                                        — {it.quantity}
                                         {showW
                                           ? ` × ${it.weight} ${t("trader.unit.kg")}`
                                           : ""}
@@ -1095,6 +1354,14 @@ export default function Purchases() {
                                 title={t("in.print") || "طباعة"}
                               >
                                 <i className="fas fa-print"></i>
+                              </button>
+                              <button
+                                onClick={() => handlePrintBarcodes(p)}
+                                className="btn-secondary btn-sm"
+                                title="اطبع باركود الأصناف"
+                                style={{ borderColor: "#8b5cf6", color: "#7c3aed" }}
+                              >
+                                <i className="fas fa-barcode"></i>
                               </button>
                               {p.status !== "paid" && (
                                 <button
@@ -1336,7 +1603,7 @@ export default function Purchases() {
                     const prod = products.find((pr) => pr.id === it.productId);
                     return (
                       <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || "صنف"} <span style={{ color: "#94a3b8" }}>(مشترى: {it.quantity})</span></span>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || "صنف"}{variantLabel(prod) ? ` (${variantLabel(prod)})` : ""} <span style={{ color: "#94a3b8" }}>(مشترى: {it.quantity})</span></span>
                         <input type="number" min="0" max={it.quantity} step="0.001" placeholder="مرتجع"
                           value={returnQtys[idx] || ""}
                           onChange={(e) => setReturnQtys({ ...returnQtys, [idx]: e.target.value })}
