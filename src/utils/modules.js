@@ -194,6 +194,7 @@ export const MODULE_MAP = {
     "variant-codes",
     "tasks",
     "aging",
+    "attendance",
   ],
 
   // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة + بحث شامل
