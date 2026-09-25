@@ -27,7 +27,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Companies = lazy(() => import("./pages/Companies"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Invoices = lazy(() => import("./pages/Invoices"));
-const Quotations = lazy(() => import("./pages/Quotations"));
+const Sales = lazy(() => import("./pages/Sales"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Projects = lazy(() => import("./pages/Projects"));
@@ -157,11 +157,11 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/quotations"
+        path="/sales"
         element={
           <ProtectedRoute>
-            <IndustryRoute moduleKey="quotations">
-              <Quotations />
+            <IndustryRoute moduleKey="sales">
+              <Sales />
             </IndustryRoute>
           </ProtectedRoute>
         }

@@ -89,7 +89,6 @@ export const MODULE_MAP = {
     "clients",
     "daily-prices",
     "invoices",
-    "quotations",
     "suppliers",
     "purchases",
     "tasks",
@@ -100,7 +99,6 @@ export const MODULE_MAP = {
   contractor: [
     "clients",
     "invoices",
-    "quotations",
     "projects",
     "certificates",
     "tasks",
@@ -117,7 +115,6 @@ export const MODULE_MAP = {
   general: [
     "clients",
     "invoices",
-    "quotations",
     "tasks",
     "projects",
     "certificates",
@@ -189,9 +186,9 @@ export const MODULE_MAP = {
   // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام للموظفين (بدون رسائل)
   clothing: [
     "store-pos",
+    "sales",
     "clients",
     "invoices",
-    "quotations",
     "suppliers",
     "purchases",
     "sizes_colors",
@@ -292,7 +289,7 @@ export const ROUTE_MODULE_MAP = {
   "/companies": "companies",
   "/clients": "clients",
   "/invoices": "invoices",
-  "/quotations": "quotations",
+  "/sales": "sales",
   "/inventory": "inventory",
   "/daily-prices": "daily-prices",
   "/tasks": "tasks",
@@ -369,7 +366,7 @@ export const MODULE_LABEL_KEYS = {
   reports: "modules.reports",
   clients: "modules.clients",
   invoices: "modules.invoices",
-  quotations: "modules.quotations",
+  sales: "modules.sales",
   tasks: "modules.tasks",
   projects: "modules.projects",
   certificates: "modules.certificates",

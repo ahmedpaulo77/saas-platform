@@ -48,6 +48,12 @@ export default function Sidebar() {
       module: "store-pos",
     },
     {
+      to: "/sales",
+      icon: "fas fa-shopping-bag",
+      label: t("nav.sales"),
+      module: "sales",
+    },
+    {
       to: "/companies",
       icon: "fas fa-building",
       label: t("nav.companies"),
@@ -112,12 +118,6 @@ export default function Sidebar() {
       icon: "fas fa-file-invoice",
       label: isRestaurant ? t("nav.invoices.restaurant") : t("nav.invoices"),
       module: "invoices",
-    },
-    {
-      to: "/quotations",
-      icon: "fas fa-file-signature",
-      label: t("nav.quotations"),
-      module: "quotations",
     },
     {
       to: "/inventory",
