@@ -219,7 +219,8 @@ export default function Inventory() {
     { value: "kids", label: "أطفال" },
     { value: "unisex", label: "يونيسكس" },
   ];
-  const sizeOptions = [
+  // القيم الافتراضية — تُستخدم فقط لو الشركة معملتش أكوادها الخاصة في صفحة الأكواد
+  const DEFAULT_SIZES = [
     { value: "XS", label: "XS", category: "clothing" },
     { value: "S", label: "S", category: "clothing" },
     { value: "M", label: "M", category: "clothing" },
@@ -229,7 +230,7 @@ export default function Inventory() {
     { value: "XXXL", label: "XXXL", category: "clothing" },
     ...Array.from({ length: 29 }, (_, i) => ({ value: String(22 + i), label: String(22 + i), category: "shoes" })),
   ];
-  const colors = [
+  const DEFAULT_COLORS = [
     { value: "أسود", label: "أسود", hex: "#111827" }, { value: "أبيض", label: "أبيض", hex: "#f8fafc" },
     { value: "أحمر", label: "أحمر", hex: "#dc2626" }, { value: "أزرق", label: "أزرق", hex: "#2563eb" },
     { value: "أخضر", label: "أخضر", hex: "#16a34a" }, { value: "أصفر", label: "أصفر", hex: "#eab308" },
@@ -238,6 +239,25 @@ export default function Inventory() {
     { value: "بنفسجي", label: "بنفسجي", hex: "#7c3aed" }, { value: "بيج", label: "بيج", hex: "#d6c39a" },
     { value: "كحلي", label: "كحلي", hex: "#1e3a8a" }, { value: "زيتي", label: "زيتي", hex: "#3f6212" },
   ];
+  // ── أكواد الشركة الخاصة: صفحة الأكواد هي المصدر الأساسي ──
+  const [customSizes, setCustomSizes] = useState([]);
+  const [customColors, setCustomColors] = useState([]);
+  const fetchVariantCodes = useCallback(async () => {
+    if (!isClothing || !userCompanyId) { setCustomSizes([]); setCustomColors([]); return; }
+    try {
+      const snap = await getDocs(
+        getScopedQuery("variant_codes", userRole, userCompanyId, currentUser?.uid)
+      );
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setCustomSizes(all.filter((v) => v.kind === "size" && v.name).map((v) => ({ value: v.name, label: v.code ? `${v.name} (${v.code})` : v.name, category: "custom", code: v.code || "" })));
+      setCustomColors(all.filter((v) => v.kind === "color" && v.name).map((v) => ({ value: v.name, label: v.code ? `${v.name} (${v.code})` : v.name, hex: "#64748b", code: v.code || "" })));
+    } catch (err) {
+      console.error("Error fetching variant codes:", err);
+    }
+  }, [isClothing, userRole, userCompanyId, currentUser?.uid]);
+  // لو الشركة عاملة أكوادها → نستخدمها، غير كده الافتراضية
+  const sizeOptions = customSizes.length > 0 ? customSizes : DEFAULT_SIZES;
+  const colors = customColors.length > 0 ? customColors : DEFAULT_COLORS;
   // نقطة لون رجالي نظيفة بدل الإيموجي
   const colorDot = (hex) => (
     <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: "50%", background: hex, border: "1px solid #cbd5e1", flexShrink: 0 }} />
@@ -264,7 +284,8 @@ export default function Inventory() {
     fetchProducts();
     fetchMenuCategories();
     fetchLastSales();
-  }, [fetchProducts, fetchMenuCategories, fetchLastSales]);
+    fetchVariantCodes();
+  }, [fetchProducts, fetchMenuCategories, fetchLastSales, fetchVariantCodes]);
 
   // ── helpers للإضافات ──
   function addTempExtra() {
@@ -778,7 +799,7 @@ export default function Inventory() {
                 <select value={newProduct.size} onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
                   <option value="">المقاس</option>
-                  {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : "(ملابس)"}</option>)}
+                  {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : s.category === "clothing" ? "(ملابس)" : ""}</option>)}
                 </select>
                 <select value={newProduct.color} onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
@@ -1355,7 +1376,7 @@ export default function Inventory() {
                       <select value={editingProduct.size || ""} style={styles.input}
                         onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}>
                         <option value="">اختر المقاس</option>
-                        {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : "(ملابس)"}</option>)}
+                        {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : s.category === "clothing" ? "(ملابس)" : ""}</option>)}
                       </select>
                     </div>
                     <div style={styles.formGroup}>
