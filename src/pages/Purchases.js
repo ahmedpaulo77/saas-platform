@@ -593,6 +593,17 @@ export default function Purchases() {
       else if (vc.kind === "size") sizeMap[nameKey] = code;
     });
 
+    // اسم المحل (الشركة) — أول سطر في الليبل بدل اسم ثابت
+    let storeName = "";
+    try {
+      if (userCompanyId) {
+        const cSnap = await getDoc(doc(db, "companies", userCompanyId));
+        if (cSnap.exists()) storeName = (cSnap.data().name || "").toString().trim();
+      }
+    } catch (e) {
+      console.error("company name fetch failed", e);
+    }
+
     const items = getPurchaseItems(purchase);
     if (items.length === 0) {
       alert("لا توجد أصناف في هذه الفاتورة لطباعة الباركود");
@@ -604,7 +615,7 @@ export default function Purchases() {
     const labels = [];
     items.forEach((it) => {
       const prod = products.find((pr) => pr.id === it.productId) || {};
-      const brand = (prod.brand || "GenAlpha").toString().trim() || "GenAlpha";
+      const brand = storeName || (prod.brand || "").toString().trim() || "—";
       const model = (prod.model || prod.name || "").toString().trim() || "—";
       const size = (prod.size ?? it.size ?? "").toString().trim();
       const color = (prod.color ?? it.color ?? "").toString().trim();

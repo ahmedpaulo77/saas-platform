@@ -7,7 +7,7 @@ import { getScopedQuery } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
-import { EGYPT_PAYMENTS } from "../utils/paymentMethods";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
 import { Shirt } from "lucide-react";
 
 const NAVY = "#1e3a8a";
@@ -34,6 +34,19 @@ export default function StorePOS() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [storeName, setStoreName] = useState("");
+
+  useEffect(() => {
+    if (!userCompanyId) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "companies", userCompanyId));
+        if (snap.exists()) setStoreName((snap.data().name || "").toString());
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [userCompanyId]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -190,6 +203,89 @@ export default function StorePOS() {
   const discountNum = Math.max(0, parseFloat(discount) || 0);
   const total = Math.max(0, subtotal - discountNum);
 
+  // ── طباعة فاتورة حرارية 80mm زي المطعم (باسم المحل + باركود رقم الفاتورة) ──
+  function handleThermalPrint(inv, cartSnapshot, clientName) {
+    const escHtml = (s) =>
+      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const rows = cartSnapshot
+      .map((item) => {
+        const variant = [item.size, item.color].filter(Boolean).join(" / ");
+        const line = (parseFloat(item.price) || 0) * item.quantity;
+        return `<tr>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${escHtml(item.name)}${variant ? `<div style="font-size:10px;color:#555;">${escHtml(variant)}</div>` : ""}</td>
+        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${item.quantity}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${escHtml(String(item.price))}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${line.toFixed(2)}</td>
+      </tr>`;
+      })
+      .join("");
+    const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 12) || "0";
+    const printContent = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 13px; width: 80mm; padding: 8px; }
+  h2 { text-align: center; font-size: 17px; margin-bottom: 2px; }
+  .center { text-align: center; }
+  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f0f0f0; padding: 4px 6px; font-size: 11px; }
+  .total-row { font-weight: bold; font-size: 15px; }
+  svg.bc { width: 60mm; height: 12mm; display: block; margin: 4px auto 0; }
+  @media print { body { width: 80mm; } @page { size: 80mm auto; margin: 0; } }
+</style>
+</head>
+<body>
+<h2>${escHtml(storeName || "فاتورة بيع")}</h2>
+<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
+<div class="divider"></div>
+<div style="font-size:12px;margin-bottom:4px;">
+  <strong>العميل:</strong> ${escHtml(clientName || "زبون نقدي")}<br/>
+  <strong>الدفع:</strong> ${escHtml(getPaymentLabel(inv.paymentMethod))}
+</div>
+<div class="divider"></div>
+<table>
+  <thead><tr>
+    <th style="text-align:right;">الصنف</th>
+    <th>الكمية</th>
+    <th>السعر</th>
+    <th>الإجمالي</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="divider"></div>
+<div style="text-align:left;font-size:13px;">
+  <div>المجموع: ${subtotal.toFixed(2)} ج.م</div>
+  ${discountNum > 0 ? `<div>الخصم: ${discountNum.toFixed(2)} ج.م</div>` : ""}
+  <div class="total-row" style="margin-top:4px;border-top:2px solid #000;padding-top:4px;">
+    الإجمالي: ${total.toFixed(2)} ج.م
+  </div>
+</div>
+<div class="divider"></div>
+<svg class="bc" id="invbc"></svg>
+<div class="center" style="font-size:11px;margin-top:6px;">شكراً لزيارتكم 🙏</div>
+<script>
+  try {
+    if (window.JsBarcode) JsBarcode("#invbc", "${invCode}", { format: "CODE128", displayValue: true, fontSize: 11, height: 40, width: 1.5, margin: 0 });
+    else document.getElementById("invbc").outerHTML = "<div class='center'>${invCode}</div>";
+  } catch (e) { document.getElementById("invbc").outerHTML = "<div class='center'>${invCode}</div>"; }
+  setTimeout(function () { window.print(); }, 400);
+<\/script>
+</body>
+</html>`;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) {
+      alert("السماح بالـ popups مطلوب للطباعة");
+      return;
+    }
+    win.document.write(printContent);
+    win.document.close();
+    win.focus();
+  }
+
   // ── Checkout ──
   async function checkout(e) {
     e?.preventDefault();
@@ -243,12 +339,17 @@ export default function StorePOS() {
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
+      const cartSnapshot = [...cart];
+      const clientName = clients.find((c) => c.id === selectedClient)?.name || newClientName.trim() || "";
+      const payMethod = paymentMethod;
       setCart([]);
       setSelectedClient("");
+      setNewClientName("");
+      setNewClientPhone("");
       setDiscount("");
       setPaymentMethod("cash");
       await Promise.all([fetchProducts(), fetchClients()]);
-      alert(t("pos.ok"));
+      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName);
     } catch (err) {
       console.error(err);
       alert(err.message || t("pos.fail"));
