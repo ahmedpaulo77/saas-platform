@@ -157,7 +157,7 @@ export default function InvoiceTable({
                         {!isRestaurant && <>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}</td>
                           <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>{remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}</td>
-                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span></td>
+                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span>{inv.hasReturn && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", marginRight: 6, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d" }}><i className="fas fa-undo" style={{ marginLeft: 4 }}></i>مرتجع</span>}</td>
                           <td><span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", ...approvalStyle(getApproval(inv)) }}>{t(`in.approval.${getApproval(inv)}`)}</span></td>
                         </>}
                         <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "-"}</td>

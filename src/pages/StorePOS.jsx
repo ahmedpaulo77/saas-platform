@@ -141,11 +141,14 @@ export default function StorePOS() {
     setOpening(false);
   }
 
-  // حساب مبيعات الوردية المفتوحة (من فتحها لحد دلوقتي)
+  // حساب مبيعات الوردية المفتوحة (من فتحها لحد دلوقتي) — المرتجعات تنقص الكاش
   async function previewClosing() {
     if (!shift) return;
     try {
-      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const [snap, retSnap] = await Promise.all([
+        getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
+      ]);
       const from = new Date(shift.openedAt || shift.createdAt).getTime();
       const now = Date.now();
       const byMethod = {};
@@ -163,7 +166,17 @@ export default function StorePOS() {
           if (m === "cash" || m === "direct") cashSales += p;
         }
       });
-      setClosePreview({ count, total, paid, cashSales, byMethod });
+      let returnsCount = 0, returnsTotal = 0;
+      retSnap.docs.forEach((d) => {
+        const r = d.data();
+        if (r.kind !== "sale") return;
+        const ts = new Date(r.date || r.createdAt || 0).getTime();
+        if (ts >= from && ts <= now) {
+          returnsCount++;
+          returnsTotal += parseFloat(r.amount) || 0;
+        }
+      });
+      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal });
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
@@ -173,7 +186,7 @@ export default function StorePOS() {
 
   function closingExpected(preview, openingCashVal, cashInVal, cashOutVal) {
     const cashSales = preview?.cashSales ?? preview?.paid ?? 0;
-    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(cashInVal) || 0) - (parseFloat(cashOutVal) || 0);
+    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(cashInVal) || 0) - (parseFloat(cashOutVal) || 0) - (parseFloat(preview?.returnsTotal) || 0);
   }
 
   async function submitClosing(e) {
@@ -196,6 +209,8 @@ export default function StorePOS() {
         paidTotal: closePreview.paid,
         cashSales: closePreview.cashSales ?? closePreview.paid,
         byMethod: closePreview.byMethod,
+        returnsCount: closePreview.returnsCount || 0,
+        returnsTotal: closePreview.returnsTotal || 0,
         countedCash: counted,
         expectedCash: expected,
         difference: counted - expected,
@@ -567,7 +582,7 @@ export default function StorePOS() {
           <div className="table-container" style={{ marginBottom: 16 }}>
             <div className="table-header"><h3>تقفيلات سابقة</h3></div>
             <table>
-              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>داخل</th><th>خارج</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
+              <thead><tr><th>#</th><th>الفتح</th><th>القفل</th><th>فواتير</th><th>محصل</th><th>مرتجع عدد</th><th>مرتجع مبلغ</th><th>داخل</th><th>خارج</th><th>معدود</th><th>الفرق</th><th>المستلم</th></tr></thead>
               <tbody>
                 {closings.map((c) => (
                   <tr key={c.id}>
@@ -576,6 +591,8 @@ export default function StorePOS() {
                     <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString("ar-EG") : <span style={{ color: "#16a34a", fontWeight: 700 }}>مفتوحة</span>}</td>
                     <td>{c.salesCount ?? "—"}</td>
                     <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(c.paidTotal).toLocaleString() : "—"}</td>
+                    <td>{c.returnsCount ?? "—"}</td>
+                    <td style={{ color: "#b45309", fontWeight: 700 }}>{c.returnsTotal != null ? Number(c.returnsTotal).toLocaleString() : "—"}</td>
                     <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? Number(c.cashIn).toLocaleString() : "—"}</td>
                     <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? Number(c.cashOut).toLocaleString() : "—"}</td>
                     <td>{c.countedCash != null ? Number(c.countedCash).toLocaleString() : "—"}</td>
@@ -951,7 +968,7 @@ export default function StorePOS() {
                 <button className="modal-close" onClick={() => setShowCloseModal(false)}>×</button>
               </div>
               <div className="modal-body">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                   <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>فواتير الوردية</div>
                     <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.count}</div>
@@ -963,6 +980,10 @@ export default function StorePOS() {
                   <div style={{ background: "#eff6ff", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>المحصل</div>
                     <div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>{closePreview.paid.toLocaleString()}</div>
+                  </div>
+                  <div style={{ background: "#fffbeb", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>مرتجعات ({closePreview.returnsCount || 0})</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{(closePreview.returnsTotal || 0).toLocaleString()}</div>
                   </div>
                 </div>
                 {Object.keys(closePreview.byMethod).length > 0 && (
@@ -977,6 +998,9 @@ export default function StorePOS() {
                     </div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
                       مبيعات الكاش: {(closePreview.cashSales ?? 0).toLocaleString()} {t("currency")}
+                      {(closePreview.returnsTotal || 0) > 0 && (
+                        <span style={{ color: "#b45309" }}> — مرتجعات تُخصم: {(closePreview.returnsTotal || 0).toLocaleString()}</span>
+                      )}
                     </div>
                   </div>
                 )}

@@ -87,6 +87,8 @@ export default function Reports() {
     products: 0,
     tasks: 0,
     totalRevenue: 0,
+    returnsCount: 0,
+    returnsTotal: 0,
     paidInvoices: 0,
     pendingInvoices: 0,
     overdueInvoices: 0,
@@ -152,9 +154,10 @@ export default function Reports() {
       let productsData = [];
       let tasksData = [];
       let usersData = [];
+      let returnsData = [];
 
       if (superAdmin) {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap, rSnap] = await Promise.all([
           getDocs(collection(db, "clients")),
           getDocs(collection(db, "sellers")),
           getDocs(collection(db, "buyers")),
@@ -162,6 +165,7 @@ export default function Reports() {
           getDocs(collection(db, "inventory")),
           getDocs(collection(db, "tasks")),
           getDocs(collection(db, "users")),
+          getDocs(collection(db, "returns")),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -170,8 +174,9 @@ export default function Reports() {
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        returnsData = rSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       } else {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap] = await Promise.all([
+        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap, rSnap] = await Promise.all([
           getDocs(getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("sellers", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("buyers", userRole, userCompanyId, currentUser?.uid)),
@@ -179,6 +184,7 @@ export default function Reports() {
           getDocs(getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("tasks", userRole, userCompanyId, currentUser?.uid)),
           getDocs(getScopedQuery("users", userRole, userCompanyId, currentUser?.uid)),
+          getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
         ]);
         clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -187,6 +193,7 @@ export default function Reports() {
         productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        returnsData = rSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }
 
       const cMap = {};
@@ -221,6 +228,16 @@ export default function Reports() {
         }
       });
 
+      // مرتجعات البيع تنقص الإيراد (مرتجعات الشراء تخص المشتريات/الأرباح فقط)
+      let saleReturnsTotal = 0,
+        returnsCount = 0;
+      returnsData.forEach((r) => {
+        if (r.kind !== "sale") return;
+        returnsCount++;
+        saleReturnsTotal += parseFloat(r.amount) || 0;
+      });
+      revenue -= saleReturnsTotal;
+
       const lowStockList = productsData.filter((p) => p.quantity < 5);
       const completed = tasksData.filter(
         (t) => t.status === "completed",
@@ -241,6 +258,8 @@ export default function Reports() {
         products: productsData.length,
         tasks: tasksData.length,
         totalRevenue: revenue,
+        returnsCount,
+        returnsTotal: saleReturnsTotal,
         paidInvoices: paid,
         pendingInvoices: pending,
         overdueInvoices: overdue,
@@ -279,6 +298,23 @@ export default function Reports() {
         const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
         revenueMap[key] = (revenueMap[key] || 0) + paidAmount;
       });
+      // وزّع مرتجعات البيع على شهورها (بتاريخ المرتجع) — وبدون تاريخ تُخصم من الشهر الحالي
+      {
+        const nowD = new Date();
+        const curKey = `${monthNames[nowD.getMonth()]} ${nowD.getFullYear()}`;
+        returnsData.forEach((r) => {
+          if (r.kind !== "sale") return;
+          const amt = parseFloat(r.amount) || 0;
+          if (amt <= 0) return;
+          let key = curKey;
+          const rd = r.date || r.createdAt;
+          if (rd) {
+            const d = new Date(rd);
+            if (!isNaN(d.getTime())) key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+          }
+          revenueMap[key] = (revenueMap[key] || 0) - amt;
+        });
+      }
       const last6 = [];
       for (let i = 5; i >= 0; i--) {
         const d = new Date();
@@ -654,6 +690,7 @@ export default function Reports() {
     { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple", module: "inventory" },
     { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink", module: "tasks" },
     { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
+    { label: t('rep.returns'), value: `${stats.returnsCount} • ${stats.returnsTotal.toLocaleString()} ${t('currency')}`, icon: "fas fa-undo", cls: "red", module: "invoices" },
   ];
   const statCards = ALL_STAT_CARDS.filter((s) => availableModules.has(s.module));
 
@@ -718,7 +755,7 @@ export default function Reports() {
               </div>
               <div
                 className="stat-value"
-                style={{ fontSize: s.label === t('rep.revenue') ? 18 : 30 }}
+                style={{ fontSize: (s.label === t('rep.revenue') || s.label === t('rep.returns')) ? 18 : 30 }}
               >
                 {s.value}
               </div>

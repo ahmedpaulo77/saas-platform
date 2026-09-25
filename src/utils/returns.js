@@ -64,5 +64,12 @@ export async function createReturn({
     user: { uid: user.uid, email: user.email, role: user.role, companyId: user.companyId },
   });
 
+  // ختم المستند المصدر حتى تظهر شارة "مرتجع" في الواجهة — لا تفشل المرتجع لو الختم فشل
+  if (refId) {
+    try {
+      await updateDoc(doc(db, kind === "sale" ? "invoices" : "purchases", refId), { hasReturn: true });
+    } catch {}
+  }
+
   return docRef.id;
 }
