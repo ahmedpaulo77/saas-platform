@@ -188,6 +188,7 @@ export const MODULE_MAP = {
 
   // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + مهام للموظفين (بدون رسائل)
   clothing: [
+    "store-pos",
     "clients",
     "invoices",
     "quotations",
@@ -240,6 +241,7 @@ export function getAvailableModules(industry, userRole) {
     return new Set([
       "dashboard",
       "pos",
+      "store-pos",
       "clients",
       "invoices",
       "notifications",
@@ -306,6 +308,7 @@ export const ROUTE_MODULE_MAP = {
   "/profile": "profile",
   "/about": "about",
   "/pos": "pos",
+  "/store-pos": "store-pos",
   "/suppliers": "suppliers",
   "/purchases": "purchases",
   "/expiry": "expiry",
@@ -372,6 +375,7 @@ export const MODULE_LABEL_KEYS = {
   certificates: "modules.certificates",
   aging: "modules.aging",
   pos: "modules.pos",
+  "store-pos": "modules.store_pos",
   suppliers: "modules.suppliers",
   purchases: "modules.purchases",
   barcode: "modules.barcode",

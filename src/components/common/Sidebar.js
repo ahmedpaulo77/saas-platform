@@ -42,6 +42,12 @@ export default function Sidebar() {
       module: "pos",
     },
     {
+      to: "/store-pos",
+      icon: "fas fa-cash-register",
+      label: t("nav.storePos"),
+      module: "store-pos",
+    },
+    {
       to: "/companies",
       icon: "fas fa-building",
       label: t("nav.companies"),
