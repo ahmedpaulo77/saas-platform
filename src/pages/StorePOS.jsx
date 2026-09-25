@@ -203,8 +203,8 @@ export default function StorePOS() {
   const discountNum = Math.max(0, parseFloat(discount) || 0);
   const total = Math.max(0, subtotal - discountNum);
 
-  // ── طباعة فاتورة حرارية 80mm زي المطعم (باسم المحل + باركود رقم الفاتورة) ──
-  function handleThermalPrint(inv, cartSnapshot, clientName) {
+  // ── طباعة فاتورة حرارية 80mm (اسم الكاشير + رسالة ترحيب + اسم المحل تحت) ──
+  function handleThermalPrint(inv, cartSnapshot, clientName, cashierName) {
     const escHtml = (s) =>
       String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const rows = cartSnapshot
@@ -239,8 +239,9 @@ export default function StorePOS() {
 </style>
 </head>
 <body>
-<h2>${escHtml(storeName || "فاتورة بيع")}</h2>
+<h2>فاتورة بيع</h2>
 <div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
+<div class="center" style="font-size:12px;margin-top:2px;"><strong>الكاشير:</strong> ${escHtml(cashierName || "—")}</div>
 <div class="divider"></div>
 <div style="font-size:12px;margin-bottom:4px;">
   <strong>العميل:</strong> ${escHtml(clientName || "زبون نقدي")}<br/>
@@ -266,7 +267,8 @@ export default function StorePOS() {
 </div>
 <div class="divider"></div>
 <svg class="bc" id="invbc"></svg>
-<div class="center" style="font-size:11px;margin-top:6px;">شكراً لزيارتكم 🙏</div>
+<div class="center" style="font-size:12px;margin-top:8px;font-weight:bold;">نورتونا — شكراً لتسوقكم معنا ❤</div>
+<div class="center" style="font-size:15px;margin-top:4px;font-weight:800;">${escHtml(storeName || "")}</div>
 <script>
   try {
     if (window.JsBarcode) JsBarcode("#invbc", "${invCode}", { format: "CODE128", displayValue: true, fontSize: 11, height: 40, width: 1.5, margin: 0 });
@@ -349,7 +351,7 @@ export default function StorePOS() {
       setDiscount("");
       setPaymentMethod("cash");
       await Promise.all([fetchProducts(), fetchClients()]);
-      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName);
+      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, currentUser?.email || "");
     } catch (err) {
       console.error(err);
       alert(err.message || t("pos.fail"));
