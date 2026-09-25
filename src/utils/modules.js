@@ -75,7 +75,7 @@ export const INDUSTRY_LABELS = {
   pharmacy: "💊 صيدلية",
   restaurant: "🍽️ مطعم",
   cafe: "☕ كافيه",
-    clothing: "🛍️ أزياء",
+    clothing: "👔 أزياء",
   clinic: "🩺 طبيب / عيادة",
 };
 
@@ -335,7 +335,7 @@ export function getIndustryShortLabel(industry) {
     pharmacy: "💊 صيدلية",
     restaurant: "🍽️ مطعم",
     cafe: "☕ كافيه",
-  clothing: "🛍️ أزياء",
+  clothing: "👔 أزياء",
     clinic: "🩺 عيادة",
   };
   return labels[industry] || "🏢 أعمال عامة";

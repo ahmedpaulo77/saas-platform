@@ -968,114 +968,13 @@ export default function Reports() {
 
         {userIndustry === "clothing" && (
           <div className="card" style={{ marginBottom: 24 }}>
-            <h3 style={{ marginBottom: 20 }}>
-              <i className="fas fa-tshirt" style={{ color: "#ec4899", marginLeft: 8 }}></i>
-              الأكثر مبيعاً بالمقاس/اللون
-            </h3>
-            <div className="grid-2">
-              {/* المقاسات الأكثر مبيعاً */}
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#334155", display: "flex", alignItems: "center" }}>
-                  <i className="fas fa-ruler" style={{ marginLeft: 6, color: "#6366f1" }}></i>
-                  المقاسات الأكثر مبيعاً
-                </h4>
-                {topSizes.length === 0 ? (
-                  <div className="empty-state" style={{ padding: "20px 0" }}>
-                    <div className="empty-icon"><i className="fas fa-ruler-combined"></i></div>
-                    <p style={{ fontSize: 13 }}>لا توجد بيانات مقاسات بعد</p>
-                  </div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={Math.max(180, topSizes.length * 38 + 20)}>
-                      <BarChart data={topSizes} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} allowDecimals={false} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fontFamily: "Cairo", fill: "#334155" }} width={80} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="quantity" name="الكمية" fill="#6366f1" radius={[0, 6, 6, 0]} barSize={18} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div style={{ marginTop: 8 }}>
-                      {(() => {
-                        const maxQty = Math.max(...topSizes.map((s) => s.quantity), 1);
-                        return topSizes.map((item, idx) => (
-                          <div key={item.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: idx === 0 ? "#eef2ff" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: idx === 0 ? "1px solid #c7d2fe" : "1px solid transparent" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ width: 24, height: 24, borderRadius: "50%", background: idx === 0 ? "#6366f1" : idx === 1 ? "#94a3b8" : idx === 2 ? "#f59e0b" : "#e2e8f0", color: idx <= 2 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{idx + 1}</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{item.name}</span>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ width: 80, height: 8, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
-                                <div style={{ width: `${(item.quantity / maxQty) * 100}%`, height: "100%", background: "#6366f1", borderRadius: 99 }} />
-                              </div>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: "#6366f1", minWidth: 28, textAlign: "left" }}>{item.quantity}</span>
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* الألوان الأكثر مبيعاً */}
-              <div>
-                <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "#334155", display: "flex", alignItems: "center" }}>
-                  <i className="fas fa-palette" style={{ marginLeft: 6, color: "#ec4899" }}></i>
-                  الألوان الأكثر مبيعاً
-                </h4>
-                {topColors.length === 0 ? (
-                  <div className="empty-state" style={{ padding: "20px 0" }}>
-                    <div className="empty-icon"><i className="fas fa-paint-brush"></i></div>
-                    <p style={{ fontSize: 13 }}>لا توجد بيانات ألوان بعد</p>
-                  </div>
-                ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={Math.max(180, topColors.length * 38 + 20)}>
-                      <BarChart data={topColors} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} allowDecimals={false} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fontFamily: "Cairo", fill: "#334155" }} width={80} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="quantity" name="الكمية" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={18} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div style={{ marginTop: 8 }}>
-                      {(() => {
-                        const maxQty = Math.max(...topColors.map((c) => c.quantity), 1);
-                        return topColors.map((item, idx) => (
-                          <div key={item.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: idx === 0 ? "#fdf2f8" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: idx === 0 ? "1px solid #fbcfe8" : "1px solid transparent" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ width: 24, height: 24, borderRadius: "50%", background: idx === 0 ? "#ec4899" : idx === 1 ? "#94a3b8" : idx === 2 ? "#f59e0b" : "#e2e8f0", color: idx <= 2 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{idx + 1}</span>
-                              <span style={{ width: 14, height: 14, borderRadius: "50%", background: item.name === "غير محدد" ? "#e2e8f0" : item.name, border: "1px solid #e2e8f0", display: "inline-block" }} title={item.name}></span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{item.name}</span>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div style={{ width: 80, height: 8, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
-                                <div style={{ width: `${(item.quantity / maxQty) * 100}%`, height: "100%", background: "#ec4899", borderRadius: 99 }} />
-                              </div>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: "#ec4899", minWidth: 28, textAlign: "left" }}>{item.quantity}</span>
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {userIndustry === "clothing" && (
-          <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 16 }}>
               <i className="fas fa-tshirt" style={{ color: "#8b5cf6", marginLeft: 8 }}></i>
               {t('rep.clothingTitle')}
             </h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
               <div>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>🏷️ {t('rep.topType')}</h4>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}><i className="fas fa-tags" style={{ marginLeft: 6 }}></i> {t('rep.topType')}</h4>
                 {topTypes.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
                   <><ResponsiveContainer width="100%" height={140}>
                     <BarChart data={topTypes.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -1089,7 +988,7 @@ export default function Reports() {
                   {topTypes.slice(0, 5).map((it, i) => rankRow(it, i, "#8b5cf6"))}</>}
               </div>
               <div>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>📏 {t('rep.topSize')}</h4>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}><i className="fas fa-ruler" style={{ marginLeft: 6 }}></i> {t('rep.topSize')}</h4>
                 {topSizes.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
                   <><ResponsiveContainer width="100%" height={140}>
                     <BarChart data={topSizes.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -1103,7 +1002,7 @@ export default function Reports() {
                   {topSizes.slice(0, 5).map((it, i) => rankRow(it, i, "#6366f1"))}</>}
               </div>
               <div>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>🎨 {t('rep.topColor')}</h4>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}><i className="fas fa-palette" style={{ marginLeft: 6 }}></i> {t('rep.topColor')}</h4>
                 {topColors.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
                   <><ResponsiveContainer width="100%" height={140}>
                     <BarChart data={topColors.slice(0, 5)} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -1111,13 +1010,13 @@ export default function Reports() {
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#ec4899" radius={[6, 6, 0, 0]} barSize={26} />
+                      <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#1e3a8a" radius={[6, 6, 0, 0]} barSize={26} />
                     </BarChart>
                   </ResponsiveContainer>
-                  {topColors.slice(0, 5).map((it, i) => rankRow(it, i, "#ec4899"))}</>}
+                  {topColors.slice(0, 5).map((it, i) => rankRow(it, i, "#1e3a8a"))}</>}
               </div>
               <div>
-                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}>👕 {t('rep.topProduct')}</h4>
+                <h4 style={{ fontSize: 13, fontWeight: 800, marginBottom: 10, color: "#334155" }}><i className="fas fa-shirt" style={{ marginLeft: 6 }}></i> {t('rep.topProduct')}</h4>
                 {topProductsSold.length === 0 ? <p style={{ fontSize: 12, color: "#94a3b8" }}>{t('rep.noData')}</p> :
                   topProductsSold.slice(0, 5).map((it, i) => (
                     <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "var(--gray-50)", borderRadius: 8, marginBottom: 6 }}>

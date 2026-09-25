@@ -249,7 +249,7 @@ export default function Purchases() {
     setAddingSupplier(false);
   }
   async function handleQuickAddProduct() {
-    if (!quickProductName.trim() || !quickProductPrice) { alert(t("common.fillRequired")); return; }
+    if (!quickProductName.trim()) { alert(t("common.fillRequired")); return; }
     if (!userCompanyId) return;
     setAddingProduct(true);
     try {
@@ -1032,12 +1032,12 @@ ${labelDivs}
                             <span style={{ fontWeight: 700, fontSize: 13 }}>
                               {prod?.name || "—"}
                               {prod?.size ? (
-                                <span style={{ marginRight: 6, background: "#ede9fe", color: "#6d28d9", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
+                                <span style={{ marginRight: 6, background: "#eff6ff", color: "#1e3a8a", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
                                   📏 {prod.size}
                                 </span>
                               ) : null}
                               {prod?.color ? (
-                                <span style={{ marginRight: 4, background: "#fdf2f8", color: "#be185d", border: "1px solid #f9a8d4", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
+                                <span style={{ marginRight: 4, background: "#eff6ff", color: "#1e3a8a", border: "1px solid #bfdbfe", borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 800 }}>
                                   🎨 {prod.color}
                                 </span>
                               ) : null}
@@ -1309,12 +1309,12 @@ ${labelDivs}
                                       <div key={idx} style={{ marginBottom: 2 }}>
                                         {nm}{" "}
                                         {prod?.size ? (
-                                          <span style={{ background: "#ede9fe", color: "#6d28d9", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
+                                          <span style={{ background: "#eff6ff", color: "#1e3a8a", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
                                             📏 {prod.size}
                                           </span>
                                         ) : null}{" "}
                                         {prod?.color ? (
-                                          <span style={{ background: "#fdf2f8", color: "#be185d", border: "1px solid #f9a8d4", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
+                                          <span style={{ background: "#eff6ff", color: "#1e3a8a", border: "1px solid #bfdbfe", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 800 }}>
                                             🎨 {prod.color}
                                           </span>
                                         ) : null}{" "}

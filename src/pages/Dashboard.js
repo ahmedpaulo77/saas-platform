@@ -136,8 +136,8 @@ const ALL_FEATURE_CARDS = [
   {
     to: "/store-pos",
     icon: "fas fa-shirt",
-    color: "#ec4899",
-    bg: "#fdf2f8",
+    color: "#1e3a8a",
+    bg: "#eff6ff",
     titleKey: "dash.storepos.t",
     descKey: "dash.storepos.d",
     module: "store-pos",

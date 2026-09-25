@@ -839,9 +839,9 @@ export default function Inventory() {
 
         {/* ── مولّد الموديلات (أزياء) ── */}
         {isFashion && (
-          <div className="form-card" style={{ border: "2px solid #ec489955", marginTop: 20 }}>
+          <div className="form-card" style={{ border: "2px solid #1e3a8a55", marginTop: 20 }}>
             <h3>
-              <i className="fas fa-shirt" style={{ color: "#ec4899" }}></i>
+              <i className="fas fa-shirt" style={{ color: "#1e3a8a" }}></i>
               👔 توليد موديل — مقاسات × ألوان بضغطة واحدة
             </h3>
             <form onSubmit={generateVariants}>
@@ -881,7 +881,7 @@ export default function Inventory() {
                     return (
                       <button key={s.value + s.category} type="button"
                         onClick={() => setGenSizes(on ? genSizes.filter((v) => v !== s.value) : [...genSizes, s.value])}
-                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: `2px solid ${on ? "#ec4899" : "#e2e8f0"}`, background: on ? "#fdf2f8" : "white", color: on ? "#be185d" : "#64748b" }}>
+                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: `2px solid ${on ? "#1e3a8a" : "#e2e8f0"}`, background: on ? "#eff6ff" : "white", color: on ? "#1e3a8a" : "#64748b" }}>
                         {s.label}
                       </button>
                     );
@@ -927,7 +927,7 @@ export default function Inventory() {
             return (
               <div className="form-card" style={{ border: "2px solid #f59e0b55", marginTop: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <h3 style={{ margin: 0 }}><i className="fas fa-box-open" style={{ color: "#d97706" }}></i> 🐢 الراكد ({dead.length})</h3>
+                  <h3 style={{ margin: 0 }}><i className="fas fa-box-open" style={{ color: "#d97706" }}></i> 📦 الراكد ({dead.length})</h3>
                   <select value={deadDays} onChange={(e) => setDeadDays(parseInt(e.target.value))}
                     style={{ marginRight: "auto", padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
                     <option value={14}>بدون بيع 14 يوم</option>
@@ -1174,7 +1174,7 @@ export default function Inventory() {
                     <td>{isRestaurant ? getCategoryLabel(product.category) : (product.category || "—")}</td>
                     {isClothing && (
                       <>
-                        <td style={{ fontWeight: 700, color: "#be185d" }}>{product.model || "—"}</td>
+                        <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
                         <td>{product.type === "men" ? "رجالي" : product.type === "women" ? "حريمي" : product.type === "kids" ? "أطفال" : product.type === "unisex" ? "يونيسكس" : "—"}</td>
                         <td style={{ fontWeight: 600 }}>{product.size || "—"}</td>
                         <td>{product.color || "—"}</td>

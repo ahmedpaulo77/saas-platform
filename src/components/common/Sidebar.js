@@ -132,7 +132,7 @@ export default function Sidebar() {
     {
       to: "/variant-codes",
       icon: "fas fa-barcode",
-      label: "أكواد الألوان والمقاسات",
+      label: t("vc.title"),
       module: "variant-codes",
     },
         {
