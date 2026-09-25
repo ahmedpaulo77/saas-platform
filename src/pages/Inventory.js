@@ -11,7 +11,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, storage } from "../firebase/config";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
@@ -97,13 +97,33 @@ export default function Inventory() {
     setEditImageFile(file || null);
     setEditImagePreview(file ? URL.createObjectURL(file) : "");
   }
+  // ضغط الصورة وتحويلها base64 (بدون Storage — تعمل على الخطة المجانية)
+  function fileToBase64(file, maxSize = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          const scale = Math.min(1, maxSize / Math.max(width, height));
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
   async function uploadProductImage(file) {
-    if (!file || !userCompanyId) return "";
-    const safeName = (file.name || "img").replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `products/${userCompanyId}/${Date.now()}_${safeName}`;
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+    if (!file) return "";
+    return await fileToBase64(file);
   }
 
   // مولّد الـ variants (أزياء): موديل + مقاسات × ألوان
@@ -210,13 +230,18 @@ export default function Inventory() {
     ...Array.from({ length: 29 }, (_, i) => ({ value: String(22 + i), label: String(22 + i), category: "shoes" })),
   ];
   const colors = [
-    { value: "أسود", label: "⚫ أسود" }, { value: "أبيض", label: "⚪ أبيض" },
-    { value: "أحمر", label: "🔴 أحمر" }, { value: "أزرق", label: "🔵 أزرق" },
-    { value: "أخضر", label: "🟢 أخضر" }, { value: "أصفر", label: "🟡 أصفر" },
-    { value: "رمادي", label: "⬜ رمادي" }, { value: "بني", label: "🟤 بني" },
-    { value: "برتقالي", label: "🟠 برتقالي" }, { value: "وردي", label: "💗 وردي" },
-    { value: "بنفسجي", label: "🟣 بنفسجي" },
+    { value: "أسود", label: "أسود", hex: "#111827" }, { value: "أبيض", label: "أبيض", hex: "#f8fafc" },
+    { value: "أحمر", label: "أحمر", hex: "#dc2626" }, { value: "أزرق", label: "أزرق", hex: "#2563eb" },
+    { value: "أخضر", label: "أخضر", hex: "#16a34a" }, { value: "أصفر", label: "أصفر", hex: "#eab308" },
+    { value: "رمادي", label: "رمادي", hex: "#94a3b8" }, { value: "بني", label: "بني", hex: "#92400e" },
+    { value: "برتقالي", label: "برتقالي", hex: "#ea580c" }, { value: "وردي", label: "وردي", hex: "#ec4899" },
+    { value: "بنفسجي", label: "بنفسجي", hex: "#7c3aed" }, { value: "بيج", label: "بيج", hex: "#d6c39a" },
+    { value: "كحلي", label: "كحلي", hex: "#1e3a8a" }, { value: "زيتي", label: "زيتي", hex: "#3f6212" },
   ];
+  // نقطة لون رجالي نظيفة بدل الإيموجي
+  const colorDot = (hex) => (
+    <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: "50%", background: hex, border: "1px solid #cbd5e1", flexShrink: 0 }} />
+  );
 
   // ── Fetch ──
   const fetchProducts = useCallback(async () => {
@@ -796,7 +821,7 @@ export default function Inventory() {
           <div className="form-card" style={{ border: "2px solid #ec489955", marginTop: 20 }}>
             <h3>
               <i className="fas fa-shirt" style={{ color: "#ec4899" }}></i>
-              👗 توليد موديل — مقاسات × ألوان بضغطة واحدة
+              👔 توليد موديل — مقاسات × ألوان بضغطة واحدة
             </h3>
             <form onSubmit={generateVariants}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
@@ -850,8 +875,8 @@ export default function Inventory() {
                     return (
                       <button key={c.value} type="button"
                         onClick={() => setGenColors(on ? genColors.filter((v) => v !== c.value) : [...genColors, c.value])}
-                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: `2px solid ${on ? "#ec4899" : "#e2e8f0"}`, background: on ? "#fdf2f8" : "white", color: on ? "#be185d" : "#64748b" }}>
-                        {c.label}
+                        style={{ padding: "4px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, border: `2px solid ${on ? "#1e3a8a" : "#e2e8f0"}`, background: on ? "#eff6ff" : "white", color: on ? "#1e3a8a" : "#64748b" }}>
+                        {colorDot(c.hex)}{c.label}
                       </button>
                     );
                   })}

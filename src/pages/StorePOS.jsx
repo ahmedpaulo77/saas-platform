@@ -1,4 +1,4 @@
-// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس 👗 (منفصلة عن كاشير المطعم)
+// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -8,6 +8,9 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS } from "../utils/paymentMethods";
+import { Shirt } from "lucide-react";
+
+const NAVY = "#1e3a8a";
 
 const TYPE_LABELS = { men: "رجالي", women: "حريمي", kids: "أطفال", unisex: "يونيسكس" };
 
@@ -282,9 +285,9 @@ export default function StorePOS() {
       <div className="main-content" style={{ fontFamily: "Cairo, sans-serif" }}>
         <div className="header">
           <div>
-            <h1>
-              <i className="fas fa-cash-register" style={{ color: "#ec4899", marginLeft: 10 }}></i>
-              👗 {t("storepos.title")}
+            <h1 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Shirt size={26} color={NAVY} />
+              {t("storepos.title")}
             </h1>
             <p className="subtitle">{t("storepos.subtitle")}</p>
           </div>
@@ -352,7 +355,7 @@ export default function StorePOS() {
                       disabled={out}
                       style={{
                         background: "white",
-                        border: `2px solid ${inCart ? "#ec4899" : "#e2e8f0"}`,
+                        border: `2px solid ${inCart ? "#1e3a8a" : "#e2e8f0"}`,
                         borderRadius: 14,
                         padding: 0,
                         cursor: out ? "not-allowed" : "pointer",
@@ -365,13 +368,13 @@ export default function StorePOS() {
                       }}
                       onMouseEnter={(e) => {
                         if (!out) {
-                          e.currentTarget.style.borderColor = "#ec4899";
+                          e.currentTarget.style.borderColor = "#1e3a8a";
                           e.currentTarget.style.transform = "translateY(-3px)";
-                          e.currentTarget.style.boxShadow = "0 8px 20px rgba(236,72,153,0.15)";
+                          e.currentTarget.style.boxShadow = "0 8px 20px rgba(30,58,138,0.15)";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = inCart ? "#ec4899" : "#e2e8f0";
+                        e.currentTarget.style.borderColor = inCart ? "#1e3a8a" : "#e2e8f0";
                         e.currentTarget.style.transform = "none";
                         e.currentTarget.style.boxShadow = "none";
                       }}
@@ -381,7 +384,7 @@ export default function StorePOS() {
                         {product.imageUrl ? (
                           <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
-                          <span style={{ fontSize: 44 }}>👕</span>
+                          <Shirt size={44} color="#94a3b8" />
                         )}
                       </div>
                       {inCart && (
@@ -390,7 +393,7 @@ export default function StorePOS() {
                             position: "absolute",
                             top: 8,
                             left: 8,
-                            background: "#ec4899",
+                            background: "#1e3a8a",
                             color: "white",
                             borderRadius: "50%",
                             width: 22,
@@ -417,14 +420,14 @@ export default function StorePOS() {
                               </span>
                             )}
                             {product.color && (
-                              <span style={{ fontSize: 10, background: "#fdf2f8", color: "#be185d", padding: "1px 8px", borderRadius: 10, fontWeight: 700 }}>
+                              <span style={{ fontSize: 10, background: "#eff6ff", color: "#1e3a8a", padding: "1px 8px", borderRadius: 10, fontWeight: 700 }}>
                                 {product.color}
                               </span>
                             )}
                           </div>
                         )}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                          <span style={{ fontWeight: 800, color: "#ec4899", fontSize: 14 }}>
+                          <span style={{ fontWeight: 800, color: "#1e3a8a", fontSize: 14 }}>
                             {product.price} {t("currency")}
                           </span>
                           <span
@@ -449,9 +452,9 @@ export default function StorePOS() {
           {/* ── سلة البيع ── */}
           <div className="card" style={{ position: "sticky", top: 16 }}>
             <h3 style={{ marginBottom: 14 }}>
-              <i className="fas fa-shopping-bag" style={{ color: "#ec4899" }}></i> {t("storepos.cart")}
+              <i className="fas fa-shopping-bag" style={{ color: "#1e3a8a" }}></i> {t("storepos.cart")}
               {cart.length > 0 && (
-                <span className="badge" style={{ marginRight: 8, background: "#ec4899", color: "white" }}>
+                <span className="badge" style={{ marginRight: 8, background: "#1e3a8a", color: "white" }}>
                   {cart.length}
                 </span>
               )}
@@ -500,7 +503,7 @@ export default function StorePOS() {
                       fontWeight: 700,
                       border: "none",
                       borderRadius: 8,
-                      background: !newClientName.trim() ? "#e2e8f0" : "#ec4899",
+                      background: !newClientName.trim() ? "#e2e8f0" : "#1e3a8a",
                       color: "white",
                       cursor: "pointer",
                     }}
@@ -526,8 +529,8 @@ export default function StorePOS() {
                     {item.imageUrl ? (
                       <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0", flexShrink: 0 }} />
                     ) : (
-                      <span style={{ width: 44, height: 44, borderRadius: 8, background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
-                        👕
+                      <span style={{ width: 44, height: 44, borderRadius: 8, background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Shirt size={22} color="#94a3b8" />
                       </span>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -601,7 +604,7 @@ export default function StorePOS() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px dashed #e2e8f0", paddingTop: 10 }}>
                 <span style={{ fontWeight: 800, fontSize: 15, color: "#1e293b" }}>{t("pos.total")}</span>
-                <span style={{ fontWeight: 900, fontSize: 20, color: "#ec4899" }}>
+                <span style={{ fontWeight: 900, fontSize: 20, color: "#1e3a8a" }}>
                   {total.toFixed(2)} {t("currency")}
                 </span>
               </div>
@@ -612,7 +615,7 @@ export default function StorePOS() {
               className="btn-primary btn-block"
               disabled={cart.length === 0 || submitting}
               style={{
-                background: cart.length === 0 ? "#cbd5e1" : "linear-gradient(135deg,#ec4899,#be185d)",
+                background: cart.length === 0 ? "#cbd5e1" : "linear-gradient(135deg,#1e3a8a,#1e3a8a)",
                 fontSize: 16,
                 padding: "14px",
               }}
