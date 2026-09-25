@@ -40,11 +40,14 @@ export function NotificationsProvider({ children }) {
   // ✅ كل مصدر بيانات ليه state منفصلة، وبيتجمعوا مع بعض تحت
   const [stockAlerts, setStockAlerts] = useState([]);
   const [expiryAlerts, setExpiryAlerts] = useState([]);
+  const [batchAlerts, setBatchAlerts] = useState([]);
   const [invoiceAlerts, setInvoiceAlerts] = useState([]);
+  const [approvalAlerts, setApprovalAlerts] = useState([]);
   const [taskAlerts, setTaskAlerts] = useState([]);
 
   const [loadedFlags, setLoadedFlags] = useState({
     inventory: false,
+    batches: false,
     invoices: false,
     tasks: false,
   });
@@ -70,7 +73,9 @@ const q = getScopedQuery('inventory', userRole, userCompanyId, currentUser?.uid)
         snap.forEach((d) => {
           const p = { id: d.id, ...d.data() };
 
-          if (p.quantity < 5) {
+          // حد النقص: minQuantity الخاص بالصنف (صيدلية) أو 5 افتراضي
+          const minQ = parseFloat(p.minQuantity) > 0 ? parseFloat(p.minQuantity) : 5;
+          if ((parseFloat(p.quantity) || 0) <= minQ) {
             stock.push({
               id: `stock-${p.id}`,
               type: 'warning',
@@ -118,10 +123,11 @@ const q = getScopedQuery('inventory', userRole, userCompanyId, currentUser?.uid)
 
     return () => unsubscribe();
   }, [userRole, userCompanyId, currentUser?.uid, t]);
-  // ✅ استماع لحظي على الفواتير: تنبيه فاتورة متأخرة السداد
+  // ✅ استماع لحظي على الفواتير: متأخرة السداد + بانتظار التأكيد
   useEffect(() => {
     if (!userCompanyId || userRole === 'super_admin') {
       setInvoiceAlerts([]);
+      setApprovalAlerts([]);
       setLoadedFlags((f) => ({ ...f, invoices: true }));
       return;
     }
@@ -130,6 +136,7 @@ const q = getScopedQuery('invoices', userRole, userCompanyId, currentUser?.uid);
       q,
       (snap) => {
         const list = [];
+        const approvals = [];
         snap.forEach((d) => {
           const inv = { id: d.id, ...d.data() };
           if (inv.status === 'overdue') {
@@ -142,13 +149,79 @@ const q = getScopedQuery('invoices', userRole, userCompanyId, currentUser?.uid);
               date: inv.date || new Date().toISOString(),
             });
           }
+          // فواتير بانتظار التأكيد (جديدة أو مرسلة للمراجعة) — القديمة بدون حقل تُعتبر مؤكدة
+          const approval = inv.approval || 'validated';
+          if (approval === 'new' || approval === 'waiting') {
+            approvals.push({
+              id: `appr-${inv.id}`,
+              type: 'info',
+              icon: 'fas fa-check-circle',
+              title: t('nt.approvalTitle'),
+              message: t('nt.approvalMsg', { amount: (parseFloat(inv.amount) || 0).toLocaleString() }),
+              date: inv.createdAt || inv.date || new Date().toISOString(),
+            });
+          }
         });
         setInvoiceAlerts(list);
+        setApprovalAlerts(approvals);
         setLoadedFlags((f) => ({ ...f, invoices: true }));
       },
       (error) => {
         console.error('Error listening to invoices:', error);
         setLoadedFlags((f) => ({ ...f, invoices: true }));
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userRole, userCompanyId, currentUser?.uid, t]);
+
+  // ✅ استماع لحظي على التشغيلات (صيدلية): تنبيه انتهاء/قرب انتهاء التشغيلة
+  useEffect(() => {
+    if (!userCompanyId || userRole === 'super_admin') {
+      setBatchAlerts([]);
+      setLoadedFlags((f) => ({ ...f, batches: true }));
+      return;
+    }
+
+    const q = getScopedQuery('batches', userRole, userCompanyId, currentUser?.uid);
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const list = [];
+        const today = startOfDay(new Date());
+        snap.forEach((d) => {
+          const b = { id: d.id, ...d.data() };
+          if ((parseFloat(b.quantity) || 0) <= 0) return;
+          const expDate = parseDate(b.expiryDate);
+          if (!expDate) return;
+          const daysLeft = Math.round((startOfDay(expDate) - today) / (1000 * 60 * 60 * 24));
+          const name = b.productName || b.batchNumber || b.id.slice(0, 6);
+          if (daysLeft < 0) {
+            list.push({
+              id: `batch-exp-${b.id}`,
+              type: 'danger',
+              icon: 'fas fa-calendar-times',
+              title: t('nt.expiredTitle', { name }),
+              message: t('nt.expSoonMsg', { n: 0 }),
+              date: expDate.toISOString(),
+            });
+          } else if (daysLeft <= EXPIRY_WARNING_DAYS) {
+            list.push({
+              id: `batch-exp-${b.id}`,
+              type: 'warning',
+              icon: 'fas fa-calendar-times',
+              title: t('nt.expSoonTitle', { name }),
+              message: t('nt.expSoonMsg', { n: daysLeft }),
+              date: expDate.toISOString(),
+            });
+          }
+        });
+        setBatchAlerts(list);
+        setLoadedFlags((f) => ({ ...f, batches: true }));
+      },
+      (error) => {
+        console.error('Error listening to batches:', error);
+        setLoadedFlags((f) => ({ ...f, batches: true }));
       }
     );
 
@@ -201,10 +274,10 @@ const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);   
   }, [userRole, userCompanyId, currentUser?.uid, t]);
   // ✅ تجميع كل المصادر في قائمة واحدة مرتبة بالأحدث
   const notifications = useMemo(() => {
-    const all = [...stockAlerts, ...expiryAlerts, ...invoiceAlerts, ...taskAlerts];
+    const all = [...stockAlerts, ...expiryAlerts, ...batchAlerts, ...invoiceAlerts, ...approvalAlerts, ...taskAlerts];
     all.sort((a, b) => new Date(b.date) - new Date(a.date));
     return all;
-  }, [stockAlerts, expiryAlerts, invoiceAlerts, taskAlerts]);
+  }, [stockAlerts, expiryAlerts, batchAlerts, invoiceAlerts, approvalAlerts, taskAlerts]);
 
   // ✅ تتبع الإشعارات اللي المستخدم شافها (محفوظة محليًا لكل مستخدم)
   const [readIds, setReadIds] = useState(new Set());
@@ -257,7 +330,7 @@ const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);   
 
   const loading = !currentUser
     ? false
-    : !(loadedFlags.inventory && loadedFlags.invoices && loadedFlags.tasks);
+    : !(loadedFlags.inventory && loadedFlags.batches && loadedFlags.invoices && loadedFlags.tasks);
 
   // ✅ الداتا بقت لحظية أوتوماتيك، فمفيش حاجة تعملها فعليًا - لكن سايبها
   // موجودة عشان زرار "تحديث" في الصفحة يفضل شغال من غير ما يكسر حاجة
