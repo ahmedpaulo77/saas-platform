@@ -69,8 +69,9 @@ const MONTH_NAMES = {
 
 export default function Profits() {
   const { t, lang, dir } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isAdmin = userRole === "admin" || userRole === "super_admin";
+  const isFashion = userIndustry === "clothing";
 
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
@@ -695,7 +696,7 @@ export default function Profits() {
             </div>
             <div className="stat-label">{t("profits.profit")}</div>
           </div>
-          {coverageEnabled && (
+          {!isFashion && coverageEnabled && (
             <div className={`stat-card ${netAfterCoverage >= 0 ? "purple" : "red"}`}>
               <div className="stat-icon">
                 <i className="fas fa-shield-halved"></i>
@@ -800,7 +801,8 @@ export default function Profits() {
           </div>
         </div>
 
-        {/* خانة الكفر - احتياطي مالي اختياري */}
+        {/* خانة الكفر - احتياطي مالي اختياري (مخفية لنشاط الأزياء) */}
+        {!isFashion && (
         <div className="form-card">
           <h3>
             <i className="fas fa-shield-halved" style={{ color: "#7c3aed" }}></i>
@@ -864,6 +866,7 @@ export default function Profits() {
             </div>
           </form>
         </div>
+        )}
       </div>
     </div>
   );
