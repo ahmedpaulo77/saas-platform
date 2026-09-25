@@ -453,7 +453,7 @@ export default function StorePOS() {
       return;
     }
     if (!cashierName.trim()) {
-      alert("اكتب اسم الكاشير الأول");
+      alert(t("storepos.cashierRequired"));
       return;
     }
     setSubmitting(true);
@@ -780,10 +780,10 @@ export default function StorePOS() {
 
             {/* الكاشير الواقف — بيتسجل مرة واحدة ويفضل محفوظ */}
             <div className="form-group" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#64748b" }}>🧑‍💼 اسم الكاشير *</label>
+              <label style={{ fontSize: 12, color: "#64748b" }}>🧑‍💼 {t("storepos.cashierName")}</label>
               <input
                 type="text"
-                placeholder="اسم الكاشير الواقف"
+                placeholder={t("storepos.cashierNamePh")}
                 value={cashierName}
                 onChange={(e) => handleCashierNameChange(e.target.value)}
                 style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
