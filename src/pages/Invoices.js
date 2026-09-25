@@ -27,12 +27,33 @@ export default function Invoices() {
   const foodLabel = isCafe ? "الكافيه" : "المطعم";
 
   const {
-    filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
+    invoices, filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
     clients, products, fetchClients, fetchProducts,
     searchTerm, setSearchTerm, filterStatus, setFilterStatus,
     filterApproval, setFilterApproval,
     stats, handleOrderStatusChange, hasInventory, isAdmin, isClinic, PAGE_SIZE,
   } = useInvoices();
+  const [barcodeScan, setBarcodeScan] = useState("");
+  const [scanning, setScanning] = useState(false);
+
+  // امسح باركود الفاتورة بالسكانر → تتفتح شاشة المرتجع على طول
+  async function handleBarcodeReturn(e) {
+    e.preventDefault();
+    const code = barcodeScan.trim().replace(/[^A-Za-z0-9]/g, "");
+    if (!code) return;
+    setScanning(true);
+    try {
+      let found = (invoices || []).find((inv) => String(inv.id || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase() === code.toLowerCase());
+      if (!found) {
+        const snap = await getDoc(doc(db, "invoices", barcodeScan.trim()));
+        if (snap.exists()) found = { id: snap.id, ...snap.data() };
+      }
+      if (!found) { alert("لا توجد فاتورة بهذا الرقم"); return; }
+      setReturningInvoice(found); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+      setBarcodeScan("");
+    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
+    setScanning(false);
+  }
 
   const [submitting, setSubmitting] = useState(false);
   const emptyInvoice = {
@@ -242,6 +263,20 @@ export default function Invoices() {
         ) : (<div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}><i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i><p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("in.statsAdminOnly")}</p></div>)}
 
         <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} />
+
+        {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة */}
+        <form onSubmit={handleBarcodeReturn} className="form-card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>مرتجع بالباركود</div>
+          <input
+            type="text"
+            placeholder="امسح باركود الفاتورة هنا..."
+            value={barcodeScan}
+            onChange={(e) => setBarcodeScan(e.target.value)}
+            autoFocus={false}
+            style={{ flex: 1, minWidth: 220, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, fontFamily: "monospace", direction: "ltr", textAlign: "left" }}
+          />
+          <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : "فتح المرتجع"}</button>
+        </form>
 
         <InvoiceTable
           filteredInvoices={filteredInvoices} clients={clients} products={products}

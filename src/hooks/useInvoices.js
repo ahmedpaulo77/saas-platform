@@ -101,11 +101,14 @@ export function useInvoices() {
       });
     }
     if (!searchTerm.trim()) return list;
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().replace(/[^a-z0-9]/g, "");
     return list.filter((inv) => {
       const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
       const productNames = inv.products?.map((p) => products.find((pr) => pr.id === p.productId)?.name || "") || [];
+      // مطابقة رقم الفاتورة (باركود السكانر) — الـ ID كامل
+      const idMatch = String(inv.id || "").toLowerCase().replace(/[^a-z0-9]/g, "").includes(term) && term.length > 0;
       return (
+        idMatch ||
         clientName.toLowerCase().includes(term) ||
         productNames.some((name) => name.toLowerCase().includes(term)) ||
         String(inv.amount).includes(term) ||

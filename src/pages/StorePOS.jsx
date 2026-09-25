@@ -358,7 +358,8 @@ export default function StorePOS() {
       </tr>`;
       })
       .join("");
-    const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 12) || "0";
+    // رقم الفاتورة كامل في الباركود — السكانر يرجّع نفس الـ ID لفتح المرتجع
+    const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "") || "0";
     const printContent = `<!DOCTYPE html>
 <html dir="rtl">
 <head>
