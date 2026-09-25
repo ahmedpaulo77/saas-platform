@@ -35,6 +35,21 @@ export default function StorePOS() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [storeName, setStoreName] = useState("");
+  // اسم الكاشير الواقف — متسجل زي الشيفت وبيطلع في الفاتورة
+  const [cashierName, setCashierName] = useState(() => {
+    try {
+      return localStorage.getItem("pos_cashier_name") || "";
+    } catch {
+      return "";
+    }
+  });
+
+  function handleCashierNameChange(v) {
+    setCashierName(v);
+    try {
+      localStorage.setItem("pos_cashier_name", v);
+    } catch {}
+  }
 
   useEffect(() => {
     if (!userCompanyId) return;
@@ -295,6 +310,10 @@ export default function StorePOS() {
       alert(t("pos.addFirst"));
       return;
     }
+    if (!cashierName.trim()) {
+      alert("اكتب اسم الكاشير الأول");
+      return;
+    }
     setSubmitting(true);
     try {
       // خصم المخزون مع التحقق من التوفر
@@ -351,7 +370,7 @@ export default function StorePOS() {
       setDiscount("");
       setPaymentMethod("cash");
       await Promise.all([fetchProducts(), fetchClients()]);
-      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, currentUser?.email || "");
+      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, cashierName.trim() || "—");
     } catch (err) {
       console.error(err);
       alert(err.message || t("pos.fail"));
@@ -562,6 +581,18 @@ export default function StorePOS() {
                 </span>
               )}
             </h3>
+
+            {/* الكاشير الواقف — بيتسجل مرة واحدة ويفضل محفوظ */}
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: "#64748b" }}>🧑‍💼 اسم الكاشير *</label>
+              <input
+                type="text"
+                placeholder="اسم الكاشير الواقف"
+                value={cashierName}
+                onChange={(e) => handleCashierNameChange(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
+              />
+            </div>
 
             {/* العميل */}
             <div className="form-group" style={{ marginBottom: 12 }}>
