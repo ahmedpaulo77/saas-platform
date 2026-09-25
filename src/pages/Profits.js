@@ -201,6 +201,15 @@ export default function Profits() {
     [calcPeriod],
   );
 
+  // اسم الشهر — لازم يتعرف قبل الـ useMemo اللي بيستخدمه (كان بيعمل crash)
+  const monthLabel = useCallback(
+    (year, monthIndex) => {
+      const names = MONTH_NAMES[lang] || MONTH_NAMES.ar;
+      return `${names[monthIndex]} ${year}`;
+    },
+    [lang]
+  );
+
   // -------- الفترات: شهري / ربع سنوي / نص سنوي / سنوي --------
   const periodRanges = useMemo(() => {
     if (periodType === "quarterly") {
@@ -330,14 +339,6 @@ export default function Profits() {
   const netAfterCoverage = coverageEnabled
     ? periodData.profit - coverageValue
     : periodData.profit;
-
-  const monthLabel = useCallback(
-    (year, monthIndex) => {
-      const names = MONTH_NAMES[lang] || MONTH_NAMES.ar;
-      return `${names[monthIndex]} ${year}`;
-    },
-    [lang]
-  );
 
   async function saveCoverage(e) {
     e.preventDefault();
