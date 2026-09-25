@@ -221,7 +221,7 @@ export default function StorePOS() {
   }, [fetchProducts, fetchClients, fetchVariantCodes, fetchShift]);
 
   // ── خيارات الفلاتر: من variant_codes لو موجودة وإلا من المنتجات ──
-  const codeSizes = variantCodes.filter((c) => c.kind === "size").map((c) => c.code || c.name);
+  const codeSizes = variantCodes.filter((c) => c.kind === "size").map((c) => c.name || c.code);
   const codeColors = variantCodes.filter((c) => c.kind === "color").map((c) => c.name || c.code);
   const sizeOptions = (codeSizes.length > 0
     ? [...new Set(codeSizes)]
