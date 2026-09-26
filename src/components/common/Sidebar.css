@@ -461,49 +461,28 @@ nav a.active .icon i {
   animation: fadeIn 0.3s ease forwards;
 }
 /* ================================================================
-   LTR Support — دعم اللغة الإنجليزية
+   LTR — دعم اللغة الإنجليزية (نص بس، مش تخطيط)
    ================================================================
-   ⚠️ التطبيق كله كان مبني بـ خصائص فيزيائية (right/left) مش
-   منطقية، و **مفيش أي [dir="ltr"] override** في المشروع كله.
-   ف لما المستخدم يختار English: النص يقلب لليسار، بس الـ sidebar
-   يفضل على اليمين والـ main-content يفضل له margin-right —
-   يعني تخطيط مكسور.
-   الحل: نعكس الخصائص الفيزيائية تحت [dir="ltr"].
+   ملاحظة مهمة: السايد بار **يفضل على اليمين في كل اللغات**
+   (ده اختيار مقصود — اللغة بتتغير، مكان القايمة لأ).
+   فمفيش أي قلب للموضع هنا.
+
+   اللي بيتعمل هنا هو تصحيح اللي كان باظ في الإنجليزي:
+   اتجاه النص + الحدود اللي كانت على اليمين دايمًا.
    ================================================================ */
-[dir="ltr"] .sidebar {
-  right: auto;
-  left: 0;
-  border-left: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
 
-[dir="ltr"] .main-content {
-  margin-right: 0;
-  margin-left: var(--sidebar-width);
-}
-
-[dir="ltr"] .sidebar nav a.active::before {
-  right: auto;
-  left: 0;
-}
-
-[dir="ltr"] .hamburger-btn {
-  right: auto;
-  left: 16px;
-}
-
-[dir="ltr"] .sidebar-overlay {
-  right: auto;
-  left: 0;
-}
-
-/* أيقونات/نصوص بتاخد margin من اليمين في الـ RTL */
+/* النص يطلع LTR صح */
 [dir="ltr"] .stat-label,
 [dir="ltr"] .table-container th,
-[dir="ltr"] .table-container td {
+[dir="ltr"] .table-container td,
+[dir="ltr"] .card h1,
+[dir="ltr"] .card h3,
+[dir="ltr"] .header h1,
+[dir="ltr"] .header p {
   text-align: left;
 }
 
+/* حدود التنبيهات: كانت على اليمين دايمًا */
 [dir="ltr"] .alert-success,
 [dir="ltr"] .alert-error,
 [dir="ltr"] .alert-warning,
@@ -512,29 +491,9 @@ nav a.active .icon i {
   border-left: 3px solid currentColor;
 }
 
-/* ── موبايل: نفس منطق الـ LTR ── */
-@media (max-width: 1024px) {
-  [dir="ltr"] .sidebar {
-    left: -300px !important;
-    right: auto !important;
-  }
-  [dir="ltr"] .sidebar.mobile-open {
-    left: 0 !important;
-    right: auto !important;
-  }
-  [dir="ltr"] .hamburger-btn {
-    left: 12px !important;
-    right: auto !important;
-  }
-  [dir="ltr"] .main-content {
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-}
-
-@media (min-width: 769px) {
-  [dir="ltr"] .sidebar {
-    left: 0 !important;
-    right: auto !important;
-  }
+/* أيقونات جوّه النص الإنجليزي */
+[dir="ltr"] .sidebar nav a .icon,
+[dir="ltr"] .stat-icon {
+  margin-right: 0;
+  margin-left: 10px;
 }

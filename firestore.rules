@@ -64,6 +64,12 @@
       //     الصريح للـ exists هنا)
       function userCompanyWasDeleted() {
         return isLoggedIn() &&
+          // ⚠️⚠️ الاستثناء ده إجباري. من غيره لو كان حساب السوبر أدمن
+          // نفسه companyId بتاع شركة اتمسحت، fullyActive() بترجع false
+          // وisSuperAdmin() مش بيكفي (لأن القاعدة fullyActive() && isSuperAdmin())
+          // → **السوبر أدمن بيتقفل بره** ومقدرش يفتح صفحة المستخدمين
+          //   أصلاً عشان يصلّح. Classic lockout.
+          !isSuperAdmin() &&
           exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           getUserData().companyId != null &&
           !exists(/databases/$(database)/documents/companies/$(getUserData().companyId));

@@ -1233,6 +1233,8 @@
     "adm.statusQ": 'تغيير الحالة إلى "{status}"؟',
     "adm.delQ": "حذف هذه الشركة نهائياً؟ لا يمكن التراجع.",
     "mu.title": "إدارة المستخدمين",
+    "mu.loadErr": "مفيش صلاحية لقراءة البيانات دي",
+    "mu.loadErrHint": "متأكد إنك سوبر أدمن؟ وإن القواعد المنشورة محدثة؟ جرّب تعمل تحديث للصفحة.",
     "mu.subtitle": "ربط المستخدمين بالشركات وتحديد الصلاحيات",
     "mu.new": "مستخدم جديد",
     "mu.total": "إجمالي المستخدمين",
@@ -1783,7 +1785,7 @@
     "rx.thisMonth": "روشتات هذا الشهر",
 
     // ----- أكواد الألوان والمقاسات (ملابس) -----
-    "vc.title": "أكواد الألوان والمقاسات",
+    "vc.title": "كود اللون والمقاس",
     "vc.subtitle": "كل لون ليه كود وكل مقاس ليه كود من اختيارك — بتستخدم في الباركود",
     "vc.add": "إضافة كود",
     "vc.name": "الاسم",
@@ -1797,7 +1799,7 @@
     "vc.editTitle": "تعديل الكود",
     "vc.codeExists": "الكود ده موجود بالفعل لنفس النوع",
     "vc.allKinds": "الكل",
-    "modules.variant_codes": "أكواد الألوان والمقاسات",
+    "modules.variant_codes": "كود اللون والمقاس",
     "nav.sales": "المبيعات",
     "modules.sales": "المبيعات",
     "sales.title": "المبيعات اليومية",
@@ -3159,6 +3161,8 @@
     "adm.statusQ": 'Change status to "{status}"?',
     "adm.delQ": "Permanently delete this company? This cannot be undone.",
     "mu.title": "Manage users",
+    "mu.loadErr": "You don't have permission to read this data",
+    "mu.loadErrHint": "Are you sure you're a super admin, and that the deployed rules are up to date? Try reloading the page.",
     "mu.subtitle": "Link users to companies and set permissions",
     "mu.new": "New user",
     "mu.total": "Total users",
@@ -3592,7 +3596,7 @@
     "rx.thisMonth": "This Month",
 
     // ----- Variant codes (clothing) -----
-    "vc.title": "Color & Size Codes",
+    "vc.title": "Color & Size Code",
     "vc.subtitle": "Each color and each size has a code of your choice — used in barcodes",
     "vc.add": "Add Code",
     "vc.name": "Name",
@@ -3606,7 +3610,7 @@
     "vc.editTitle": "Edit Code",
     "vc.codeExists": "This code already exists for the same type",
     "vc.allKinds": "All",
-    "modules.variant_codes": "Color & Size Codes",
+    "modules.variant_codes": "Color & Size Code",
     "nav.sales": "Sales",
     "modules.sales": "Sales",
     "sales.title": "Daily Sales",

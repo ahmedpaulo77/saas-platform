@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
-import { computePeriod } from "../utils/revenue";
+import { computePeriod, invoiceRevenue } from "../utils/revenue";
 import { round2 } from "../utils/traderUnits";
 
 // بيرجع أول وآخر يوم في شهر معين (year, monthIndex 0-11)
@@ -309,6 +309,9 @@ export default function Profits() {
       if (!d) return;
       const dt = new Date(d);
       if (dt < start || dt > end) return;
+      // ⚠️ كان فيه `invoiceRevenue` معرّفة في الملف ده واتشالت لما
+      // وحّدنا المصدر في utils/revenue.js — بس النداء هنا كان فاوت.
+      // مش بيظهر في build (غلط scope وقت التشغيل).
       const rev = invoiceRevenue(inv);
       if (!rev) return;
       const m = inv.paymentMethod || "cash";

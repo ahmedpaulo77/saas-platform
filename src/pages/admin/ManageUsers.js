@@ -14,6 +14,7 @@ export default function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
@@ -23,18 +24,33 @@ export default function ManageUsers() {
   });
 
   const fetchData = useCallback(async () => {
-    try {
-      const [usersSnap, companiesSnap] = await Promise.all([
-        getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'companies')),
-      ]);
-      setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setCompanies(companiesSnap.docs.map(d => ({ id: d.id, name: d.data().name, email: d.data().email })));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+    // ⚠️ كان getDocs(collection(db,'users')) + getDocs(collection(db,'companies'))
+    //    في Promise.all واحدة، والـ catch كان console.error بس. فلو أي واحد
+    //    اترفض، المستخدم كان بيشوف **صفحة فاضية** ("لا يوجد مستخدمين")
+    //    والسبب الحقيقي مخفي. دلوقتي: كل واحد لوحده + رسالة واضحة.
+    setLoadError(null);
+    const [usersRes, companiesRes] = await Promise.allSettled([
+      getDocs(collection(db, 'users')),
+      getDocs(collection(db, 'companies')),
+    ]);
+
+    const failed = [];
+    if (usersRes.status === "fulfilled") {
+      setUsers(usersRes.value.docs.map(d => ({ id: d.id, ...d.data() })));
+    } else {
+      setUsers([]);
+      failed.push("users");
+      console.error("[ManageUsers] users list failed:", usersRes.reason);
     }
+    if (companiesRes.status === "fulfilled") {
+      setCompanies(companiesRes.value.docs.map(d => ({ id: d.id, name: d.data().name, email: d.data().email })));
+    } else {
+      setCompanies([]);
+      failed.push("companies");
+      console.error("[ManageUsers] companies list failed:", companiesRes.reason);
+    }
+    if (failed.length > 0) setLoadError(failed.join(", "));
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -164,9 +180,19 @@ export default function ManageUsers() {
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <Sidebar />
       <div className="main-content">
+
+        {/* ⚠️ بانر صلاحيات — قبل كده أي Firestore error كان console.error
+            بس فالصفحة كانت بتطلع "لا يوجد مستخدمين" والسبب مخفي تمامًا. */}
+        {loadError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 12, padding: '14px 16px', marginBottom: 16, lineHeight: 1.8 }}>
+            <strong><i className="fas fa-lock" style={{ marginLeft: 8 }}></i>{t('mu.loadErr')}</strong>
+            <div style={{ fontSize: 12, opacity: 0.85, direction: 'ltr', marginTop: 4 }}>({loadError})</div>
+            <div style={{ fontSize: 12, marginTop: 8 }}>{t('mu.loadErrHint')}</div>
+          </div>
+        )}
 
         <div className="header">
           <div>

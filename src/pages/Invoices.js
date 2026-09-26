@@ -7,7 +7,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { logActivity } from "../utils/auditLogger";
-import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty } from "../utils/traderUnits";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits";
 import { createReturn } from "../utils/returns";
 import { canDelete } from "../utils/companyQuery";
 import { useInvoices } from "../hooks/useInvoices";
