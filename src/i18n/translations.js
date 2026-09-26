@@ -51,12 +51,7 @@
     "common.saving": "جاري الحفظ...",
     "common.exportExcel": "تصدير Excel",
     "common.exporting": "جاري التصدير...",
-    "nav.main": "القائمة الرئيسية",
-    "nav.settings": "الإعدادات والتقارير",
-    "nav.admin": "مدير النظام",
-    "nav.dashboard": "لوحة التحكم",
-    "nav.pos": "نقطة البيع",
-    "nav.storePos": "نقطة بيع المحل",
+   
     "modules.store_pos": "نقطة بيع المحل",
     "storepos.title": "نقطة بيع المحل",
     "storepos.subtitle": "بيع سريع لمنتجات الملابس — ابحث، اختر المقاس واللون، وحصّل",
@@ -112,10 +107,10 @@
     "shift.calcFail": "تعذر حساب مبيعات الوردية",
     "shift.closeFail": "تعذر التقفيل",
     "shift.closedOk": "تم تقفيل الوردية وحفظ التسليم",
-    "nav.companies": "الشركات",
-    "nav.clients": "العملاء",
-    "nav.invoices": "الفواتير",
-    "nav.quotations": "عروض الأسعار",
+
+
+
+
     "qt.title": "عروض الأسعار",
     "qt.subtitle": "إنشاء ومتابعة عروض الأسعار للعملاء",
     "qt.add": "إنشاء عرض سعر",
@@ -136,9 +131,9 @@
     "qt.statusRejected": "مرفوض",
     "qt.statusExpired": "منتهي",
     "qt.statusConverted": "تحوّل لفاتورة",
-    
-    "nav.inventory": "المخزون",
-    "nav.dailyPrices": "سعر اليوم",
+   
+
+
     "modules.daily_prices": "سعر اليوم",
     "trader.unit": "الوحدة",
     "trader.unit.kg": "كجم",
@@ -173,11 +168,45 @@
     "profits.otherExpenses": "مصروفات أخرى",
     "profits.day": "اليوم",
     "profits.subtitleTrader": "إيراد يومي وشهري بعد خصم المصروفات والهالك",
-    "nav.inventory.real_estate": "العقارات",
     "dash.c4.t.real_estate": "العقارات",
     "dash.c4.d.real_estate": "إدارة الوحدات والعقارات المتاحة",
     "inv.title.real_estate": "إدارة العقارات",
     "modules.inventory.real_estate": "العقارات",
+     "st.period": "الفترة",
+
+         "nav.inventory.real_estate": "العقارات",
+ 
+    "nav.inventory": "المخزون",
+    "nav.dailyPrices": "سعر اليوم",
+    
+    "nav.companies": "الشركات",
+    "nav.clients": "العملاء",
+    "nav.invoices": "الفواتير",
+    "nav.quotations": "عروض الأسعار",
+     "nav.attendance": "الحضور والانصراف",
+    "nav.main": "القائمة الرئيسية",
+    "nav.settings": "الإعدادات والتقارير",
+    "nav.admin": "مدير النظام",
+    "nav.dashboard": "لوحة التحكم",
+    "nav.pos": "نقطة البيع",
+    "nav.storePos": "نقطة بيع المحل",
+
+    "nav.statements": "كشف حساب",
+    "nav.certificates": "المستخلصات",
+     "nav.clients.restaurant": "العملاء",
+    "nav.invoices.restaurant": "الطلبات",
+    "nav.inventory.restaurant": "المنيو",
+    // ── مطعم - أقسام المنيو والخامات ──
+    "nav.menuCategories": "أقسام المنيو",
+    "nav.rawMaterials": "الخامات",
+    "nav.expenses": "المصروفات والإدخالات",
+    "nav.profits": "الأرباح",
+     "success.buyerDeleted": "✅ تم حذف المشتري بنجاح",
+    "nav.messages": "الرسائل",
+    "nav.patients": "المرضى",
+    "nav.appointments": "المواعيد",
+    "nav.prescriptions": "الروشتات",
+        "nav.sales": "المبيعات",
     "nav.suppliers": "الموردين",
     "nav.expiry": "تواريخ الصلاحية",
     "nav.tasks": "المهام",
@@ -555,9 +584,9 @@
     "st.returnSale": "مرتجع بيع",
     "st.invoicePurchase": "فاتورة شراء",
     "st.returnPurchase": "مرتجع شراء",
-    "st.period": "الفترة",
-    "nav.statements": "كشف حساب",
-    "nav.certificates": "المستخلصات",
+   
+        
+    "modules.menu_categories": "أقسام المنيو",
     "cert.title": "المستخلصات",
     "cert.subtitle": "إدارة مستخلصات المقاولين حسب المشروع",
     "cert.total": "الإجمالي",
@@ -747,13 +776,7 @@
     "in.tableNumberPh": "مثال: 5",
     "in.deliveryAddress": "عنوان التوصيل",
     "in.deliveryAddressPh": "اكتب العنوان بالتفصيل",
-    "nav.clients.restaurant": "العملاء",
-    "nav.invoices.restaurant": "الطلبات",
-    "nav.inventory.restaurant": "المنيو",
-    // ── مطعم - أقسام المنيو والخامات ──
-    "nav.menuCategories": "أقسام المنيو",
-    "nav.rawMaterials": "الخامات",
-    "modules.menu_categories": "أقسام المنيو",
+   
     "modules.raw_materials": "الخامات",
     // حالات الأوردر
     "order.status.new": "🆕 جديد",
@@ -1373,6 +1396,8 @@
     "sellers.financial": "المعلومات المالية",
     "nav.purchases": "المشتريات",
     "modules.purchases": "المشتريات",
+         "pur.payFail": "❌ حدث خطأ أثناء تسجيل الدفعة",
+
     "pur.title": "فواتير الشراء",
     "pur.subtitle": "تسجيل مشترياتك من الموردين وتحديث المخزون تلقائياً",
     "pur.add": "إضافة فاتورة شراء",
@@ -1402,9 +1427,7 @@
     "pur.payOver": "❌ المبلغ المدفوع ({paid}) أكبر من قيمة الفاتورة ({total})",
     "pur.payFull": "✅ تم سداد فاتورة الشراء بالكامل",
     "pur.payOk": "✅ تم تسجيل الدفعة",
-    "pur.payFail": "❌ حدث خطأ أثناء تسجيل الدفعة",
-    "nav.expenses": "المصروفات والإدخالات",
-    "nav.profits": "الأرباح",
+   
     "modules.expenses": "المصروفات والإدخالات",
     "modules.profits": "الأرباح",
     "expn.title": "المصروفات والإدخالات",
@@ -1568,11 +1591,8 @@
     "success.sellerDeleted": "✅ تم حذف البائع بنجاح",
     "success.buyerAdded": "✅ تم إضافة المشتري بنجاح",
     "success.buyerUpdated": "✅ تم تحديث المشتري بنجاح",
-    "success.buyerDeleted": "✅ تم حذف المشتري بنجاح",
-    "nav.messages": "الرسائل",
-    "nav.patients": "المرضى",
-    "nav.appointments": "المواعيد",
-    "nav.prescriptions": "الروشتات",
+   
+
     "messages.title": "الرسائل",
     "messages.subtitle": "إدارة الرسائل بين المدير والموظفين",
     "messages.inbox": "الوارد",
@@ -1799,7 +1819,6 @@
     "vc.codeExists": "الكود ده موجود بالفعل لنفس النوع",
     "vc.allKinds": "الكل",
     "modules.variant_codes": "كود اللون والمقاس",
-    "nav.sales": "المبيعات",
     "modules.sales": "المبيعات",
     "sales.title": "المبيعات اليومية",
     "sales.subtitle": "مبيعات المحل يوم بيوم — اختر اليوم لعرض تفاصيله",
@@ -2017,6 +2036,7 @@
     "nav.auditLog": "Audit Log",
     "nav.logout": "Log out",
     "nav.openMenu": "Open menu",
+    "nav.attendance": "Attendance",
     "role.superAdmin": "Super admin",
     "role.user": "User",
     "role.admin": "Admin",

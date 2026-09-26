@@ -206,7 +206,7 @@ export default function Sidebar() {
     {
       to: "/attendance",
       icon: "fas fa-clock",
-      label: "الحضور والانصراف",
+label: t("nav.attendance"),
       module: "attendance",
     },
   ];
