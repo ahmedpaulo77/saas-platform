@@ -31,9 +31,11 @@ export default function Expenses() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [filterDirection, setFilterDirection] = useState("all");
   const [submitting, setSubmitting] = useState(false);
 
   const [newExpense, setNewExpense] = useState({
+    direction: "out",
     category: "rent",
     amount: "",
     date: new Date().toISOString().slice(0, 10),
@@ -85,14 +87,18 @@ export default function Expenses() {
   }, [filterCategory, resetPagination]);
 
   const filteredExpenses = useMemo(() => {
-    if (!searchTerm.trim()) return expenses;
+    let list = expenses;
+    if (filterDirection !== "all") {
+      list = list.filter((e) => (e.direction || "out") === filterDirection);
+    }
+    if (!searchTerm.trim()) return list;
     const term = searchTerm.toLowerCase();
-    return expenses.filter(
+    return list.filter(
       (e) =>
         (e.description || "").toLowerCase().includes(term) ||
         String(e.amount).includes(term)
     );
-  }, [expenses, searchTerm]);
+  }, [expenses, searchTerm, filterDirection]);
 
   const categoryLabel = useCallback(
     (value) => {
@@ -109,6 +115,7 @@ export default function Expenses() {
     try {
       const amount = parseFloat(newExpense.amount) || 0;
       const expenseData = {
+        direction: newExpense.direction || "out",
         category: newExpense.category,
         amount,
         date: newExpense.date || new Date().toISOString().slice(0, 10),
@@ -130,6 +137,7 @@ export default function Expenses() {
       });
 
       setNewExpense({
+        direction: "out",
         category: "rent",
         amount: "",
         date: new Date().toISOString().slice(0, 10),
@@ -149,6 +157,7 @@ export default function Expenses() {
     try {
       const amount = parseFloat(editingExpense.amount) || 0;
       await updateDoc(doc(db, "expenses", editingExpense.id), {
+        direction: editingExpense.direction || "out",
         category: editingExpense.category,
         amount,
         date: editingExpense.date,
@@ -192,7 +201,8 @@ export default function Expenses() {
 
   const userCanDelete = canDelete(userRole);
 
-  const totalAmount = filteredExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const totalIn = filteredExpenses.reduce((sum, e) => sum + ((e.direction || "out") === "in" ? (parseFloat(e.amount) || 0) : 0), 0);
+  const totalOut = filteredExpenses.reduce((sum, e) => sum + ((e.direction || "out") !== "in" ? (parseFloat(e.amount) || 0) : 0), 0);
 
   const thisMonthTotal = filteredExpenses.reduce((sum, e) => {
     if (!e.date) return sum;
@@ -253,14 +263,23 @@ export default function Expenses() {
 
         {isAdmin ? (
           <div className="stats-row">
+            <div className="stat-card green">
+              <div className="stat-icon">
+                <i className="fas fa-arrow-down"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 20 }}>
+                {totalIn.toLocaleString()}
+              </div>
+              <div className="stat-label">{t("expn.statIn")}</div>
+            </div>
             <div className="stat-card red">
               <div className="stat-icon">
                 <i className="fas fa-file-invoice-dollar"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {totalAmount.toLocaleString()}
+                {totalOut.toLocaleString()}
               </div>
-              <div className="stat-label">{t("expn.statTotal")}</div>
+              <div className="stat-label">{t("expn.statOut")}</div>
             </div>
             <div className="stat-card amber">
               <div className="stat-icon">
@@ -295,6 +314,16 @@ export default function Expenses() {
           </h3>
           <form onSubmit={addExpense}>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>{t("expn.direction")}</label>
+                <select
+                  value={newExpense.direction}
+                  onChange={(e) => setNewExpense({ ...newExpense, direction: e.target.value })}
+                >
+                  <option value="out">{t("expn.dirOut")}</option>
+                  <option value="in">{t("expn.dirIn")}</option>
+                </select>
+              </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{t("expn.category")}</label>
                 <select
@@ -386,6 +415,11 @@ export default function Expenses() {
               </option>
             ))}
           </select>
+          <select value={filterDirection} onChange={(e) => setFilterDirection(e.target.value)}>
+            <option value="all">{t("expn.allDirections")}</option>
+            <option value="out">{t("expn.dirOut")}</option>
+            <option value="in">{t("expn.dirIn")}</option>
+          </select>
         </div>
 
         <div className="table-container">
@@ -410,7 +444,7 @@ export default function Expenses() {
                 <div className="table-empty">
                   <i className="fas fa-file-invoice-dollar"></i>
                   <p>
-                    {searchTerm || filterCategory !== "all" ? t("common.noResults") : t("expn.empty")}
+                    {searchTerm || filterCategory !== "all" || filterDirection !== "all" ? t("common.noResults") : t("expn.empty")}
                   </p>
                 </div>
               }
@@ -419,6 +453,7 @@ export default function Expenses() {
                   <thead>
                     <tr>
                       <th>#</th>
+                      <th>{t("expn.direction")}</th>
                       <th>{t("expn.category")}</th>
                       <th>{t("common.amount")}</th>
                       <th>{t("common.description")}</th>
@@ -431,8 +466,15 @@ export default function Expenses() {
                     {pageItems.map((exp, i) => (
                       <tr key={exp.id}>
                         <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{i + 1}</td>
+                        <td>
+                          <span
+                            className={`badge ${(exp.direction || "out") === "in" ? "badge-paid" : "badge-overdue"}`}
+                          >
+                            {(exp.direction || "out") === "in" ? t("expn.dirIn") : t("expn.dirOut")}
+                          </span>
+                        </td>
                         <td style={{ fontWeight: 600 }}>{categoryLabel(exp.category)}</td>
-                        <td style={{ fontWeight: 700, color: "#dc2626" }}>
+                        <td style={{ fontWeight: 700, color: (exp.direction || "out") === "in" ? "#16a34a" : "#dc2626" }}>
                           {(exp.amount || 0).toLocaleString()} {t("currency")}
                         </td>
                         <td>{exp.description || "-"}</td>
@@ -490,6 +532,16 @@ export default function Expenses() {
             </div>
             <form onSubmit={updateExpense}>
               <div className="modal-body">
+                <div className="form-group">
+                  <label>{t("expn.direction")}</label>
+                  <select
+                    value={editingExpense.direction || "out"}
+                    onChange={(e) => setEditingExpense({ ...editingExpense, direction: e.target.value })}
+                  >
+                    <option value="out">{t("expn.dirOut")}</option>
+                    <option value="in">{t("expn.dirIn")}</option>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label>{t("expn.category")}</label>
                   <select

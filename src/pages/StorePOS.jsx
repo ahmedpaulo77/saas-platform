@@ -58,7 +58,7 @@ export default function StorePOS() {
   const [openingCash, setOpeningCash] = useState("");
   const [opening, setOpening] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [closeForm, setCloseForm] = useState({ countedCash: "", receiver: "", notes: "", cashIn: "", cashOut: "" });
+  const [closeForm, setCloseForm] = useState({ countedCash: "", receiver: "", notes: "" });
   const [closePreview, setClosePreview] = useState(null);
   const [closing, setClosing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -143,12 +143,17 @@ export default function StorePOS() {
   }
 
   // حساب مبيعات الوردية المفتوحة (من فتحها لحد دلوقتي) — المرتجعات تنقص الكاش
+  // داخل/خارج يُسحب تلقائياً من صفحة المصروفات والإدخالات (اتجاه in/out — القديم بدون اتجاه = خارج)
   async function previewClosing() {
     if (!shift) return;
     try {
-      const [snap, retSnap] = await Promise.all([
+      const [snap, retSnap, expSnap] = await Promise.all([
         getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
         getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("expenses", userRole, userCompanyId, currentUser?.uid)).catch((e) => {
+          console.warn("expenses fetch for closing:", e?.message);
+          return { docs: [] };
+        }),
       ]);
       const from = new Date(shift.openedAt || shift.createdAt).getTime();
       const now = Date.now();
@@ -179,7 +184,18 @@ export default function StorePOS() {
           returnsTotal += parseFloat(r.amount) || 0;
         }
       });
-      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal });
+      let cashIn = 0, cashOut = 0, expInCount = 0, expOutCount = 0;
+      try {
+        expSnap.docs.forEach((d) => {
+          const e = d.data();
+          const ts = new Date(e.createdAt || e.date || 0).getTime();
+          if (!(ts >= from && ts <= now)) return;
+          const amt = parseFloat(e.amount) || 0;
+          if ((e.direction || "out") === "in") { cashIn += amt; expInCount++; }
+          else { cashOut += amt; expOutCount++; }
+        });
+      } catch (e) { console.warn("expenses sum:", e?.message); }
+      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal, cashIn, cashOut, expInCount, expOutCount });
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
@@ -187,9 +203,9 @@ export default function StorePOS() {
     }
   }
 
-  function closingExpected(preview, openingCashVal, cashInVal, cashOutVal) {
+  function closingExpected(preview, openingCashVal) {
     const cashSales = preview?.cashSales ?? preview?.paid ?? 0;
-    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(cashInVal) || 0) - (parseFloat(cashOutVal) || 0) - (parseFloat(preview?.returnsTotal) || 0);
+    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(preview?.cashIn) || 0) - (parseFloat(preview?.cashOut) || 0) - (parseFloat(preview?.returnsTotal) || 0);
   }
 
   async function submitClosing(e) {
@@ -198,9 +214,9 @@ export default function StorePOS() {
     setClosing(true);
     try {
       const counted = parseFloat(closeForm.countedCash) || 0;
-      const cashIn = parseFloat(closeForm.cashIn) || 0;
-      const cashOut = parseFloat(closeForm.cashOut) || 0;
-      const expected = closingExpected(closePreview, shift.openingCash, cashIn, cashOut);
+      const cashIn = parseFloat(closePreview.cashIn) || 0;
+      const cashOut = parseFloat(closePreview.cashOut) || 0;
+      const expected = closingExpected(closePreview, shift.openingCash);
       await updateDoc(doc(db, "closings", shift.id), {
         status: "closed",
         closedAt: new Date().toISOString(),
@@ -219,11 +235,13 @@ export default function StorePOS() {
         difference: counted - expected,
         cashIn,
         cashOut,
+        expInCount: closePreview.expInCount || 0,
+        expOutCount: closePreview.expOutCount || 0,
         receiver: closeForm.receiver || "",
         notes: closeForm.notes || "",
       });
       setShowCloseModal(false);
-      setCloseForm({ countedCash: "", receiver: "", notes: "", cashIn: "", cashOut: "" });
+      setCloseForm({ countedCash: "", receiver: "", notes: "" });
       setClosePreview(null);
       await fetchShift();
       alert(t("shift.closedOk"));
@@ -1017,16 +1035,14 @@ export default function StorePOS() {
                   </div>
                 )}
                 <form onSubmit={submitClosing}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <div className="form-group" style={{ marginBottom: 8 }}>
-                      <label>{t("close.cashIn") || "نقدية داخلة (إيداع)"} ({t("currency")})</label>
-                      <input type="number" min="0" step="0.01" placeholder="0.00"
-                        value={closeForm.cashIn} onChange={(e) => setCloseForm({ ...closeForm, cashIn: e.target.value })} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>داخل تلقائي ({closePreview.expInCount || 0})</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#16a34a" }}>{(closePreview.cashIn || 0).toLocaleString()}</div>
                     </div>
-                    <div className="form-group" style={{ marginBottom: 8 }}>
-                      <label>{t("close.cashOut") || "نقدية خارجة (مسحوبات)"} ({t("currency")})</label>
-                      <input type="number" min="0" step="0.01" placeholder="0.00"
-                        value={closeForm.cashOut} onChange={(e) => setCloseForm({ ...closeForm, cashOut: e.target.value })} />
+                    <div style={{ background: "#fef2f2", borderRadius: 8, padding: 10, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>خارج تلقائي ({closePreview.expOutCount || 0})</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#dc2626" }}>{(closePreview.cashOut || 0).toLocaleString()}</div>
                     </div>
                   </div>
                   <div className="form-group">
@@ -1046,9 +1062,9 @@ export default function StorePOS() {
                   </div>
                   {closeForm.countedCash !== "" && (
                     <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
-                      background: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) === 0 ? "#f0fdf4" : "#fef2f2",
-                      color: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) === 0 ? "#16a34a" : "#dc2626" }}>
-                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash, closeForm.cashIn, closeForm.cashOut))).toLocaleString()}
+                      background: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#f0fdf4" : "#fef2f2",
+                      color: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#16a34a" : "#dc2626" }}>
+                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash))).toLocaleString()}
                     </div>
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>

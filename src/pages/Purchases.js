@@ -33,6 +33,7 @@ export default function Purchases() {
   const hasInventory = availableModules.has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isTrader = userIndustry === "trader";
+  const isClothing = userIndustry === "clothing";
 
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -59,6 +60,7 @@ export default function Purchases() {
   const [quickProductPrice, setQuickProductPrice] = useState("");
   const [quickProductSize, setQuickProductSize] = useState("");
   const [quickProductColor, setQuickProductColor] = useState("");
+  const [quickProductCode, setQuickProductCode] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
   const [variantCodes, setVariantCodes] = useState([]);
 
@@ -291,14 +293,15 @@ export default function Purchases() {
         quantity: 0,
         size: quickProductSize.trim() || "",
         color: quickProductColor.trim() || "",
+        code: quickProductCode.trim() || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
       await fetchProducts();
-      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0, size: quickProductSize.trim() || "", color: quickProductColor.trim() || "" };
+      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0, size: quickProductSize.trim() || "", color: quickProductColor.trim() || "", code: quickProductCode.trim() || "" };
       setProducts((prev) => [...prev, prod]);
-      setQuickProductName(""); setQuickProductPrice(""); setQuickProductSize(""); setQuickProductColor(""); setShowQuickProduct(false);
+      setQuickProductName(""); setQuickProductPrice(""); setQuickProductSize(""); setQuickProductColor(""); setQuickProductCode(""); setShowQuickProduct(false);
     } catch (e) { console.error(e); alert(t("common.errorGeneric")); }
     setAddingProduct(false);
   }
@@ -382,6 +385,21 @@ export default function Purchases() {
       };
 
       const docRef = await addDoc(collection(db, "purchases"), purchaseData);
+
+      // ختم آخر شراء على كل صنف (للعرض في المخزون: آخر مورد + آخر سعر شراء)
+      try {
+        const suppName = suppliers.find((s) => s.id === newPurchase.supplierId)?.name || "";
+        for (const item of items) {
+          if (!item.productId) continue;
+          await updateDoc(doc(db, "inventory", item.productId), {
+            lastSupplierId: newPurchase.supplierId || "",
+            lastSupplierName: suppName,
+            lastUnitCost: parseFloat(item.unitCost) || 0,
+          });
+        }
+      } catch (stampErr) {
+        console.warn("last purchase stamp:", stampErr?.message);
+      }
 
       await logActivity({
         actionType: "CREATE",
@@ -657,13 +675,13 @@ export default function Purchases() {
       const colorCode = asciiSafe(colorMap[color.toLowerCase()] ?? color, "0");
       const sizeCode = asciiSafe(sizeMap[size.toLowerCase()] ?? size, "0");
 
-      // barcode value: product.barcode || item.barcode, else `${base}-${colorCode}-${sizeCode}`
+      // barcode value: product.barcode || item.barcode, else `{productCode}-{colorCode}-{sizeCode}`
       let barcodeValue = (prod.barcode || it.barcode || "").toString().trim();
       if (!barcodeValue) {
-        const base = asciiSafe(
-          String(purchase.id || prod.id || "0000").slice(0, 4),
-          "0000"
-        );
+        const prodCode = (prod.code || it.code || "").toString().trim();
+        const base = prodCode
+          ? asciiSafe(prodCode, "0000")
+          : asciiSafe(String(purchase.id || prod.id || "0000").slice(0, 4), "0000");
         barcodeValue = `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-");
       }
       barcodeValue = asciiSafe(barcodeValue, String(purchase.id || "0000").slice(0, 4));
@@ -1004,6 +1022,7 @@ ${labelDivs}
                     <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
                       <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
                       <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
+                      <input type="text" placeholder="الكود (اختياري — مثال: 7060)" value={quickProductCode} onChange={(e) => setQuickProductCode(e.target.value)} />
                       <div style={{ display: "flex", gap: 8 }}>
                         {quickSizeOptions.length > 0 ? (
                           <select value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }}>

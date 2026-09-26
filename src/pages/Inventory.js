@@ -64,7 +64,7 @@ export default function Inventory() {
     description: "",
         // تاجر
      // أزياء
-    type: "", size: "", color: "", brand: "", model: "",
+    type: "", size: "", color: "", brand: "", model: "", code: "",
     expiryDate: "",
     barcode: "", // سوبر ماركت / صيدلية
     purchasePrice: "", // سعر الشراء (رأس المال) — صيدلية/ماركت
@@ -314,18 +314,23 @@ export default function Inventory() {
   // ── Add ──
   async function addProduct(e) {
     e.preventDefault();
-    if (!newProduct.name || !newProduct.quantity || !newProduct.price) {
+    // الملابس: الكمية اختيارية (بتيجي من المشتريات) — باقي الصناعات: الكمية مطلوبة
+    if (!newProduct.name || newProduct.price === "" || newProduct.price == null) {
+      alert(t("common.fillRequired")); return;
+    }
+    if (!isClothing && (newProduct.quantity === "" || newProduct.quantity == null)) {
       alert(t("common.fillRequired")); return;
     }
     setUploading(true);
     try {
       let imageUrl = "";
       if (newImageFile) imageUrl = await uploadProductImage(newImageFile);
+      const qtyEmpty = newProduct.quantity === "" || newProduct.quantity == null;
       const docRef = await addDoc(collection(db, "inventory"), {
         ...newProduct,
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        quantity: isTrader ? parseFloat(newProduct.quantity) : parseInt(newProduct.quantity),
+        quantity: qtyEmpty ? 0 : (isTrader ? parseFloat(newProduct.quantity) : parseInt(newProduct.quantity)),
         price: parseFloat(newProduct.price),
                  unit: isTrader ? newProduct.unit || "piece" : "",
         type: isClothing ? newProduct.type || "" : "",
@@ -333,6 +338,7 @@ export default function Inventory() {
         color: isClothing ? newProduct.color || "" : "",
         brand: isClothing ? newProduct.brand || "" : "",
         model: isClothing ? (newProduct.model || "").trim() : "",
+        code: isClothing ? (newProduct.code || "").trim() : "",
         expiryDate: newProduct.expiryDate || "",
         barcode: (newProduct.barcode || "").trim(),
         purchasePrice: isMarket ? (parseFloat(newProduct.purchasePrice) || 0) : 0,
@@ -349,7 +355,7 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
+      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
       setTempExtra({ name: "", price: "" });
       setNewImageFile(null);
       setNewImagePreview("");
@@ -366,17 +372,22 @@ export default function Inventory() {
   // ── Update ──
   async function updateProduct(e) {
     e.preventDefault();
-    if (!editingProduct.name || !editingProduct.quantity || !editingProduct.price) {
+    // التعديل: الكمية قابلة للتحرير (للتصحيح) — الملابس تسمح بالصفر/الفارغ، باقي الصناعات مطلوبة
+    if (!editingProduct.name || editingProduct.price === "" || editingProduct.price == null) {
+      alert(t("common.fillRequired")); return;
+    }
+    if (!isClothing && (editingProduct.quantity === "" || editingProduct.quantity == null)) {
       alert(t("common.fillRequired")); return;
     }
     setUploading(true);
     try {
       let imageUrl = editingProduct.imageUrl || "";
       if (editImageFile) imageUrl = await uploadProductImage(editImageFile);
+      const editQtyEmpty = editingProduct.quantity === "" || editingProduct.quantity == null;
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
         category: editingProduct.category || "",
-        quantity: isTrader ? parseFloat(editingProduct.quantity) : parseInt(editingProduct.quantity),
+        quantity: editQtyEmpty ? 0 : (isTrader ? parseFloat(editingProduct.quantity) : parseInt(editingProduct.quantity)),
         price: parseFloat(editingProduct.price),
         unit: isTrader ? (editingProduct.unit || "kg") : "",
         description: editingProduct.description || "",
@@ -385,6 +396,7 @@ export default function Inventory() {
         color: isClothing ? editingProduct.color || "" : "",
         brand: isClothing ? editingProduct.brand || "" : "",
         model: isClothing ? (editingProduct.model || "").trim() : "",
+        code: isClothing ? (editingProduct.code || "").trim() : "",
         expiryDate: editingProduct.expiryDate || "",
         barcode: (editingProduct.barcode || "").trim(),
         purchasePrice: isMarket ? (parseFloat(editingProduct.purchasePrice) || 0) : 0,
@@ -447,6 +459,7 @@ export default function Inventory() {
       (product.size && product.size.toLowerCase().includes(term)) ||
       (product.model && product.model.toLowerCase().includes(term)) ||
       (product.barcode && product.barcode.toLowerCase().includes(term)) ||
+      (product.code && String(product.code).toLowerCase().includes(term)) ||
       (product.activeIngredient && product.activeIngredient.toLowerCase().includes(term));
     const matchCat = filterCategory === "all" || product.category === filterCategory;
     const matchModel = filterModel === "all" || (product.model || "") === filterModel;
@@ -725,11 +738,16 @@ export default function Inventory() {
               type="number"
               min="0"
               step={isTrader ? "0.001" : "1"}
-              placeholder={isRealEstate ? "عدد الوحدات" : isRestaurant ? "الكمية المتاحة" : t("inv.phQty")}
+              placeholder={isClothing ? "الكمية (اختياري — بييجي من المشتريات)" : (isRealEstate ? "عدد الوحدات" : isRestaurant ? "الكمية المتاحة" : t("inv.phQty"))}
               value={newProduct.quantity}
               onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })}
-              required
+              required={!isClothing}
             />
+            {isClothing && (
+              <small style={{ color: "#64748b", fontSize: 11, marginTop: -10 }}>
+                العدد بييجي من المشتريات — سيبه صفر
+              </small>
+            )}
             <input
               type="number"
               placeholder={isRestaurant ? "سعر الصنف (ج.م)" : t("inv.phPrice")}
@@ -791,6 +809,8 @@ export default function Inventory() {
               <>
                 <input type="text" placeholder="اسم الموديل (مثال: تيشرت قطن كلاسيك)" value={newProduct.model || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
+                <input type="text" placeholder="الكود (مثال: 7060)" value={newProduct.code || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, code: e.target.value })} />
                 <select value={newProduct.type} onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
                   <option value="">النوع</option>
@@ -1126,7 +1146,7 @@ export default function Inventory() {
                   <th>#</th>
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
                   <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
-                  {isClothing && <><th>الموديل</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
+                  {isClothing && <><th>الموديل</th><th>الكود</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurantOnly && <th>الإضافات</th>}
                   {isPharmacy && <th>التصنيف</th>}
                   {isMarket && <th>الباركود</th>}
@@ -1175,6 +1195,7 @@ export default function Inventory() {
                     {isClothing && (
                       <>
                         <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
+                        <td style={{ fontWeight: 700, fontFamily: "monospace", direction: "ltr" }}>{product.code || "—"}</td>
                         <td>{product.type === "men" ? "رجالي" : product.type === "women" ? "حريمي" : product.type === "kids" ? "أطفال" : product.type === "unisex" ? "يونيسكس" : "—"}</td>
                         <td style={{ fontWeight: 600 }}>{product.size || "—"}</td>
                         <td>{product.color || "—"}</td>
@@ -1211,6 +1232,11 @@ export default function Inventory() {
                     <td>{product.price} {t("currency")}
                       {isMarket && (parseFloat(product.purchasePrice) > 0) && (
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>شراء: {product.purchasePrice}</div>
+                      )}
+                      {isClothing && product.lastSupplierName && (
+                        <div style={{ fontSize: 11, color: "#64748b" }}>
+                          آخر شراء: {product.lastSupplierName} بسعر {product.lastUnitCost ?? "—"}
+                        </div>
                       )}
                     </td>
                     <td>
@@ -1362,6 +1388,12 @@ export default function Inventory() {
                       <label>اسم الموديل</label>
                       <input type="text" value={editingProduct.model || ""} style={styles.input}
                         onChange={(e) => setEditingProduct({ ...editingProduct, model: e.target.value })} />
+                    </div>
+                    <div style={styles.formGroup}>
+                      <label>الكود</label>
+                      <input type="text" value={editingProduct.code || ""} style={{ ...styles.input, fontFamily: "monospace", direction: "ltr" }}
+                        placeholder="مثال: 7060"
+                        onChange={(e) => setEditingProduct({ ...editingProduct, code: e.target.value })} />
                     </div>
                     <div style={styles.formGroup}>
                       <label>النوع</label>
