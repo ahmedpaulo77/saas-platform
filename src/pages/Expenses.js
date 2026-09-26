@@ -23,6 +23,14 @@ const CATEGORIES = [
   { value: "other", labelKey: "expn.cat.other" },
 ];
 
+// تصنيفات المدخلات (داخل) — مختلفة عن المصروفات
+const INCOME_CATEGORIES = [
+  { value: "extra_sales", labelKey: "expn.incat.sales" },
+  { value: "capital", labelKey: "expn.incat.capital" },
+  { value: "debt_collect", labelKey: "expn.incat.debt" },
+  { value: "other", labelKey: "expn.cat.other" },
+];
+
 export default function Expenses() {
   const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
@@ -102,7 +110,7 @@ export default function Expenses() {
 
   const categoryLabel = useCallback(
     (value) => {
-      const cat = CATEGORIES.find((c) => c.value === value);
+      const cat = CATEGORIES.find((c) => c.value === value) || INCOME_CATEGORIES.find((c) => c.value === value);
       return cat ? t(cat.labelKey) : value;
     },
     [t]
@@ -318,7 +326,10 @@ export default function Expenses() {
                 <label>{t("expn.direction")}</label>
                 <select
                   value={newExpense.direction}
-                  onChange={(e) => setNewExpense({ ...newExpense, direction: e.target.value })}
+                  onChange={(e) => {
+                    const dir = e.target.value;
+                    setNewExpense({ ...newExpense, direction: dir, category: dir === "in" ? "extra_sales" : "rent" });
+                  }}
                 >
                   <option value="out">{t("expn.dirOut")}</option>
                   <option value="in">{t("expn.dirIn")}</option>
@@ -330,7 +341,7 @@ export default function Expenses() {
                   value={newExpense.category}
                   onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
                 >
-                  {CATEGORIES.map((c) => (
+                  {(newExpense.direction === "in" ? INCOME_CATEGORIES : CATEGORIES).map((c) => (
                     <option key={c.value} value={c.value}>
                       {t(c.labelKey)}
                     </option>
@@ -357,15 +368,17 @@ export default function Expenses() {
                   required
                 />
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("common.description")}</label>
-                <input
-                  type="text"
-                  placeholder={t("expn.descPh")}
-                  value={newExpense.description}
-                  onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                />
-              </div>
+              {newExpense.category === "other" && (
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>{t("expn.notes")}</label>
+                  <input
+                    type="text"
+                    placeholder={t("expn.notesPh")}
+                    value={newExpense.description}
+                    onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                  />
+                </div>
+              )}
               {isContractor && (
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>🏗️ المشروع (اختياري)</label>
@@ -536,7 +549,10 @@ export default function Expenses() {
                   <label>{t("expn.direction")}</label>
                   <select
                     value={editingExpense.direction || "out"}
-                    onChange={(e) => setEditingExpense({ ...editingExpense, direction: e.target.value })}
+                    onChange={(e) => {
+                      const dir = e.target.value;
+                      setEditingExpense({ ...editingExpense, direction: dir, category: dir === "in" ? "extra_sales" : "rent" });
+                    }}
                   >
                     <option value="out">{t("expn.dirOut")}</option>
                     <option value="in">{t("expn.dirIn")}</option>
@@ -548,7 +564,7 @@ export default function Expenses() {
                     value={editingExpense.category}
                     onChange={(e) => setEditingExpense({ ...editingExpense, category: e.target.value })}
                   >
-                    {CATEGORIES.map((c) => (
+                    {((editingExpense.direction || "out") === "in" ? INCOME_CATEGORIES : CATEGORIES).map((c) => (
                       <option key={c.value} value={c.value}>
                         {t(c.labelKey)}
                       </option>
@@ -574,14 +590,19 @@ export default function Expenses() {
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label>{t("common.description")}</label>
-                  <input
-                    type="text"
-                    value={editingExpense.description || ""}
-                    onChange={(e) => setEditingExpense({ ...editingExpense, description: e.target.value })}
-                  />
-                </div>
+                {editingExpense.category === "other" && (
+                  <div className="form-group">
+                    <label>{t("expn.notes")}</label>
+                    <input
+                      type="text"
+                      placeholder={t("expn.notesPh")}
+                      value={editingExpense.description || ""}
+                      onChange={(e) =>
+                        setEditingExpense({ ...editingExpense, description: e.target.value })
+                      }
+                    />
+                  </div>
+                )}
                 {isContractor && (
                 <div className="form-group">
                   <label>🏗️ المشروع (اختياري)</label>

@@ -670,10 +670,11 @@ export default function Purchases() {
       const model = (prod.model || prod.name || "").toString().trim() || "—";
       const size = (prod.size ?? it.size ?? "").toString().trim();
       const color = (prod.color ?? it.color ?? "").toString().trim();
-      const sizeColorLine =
-        size && color ? `${size}-of ${color}` : size || color || "";
       const colorCode = asciiSafe(colorMap[color.toLowerCase()] ?? color, "0");
       const sizeCode = asciiSafe(sizeMap[size.toLowerCase()] ?? size, "0");
+      // سطر المقاس بالكود مش بالاسم: {sizeCode}-of {color}
+      const sizeColorLine =
+        size && color ? `${sizeCode}-of ${color}` : sizeCode || color || "";
 
       // barcode value: product.barcode || item.barcode, else `{productCode}-{colorCode}-{sizeCode}`
       let barcodeValue = (prod.barcode || it.barcode || "").toString().trim();
