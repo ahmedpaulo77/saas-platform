@@ -1,6 +1,6 @@
 // src/hooks/useInvoices.js - extracted from src/pages/Invoices.js
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getDocs, doc, updateDoc } from "firebase/firestore";
+import { getDocs, doc, updateDoc, collection, query, where } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
@@ -36,6 +36,7 @@ export function useInvoices() {
 
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
+  const [returnsByInvoice, setReturnsByInvoice] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterApproval, setFilterApproval] = useState("all");
@@ -82,10 +83,28 @@ export function useInvoices() {
     }
   }, [userRole, userCompanyId, currentUser?.uid, hasInventory]);
 
+  const fetchReturnsMap = useCallback(async () => {
+    if (!userCompanyId) { setReturnsByInvoice({}); return; }
+    try {
+      const snap = await getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid));
+      const map = {};
+      snap.docs.forEach((d) => {
+        const r = d.data();
+        if (r.kind && r.kind !== "sale") return;
+        if (!r.refId) return;
+        map[r.refId] = (map[r.refId] || 0) + (parseFloat(r.amount) || 0);
+      });
+      setReturnsByInvoice(map);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [userRole, userCompanyId, currentUser?.uid]);
+
   useEffect(() => {
     fetchClients();
     fetchProducts();
-  }, [fetchClients, fetchProducts]);
+    fetchReturnsMap();
+  }, [fetchClients, fetchProducts, fetchReturnsMap]);
 
   useEffect(() => {
     resetPagination();
@@ -165,10 +184,12 @@ export function useInvoices() {
     resetPagination,
     clients,
     products,
+    returnsByInvoice,
     setClients,
     setProducts,
     fetchClients,
     fetchProducts,
+    fetchReturnsMap,
     searchTerm,
     setSearchTerm,
     filterStatus,

@@ -28,7 +28,7 @@ export default function Invoices() {
 
   const {
     invoices, filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
-    clients, products, fetchClients, fetchProducts,
+    clients, products, returnsByInvoice, fetchClients, fetchProducts, fetchReturnsMap,
     searchTerm, setSearchTerm, filterStatus, setFilterStatus,
     filterApproval, setFilterApproval,
     stats, handleOrderStatusChange, hasInventory, isAdmin, isClinic, PAGE_SIZE,
@@ -247,7 +247,7 @@ export default function Invoices() {
       const clientName = clients.find((c) => c.id === returningInvoice.clientId)?.name || "";
       await createReturn({ kind: "sale", refId: returningInvoice.id, entityId: returningInvoice.clientId, entityName: clientName, lines: correctLines, reason: returnReason, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader });
       setShowReturnModal(false); setReturningInvoice(null); setReturnQtys({}); setReturnReason("");
-      await Promise.all([resetPagination(), fetchProducts()]); alert("تم تسجيل المرتجع ورد المخزون");
+      await Promise.all([resetPagination(), fetchProducts(), fetchReturnsMap()]); alert("تم تسجيل المرتجع ورد المخزون");
     } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
     setReturning(false);
   }
@@ -298,7 +298,7 @@ export default function Invoices() {
         </form>
 
         <InvoiceTable
-          filteredInvoices={filteredInvoices} clients={clients} products={products}
+          filteredInvoices={filteredInvoices} clients={clients} products={products} returnsByInvoice={returnsByInvoice}
           loading={loading} loadingMore={loadingMore} hasMore={hasMore} loadMore={loadMore} resetPagination={resetPagination}
           searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterStatus={filterStatus} setFilterStatus={setFilterStatus}
           filterApproval={filterApproval} setFilterApproval={setFilterApproval}

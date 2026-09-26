@@ -12,6 +12,7 @@ export default function InvoiceTable({
   filteredInvoices,
   clients,
   products,
+  returnsByInvoice = {},
   loading,
   loadingMore,
   hasMore,
@@ -102,6 +103,7 @@ export default function InvoiceTable({
                 <thead>
                   <tr>
                     <th>#</th>
+                    {!isRestaurant && <th>{t("in.approval.label")}</th>}
                     <th>{isRestaurant ? "الزبون" : entityColumnLabel}</th>
                     {isRestaurant && <th>المصدر</th>}
                     {isRestaurant && <th>نوع الطلب</th>}
@@ -113,7 +115,6 @@ export default function InvoiceTable({
                     {!isRestaurant && <th>{t("in.paid")}</th>}
                     {!isRestaurant && <th>{t("in.remaining")}</th>}
                     {!isRestaurant && <th>{t("common.status")}</th>}
-                    {!isRestaurant && <th>{t("in.approval.label")}</th>}
                     <th>{t("common.date")}</th>
                     <th>{t("common.actions")}</th>
                   </tr>
@@ -128,9 +129,11 @@ export default function InvoiceTable({
                     const totalQty = inv.products ? inv.products.reduce((sum, p) => sum + parseFloat(p.quantity || 0), 0) : 0;
                     const totalWithFee = (parseFloat(inv.amount) || 0) + (parseFloat(inv.deliveryFee) || 0);
                     const orderTypeCfg = ORDER_TYPES.find((o) => o.value === inv.orderType);
+                    const returnedAmt = returnsByInvoice[inv.id] || 0;
                     return (
                       <tr key={inv.id}>
                         <td style={{ color: "#94a3b8", fontWeight: 600 }}>{i + 1}</td>
+                        {!isRestaurant && <td><span style={{ fontSize: 12, fontWeight: 800, padding: "4px 12px", borderRadius: 20, whiteSpace: "nowrap", ...approvalStyle(getApproval(inv)) }}>{t(`in.approval.${getApproval(inv)}`)}</span></td>}
                         <td style={{ fontWeight: 600 }}>{clientName}{isRestaurant && inv.customerNote && <div style={{ fontSize: 11, color: "#94a3b8" }} title={inv.customerNote}>📝 {inv.customerNote.slice(0, 25)}{inv.customerNote.length > 25 ? "..." : ""}</div>}</td>
                         {isRestaurant && (
                           <td>
@@ -157,8 +160,7 @@ export default function InvoiceTable({
                         {!isRestaurant && <>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}</td>
                           <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>{remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}</td>
-                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span>{inv.hasReturn && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", marginRight: 6, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d" }}><i className="fas fa-undo" style={{ marginLeft: 4 }}></i>مرتجع</span>}</td>
-                          <td><span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", ...approvalStyle(getApproval(inv)) }}>{t(`in.approval.${getApproval(inv)}`)}</span></td>
+                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span>{(inv.hasReturn || returnedAmt > 0) && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", marginRight: 6, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d", display: "inline-block", marginTop: 4 }}><i className="fas fa-undo" style={{ marginLeft: 4 }}></i>مرتجع{returnedAmt > 0 ? `: ${returnedAmt.toLocaleString()} ${t("currency")}` : ""}</span>}</td>
                         </>}
                         <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "-"}</td>
                         <td>
