@@ -141,16 +141,23 @@ export default function Invoices() {
       if (hasInventory && (invoice.products || []).length > 0) {
         try {
           await runTransaction(db, async (tx) => {
+            const reads = [];
             for (const item of invoice.products) {
               const ref = doc(db, "inventory", item.productId);
               const snap = await tx.get(ref);
+              reads.push({ item, ref, snap });
+            }
+            for (const { item, snap } of reads) {
               if (!snap.exists()) continue;
               const curQty = snap.data().quantity || 0;
               const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-              if (delta > 0) {
-                if (curQty - delta < 0) throw new Error("INSUFFICIENT_STOCK");
-                tx.update(ref, { quantity: curQty - delta });
-              }
+              if (delta > 0 && curQty - delta < 0) throw new Error("INSUFFICIENT_STOCK");
+            }
+            for (const { item, ref, snap } of reads) {
+              if (!snap.exists()) continue;
+              const curQty = snap.data().quantity || 0;
+              const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
+              if (delta > 0) tx.update(ref, { quantity: curQty - delta });
             }
           });
         } catch (txErr) {

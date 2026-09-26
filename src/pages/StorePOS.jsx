@@ -459,16 +459,23 @@ export default function StorePOS() {
     }
     setSubmitting(true);
     try {
-      // خصم المخزون مع التحقق من التوفر (transaction — يلغي الكل لو صنف ناقص)
+      // خصم المخزون مع التحقق من التوفر (transaction — كل القراءات أولاً ثم الكتابة)
       await runTransaction(db, async (tx) => {
+        const reads = [];
         for (const item of cart) {
           const productRef = doc(db, "inventory", item.id);
           const productDoc = await tx.get(productRef);
+          reads.push({ item, productRef, productDoc });
+        }
+        for (const { item, productRef, productDoc } of reads) {
           if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
           const currentQty = productDoc.data().quantity || 0;
           if (currentQty < item.quantity) {
             throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
           }
+        }
+        for (const { item, productRef, productDoc } of reads) {
+          const currentQty = productDoc.data().quantity || 0;
           tx.update(productRef, { quantity: currentQty - item.quantity });
         }
       });
