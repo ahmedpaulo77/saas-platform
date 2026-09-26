@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
+import { computePeriod } from "../utils/revenue";
+import { round2 } from "../utils/traderUnits";
 
 // بيرجع أول وآخر يوم في شهر معين (year, monthIndex 0-11)
 function monthRange(year, monthIndex) {
@@ -33,19 +35,9 @@ function yearRange(year) {
   return { start, end };
 }
 
-// إيراد الفاتورة زي ما بتتحسب في باقي الصفحات (paid = amount / غير كده = paidAmount)
-// الفواتير غير المؤكدة (approval new/waiting) لا تُحتسب — القديمة بدون approval تُعامل كمؤكدة
-function invoiceRevenue(inv) {
-  if (inv.approval && inv.approval !== "validated") return 0;
-  if (inv.status === "paid") return parseFloat(inv.amount) || 0;
-  return parseFloat(inv.paidAmount) || 0;
-}
-
-// تكلفة الشراء (نفس المنطق النقدي: مدفوعة بالكامل = amount / غير كده = paidAmount)
-function purchaseCost(pur) {
-  if (pur.status === "paid") return parseFloat(pur.amount) || 0;
-  return parseFloat(pur.paidAmount) || 0;
-}
+// ✅ كل الأرقام المالية بتيجي من utils/revenue.js — المصدر الواحد.
+// الكود كان فيه 4 نسخ من نفس الحساب في 4 صفحات، وطلع 4 أرقام مختلفة
+// لنفس الفترة. لو عايز تغيّر التعريف، غيّره في revenue.js بس.
 
 // بيرجع أول وآخر لحظة في يوم معين
 function dayRange(date) {
@@ -74,10 +66,13 @@ export default function Profits() {
   const isFashion = userIndustry === "clothing";
 
   const [loading, setLoading] = useState(true);
+  const [failedSources, setFailedSources] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [returns, setReturns] = useState([]);
+  // productId → { avgCost, lastUnitCost, purchasePrice } — أساس حساب COGS
+  const [costByProduct, setCostByProduct] = useState(new Map());
 
   // خانة الكفر (احتياطي مالي اختياري)
   const [coverageEnabled, setCoverageEnabled] = useState(false);
@@ -105,18 +100,45 @@ export default function Profits() {
       if (!userCompanyId) return;
       setLoading(true);
       try {
-        const [invSnap, expSnap, purSnap, retSnap] = await Promise.all([
-          getDocs(query(collection(db, "invoices"), where("companyId", "==", userCompanyId))),
-          getDocs(query(collection(db, "expenses"), where("companyId", "==", userCompanyId))),
-          getDocs(query(collection(db, "purchases"), where("companyId", "==", userCompanyId))),
-          getDocs(query(collection(db, "returns"), where("companyId", "==", userCompanyId))),
-        ]);
-        setInvoices(invSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setExpenses(expSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setPurchases(purSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setReturns(retSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // ⚠️ Promise.all: أول getDocs بيفشل = مفيش setState بيحصل = الأرباح
+        // بتطلع "0" نضيف بدون أي رسالة، وصاحب محل ربحان بيبني قرارات عليه.
+        const SRC = ["invoices", "expenses", "purchases", "returns", "inventory"];
+        const settled = await Promise.allSettled(
+          SRC.map((name) =>
+            getDocs(query(collection(db, name), where("companyId", "==", userCompanyId))),
+          ),
+        );
+        const failed = [];
+        const data = {};
+        settled.forEach((res, i) => {
+          const name = SRC[i];
+          if (res.status === "fulfilled") {
+            data[name] = res.value.docs.map((d) => ({ id: d.id, ...d.data() }));
+          } else {
+            data[name] = [];
+            failed.push(name);
+            console.error(`[Profits] failed to load "${name}":`, res.reason);
+          }
+        });
+        setFailedSources(failed);
+        setInvoices(data.invoices);
+        setExpenses(data.expenses);
+        setPurchases(data.purchases);
+        setReturns(data.returns);
+        // فهرس التكلفة: productId → { avgCost, lastUnitCost }
+        // ده أساس الـ COGS — من غيره مفيش طريقة نحسب تكلفة البضاعة المباعة.
+        const map = new Map();
+        (data.inventory || []).forEach((p) => {
+          map.set(p.id, {
+            avgCost: parseFloat(p.avgCost) || 0,
+            lastUnitCost: parseFloat(p.lastUnitCost) || 0,
+            purchasePrice: parseFloat(p.purchasePrice) || 0,
+          });
+        });
+        setCostByProduct(map);
       } catch (err) {
         console.error(err);
+        setFailedSources(["__all__"]);
       }
       setLoading(false);
     }
@@ -141,8 +163,14 @@ export default function Profits() {
     loadCoverage();
   }, [userCompanyId]);
 
-  // -------- حساب إيراد/مشتريات/مصروف/مرتجعات/ربح فترة معينة --------
-  // الربح = (المحصّل من المبيعات − مرتجعات البيع) − (المدفوع للموردين − مرتجعات الشراء) − المصروفات
+  // -------- حساب فترة: إيراد / تكلفة بضاعة / مصروف / ربح --------
+  // الربح الصافي = (إيراد محقق − مرتجعات − تكلفة البضاعة) + دخل − مصروفات
+  //
+  // ⚠️ التغيير الجوهري: كان الصفحة بتستخدم "المدفوع للموردين" كأنه تكلفة.
+  // ده **تدفق نقدي مش ربح** — شراء ديسمبر مدفوع فبراير كان بيخلي ديسمبر
+  // يظهر خسارة كبيرة، ومارس يظهر ربح 100% والنضاعة بتاعت ديسمبر مبعتش.
+  // دلوقتي التكلفة الحقيقية = COGS من متوسط تكلفة الصنف (avgCost).
+  // cashSpent (المدفوع فعليًا) لسه متحسب ومعرض كرقم现金流 منفصل.
   const calcPeriod = useCallback(
     (start, end) => {
       const inRange = (dateStr) => {
@@ -151,46 +179,43 @@ export default function Profits() {
         return d >= start && d <= end;
       };
 
-      const revenue = invoices.reduce(
-        (sum, inv) => (inRange(inv.date || inv.createdAt) ? sum + invoiceRevenue(inv) : sum),
-        0,
-      );
-
-      const purchasesTotal = purchases.reduce(
-        (sum, p) => (inRange(p.date || p.createdAt) ? sum + purchaseCost(p) : sum),
-        0,
-      );
-
-      let saleReturns = 0;
-      let purchaseReturns = 0;
-      returns.forEach((r) => {
-        if (!inRange(r.date || r.createdAt)) return;
-        const amt = parseFloat(r.amount) || 0;
-        if (r.kind === "purchase") purchaseReturns += amt;
-        else saleReturns += amt;
+      const r = computePeriod({
+        invoices,
+        returns,
+        expenses,
+        costByProduct,
+        inRange,
       });
 
-      let expenseTotal = 0;
-      let wasteTotal = 0;
-      expenses.forEach((e) => {
-        if (!inRange(e.date)) return;
-        const amt = parseFloat(e.amount) || 0;
-        expenseTotal += amt;
-        if (e.category === "waste") wasteTotal += amt;
-      });
+      // المدفوع فعليًا للموردين (تدفق نقدي — مش تكلفة)
+      const cashSpent = round2(
+        purchases.reduce(
+          (sum, p) => (inRange(p.date || p.createdAt)
+            ? sum + (p.status === "paid" ? parseFloat(p.amount) || 0 : parseFloat(p.paidAmount) || 0)
+            : sum),
+          0
+        )
+      );
 
       return {
-        revenue,
-        purchases: purchasesTotal,
-        saleReturns,
-        purchaseReturns,
-        expenses: expenseTotal,
-        waste: wasteTotal,
-        otherExpenses: expenseTotal - wasteTotal,
-        profit: (revenue - saleReturns) - (purchasesTotal - purchaseReturns) - expenseTotal,
+        revenue: r.revenue,
+        income: r.income,
+        cogs: r.cogs,
+        grossProfit: r.grossProfit,
+        cashSpent,
+        purchases: cashSpent,
+        saleReturns: r.returns,
+        purchaseReturns: r.purchaseReturns,
+        expenses: r.expenses,
+        waste: r.waste,
+        otherExpenses: r.otherExpenses,
+        profit: r.netProfit,
+        // مفيش تكلفة متوسطة (منتجات من غير مشتريات مسجّلة)؟ رجّعنا للنقدي
+        // عشان الرقم ميبقاش مضلّل.
+        profitMode: r.cogs > 0 ? "accrual" : "cash",
       };
     },
-    [invoices, expenses, purchases, returns],
+    [invoices, expenses, purchases, returns, costByProduct],
   );
 
   // -------- حساب شهر معين (يُستخدم لمنتقي الشهور) --------
@@ -483,7 +508,51 @@ export default function Profits() {
           </div>
         </div>
 
-        {/* ✅ تقرير اليومية: إيراد اليوم − مشتريات اليوم − مصاريف اليوم = الصافي */}
+        {/* ⚠️ بانر فشل التحميل — من غيره صفحة الأرباح بتطلع أصفار نضيف
+            من غير ما المستخدم يعرف إن البيانات ناقصة. */}
+        {failedSources.length > 0 && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "14px 16px",
+              marginBottom: 16,
+              lineHeight: 1.8,
+            }}
+          >
+            <strong>
+              <i className="fas fa-triangle-exclamation" style={{ marginLeft: 8 }}></i>
+              {t("common.errorGeneric")} — {t("common.errorLoadHint")}{" "}
+              <span style={{ direction: "ltr", display: "inline-block" }}>
+                ({failedSources.join(", ")})
+              </span>
+            </strong>
+          </div>
+        )}
+
+        {/* ⚠️ تنبيه: من غير تكلفة متوسطة، رقم "الربح" ده تدفق نقدي مش
+            ربح فعلي. قولها للمستخدم صراحةً بدل ما نعرض رقم مضلّل. */}}
+        {periodData.profitMode === "cash" && periodData.revenue > 0 && (
+          <div
+            style={{
+              background: "#fffbeb",
+              border: "1px solid #fde68a",
+              color: "#92400e",
+              borderRadius: 12,
+              padding: "12px 16px",
+              marginBottom: 16,
+              lineHeight: 1.8,
+              fontSize: 13,
+            }}
+          >
+            <i className="fas fa-circle-info" style={{ marginLeft: 8 }}></i>
+            {t("profits.noCostData")}
+          </div>
+        )}
+
+        {/* ✅ تقرير اليومية: إيراد اليوم − تكلفة البضاعة − مصاريف اليوم = الصافي */}
         <div className="table-container" style={{ marginBottom: 20 }}>
           <div className="table-header">
             <h3>
@@ -532,12 +601,21 @@ export default function Profits() {
             </div>
             <div className="stat-card amber">
               <div className="stat-icon">
+                <i className="fas fa-boxes-stacked"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.cogs.toLocaleString()} {t("currency")}
+              </div>
+              <div className="stat-label">{t("profits.cogs")}</div>
+            </div>
+            <div className="stat-card amber">
+              <div className="stat-icon">
                 <i className="fas fa-cart-arrow-down"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
                 {dayData.purchases.toLocaleString()} {t("currency")}
               </div>
-              <div className="stat-label">{t("pur.title")}</div>
+              <div className="stat-label">{t("profits.cashSpent")}</div>
             </div>
             <div className="stat-card red">
               <div className="stat-icon">
@@ -557,6 +635,17 @@ export default function Profits() {
                   {dayData.saleReturns.toLocaleString()} {t("currency")}
                 </div>
                 <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
+              </div>
+            )}
+            {dayData.income > 0 && (
+              <div className="stat-card green">
+                <div className="stat-icon">
+                  <i className="fas fa-arrow-trend-up"></i>
+                </div>
+                <div className="stat-value" style={{ fontSize: 18 }}>
+                  {dayData.income.toLocaleString()} {t("currency")}
+                </div>
+                <div className="stat-label">{t("profits.income")}</div>
               </div>
             )}
             <div className="stat-card indigo">

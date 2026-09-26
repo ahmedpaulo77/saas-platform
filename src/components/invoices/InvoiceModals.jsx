@@ -173,11 +173,13 @@ export default function InvoiceModals({
             </div>
             <form onSubmit={onSubmitReturn}>
               <div className="modal-body">
-                {(returningInvoice.products || []).map((p, idx) => {
+                {/* ⚠️ POS/المطعم بيكتبوا السطور في `items` مش `products` — كان
+                    بيعرض مودال فاضي وبيحفظ مرتجع بـ 0 سطر. */}
+                {(returningInvoice?.products || returningInvoice?.items || []).map((p, idx) => {
                   const prod = products.find((pr) => pr.id === p.productId);
                   return (
                     <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || "صنف"} <span style={{ color: "#94a3b8" }}>(مباع: {p.quantity})</span></span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{prod?.name || p.productName || "صنف"} <span style={{ color: "#94a3b8" }}>(مباع: {p.quantity})</span></span>
                       <input type="number" min="0" max={p.quantity} step="0.001" placeholder="مرتجع" value={returnQtys[idx] || ""} onChange={(e) => setReturnQtys({ ...returnQtys, [idx]: e.target.value })} style={{ width: 90, padding: "6px 8px", border: "1px solid #cbd5e1", borderRadius: 8, textAlign: "center" }} />
                     </div>
                   );

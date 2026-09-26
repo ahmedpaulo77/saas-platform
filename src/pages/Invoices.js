@@ -7,7 +7,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import Sidebar from "../components/common/Sidebar";
 import { exportInvoicePDF } from "../utils/pdfExport";
 import { logActivity } from "../utils/auditLogger";
-import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty } from "../utils/traderUnits";
 import { createReturn } from "../utils/returns";
 import { canDelete } from "../utils/companyQuery";
 import { useInvoices } from "../hooks/useInvoices";
@@ -15,6 +15,16 @@ import InvoiceForm from "../components/invoices/InvoiceForm";
 import InvoiceTable from "../components/invoices/InvoiceTable";
 import InvoiceModals from "../components/invoices/InvoiceModals";
 import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers";
+
+/**
+ * الفاتورة معتمدة (يعني مخزونها اتخصم)؟
+ * نفس منطق useInvoices.isInvoiceValidated: المستندات القديمة اللي مفيش
+ * فيها approval يعتبر معتمدة (backward compatible).
+ */
+function isInvoiceValidatedDoc(inv) {
+  if (!inv) return false;
+  return !inv.approval || inv.approval === "validated";
+}
 
 export default function Invoices() {
   const { t } = useLanguage();
@@ -107,6 +117,17 @@ export default function Invoices() {
         customerNote: isRestaurant ? newInvoice.customerNote || "" : "",
         paymentMethod: newInvoice.paymentMethod || "cash",
         companyId: userCompanyId, createdBy: currentUser?.uid, amount: totalAmount,
+        // ⚠️ total = المبلغ المحصّل فعلاً (شامل رسوم التوصيل).
+        // من غيره الـ InvoiceTable والـ revenue.js بيرجعوا للـ amount.
+        total: isRestaurant && newInvoice.orderType === "delivery"
+          ? round2(totalAmount + (parseFloat(newInvoice.deliveryFee) || 0))
+          : totalAmount,
+        // ⚠️ paidAmount: 0 — الطلب بيتسجل كـ "pending" ويتحقق بعد الاعتماد.
+        paidAmount: 0,
+        // ⚠️ type: "pos" — بدونه الطلب **مش بيوصل شاشة الكليحة خالص**:
+        // Kitchen.js:159 بيطلب `data.type === "pos"`. الطلبات المتسجلة من
+        // صفحة الفواتير كانت بتختفي من الكليحة.
+        type: isRestaurant ? "pos" : "invoice",
         quantity: hasInventory ? newInvoice.products.reduce((s, it) => s + (isTrader ? stockDelta(it.unit || "piece", it.quantity, it.weight) : parseFloat(it.quantity || 0)), 0) : 0,
         date: new Date().toISOString(), createdAt: new Date().toISOString(),
       };
@@ -138,11 +159,12 @@ export default function Invoices() {
     if (!window.confirm(t("in.confirmAsk"))) return;
     try {
       // Deduct stock now (transaction — aborts all on insufficient stock).
-      if (hasInventory && (invoice.products || []).length > 0) {
+      const invLines = invoice.products || invoice.items || [];
+      if (hasInventory && invLines.length > 0) {
         try {
           await runTransaction(db, async (tx) => {
             const reads = [];
-            for (const item of invoice.products) {
+            for (const item of invLines) {
               const ref = doc(db, "inventory", item.productId);
               const snap = await tx.get(ref);
               reads.push({ item, ref, snap });
@@ -165,11 +187,23 @@ export default function Invoices() {
           throw txErr;
         }
       }
-      await updateDoc(doc(db, "invoices", invoice.id), {
+      // ⚠️ الاعتماد لازم كمان يسجّل المبالغ المحصّلة وإلا الطلب هيبقى
+      // "معتمد" بس بـ paidAmount = 0 → صفر في كل التقارير. طلبات المطعم
+      // بتتسجل بـ status: "pending" و paidAmount: 0، فلازم نحدّدهم هنا.
+      const patch = {
         approval: "validated",
         validatedBy: currentUser?.uid || null,
         validatedAt: new Date().toISOString(),
-      });
+      };
+      const curPaid = parseFloat(invoice.paidAmount) || 0;
+      const curTotal = parseFloat(invoice.total) > 0
+        ? parseFloat(invoice.total)
+        : (parseFloat(invoice.amount) || 0) + (parseFloat(invoice.deliveryFee) || 0);
+      if (curPaid <= 0 && curTotal > 0) {
+        patch.paidAmount = round2(curTotal);
+        patch.status = "paid";
+      }
+      await updateDoc(doc(db, "invoices", invoice.id), patch);
       await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: invoice.id, details: `Invoice validated (${cur}→validated), stock deducted`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await Promise.all([resetPagination(), fetchProducts()]);
       alert(t("in.validatedOk"));
@@ -178,28 +212,101 @@ export default function Invoices() {
 
   async function updateInvoice(e) {
     e.preventDefault();
+    const invoiceRef = doc(db, "invoices", editingInvoice.id);
+    const wasValidated = isInvoiceValidatedDoc(editingInvoice);
+    const newLines = editingInvoice.products || [];
+    // ⚠️ لو الفاتورة معتمدة، مخزونها اتخصم فعلاً عند الاعتماد
+    // (validateInvoice). تعديل الكميات من غير ما نرجّع الفرق = المخزون
+    // بيفضل غلط. قبل كده مفيش أي معالجة لله delta.
+    const oldLines = (editingInvoice.products || editingInvoice.items || []).map((l) => ({
+      productId: l.productId,
+      quantity: isTrader
+        ? stockDelta(l.unit || "piece", l.quantity, l.weight)
+        : parseFloat(l.quantity) || 0,
+    }));
+    const newQtyByProduct = {};
+    newLines.forEach((l) => {
+      const q = isTrader
+        ? stockDelta(l.unit || "piece", l.quantity, l.weight)
+        : parseFloat(l.quantity) || 0;
+      newQtyByProduct[l.productId] = (newQtyByProduct[l.productId] || 0) + q;
+    });
+    const deltas = [];
+    oldLines.forEach((l) => {
+      if (!l.productId) return;
+      deltas.push({ productId: l.productId, delta: (newQtyByProduct[l.productId] || 0) - l.quantity });
+    });
+    Object.keys(newQtyByProduct).forEach((pid) => {
+      if (!oldLines.some((l) => l.productId === pid)) {
+        deltas.push({ productId: pid, delta: newQtyByProduct[pid] });
+      }
+    });
+    const stockDeltas = deltas.filter((d) => Math.abs(d.delta) > 0.0001);
+
     try {
+      if (wasValidated && hasInventory && stockDeltas.length > 0) {
+        // نرجّع القديم ونخصم الجديد ذرّيًا
+        const refs = stockDeltas.map((d) => doc(db, "inventory", d.productId));
+        await runTransaction(db, async (tx) => {
+          const snaps = [];
+          for (const r of refs) snaps.push(await tx.get(r));
+          snaps.forEach((snap, i) => {
+            if (!snap.exists()) return;
+            const cur = parseFloat(snap.data().quantity) || 0;
+            const next = cur - stockDeltas[i].delta; // delta موجب = زيادة ⇒ نخصم
+            if (next < 0) {
+              throw new Error(t("in.qtyOver"));
+            }
+            tx.update(refs[i], { quantity: roundQty(next, getProductUnit(snap.data())) });
+          });
+        });
+      }
+
       const totalAmount = editingInvoice.products?.length > 0 ? getEditTotalAmount : parseFloat(editingInvoice.amount) || 0;
-      await updateDoc(doc(db, "invoices", editingInvoice.id), {
+      await updateDoc(invoiceRef, {
         clientId: editingInvoice.clientId, amount: totalAmount, status: editingInvoice.status, orderStatus: editingInvoice.orderStatus || "", description: editingInvoice.description || "", dueDate: editingInvoice.dueDate || null,
         orderType: editingInvoice.orderType || "", deliveryAddress: editingInvoice.orderType === "delivery" ? editingInvoice.deliveryAddress || "" : "", deliveryPhone: editingInvoice.deliveryPhone || "" , deliveryFee: editingInvoice.orderType === "delivery" ? parseFloat(editingInvoice.deliveryFee) || 0 : 0,
         tableNumber: editingInvoice.orderType === "dine_in" ? editingInvoice.tableNumber || "" : "",
         customerNote: editingInvoice.customerNote || "",
         paymentMethod: editingInvoice.paymentMethod || "cash",
-        products: editingInvoice.products.map((it) => ({ productId: it.productId, quantity: it.quantity, amount: it.amount, paidAmount: it.paidAmount || 0, weight: it.weight || "", unit: it.unit || "" })),
+        products: newLines.map((it) => ({ productId: it.productId, productName: it.productName || "", quantity: it.quantity, amount: it.amount, paidAmount: it.paidAmount || 0, weight: it.weight || "", unit: it.unit || "" })),
       });
-      await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: editingInvoice.id, details: `Updated invoice, status: ${editingInvoice.status}, orderStatus: ${editingInvoice.orderStatus}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
-      await resetPagination(); setShowEditModal(false);
-    } catch (err) { console.error(err); }
+      await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: editingInvoice.id, details: `Updated invoice, status: ${editingInvoice.status}, orderStatus: ${editingInvoice.orderStatus}${wasValidated ? ", stock adjusted" : ""}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
+      await Promise.all([resetPagination(), fetchProducts()]); setShowEditModal(false);
+    } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }
   }
 
-  async function deleteInvoice(id) {
+  async function deleteInvoice(id, invoice) {
     if (!window.confirm(t("common.confirmDelete"))) return;
+    // ⚠️ فاتورة معتمدة = مخزونها اتخصم. حذفها من غير رجوع = مخزون مفقود
+    // نهائياً. قبل كده مفيش أي رجوع.
+    const wasValidated = invoice ? isInvoiceValidatedDoc(invoice) : false;
+    const lines = invoice ? (invoice.products || invoice.items || []) : [];
     try {
+      if (wasValidated && hasInventory && lines.length > 0) {
+        const refs = lines.filter((l) => l.productId).map((l) => doc(db, "inventory", l.productId));
+        if (refs.length) {
+          await runTransaction(db, async (tx) => {
+            const snaps = [];
+            for (const r of refs) snaps.push(await tx.get(r));
+            snaps.forEach((snap, i) => {
+              if (!snap.exists()) return;
+              const cur = parseFloat(snap.data().quantity) || 0;
+              const l = lines.filter((x) => x.productId)[i];
+              const back = isTrader
+                ? stockDelta(l.unit || "piece", l.quantity, l.weight)
+                : parseFloat(l.quantity) || 0;
+              if (back > 0) {
+                tx.update(refs[i], { quantity: roundQty(cur + back, getProductUnit(snap.data())) });
+              }
+            });
+          });
+        }
+      }
       await deleteDoc(doc(db, "invoices", id));
-      await logActivity({ actionType: "DELETE", collectionName: "invoices", itemId: id, details: "Deleted invoice", user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
-      await resetPagination();
-    } catch (err) { console.error(err); }
+      await logActivity({ actionType: "DELETE", collectionName: "invoices", itemId: id, details: `Deleted invoice${wasValidated ? ", stock restored" : ""}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
+      await Promise.all([resetPagination(), fetchProducts()]);
+    } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }
   }
 
   async function recordPayment(e) {
@@ -233,13 +340,24 @@ export default function Invoices() {
       });
     } catch (err) { console.warn("prior returns fetch:", err?.message); }
     // correct lines with proper idx, clamped so prior+new <= original
-    const correctLines = (returningInvoice.products || []).map((p, idx) => {
+    // ⚠️ POS/المطعم بيكتبوا السطور في `items` مش `products` (POS.js).
+    // الكود كان بيقرا `products` بس، فكان correctLines فاضي على طول والialog
+    // "حدد كمية مرتجع أكبر من صفر" بيظهر للمستخدم على أي مرتجع من POS.
+    const sourceLines = returningInvoice.products || returningInvoice.items || [];
+    const correctLines = sourceLines.map((p, idx) => {
       const rq = parseFloat(returnQtys[idx]) || 0; const oq = parseFloat(p.quantity) || 0;
       const already = priorMap[p.productId] || 0;
       const remaining = Math.max(0, oq - already);
       const allowed = Math.min(rq, remaining);
       const ratio = oq > 0 ? allowed / oq : 0;
-      return { productId: p.productId, quantity: allowed, weight: p.weight || "", unit: p.unit || "", amount: (parseFloat(p.amount) || 0) * ratio };
+      return {
+        productId: p.productId,
+        productName: p.productName || p.name || "",
+        quantity: allowed,
+        weight: p.weight || "",
+        unit: p.unit || "",
+        amount: (parseFloat(p.amount) || 0) * ratio,
+      };
     }).filter((l) => l.quantity > 0);
     if (correctLines.length === 0) { alert("حدد كمية مرتجع أكبر من صفر"); return; }
     setReturning(true);
@@ -248,7 +366,7 @@ export default function Invoices() {
       await createReturn({ kind: "sale", refId: returningInvoice.id, entityId: returningInvoice.clientId, entityName: clientName, lines: correctLines, reason: returnReason, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader });
       setShowReturnModal(false); setReturningInvoice(null); setReturnQtys({}); setReturnReason("");
       await Promise.all([resetPagination(), fetchProducts(), fetchReturnsMap()]); alert("تم تسجيل المرتجع ورد المخزون");
-    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
+    } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }
     setReturning(false);
   }
 

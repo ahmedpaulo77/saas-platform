@@ -1,4 +1,4 @@
-/* ================================================
+﻿/* ================================================
    SaaS PRO - Professional Design System
    Modern Arabic RTL Business Platform
    ================================================ */
@@ -2277,5 +2277,145 @@ input[type='number'] {
     transform: scale(0.96) !important;
     opacity: 0.85;
     transition: all 0.1s ease !important;
+  }
+}
+
+/* ================================================
+   Error Boundary
+   ================================================ */
+.eb-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+.eb-card {
+  max-width: 560px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.eb-icon {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.eb-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.eb-hint {
+  margin: 0 0 20px;
+  color: #64748b;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.eb-msg {
+  margin: 0 0 20px;
+  padding: 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow: auto;
+  direction: ltr;
+  text-align: left;
+}
+
+.eb-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eb-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.eb-btn:hover {
+  background: #f1f5f9;
+}
+
+.eb-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.eb-btn-primary {
+  border: none;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.eb-btn-primary:hover {
+  background: #4338ca;
+}
+
+/* ================================================================
+   Keyboard focus — الوصول بالكيبورد
+   ================================================================
+   الـ inputs اللي فوق عندها box-shadow ring عند :focus (كويس).
+   بس الأزرار والروابط مفيش عندهم أي مؤشر تركيز مخصص — وإلا بيختفي مع الـ theme.  بنضيف :focus-visible واضح
+   (بيظهر مع الكيبورد بس، مش مع الماوس — وده اللي المستخدم عايزه).
+   ================================================================ */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-success:focus-visible,
+.btn-danger:focus-visible,
+.btn-sm:focus-visible,
+.modal-close:focus-visible,
+.sidebar-close-btn:focus-visible,
+.hamburger-btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* على الـ sidebar الغامق، الـ outline الداخلي لازم يكون فاتح */
+.sidebar a:focus-visible,
+.sidebar button:focus-visible,
+.sidebar-close-btn:focus-visible {
+  outline-color: #a5b4fc;
+}
+
+/* احترام تفضيل تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

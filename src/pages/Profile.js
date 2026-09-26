@@ -1,11 +1,11 @@
-// src/pages/Profile.js - مع دعم الترجمة
+﻿// src/pages/Profile.js - مع دعم الترجمة
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { updatePassword } from "firebase/auth";
 import { auth } from "../firebase/config";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
-import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR } from "../components/common/PasswordStrengthMeter";
 
 export default function Profile() {
   const { t } = useLanguage();
@@ -26,17 +26,12 @@ export default function Profile() {
       setError(t("pf.mismatch"));
       return;
     }
-    if (newPassword.length < 6) {
-      setError(t("pf.short"));
-      return;
-    }
-    const { checks } = getPasswordStrength(newPassword);
-    if (!checks.uppercase) {
-      setError(t("signup.needUppercase"));
-      return;
-    }
-    if (!checks.symbol) {
-      setError(t("signup.needSymbol"));
+    // ✅ نفس سياسة التطبيق (PasswordStrengthMeter.PASSWORD_POLICY) — كانت
+    // هتفرض 6 أحرف + كبير + رمز بس، والـ meter بيعرض 5 متطلبات.
+    const pw = validatePassword(newPassword, { confirm: confirmPassword });
+    if (!pw.ok) {
+      const labels = pw.missing.map((k) => PASSWORD_MISSING_LABEL_AR[k]).filter(Boolean);
+      setError(t("pf.missing") + (labels.length ? ": " + labels.join("، ") : ""));
       return;
     }
 

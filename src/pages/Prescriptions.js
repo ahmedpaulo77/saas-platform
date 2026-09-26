@@ -102,19 +102,28 @@ export default function Prescriptions() {
   }, [fetchPrescriptions, fetchPatients, fetchCompanies]);
 
   async function getNextRxNumber() {
+    // ⚠️ الكويري ده كان **من غير where('companyId')** — يعني بيبقى تسلسل
+    // عالمي وبيقرا أرقام روشتات شركات تانية. الـ Rules بترفضه أصلاً
+    // (قاعدة list محتاجة resource.data) فالـ catch كان بيرجع
+    // `RX-${Date.now()}` بصمت — أرقام مبعثرة ومش متسلسلة.
+    // الإصلاح: فلتر على الشركة + نحسب الرقم من آخر رقم في نفس الشركة.
+    if (!userCompanyId) return "RX-000001";
     try {
       const q = query(
         collection(db, "prescriptions"),
+        where("companyId", "==", userCompanyId),
         orderBy("rxNumber", "desc"),
         limit(1)
       );
       const snap = await getDocs(q);
       if (snap.empty) return "RX-000001";
       const last = snap.docs[0].data()?.rxNumber || "RX-000000";
-      const num = parseInt(last.replace("RX-", ""), 10) || 0;
+      const num = parseInt(String(last).replace("RX-", ""), 10) || 0;
       return `RX-${String(num + 1).padStart(6, "0")}`;
-    } catch {
-      return "RX-" + Date.now();
+    } catch (e) {
+      // ⚠️ ما نخفيش الخطأ — غالبًا composite index ناقص
+      console.error("[Prescriptions] getNextRxNumber failed:", e?.message);
+      return "RX-000001";
     }
   }
 

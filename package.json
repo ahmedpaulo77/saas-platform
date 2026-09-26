@@ -30,7 +30,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "react-scripts test",
-    "cobuild": "CI=false react-scripts build"
+    "cobuild": "CI=false react-scripts build",
+    "emulators": "firebase emulators:start --only firestore,auth,storage",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:storage": "firebase deploy --only storage"
   },
   "eslintConfig": {
     "extends": [

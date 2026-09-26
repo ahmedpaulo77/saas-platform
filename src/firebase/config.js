@@ -3,6 +3,7 @@ import { initializeApp, getApp } from "firebase/app";
 import {
   getAuth,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut as signOutAuth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -57,6 +58,36 @@ export async function createAuthUserWithoutSession(email, password) {
   const result = { uid: cred.user.uid, email: cred.user.email };
   await signOutAuth(secondaryAuth);
   return result;
+}
+
+/**
+ * إبطال حساب: بعت إيميل إعادة تعيين الباسورد.
+ *
+ * ⚠️ ليه مش بنستخدم deleteAuthUser؟
+ *    Firebase **مش بيسمح** بحذف حساب مستخدم تاني من الـ client بدون
+ *    باسورده أو re-auth كـ هو أو الـ Admin SDK (سيرفر). فأي كود بيقول
+ *    "deleteUser" على مستخدم تاني من المتصفح **مش هيشتغل** (أو هيطلب
+ *    باسورد، وهو مش أمان).
+ *
+ *    الحل الصح في تطبيق client-only: **soft delete** —
+ *      1) نوقف المستند بـ isActive: false  → الـ Rules (fullyActive) بتمنع
+ *         كل وصول فورًا. الحساب مش بيفتح أي صفحة.
+ *      2) نبعت reset email → الباسورد القديم يبطّل يشتغل.
+ * المستند بيتسابه (مش بيتحذف) عن قصد، لأن الـ Rules بتعتبر الـ uid
+ *    اللي مالهوش doc "نشط" — فالحذف كان هيفتح الحساب تاني.
+ *
+ * @param {string} email
+ * @returns {Promise<boolean>} هل اتبعت الإيميل؟
+ */
+export async function revokeAccountAccess(email) {
+  if (!email) return false;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return true;
+  } catch (e) {
+    console.error("revokeAccountAccess: reset email failed:", e?.message);
+    return false;
+  }
 }
 
 // تفعيل Firebase Messaging للمتصفحات التي تدعم Web Push Notifications

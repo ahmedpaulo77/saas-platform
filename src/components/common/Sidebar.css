@@ -1,6 +1,11 @@
-/* src/components/common/Sidebar.css - نسخة محسنة للموبايل */
+﻿/* src/components/common/Sidebar.css - نسخة محسنة للموبايل */
 .sidebar {
-  width: 280px;
+  /* ⚠️ كان 280px هنا و 270px في App.css (--sidebar-width). الـ Sidebar.css
+     بيتحمّل بعد App.css فيبقى 280، بس .main-content بيستخدم
+     margin-right: var(--sidebar-width) = 270px → **فجوة 10px دايمة**
+     بين القائمة والمحتوى. الحل: نخلي العرض من الـ variable واحد. */
+  width: var(--sidebar-width);
+  max-width: 88vw;
   height: 100vh;
   background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
   color: #f1f5f9;
@@ -27,7 +32,9 @@
     display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
-    right: -320px !important;
+    /* الإزاحة أكبر من العرض (320 > 300) — صح هنا، بس خلّيناها مرتبطة
+       بالعرض عشان ما تبقاش hardcoded وتتكسر لو الـ width اتغير. */
+    right: calc(-1 * min(300px, 84vw) - 20px) !important;
     transform: none !important;
     transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -72,8 +79,11 @@
 /* ✅ Small screens (phones under 480px) */
 @media (max-width: 480px) {
   .sidebar {
-    right: -300px !important;
-    width: min(280px, 88vw) !important;
+    /* ⚠️ كان right: -300px مع width: min(280px, 88vw). على موبايل 360px
+       العرض = 88vw = 316px > 300px الإزاحة → **16px من القائمة بتفضل
+       ظاهرة** وأنا "مقفولة". الإزاحة لازم أكبر من العرض دايمًا. */
+    right: calc(-1 * min(var(--sidebar-width), 88vw) - 20px) !important;
+    width: min(var(--sidebar-width), 88vw) !important;
   }
 
   .hamburger-btn {
@@ -103,7 +113,7 @@
     position: fixed !important;
     top: 0 !important;
     right: 0 !important;
-    width: 280px !important;
+    width: var(--sidebar-width) !important;
     height: 100vh !important;
     transform: none !important;
     display: flex !important;
@@ -449,4 +459,82 @@ nav a.active .icon i {
 
 .sidebar-overlay.active {
   animation: fadeIn 0.3s ease forwards;
+}
+/* ================================================================
+   LTR Support — دعم اللغة الإنجليزية
+   ================================================================
+   ⚠️ التطبيق كله كان مبني بـ خصائص فيزيائية (right/left) مش
+   منطقية، و **مفيش أي [dir="ltr"] override** في المشروع كله.
+   ف لما المستخدم يختار English: النص يقلب لليسار، بس الـ sidebar
+   يفضل على اليمين والـ main-content يفضل له margin-right —
+   يعني تخطيط مكسور.
+   الحل: نعكس الخصائص الفيزيائية تحت [dir="ltr"].
+   ================================================================ */
+[dir="ltr"] .sidebar {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[dir="ltr"] .main-content {
+  margin-right: 0;
+  margin-left: var(--sidebar-width);
+}
+
+[dir="ltr"] .sidebar nav a.active::before {
+  right: auto;
+  left: 0;
+}
+
+[dir="ltr"] .hamburger-btn {
+  right: auto;
+  left: 16px;
+}
+
+[dir="ltr"] .sidebar-overlay {
+  right: auto;
+  left: 0;
+}
+
+/* أيقونات/نصوص بتاخد margin من اليمين في الـ RTL */
+[dir="ltr"] .stat-label,
+[dir="ltr"] .table-container th,
+[dir="ltr"] .table-container td {
+  text-align: left;
+}
+
+[dir="ltr"] .alert-success,
+[dir="ltr"] .alert-error,
+[dir="ltr"] .alert-warning,
+[dir="ltr"] .alert-info {
+  border-right: none;
+  border-left: 3px solid currentColor;
+}
+
+/* ── موبايل: نفس منطق الـ LTR ── */
+@media (max-width: 1024px) {
+  [dir="ltr"] .sidebar {
+    left: -300px !important;
+    right: auto !important;
+  }
+  [dir="ltr"] .sidebar.mobile-open {
+    left: 0 !important;
+    right: auto !important;
+  }
+  [dir="ltr"] .hamburger-btn {
+    left: 12px !important;
+    right: auto !important;
+  }
+  [dir="ltr"] .main-content {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
+
+@media (min-width: 769px) {
+  [dir="ltr"] .sidebar {
+    left: 0 !important;
+    right: auto !important;
+  }
 }

@@ -1,0 +1,265 @@
+﻿{
+  "//": "═══════════════════════════════════════════════════════════════════════",
+  "//1": "Firestore composite indexes — SaaS PRO",
+  "//2": "",
+  "//3": "⚠️ ليه الملف ده مهم: أي استعلام فيه where('companyId','==',x) +",
+  "//4": "   orderBy(...) محتاج **composite index**. من غيره Firestore بيرجع",
+  "//5": "   FAILED_PRECONDITION: The query requires an index.",
+  "//6": "   قبل الملف ده كانت الفهارس متصانة يدوي في الكونسول ومش شايفة في",
+  "//5": "   الـ git — يعني أي بيئة جديدة ممكن تقع في أخطاء صامتة.",
+  "//7": "",
+  "//8": "📦 النشر: firebase deploy --only firestore:indexes",
+  "//9": "   (محتاج firebase.json — موجود في نفس الـ commit)",
+  "//10": "",
+  "//11": "ℹ️ الفهرس المفرد (single-field) بيعمله Firestore تلقائي. الـ composite",
+  "//12": "   دي بس اللي محتاجة تعريف يدوي.",
+  "//13": "═══════════════════════════════════════════════════════════════════════",
+  "indexes": [
+    {
+      "//": "الفواتير: companyId + createdAt — أساس pagination صفحة الفواتير + كل الصفحات اللي بتستخدم useFirestorePagination('invoices')",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الفواتير: فلتر حالة الطلب للمطاعم/الكافيهات (أصلحته في Batch 3 — كان بيفلتر على status فكان دايمًا صفر نتيجة)",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "orderStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الفواتير: aggregated sum في الداشبورد (companyId + approval)",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "approval", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "الفواتير: aggregated sum للمستندات القديمة (approval == null)",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "approval", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المشتريات: pagination",
+      "collectionGroup": "purchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "المصروفات: pagination",
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "المرتجعات: منع الإرجاع الزائد — بيتحسب من مرتجعات الفاتورة/الشراء السابقة",
+      "collectionGroup": "returns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "refId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "الروشتات: توليد الرقم التسلسلي (أصلحته في Batch 6 — كان الاستعلام من غير companyId)",
+      "collectionGroup": "prescriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "rxNumber", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الرسائل: الوارد (to in [uid, all]) + ترتيب بالأحدث",
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "to", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الرسائل: المرسلة (from == uid)",
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "from", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الرسائل: غير المقروءة (to in + read == false + الأحدث)",
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "read", "order": "ASCENDING" },
+        { "fieldPath": "to", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "تقفيل الورديات: companyId + createdAt",
+      "collectionGroup": "closings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الحضور: companyId + date (كشف الشهر + تسجيل اليوم)",
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "الحضور: companyId + employeeId (منع سجلين لنفس الموظف في نفس اليوم)",
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "التشغيلات (بNonnullable الصيدلية): companyId + productId + expiryDate للترتيب FEFO",
+      "collectionGroup": "batches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "productId", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المخزون: companyId + createdAt (الترتيب الافتراضي في صفحة المخزون)",
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "العملاء: companyId + name",
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "الموردون: companyId + name",
+      "collectionGroup": "suppliers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المهام: companyId + status + createdAt",
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "المواعيد: companyId + date",
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المعاينات: companyId + date + time (الترتيب اللي كان بيعمل Invalid Date)",
+      "collectionGroup": "viewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "time", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المستخلصات: companyId + createdAt",
+      "collectionGroup": "certificates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "المشاريع: companyId + createdAt",
+      "collectionGroup": "projects",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "المستخدمون: companyId + role (Admin — AuditLogger + التحقق)",
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "role", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "المستخدمون: companyId + email",
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "email", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "الطلبات في الكليحة: type=pos + orderStatus + createdAt",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "orderStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

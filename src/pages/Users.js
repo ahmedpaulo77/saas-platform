@@ -1,4 +1,4 @@
-// src/pages/Users.js - إدارة المستخدمين مع دعم الترجمة وصلاحيات الأدمن/السوبر أدمن
+﻿// src/pages/Users.js - إدارة المستخدمين مع دعم الترجمة وصلاحيات الأدمن/السوبر أدمن
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -11,14 +11,14 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db, createAuthUserWithoutSession } from "../firebase/config";
+import { db, createAuthUserWithoutSession, revokeAccountAccess } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { isSuperAdmin, canManageUsers } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
-import PasswordStrengthMeter, { getPasswordStrength } from "../components/common/PasswordStrengthMeter";
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter";
 
 export default function Users() {
   const { t } = useLanguage();
@@ -99,13 +99,11 @@ export default function Users() {
       return;
     }
 
-    const { checks } = getPasswordStrength(newUser.password);
-    if (!checks.uppercase) {
-      alert(t("signup.needUppercase"));
-      return;
-    }
-    if (!checks.symbol) {
-      alert(t("signup.needSymbol"));
+    // ✅ نفس سياسة التطبيق (PasswordStrengthMeter.PASSWORD_POLICY)
+    const pw = validatePassword(newUser.password);
+    if (!pw.ok) {
+      const labels = pw.missing.map((k) => PASSWORD_MISSING_LABEL_AR[k]).filter(Boolean);
+      alert(t("pf.missing") + (labels.length ? ": " + labels.join("، ") : ""));
       return;
     }
 
@@ -244,21 +242,43 @@ export default function Users() {
     try {
       const userDoc = await getDoc(doc(db, "users", userId));
       const userEmail = userDoc.exists() ? userDoc.data().email : 'Unknown';
-      
-      await deleteDoc(doc(db, "users", userId));
+
+      // ⚠️ ليه soft delete مش deleteDoc؟
+      //
+      // 1) حذف مستند Firestore **مش بيمسح حساب Firebase Auth** — الإيميل
+      //    والباسورد بيفضلوا شغالين.
+      // 2) والأهم: الـ Rules بتعتبر الـ uid اللي **مالوش doc** "نشط"
+      //    (requestingUserIsActive بترجع true لو !exists).
+      //    فـ deleteDoc كان هيفتح الحساب تاني! الموظف المسروق يدخل، وملكش
+      //    شركة، و ProtectedRoute يوديه /setup ويعمل شركة جديدة.
+      // 3) Firebase مش بيسمح بـ deleteUser لمستخدم تاني من الـ client
+      //    (محتاج باسورد أو Admin SDK). فأي كود بيحاول = promise كاذبة.
+      //
+      // الحل الصح: نوقف المستند (isActive: false) → الـ Rules بتمنع كل وصول
+      // فورًا — + reset email يبطّل الباسورد القديم. والمستند بيتسابه عن قصد.
+      await updateDoc(doc(db, "users", userId), {
+        isActive: false,
+        deletedAt: new Date().toISOString(),
+      });
+
+      const emailed = await revokeAccountAccess(userEmail);
       
       await logActivity({
         actionType: 'DELETE',
         collectionName: 'users',
         itemId: userId,
-        details: `Deleted user: ${userEmail}`,
+        details: `Revoked access for user: ${userEmail}${emailed ? ' (password reset emailed)' : ' (reset email not sent)'}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       
       await fetchUsers();
-      alert(t("success.userDeleted"));
+      alert(
+        emailed
+          ? t("success.userRevoked")
+          : t("success.userRevokedNoEmail")
+      );
     } catch (error) {
-      console.error("Error deleting user:", error);
+      console.error("Error revoking user:", error);
       alert(t("errors.deleteUser"));
     }
   }
@@ -546,7 +566,7 @@ export default function Users() {
                     setNewUser({ ...newUser, password: e.target.value })
                   }
                   required
-                  minLength="6"
+                  minLength={PASSWORD_POLICY.minLength}
                   style={styles.input}
                 />
                 <PasswordStrengthMeter password={newUser.password} />

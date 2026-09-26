@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { getAvailableModules } from "../../utils/modules";
 import { canDelete } from "../../utils/companyQuery";
+import { round2 } from "../../utils/revenue";
 
 export default function InvoiceTable({
   filteredInvoices,
@@ -122,12 +123,26 @@ export default function InvoiceTable({
                 <tbody>
                   {pageItems.map((inv, i) => {
                     const clientName = clients.find((c) => c.id === inv.clientId)?.name || t("common.unspecified");
-                    const productDetails = inv.products?.map((p) => { const pr = products.find((item) => item.id === p.productId); return `${pr ? pr.name : t("common.unspecified")} (${p.quantity || 1})`; }) || [];
+                    // ⚠️ POS/المطعم بيكتبوا السطور في `items` مش `products`.
+                    // الكود كان بيقرا `products` بس، فكل طلب مطعم كان بيعرض
+                    // "-" في عمود الأصناف و"0" في عمود الكمية.
+                    const invLines = inv.products || inv.items || [];
+                    const productDetails = invLines.map((p) => {
+                      const pr = products.find((item) => item.id === p.productId);
+                      const name = pr?.name || p.productName || p.name || t("common.unspecified");
+                      return `${name} (${p.quantity || 1})`;
+                    });
                     const productStr = productDetails.length > 0 ? productDetails.join(" ، ") : "-";
                     const paid = parseFloat(inv.paidAmount) || 0;
-                    const remaining = (parseFloat(inv.amount) || 0) - paid;
-                    const totalQty = inv.products ? inv.products.reduce((sum, p) => sum + parseFloat(p.quantity || 0), 0) : 0;
-                    const totalWithFee = (parseFloat(inv.amount) || 0) + (parseFloat(inv.deliveryFee) || 0);
+                    // `amount` = قيمة البضاعة (بدون توصيل). `total` = المحصّل.
+                    // لو المستند فيه total (POS/Mall) نعرضه، وإلا amount + توصيل.
+                    const amountBase = parseFloat(inv.amount) || 0;
+                    const grandTotal = parseFloat(inv.total) > 0
+                      ? parseFloat(inv.total)
+                      : amountBase + (parseFloat(inv.deliveryFee) || 0);
+                    const remaining = round2(grandTotal - paid);
+                    const totalQty = invLines.reduce((sum, p) => sum + (parseFloat(p.quantity) || 0), 0);
+                    const totalWithFee = grandTotal;
                     const orderTypeCfg = ORDER_TYPES.find((o) => o.value === inv.orderType);
                     const returnedAmt = returnsByInvoice[inv.id] || 0;
                     return (
@@ -155,7 +170,7 @@ export default function InvoiceTable({
                         {isRestaurant && <td><OrderStatusBadge status={inv.orderStatus || "new"} orderId={inv.id} onStatusChange={onOrderStatusChange} isRestaurant={isRestaurant} /></td>}
                         {hasInventory && <td style={{ fontSize: 13 }}>{productStr}</td>}
                         {hasInventory && <td>{totalQty}</td>}
-                        <td style={{ fontWeight: 700 }}>{(inv.amount || 0).toLocaleString()} {t("currency")}</td>
+                        <td style={{ fontWeight: 700 }}>{round2(grandTotal).toLocaleString()} {t("currency")}</td>
                         {isRestaurant && <td style={{ fontWeight: 700, color: "#059669" }}>{totalWithFee.toFixed(2)} {t("currency")}{inv.deliveryFee > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{inv.deliveryFee} توصيل</div>}</td>}
                         {!isRestaurant && <>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}</td>
@@ -166,13 +181,19 @@ export default function InvoiceTable({
                         <td>
                           <div className="table-actions">
                             {!isRestaurant && onSendToReview && getApproval(inv) === "new" && <button onClick={() => onSendToReview(inv)} className="btn-secondary btn-sm" title={t("in.sendToReview")} style={{ borderColor: "#c7d2fe", color: "#4338ca" }}><i className="fas fa-share"></i> {t("in.sendToReview")}</button>}
-                            {!isRestaurant && onValidate && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
+                            {/* ⚠️ زرار الاعتماد كان مقصور على !isRestaurant — يعني
+                                طلبات المطعم/الكافيه اللي بتتسجل من صفحة الفواتير
+                                ما كانش ليها أي طريق تتعادّ. والنتيجة: مبيعات
+                                مدفوعة وكاش حقيقية كانت **مستبعدة من كل تقارير
+                                الإيراد** (Dashboard/Reports/Profits/Aging) و من
+                                تقفيل الوردية، الفلوس في الدرج وفي غير الحسابات. */}
+                            {onValidate && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
                             {isRestaurant && <button onClick={() => onThermalPrint(inv)} className="btn-primary btn-sm" title="طباعة فاتورة"><i className="fas fa-print"></i></button>}
                             {!isRestaurant && <button onClick={() => onExportPDF(inv)} className="btn-primary btn-sm" title={t("in.pdf")}><i className="fas fa-file-pdf"></i> PDF</button>}
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}
                             <button onClick={() => onEdit(inv)} className="btn-secondary btn-sm" title={t("common.edit")}><i className="fas fa-edit"></i></button>
-                            {!isRestaurant && <button onClick={() => onReturn(inv)} className="btn-secondary btn-sm" title="مرتجع" style={{ borderColor: "#f59e0b", color: "#d97706" }}><i className="fas fa-undo"></i></button>}
-                            {userCanDelete && <button onClick={() => onDelete(inv.id)} className="btn-danger btn-sm" title={t("common.delete")}><i className="fas fa-trash"></i></button>}
+                            {onReturn && <button onClick={() => onReturn(inv)} className="btn-secondary btn-sm" title="مرتجع" style={{ borderColor: "#f59e0b", color: "#d97706" }}><i className="fas fa-undo"></i></button>}
+                            {userCanDelete && <button onClick={() => onDelete(inv.id, inv)} className="btn-danger btn-sm" title={t("common.delete")}><i className="fas fa-trash"></i></button>}
                           </div>
                         </td>
                       </tr>

@@ -1,4 +1,4 @@
-// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
+﻿// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -159,6 +159,7 @@ export default function StorePOS() {
       const now = Date.now();
       const byMethod = {};
       let count = 0, total = 0, paid = 0, cashSales = 0;
+      const windowInvoices = new Map();
       snap.docs.forEach((d) => {
         const inv = d.data();
         const ap = inv.approval || "validated";
@@ -169,19 +170,26 @@ export default function StorePOS() {
           total += parseFloat(inv.amount) || 0;
           const p = parseFloat(inv.paidAmount) || 0;
           paid += p;
-          const m = inv.paymentMethod || inv.source || "cash";
+          // ⚠️ ما ن fallbackش على `source` — ده مصدر الطلب مش طريقة دفع
+          const m = inv.paymentMethod || "cash";
           byMethod[m] = (byMethod[m] || 0) + p;
-          if (m === "cash" || m === "direct") cashSales += p;
+          if (m === "cash") cashSales += p;
+          windowInvoices.set(d.id, { ts, paymentMethod: m });
         }
       });
-      let returnsCount = 0, returnsTotal = 0;
+      let returnsCount = 0, returnsTotal = 0, cashReturnsTotal = 0;
       retSnap.docs.forEach((d) => {
         const r = d.data();
         if (r.kind && r.kind !== "sale") return;
         const ts = new Date(r.date || r.createdAt || 0).getTime();
-        if (ts >= from && ts <= now) {
-          returnsCount++;
-          returnsTotal += parseFloat(r.amount) || 0;
+        if (!(ts >= from && ts <= now)) return;
+        const amt = parseFloat(r.amount) || 0;
+        returnsCount++;
+        returnsTotal += amt;
+        // الكاش بس، ومن نفس النافذة (نفس منطق POS.js)
+        const parent = r.refId ? windowInvoices.get(r.refId) : null;
+        if (parent && parent.paymentMethod === "cash" && parent.ts >= from) {
+          cashReturnsTotal += amt;
         }
       });
       let cashIn = 0, cashOut = 0, expInCount = 0, expOutCount = 0;
@@ -195,7 +203,7 @@ export default function StorePOS() {
           else { cashOut += amt; expOutCount++; }
         });
       } catch (e) { console.warn("expenses sum:", e?.message); }
-      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal, cashIn, cashOut, expInCount, expOutCount });
+      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal, cashReturnsTotal, cashIn, cashOut, expInCount, expOutCount });
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
@@ -205,7 +213,14 @@ export default function StorePOS() {
 
   function closingExpected(preview, openingCashVal) {
     const cashSales = preview?.cashSales ?? preview?.paid ?? 0;
-    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(preview?.cashIn) || 0) - (parseFloat(preview?.cashOut) || 0) - (parseFloat(preview?.returnsTotal) || 0);
+    // ⚠️ cashReturnsTotal (كاش + نفس النافذة) مش returnsTotal
+    return round2(
+      (parseFloat(openingCashVal) || 0) +
+      cashSales +
+      (parseFloat(preview?.cashIn) || 0) -
+      (parseFloat(preview?.cashOut) || 0) -
+      (parseFloat(preview?.cashReturnsTotal) || 0)
+    );
   }
 
   async function submitClosing(e) {
@@ -230,9 +245,11 @@ export default function StorePOS() {
         byMethod: closePreview.byMethod,
         returnsCount: closePreview.returnsCount || 0,
         returnsTotal: closePreview.returnsTotal || 0,
+        // المرتجع النقدي بس — اللي اتخصم فعليًا من المتوقع
+        cashReturnsTotal: closePreview.cashReturnsTotal || 0,
         countedCash: counted,
         expectedCash: expected,
-        difference: counted - expected,
+        difference: round2(counted - expected),
         cashIn,
         cashOut,
         expInCount: closePreview.expInCount || 0,
@@ -374,9 +391,14 @@ export default function StorePOS() {
     setAddingClient(false);
   }
 
-  const subtotal = cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * item.quantity, 0);
+  const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
+  const subtotal = round2(cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * item.quantity, 0));
   const discountNum = Math.max(0, parseFloat(discount) || 0);
-  const total = Math.max(0, subtotal - discountNum);
+  // ⚠️ الخصم كان مفتوح بلا حد — كاشير يكتب "خصم 500" على فاتورة 100 والشاحن
+  // بياخد 0.00 والفاتورة بتطبع "الخصم: 500" و"الإجمالي: 0". بنتحقق عند
+  // الحفظ (handleCheckout) وبنخلي العرض هنا محايد.
+  const total = round2(Math.max(0, subtotal - discountNum));
+  const discountExceedsSubtotal = discountNum > subtotal;
 
   // ── طباعة فاتورة حرارية 80mm (اسم الكاشير + رسالة ترحيب + اسم المحل تحت) ──
   function handleThermalPrint(inv, cartSnapshot, clientName, cashierName) {
@@ -475,52 +497,76 @@ export default function StorePOS() {
       alert(t("storepos.cashierRequired"));
       return;
     }
+    if (discountExceedsSubtotal) {
+      alert(t("storepos.discountTooHigh"));
+      return;
+    }
     setSubmitting(true);
     try {
-      // خصم المخزون مع التحقق من التوفر (transaction — كل القراءات أولاً ثم الكتابة)
+      const now = new Date().toISOString();
+      const invoiceRef = doc(collection(db, "invoices"));
+
+      // ⚠️ الخصم والمخزون والفاتورة لازم كلهم في transaction واحد.
+      // قبل كده: الـ transaction كان بيخلص بنجاح وبعدين addDoc للفاتورة
+      // ممكن يفشل → مخزون اتخصم من غير فاتورة.
+      //
+      // كمان: الخصم مكانش بيتحفظ خالص (invDoc كان فيه amount: total بس)،
+      // فأي تعديل على الفاتورة بعدين كان بيرجّع السعر قبل الخصم.
       await runTransaction(db, async (tx) => {
+        // كل القراءات أولاً
         const reads = [];
         for (const item of cart) {
           const productRef = doc(db, "inventory", item.id);
           const productDoc = await tx.get(productRef);
           reads.push({ item, productRef, productDoc });
         }
-        for (const { item, productRef, productDoc } of reads) {
+        for (const { item, productDoc } of reads) {
           if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
-          const currentQty = productDoc.data().quantity || 0;
+          const currentQty = parseFloat(productDoc.data().quantity) || 0;
           if (currentQty < item.quantity) {
             throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
           }
         }
+
+        // كل الكتابات بعد ما كل القراءات خلصت
         for (const { item, productRef, productDoc } of reads) {
-          const currentQty = productDoc.data().quantity || 0;
-          tx.update(productRef, { quantity: currentQty - item.quantity });
+          const currentQty = parseFloat(productDoc.data().quantity) || 0;
+          tx.update(productRef, { quantity: round2(currentQty - item.quantity) });
         }
+
+        tx.set(invoiceRef, {
+          companyId: userCompanyId,
+          createdBy: currentUser?.uid || null,
+          createdByEmail: currentUser?.email || "",
+          clientId: selectedClient || null,
+          products: cart.map((item) => ({
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            // amount = سطر قبل الخصم (السعر × الكمية)
+            amount: round2((parseFloat(item.price) || 0) * item.quantity),
+            price: parseFloat(item.price) || 0,
+            size: item.size || "",
+            color: item.color || "",
+          })),
+          // subtotal/discount بيوصلوا للتقارير + بتخلّي تعديل الفاتورة
+          // يحافظ على الخصم بدل ما يمسحه
+          subtotal,
+          discount: discountNum,
+          amount: total,
+          paidAmount: total,
+          status: "paid",
+          approval: "validated",
+          validatedBy: currentUser?.uid || null,
+          validatedAt: now,
+          paymentMethod: paymentMethod || "cash",
+          date: now,
+          createdAt: now,
+          type: "store-pos",
+        });
       });
 
-      const now = new Date().toISOString();
-      const invRef = await addDoc(collection(db, "invoices"), {
-        companyId: userCompanyId,
-        createdBy: currentUser?.uid || null,
-        clientId: selectedClient || null,
-        products: cart.map((item) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          amount: (parseFloat(item.price) || 0) * item.quantity,
-          size: item.size || "",
-          color: item.color || "",
-        })),
-        amount: total,
-        paidAmount: total,
-        status: "paid",
-        approval: "validated",
-        validatedBy: currentUser?.uid || null,
-        validatedAt: now,
-        paymentMethod: paymentMethod || "cash",
-        date: now,
-        createdAt: now,
-        type: "store-pos",
-      });
+      const invRef = invoiceRef;
 
       await logActivity({
         actionType: "CREATE",
@@ -1062,9 +1108,9 @@ export default function StorePOS() {
                   </div>
                   {closeForm.countedCash !== "" && (
                     <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
-                      background: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#f0fdf4" : "#fef2f2",
-                      color: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#16a34a" : "#dc2626" }}>
-                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash))).toLocaleString()}
+                      background: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#f0fdf4" : "#fef2f2",
+                      color: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#16a34a" : "#dc2626" }}>
+                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + round2((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)).toLocaleString()}
                     </div>
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>

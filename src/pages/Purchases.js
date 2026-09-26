@@ -10,6 +10,7 @@ import {
   getDocs,
   query,
   where,
+  runTransaction,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -23,7 +24,7 @@ import AutocompleteInput from "../components/common/AutocompleteInput";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
 import JsBarcode from "jsbarcode";
-import { getProductUnit, lineAmount, stockDelta, isKgUnit } from "../utils/traderUnits";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits";
 const PAGE_SIZE = 25;
 
 export default function Purchases() {
@@ -336,70 +337,98 @@ export default function Purchases() {
     if (!newPurchase.supplierId || !(effectiveAmount > 0)) return;
     setSubmitting(true);
     try {
-      // ✅ كل صنف مختار بيزوّد كميته في المخزون (بالوزن للكيلو)
-      if (hasInventory) {
-        for (const item of items) {
-          if (!item.productId) continue;
-          const productRef = doc(db, "inventory", item.productId);
-          const productDoc = await getDoc(productRef);
-          if (!productDoc.exists()) continue;
-          const delta = stockDelta(
-            item.unit || getProductUnit(productDoc.data()),
-            item.quantity,
-            item.weight,
-          );
-          if (delta > 0) {
-            const currentQty = productDoc.data().quantity || 0;
-            await updateDoc(productRef, { quantity: currentQty + delta });
-          }
-        }
-      }
-
       const amount = effectiveAmount;
+      const suppName = suppliers.find((s) => s.id === newPurchase.supplierId)?.name || "";
       const totalQty = items.reduce(
-        (sum, it) =>
-          sum + stockDelta(it.unit || "piece", it.quantity, it.weight),
+        (sum, it) => sum + stockDelta(it.unit || "piece", it.quantity, it.weight),
         0,
       );
-      const purchaseData = {
-        supplierId: newPurchase.supplierId,
-        // ✅ أصناف متعددة بالوزن
-        items: items.map((it) => ({
-          productId: it.productId,
-          quantity: parseFloat(it.quantity) || 0,
-          weight: it.weight || "",
-          unit: it.unit || "",
-          unitCost: parseFloat(it.unitCost) || 0,
-          amount: parseFloat(it.amount) || 0,
-        })),
-        companyId: userCompanyId,
-        createdBy: currentUser?.uid,
-        amount,
-        unitCost: 0,
-        quantity: hasInventory ? totalQty : 0,
-        date: new Date().toISOString(),
-        dueDate: newPurchase.dueDate || null,
-        status: newPurchase.status,
-        description: newPurchase.description || "",
-        createdAt: new Date().toISOString(),
-      };
 
-      const docRef = await addDoc(collection(db, "purchases"), purchaseData);
+      // ═══════════════════════════════════════════════════════════════
+      // ذرّي: المخزون + مستند الشراء + متوسط التكلفة في transaction واحد
+      // ═══════════════════════════════════════════════════════════════
+      // قبل كده: المخزون بيتزاد سطر سطر (getDoc + updateDoc) وبعدين
+      // addDoc للشراء. لو الـ addDoc فشل، المخزون اتزاد من غير فاتورة شراء
+      // (= مخزون وهمي + رقم مفقود من كل التقارير).
+      //
+      // كمان: كنا بنختم "آخر سعر شراء" بس (lastUnitCost) — مفيش متوسط
+      // تكلفة خالص، فصفحة الأرباح مفيهاش أساس لحساب التكلفة.
+      const purchaseRef = doc(collection(db, "purchases"));
+      const lineRefs = [];
+      items.forEach((it) => {
+        if (hasInventory && it.productId) lineRefs.push(doc(db, "inventory", it.productId));
+      });
 
-      // ختم آخر شراء على كل صنف (للعرض في المخزون: آخر مورد + آخر سعر شراء)
-      try {
-        const suppName = suppliers.find((s) => s.id === newPurchase.supplierId)?.name || "";
-        for (const item of items) {
-          if (!item.productId) continue;
-          await updateDoc(doc(db, "inventory", item.productId), {
+      await runTransaction(db, async (tx) => {
+        // 1) كل القراءات أولاً
+        const snaps = [];
+        for (const ref of lineRefs) {
+          snaps.push(await tx.get(ref));
+        }
+
+        // 2) الحسابات
+        const stockWrites = [];
+        snaps.forEach((snap, idx) => {
+          const item = items.filter((it) => hasInventory && it.productId)[idx];
+          if (!snap.exists()) return; // صنف مش موجود في المخزون: نتخطاه زي ما كان
+
+          const data = snap.data();
+          const unit = item.unit || getProductUnit(data);
+          const delta = stockDelta(unit, item.quantity, item.weight);
+          if (delta <= 0) return;
+
+          const currentQty = parseFloat(data.quantity) || 0;
+          const unitCost = parseFloat(item.unitCost) || 0;
+          const updates = {
+            quantity: roundQty(currentQty + delta, unit),
             lastSupplierId: newPurchase.supplierId || "",
             lastSupplierName: suppName,
-            lastUnitCost: parseFloat(item.unitCost) || 0,
-          });
-        }
-      } catch (stampErr) {
-        console.warn("last purchase stamp:", stampErr?.message);
-      }
+            lastUnitCost: unitCost,
+          };
+
+          // متوسط التكلفة المتحرك — الأساس الصح لحساب التكلفة
+          if (unitCost > 0) {
+            const oldAvg = parseFloat(data.avgCost) || parseFloat(data.purchasePrice) || 0;
+            const newQty = currentQty + delta;
+            updates.avgCost = roundQty(
+              newQty > 0 ? (currentQty * oldAvg + delta * unitCost) / newQty : unitCost,
+              unit
+            );
+          }
+
+          stockWrites.push({ ref: lineRefs[idx], updates });
+        });
+
+        // 3) كل الكتابات بعد ما كل القراءات خلصت
+        stockWrites.forEach(({ ref, updates }) => tx.update(ref, updates));
+
+        tx.set(purchaseRef, {
+          supplierId: newPurchase.supplierId,
+          supplierName: suppName,
+          // ✅ أصناف متعددة بالوزن
+          items: items.map((it) => ({
+            productId: it.productId,
+            productName: it.productName || "",
+            quantity: parseFloat(it.quantity) || 0,
+            weight: it.weight || "",
+            unit: it.unit || "",
+            unitCost: parseFloat(it.unitCost) || 0,
+            amount: parseFloat(it.amount) || 0,
+          })),
+          companyId: userCompanyId,
+          createdBy: currentUser?.uid,
+          amount,
+          unitCost: 0,
+          quantity: hasInventory ? totalQty : 0,
+          date: new Date().toISOString(),
+          dueDate: newPurchase.dueDate || null,
+          status: newPurchase.status,
+          description: newPurchase.description || "",
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      const docRef = purchaseRef;
 
       await logActivity({
         actionType: "CREATE",
@@ -986,18 +1015,25 @@ ${labelDivs}
                         return;
                       const prod = products.find((p) => p.id === productId);
                       const unit = getProductUnit(prod);
+                      // 🔴 الكود القديم كان بيحطّ سعر *البيع* (inventory.price)
+                      // في خانة *التكلفة*. حد بيفتتح فاتورة شراء ويختار منتج
+                      // من غير ما يعدّل الرقم كان بيسجّل تكلفة = سعر البيع،
+                      // فكل تقرير التكلفة/الأرباح كان غلط والهامش 0%.
+                      // الافتراضي الصح: آخر سعر شراء معروف، أو متوسط التكلفة.
+                      // ولو مفيش أي منهم، نسيب الحقل فاضي ونطلب رقم صريح.
+                      const defaultCost =
+                        prod?.lastUnitCost != null && parseFloat(prod.lastUnitCost) > 0
+                          ? parseFloat(prod.lastUnitCost)
+                          : parseFloat(prod?.avgCost) > 0
+                            ? parseFloat(prod.avgCost)
+                            : 0;
                       const newItem = {
                         productId,
                         quantity: "1",
                         weight: "",
                         unit,
-                        unitCost: prod?.price != null ? String(prod.price) : "",
-                        amount: calculateItemAmount(
-                          unit,
-                          prod?.price || 0,
-                          1,
-                          "",
-                        ).toString(),
+                        unitCost: defaultCost > 0 ? String(defaultCost) : "",
+                        amount: calculateItemAmount(unit, defaultCost, 1, "").toString(),
                       };
                       const items = [...(newPurchase.items || []), newItem];
                       const total = items.reduce(

@@ -1,12 +1,15 @@
-// src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
+﻿// src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
+
+// round2 بيقرّب فلوس عند حدّين عشان ما نتكسبش أخطاء 0.1+0.2.
+const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
 
 // أنواع الطلبات للمطعم - تيك أواي وديليفري بس
 const ORDER_TYPES = [
@@ -154,6 +157,10 @@ export default function POS() {
       const now = Date.now();
       const byMethod = {};
       let count = 0, total = 0, paid = 0, cashSales = 0;
+      // فهرس الفواتير في النافذة دي — نحتاجه عشان نعرف مرتجع بيع تبع
+      // فيتن أنا (الفاتورة الأم) كانت كاش ولا فيزا/endaréz，且 هل هي
+      // في نفس النافذة ولا فات قديمة.
+      const windowInvoices = new Map();
       snap.docs.forEach((d) => {
         const inv = d.data();
         const ap = inv.approval || "validated";
@@ -164,21 +171,32 @@ export default function POS() {
           total += parseFloat(inv.amount) || 0;
           const p = parseFloat(inv.paidAmount) || 0;
           paid += p;
-          const m = inv.paymentMethod || inv.source || "cash";
+          // ⚠️ ما ن fallbackش على `source` — ده *مصدر الطلب* (whatsapp/direct)
+          // مش طريقة دفع. كان بيخلي أي طلب واتساب نقدي يتحسب كاش في الدرج.
+          const m = inv.paymentMethod || "cash";
           byMethod[m] = (byMethod[m] || 0) + p;
-          if (m === "cash" || m === "direct") cashSales += p;
+          if (m === "cash") cashSales += p;
+          windowInvoices.set(d.id, { ts, paymentMethod: m });
         }
       });
-      let returnsCount = 0, returnsTotal = 0;
+      let returnsCount = 0, returnsTotal = 0, cashReturnsTotal = 0;
       retSnap.docs.forEach((d) => {
         const r = d.data();
         if (r.kind && r.kind !== "sale") return;
         const ts = new Date(r.date || r.createdAt || 0).getTime();
-        if (ts >= from && ts <= now) {
-          returnsCount++;
-          returnsTotal += parseFloat(r.amount) || 0;
-        }
+        if (!(ts >= from && ts <= now)) return;
+        const amt = parseFloat(r.amount) || 0;
+        returnsCount++;
+        returnsTotal += amt;
+        // مرتجع بطاقة/محفظة ما دخلش الدرج أصلاً، ومرتجع فاتورة من
+        // وردية/شهر فات مااتحطش في درج النهاردة. الكود القديم كان بيخصم
+        // أي مرتجع من المتوقع وده كان بيدي فرق وهمي كبير في التقفيل.
+        const parent = r.refId ? windowInvoices.get(r.refId) : null;
+        const parentIsCash = parent ? parent.paymentMethod === "cash" : false;
+        const parentInWindow = parent ? parent.ts >= from : false;
+        if (parentIsCash && parentInWindow) cashReturnsTotal += amt;
       });
+      // نعرض الإجمالي في التقرير لكن نخصم الكاش بس من المتوقع
       let cashIn = 0, cashOut = 0, expInCount = 0, expOutCount = 0;
       try {
         expSnap.docs.forEach((d) => {
@@ -190,7 +208,7 @@ export default function POS() {
           else { cashOut += amt; expOutCount++; }
         });
       } catch (e) { console.warn("expenses sum:", e?.message); }
-      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal, cashIn, cashOut, expInCount, expOutCount });
+      setClosePreview({ count, total, paid, cashSales, byMethod, returnsCount, returnsTotal, cashReturnsTotal, cashIn, cashOut, expInCount, expOutCount });
       setShowCloseModal(true);
     } catch (err) {
       console.error(err);
@@ -200,7 +218,14 @@ export default function POS() {
 
   function closingExpected(preview, openingCashVal) {
     const cashSales = preview?.cashSales ?? preview?.paid ?? 0;
-    return (parseFloat(openingCashVal) || 0) + cashSales + (parseFloat(preview?.cashIn) || 0) - (parseFloat(preview?.cashOut) || 0) - (parseFloat(preview?.returnsTotal) || 0);
+    // ⚠️ cashReturnsTotal (كاش + نفس النافذة) مش returnsTotal (كل المرتجعات)
+    return round2(
+      (parseFloat(openingCashVal) || 0) +
+      cashSales +
+      (parseFloat(preview?.cashIn) || 0) -
+      (parseFloat(preview?.cashOut) || 0) -
+      (parseFloat(preview?.cashReturnsTotal) || 0)
+    );
   }
 
   async function submitClosing(e) {
@@ -224,9 +249,11 @@ export default function POS() {
         byMethod: closePreview.byMethod,
         returnsCount: closePreview.returnsCount || 0,
         returnsTotal: closePreview.returnsTotal || 0,
+        // المرتجع النقدي بس — اللي اتخصم فعليًا من المتوقع
+        cashReturnsTotal: closePreview.cashReturnsTotal || 0,
         countedCash: counted,
         expectedCash: expected,
-        difference: counted - expected,
+        difference: round2(counted - expected),
         cashIn,
         cashOut,
         expInCount: closePreview.expInCount || 0,
@@ -461,9 +488,12 @@ export default function POS() {
     return basePrice + extrasTotal;
   }
 
-  const subtotal = cart.reduce((sum, item) => sum + getItemTotalPrice(item), 0);
+  const subtotal = round2(cart.reduce((sum, item) => sum + getItemTotalPrice(item), 0));
   const deliveryFeeNum = parseFloat(deliveryFee) || 0;
-  const total = subtotal + (orderType === "delivery" ? deliveryFeeNum : 0);
+  // ⚠️ رسوم التوصيل لازم تفضل بره amount. كل القارئات (InvoiceTable.jsx،
+  //    utils/invoiceHelpers.js، Invoices.js) بتعمل totalWithFee = amount + deliveryFee.
+  //    لو حطيناها جوّه amount كمان، الفاتورة كانت بتعرض 240 بدل 120.
+  const total = round2(subtotal + (orderType === "delivery" ? deliveryFeeNum : 0));
 
   // ── طباعة حرارية ──
   function handleThermalPrint(invoiceData) {
@@ -591,40 +621,90 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         } catch (e) { console.warn("auto-create client:", e.message); }
       }
 
-      for (const item of cart) {
-        const productRef = doc(db, "inventory", item.id);
-        const productDoc = await getDoc(productRef);
-        if (productDoc.exists()) {
-          const currentQty = productDoc.data().quantity || 0;
-          await updateDoc(productRef, { quantity: currentQty - item.quantity });
+      // ═══════════════════════════════════════════════════════════════
+      // CHECKOUT — ذرّي (atomic)
+      // ═══════════════════════════════════════════════════════════════
+      // المشكلة القديمة: كان بينزل المخزون سطر سطر (getDoc + updateDoc) وبعدين
+      // يعمل addDoc للفاتورة. لو أي خطوة فشلت، كان المخزون اتخصم والبيع
+      // ماتسجلش — خسارة صامتة. وكمان مفيش فحص كفاية مخزون، فكان بينتج
+      // مخزون سالب، وفحص الصلاحية في الصيدلية كان بيرمي بعد الخصم.
+      //
+      // الحل: validate كل حاجة قبل أي كتابة، بعدين runTransaction واحد فيه
+      // (أ) كل القراءات (ب) كل الكتابات — Firestore بيطلب الترتيب ده بالظبط.
+      const batchSnap = isPharmacy
+        ? await getDocs(getScopedQuery("batches", userRole, userCompanyId, currentUser?.uid))
+        : null;
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+
+      // ── مرحلة 1: تحقّق (مفيش أي كتابة) ──
+      const stockRefs = cart.map((item) => doc(db, "inventory", item.id));
+      const stockSnaps = await Promise.all(stockRefs.map((r) => getDoc(r)));
+
+      stockSnaps.forEach((snap, i) => {
+        const item = cart[i];
+        if (!snap.exists()) {
+          throw new Error(`المنتج "${item.name}" غير موجود في المخزون`);
         }
-        // صرف FEFO من التشغيلات (صيدلية): الأقدم صلاحية أولاً + منع المنتهي
-        if (isPharmacy) {
-          try {
-            const bSnap = await getDocs(getScopedQuery("batches", userRole, userCompanyId, currentUser?.uid));
-            const today = new Date(); today.setHours(0, 0, 0, 0);
-            const valid = bSnap.docs
-              .map((d) => ({ id: d.id, ...d.data() }))
-              .filter((b) => b.productId === item.id && (parseFloat(b.quantity) || 0) > 0)
-              .sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
-            const expired = valid.filter((b) => b.expiryDate && new Date(b.expiryDate) < today);
-            const usable = valid.filter((b) => !b.expiryDate || new Date(b.expiryDate) >= today);
-            if (valid.length > 0 && usable.length === 0) {
-              throw new Error(`الدواء "${item.name}" كل تشغيلاته منتهية الصلاحية — البيع موقوف`);
-            }
-            let remaining = item.quantity;
-            for (const b of usable) {
-              if (remaining <= 0) break;
-              const take = Math.min(remaining, parseFloat(b.quantity) || 0);
-              await updateDoc(doc(db, "batches", b.id), { quantity: (parseFloat(b.quantity) || 0) - take });
-              remaining -= take;
-            }
-            if (expired.length > 0) console.warn("expired batches skipped:", expired.map((b) => b.batchNumber));
-          } catch (e) {
-            if (e.message?.includes("منتهية الصلاحية")) throw e;
-            console.warn("FEFO deduct:", e.message);
+        const currentQty = parseFloat(snap.data().quantity) || 0;
+        if (currentQty < item.quantity) {
+          throw new Error(
+            `الكمية غير متوفرة: "${item.name}" — المتاح ${currentQty} والمطلوب ${item.quantity}`
+          );
+        }
+      });
+
+      // FEFO للصيدلية: خطّط الصرف قبل أي كتابة، وتأكد إن الكمية تكفي
+      const fefoPlan = new Map(); // productId -> [{ batchId, take }]
+      if (isPharmacy && batchSnap) {
+        const allBatches = batchSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        cart.forEach((item) => {
+          const valid = allBatches
+            .filter((b) => b.productId === item.id && (parseFloat(b.quantity) || 0) > 0)
+            .sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
+          const usable = valid.filter(
+            (b) => !b.expiryDate || new Date(b.expiryDate) >= todayStart
+          );
+          const expired = valid.filter(
+            (b) => b.expiryDate && new Date(b.expiryDate) < todayStart
+          );
+          if (valid.length > 0 && usable.length === 0) {
+            throw new Error(`الدواء "${item.name}" كل تشغيلاته منتهية الصلاحية — البيع موقوف`);
           }
-        }
+          let remaining = item.quantity;
+          const plan = [];
+          usable.forEach((b) => {
+            if (remaining <= 0) return;
+            const take = Math.min(remaining, parseFloat(b.quantity) || 0);
+            if (take > 0) plan.push({ batchId: b.id, take });
+            remaining = round2(remaining - take);
+          });
+          // ⚠️ ما نكملش لو التشغيلات الصالحة مش مكفية — الكود القديم كان
+          // بيواصل وبيسيب الـ batches غلط عن الـ inventory.
+          if (remaining > 0.001) {
+            throw new Error(
+              `الكمية غير متوفرة في التشغيلات الصالحة: "${item.name}" — ناقص ${remaining}`
+            );
+          }
+          if (expired.length > 0) {
+            console.warn("expired batches skipped:", expired.map((b) => b.batchNumber));
+          }
+          fefoPlan.set(item.id, plan);
+        });
+      }
+
+      // ── مرحلة 2: الكتابة الذرّية ──
+      // فهرس: مسار دوك التشغيلة → إجمالي الكمية اللي هتخصم منه.
+      // لازم نبنيه جوّه الـ transaction عشان نعرف الكمية المخصومة لكل دوك.
+      const fefoTakes = new Map();
+      const batchWriteRefs = [];
+      if (isPharmacy) {
+        fefoPlan.forEach((plan) =>
+          plan.forEach(({ batchId, take }) => {
+            const ref = doc(db, "batches", batchId);
+            batchWriteRefs.push(ref);
+            fefoTakes.set(ref.path, round2((fefoTakes.get(ref.path) || 0) + take));
+          })
+        );
       }
 
       const invDoc = {
@@ -639,11 +719,14 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           return {
             productId: item.id,
             productName: item.name,
+            // amount مخزّن كمان عشان Sales.jsx والتقارير يقراوا السعر وقت
+            // البيع مش السعر الحالي للمنتج (اللي بيتغيّر بعد كده).
+            amount: round2(getItemTotalPrice(item)),
             quantity: item.quantity,
             price: item.price || 0,
             extras: isRestaurantOnly ? selectedExtras : [],
             note: cartItemNotes[item.id] || "",
-            itemTotal: getItemTotalPrice(item),
+            itemTotal: round2(getItemTotalPrice(item)),
             // حقول الملابس
             productType: item.type || "",
             productSize: item.size || "",
@@ -654,7 +737,9 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         discount: 0,
         deliveryFee: isRestaurant && orderType === "delivery" ? deliveryFeeNum : 0,
         total,
-        amount: total,
+        // amount = قيمة البضاعة بس (بدون توصيل) — ده الـ contract اللي كل
+        // القارئات بتفترضه. الـ total هو اللي اتحصّل فعلاً.
+        amount: subtotal,
         status: "paid",
         paidAmount: total,
         paymentMethod: paymentMethod || "cash",
@@ -675,7 +760,43 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         type: "pos",
       };
 
-      await addDoc(collection(db, "invoices"), invDoc);
+      const invoiceRef = doc(collection(db, "invoices"));
+
+      await runTransaction(db, async (tx) => {
+        // كل القراءات الأول — Firestore بيرفض أي كتابة قبل آخر قراءة
+        const freshSnaps = await Promise.all(stockRefs.map((r) => tx.get(r)));
+        const freshBatches = batchWriteRefs.length
+          ? await Promise.all(batchWriteRefs.map((r) => tx.get(r)))
+          : [];
+
+        // إعادة التحقق جوّه الـ transaction (الكمية ممكن تكون اتغيّرت
+        // بين التحقق الأول والـ transaction من جهاز تاني)
+        freshSnaps.forEach((snap, i) => {
+          const item = cart[i];
+          const currentQty = parseFloat(snap.data()?.quantity) || 0;
+          if (currentQty < item.quantity) {
+            throw new Error(
+              `الكمية غير متوفرة: "${item.name}" — المتاح ${currentQty} والمطلوب ${item.quantity}`
+            );
+          }
+        });
+
+        // ── بعد ما كل القراءات خلصت: كل الكتابات ──
+        freshSnaps.forEach((snap, i) => {
+          const item = cart[i];
+          const currentQty = parseFloat(snap.data()?.quantity) || 0;
+          tx.update(stockRefs[i], { quantity: round2(currentQty - item.quantity) });
+        });
+
+        freshBatches.forEach((snap, i) => {
+          const ref = batchWriteRefs[i];
+          const currentQty = parseFloat(snap.data()?.quantity) || 0;
+          const take = fefoTakes.get(ref.path) || 0;
+          tx.update(ref, { quantity: round2(currentQty - take) });
+        });
+
+        tx.set(invoiceRef, invDoc);
+      });
 
       // طباعة تلقائية للمطعم
       if (isRestaurant) handleThermalPrint(invDoc);
@@ -699,7 +820,15 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
       if (!isRestaurant) alert(t("pos.ok"));
     } catch (e) {
       console.error(e);
-      alert(t("pos.fail"));
+      // ⚠️ مابنشوفش "pos.fail" بس — الكاشير لازم يعرف السبب (كمية غير متوفرة،
+      // دوا منتهي، صلاحية مقفولة...) عشان يقرر يسكوب الطلب ولا يعدّل الكمية.
+      const reason = typeof e?.message === "string" ? e.message : "";
+      const isBusinessError =
+        /الكمية|المنتج|الدواء|التشغيلات|الصلاحية|منتهية/.test(reason) ||
+        /insufficient|expired|unavailable/i.test(reason);
+      alert(isBusinessError && reason ? reason : t("pos.fail"));
+      // لو السبب تقني مش تجاري، نخلّي الكاشير يعرف إن العملية اتوقفت
+      if (!isBusinessError) console.warn("checkout failed — cart kept, no stock touched");
     }
     setSubmitting(false);
   }
@@ -1275,9 +1404,9 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
                   </div>
                   {closeForm.countedCash !== "" && (
                     <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
-                      background: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#f0fdf4" : "#fef2f2",
-                      color: ((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) === 0 ? "#16a34a" : "#dc2626" }}>
-                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + (((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash))).toLocaleString()}
+                      background: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#f0fdf4" : "#fef2f2",
+                      color: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#16a34a" : "#dc2626" }}>
+                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + round2((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)).toLocaleString()}
                     </div>
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>

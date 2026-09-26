@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/common/Sidebar";
 import { getAvailableModules } from "../utils/modules";
+import { round2 } from "../utils/traderUnits";
 import { useLanguage } from "../i18n/LanguageContext";
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
@@ -239,6 +240,7 @@ export default function Dashboard() {
     revenue: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
   // ✅ اسم الشركة اللي هيظهر جنب Welcome
   const [companyName, setCompanyName] = useState("");
@@ -269,6 +271,7 @@ export default function Dashboard() {
 
     async function fetchStats() {
       setLoading(true);
+      setStatsError(null);
       const isSuper = userRole === "super_admin";
 
       const compRef = collection(db, "companies");
@@ -289,21 +292,28 @@ export default function Dashboard() {
       const mk = (ref) =>
         isSuper ? ref : query(ref, where("companyId", "==", userCompanyId));
 
-      // ✅ فواتير "مدفوعة" و"غير مدفوعة" لازم كويريز منفصلة عشان منطق الإيراد
-      // بيفرّق بينهم (paid بيستخدم amount، الباقي بيستخدم paidAmount الجزئي)
-      const paidInvQ = isSuper
-        ? query(invRef, where("status", "==", "paid"))
+      // ⚠️ الكود القديم كان بيقسّم الكويري على `status == paid` / `!= paid`،
+      // ومش بيفلتر على `approval` خالص — يعني الطلبات غير المعتمدة كانت
+      // بتتحسب إيراد في الداشبورد، و `!= paid` بيقصّي المستندات اللي
+      // مفيهاش status (فلاتر). وكمان sum('amount') — وده قيمة البضاعة
+      // بدون رسوم التوصيل، فكل فاتورة توصيل كانت ناقصة.
+      //
+      // الحل: `paidAmount` هو الحقل الموثوق للمحصّل (كل الكتّاب بيحطوه)،
+      // ونفلتر على approval بس. مستندات قديمة من غير approval بتتحسب
+      // كمعتمدة (زي باقي التطبيق).
+      const validatedInvQ = isSuper
+        ? query(invRef, where("approval", "==", "validated"))
         : query(
             invRef,
             where("companyId", "==", userCompanyId),
-            where("status", "==", "paid"),
+            where("approval", "==", "validated"),
           );
-      const unpaidInvQ = isSuper
-        ? query(invRef, where("status", "!=", "paid"))
+      const legacyInvQ = isSuper
+        ? query(invRef, where("approval", "==", null))
         : query(
             invRef,
             where("companyId", "==", userCompanyId),
-            where("status", "!=", "paid"),
+            where("approval", "==", null),
           );
 
       try {
@@ -328,8 +338,8 @@ export default function Dashboard() {
           msgCount,
           patCount,
           invCount,
-          paidSum,
-          unpaidSum,
+          validatedSum,
+          legacySum,
         ] = await Promise.all([
           isSuper
             ? getCountFromServer(compRef).then((s) => s.data().count)
@@ -349,10 +359,10 @@ export default function Dashboard() {
           getCountFromServer(mk(msgRef)).then((s) => s.data().count),
           getCountFromServer(mk(patRef)).then((s) => s.data().count),
           getCountFromServer(mk(invRef)).then((s) => s.data().count),
-          getAggregateFromServer(paidInvQ, { total: sum("amount") }).then(
-            (s) => s.data().total || 0,
-          ),
-          getAggregateFromServer(unpaidInvQ, {
+          getAggregateFromServer(validatedInvQ, {
+            total: sum("paidAmount"),
+          }).then((s) => s.data().total || 0),
+          getAggregateFromServer(legacyInvQ, {
             total: sum("paidAmount"),
           }).then((s) => s.data().total || 0),
         ]);
@@ -372,7 +382,7 @@ export default function Dashboard() {
           console.warn("returns sum:", e?.message);
         }
 
-        const totalRevenue = (paidSum || 0) + (unpaidSum || 0) - returnsTotal;
+        const totalRevenue = round2((validatedSum || 0) + (legacySum || 0) - returnsTotal);
 
         if (cancelled) return;
 
@@ -395,6 +405,9 @@ export default function Dashboard() {
         });
       } catch (e) {
         console.error("Failed to fetch dashboard stats", e);
+        // ⚠️ قبل كده الخطأ كان console.error بس → 16 كارت إحصائي كلهم
+        // "0" بشكل طبيعي من غير أي رسالة للمستخدم.
+        if (!cancelled) setStatsError(e?.message || "Failed to load dashboard");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -451,6 +464,28 @@ export default function Dashboard() {
         </div>
 
         {/* ✅ Stats - تظهر فقط للأدمن */}
+        {statsError && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "14px 16px",
+              marginBottom: 16,
+              lineHeight: 1.8,
+            }}
+          >
+            <strong>
+              <i className="fas fa-triangle-exclamation" style={{ marginLeft: 8 }}></i>
+              {t("common.errorGeneric")} — {t("common.errorLoadHint")}
+            </strong>
+            <div style={{ fontSize: 12, opacity: 0.8, direction: "ltr", marginTop: 4 }}>
+              {statsError}
+            </div>
+          </div>
+        )}
+
         {isAdmin ? (
           <div className="stats-row">
             {availableModules.has("companies") && (

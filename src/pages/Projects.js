@@ -1,4 +1,4 @@
-// src/pages/Projects.js - مع عزل البيانات حسب الشركة ودعم الترجمة و createdBy
+﻿// src/pages/Projects.js - مع عزل البيانات حسب الشركة ودعم الترجمة و createdBy
 import React, { useState, useEffect, useCallback } from "react";
 import {
   collection,
@@ -15,6 +15,7 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { buildCertificate, certificateNet, certificateRemaining, normalizeCertificate } from "../utils/contracts";
 
 export default function Projects() {
   const { t } = useLanguage();
@@ -105,20 +106,19 @@ export default function Projects() {
       const proj = projects.find((p) => p.id === selectedProjectId);
       const amount = parseFloat(newCert.amount) || 0;
       const deduction = parseFloat(newCert.deduction) || 0;
-      const docRef = await addDoc(collection(db, "certificates"), {
+      const docRef = await addDoc(collection(db, "certificates"), buildCertificate({
         projectId: selectedProjectId,
         projectName: proj?.name || "",
         number: newCert.number,
         amount,
         deduction,
-        net: amount - deduction,
+        description: newCert.notes || "",
         status: newCert.status || "pending",
         dueDate: newCert.dueDate || null,
         notes: newCert.notes || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        createdAt: new Date().toISOString(),
-      });
+      }));
       await logActivity({
         actionType: "CREATE", collectionName: "certificates", itemId: docRef.id,
         details: `Certificate #${newCert.number} for project ${proj?.name || ""}, net ${amount - deduction}`,

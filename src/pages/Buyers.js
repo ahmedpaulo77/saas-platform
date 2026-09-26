@@ -5,6 +5,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
+import { buildViewing, normalizeViewing } from "../utils/contracts";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -75,18 +76,22 @@ export default function Buyers() {
     setAddingViewing(true);
     try {
       const unit = units.find((u) => u.id === viewingForm.sellerId);
-      const docRef = await addDoc(collection(db, "viewings"), {
+      const docRef = await addDoc(collection(db, "viewings"), buildViewing({
         buyerId: viewingBuyer.id,
         buyerName: viewingBuyer.name || "",
-        sellerId: unit?.id || "",
+        // ⚠️ sellerId = الوحدة. وpropertyId = نفس الوحدة عشان صفحة
+        //    المعاينات تشوف العقار — قبل كده المستند من هنا كان بيتعرض
+        //    في /viewings بعمود عقار فاضي.
+        propertyId: unit?.id || "",
+        propertyName: unit ? `${unit.name}${unit.project ? ` — ${unit.project}` : ""}` : "",
         unitName: unit ? `${unit.name}${unit.project ? ` — ${unit.project}` : ""}` : "",
         date: viewingForm.date,
+        time: viewingForm.time || "00:00",
         status: "scheduled",
         notes: viewingForm.notes || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        createdAt: new Date().toISOString(),
-      });
+      }));
       await logActivity({
         actionType: "CREATE", collectionName: "viewings", itemId: docRef.id,
         details: `Viewing for ${viewingBuyer.name} → ${unit?.name || ""} on ${viewingForm.date}`,

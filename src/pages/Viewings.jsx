@@ -12,6 +12,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
+import { buildViewing, normalizeViewing, viewingDate } from "../utils/contracts";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -50,10 +51,16 @@ export default function Viewings() {
       const snap = await getDocs(
         getScopedQuery("viewings", userRole, userCompanyId, currentUser?.uid)
       );
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const data = snap.docs.map((d) => ({ id: d.id, ...normalizeViewing(d.data()) }));
+      // ⚠️ المقارن القديم كان بيعمل new Date("" + "T" + "00:00") لو
+      // السجل ناقص date → Invalid Date → الطرح = NaN → الترتيب كله عشوائي.
+      // viewingDate بيرجّع null، والمفقودين في الآخر (غير مرتبين بس ما بيبوظش)
       data.sort((a, b) => {
-        const ad = new Date((a.date || "") + "T" + (a.time || "00:00"));
-        const bd = new Date((b.date || "") + "T" + (b.time || "00:00"));
+        const ad = viewingDate(a);
+        const bd = viewingDate(b);
+        if (!ad && !bd) return 0;
+        if (!ad) return 1;
+        if (!bd) return -1;
         return ad - bd;
       });
       setViewings(data);
@@ -132,11 +139,9 @@ export default function Viewings() {
     try {
       const property = properties.find((p) => p.id === newViewing.propertyId);
       const client = clients.find((c) => c.id === newViewing.clientId);
-      const docRef = await addDoc(collection(db, "viewings"), {
-        property: newViewing.propertyId,
+      const docRef = await addDoc(collection(db, "viewings"), buildViewing({
         propertyId: newViewing.propertyId,
         propertyName: property?.name || "",
-        client: newViewing.clientId,
         clientId: newViewing.clientId,
         clientName: client?.name || "",
         clientType: client?.type || "",
@@ -146,8 +151,7 @@ export default function Viewings() {
         notes: newViewing.notes || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        createdAt: new Date().toISOString(),
-      });
+      }));
       await logActivity({
         actionType: "CREATE",
         collectionName: "viewings",

@@ -3,6 +3,8 @@ import { translations } from './translations';
 
 const LanguageContext = createContext(null);
 
+export { LanguageContext };
+
 const STORAGE_KEY = 'saas-pro-lang';
 
 function interpolate(str, vars) {
@@ -35,9 +37,23 @@ export function LanguageProvider({ children }) {
   const value = useMemo(() => {
     const dict = translations[lang] || translations.ar;
 
+    // في التطوير: لو مفتاح ناقص، اطبعه في الكونسول. قبل كده كان
+        // النص سيرجع للمفتاح نفسه
+    const warnMissing = import.meta.env?.DEV;
+    const seenMissing = new Set();
+
     const t = (key, vars) => {
       const text = dict[key];
-      if (text == null) return key;
+      if (text == null) {
+        if (warnMissing && !seenMissing.has(key)) {
+          seenMissing.add(key);
+          console.warn(
+            `[i18n] missing key "${key}" for lang="${lang}" — ` +
+            (lang === 'ar' ? 'النص سيرجع للمفتاح نفسه' : 'the raw key will be shown to the user')
+          );
+        }
+        return key;
+      }
       return interpolate(String(text), vars);
     };
 

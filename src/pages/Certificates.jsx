@@ -1,4 +1,4 @@
-// src/pages/Certificates.jsx - مستخلصات المقاولين (Certificates)
+﻿// src/pages/Certificates.jsx - مستخلصات المقاولين (Certificates)
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
@@ -15,6 +15,7 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { buildCertificate, certificateNet, certificateRemaining, normalizeCertificate } from "../utils/contracts";
 
 export default function Certificates() {
   const { t } = useLanguage();
@@ -131,18 +132,17 @@ export default function Certificates() {
       const proj = projects.find((p) => p.id === newCert.projectId);
       const amount = parseFloat(newCert.amount) || 0;
       const paidAmount = parseFloat(newCert.paidAmount) || 0;
-      const payload = {
+      const payload = buildCertificate({
         projectId: newCert.projectId,
         projectName: proj?.name || "",
         amount,
         paidAmount,
+        description: newCert.description || "",
         status: newCert.status || "pending",
         dueDate: newCert.dueDate || null,
-        description: newCert.description || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        createdAt: new Date().toISOString(),
-      };
+      });
       const docRef = await addDoc(collection(db, "certificates"), payload);
       await logActivity({
         actionType: "CREATE",
@@ -480,9 +480,14 @@ export default function Certificates() {
                         projects.find((p) => p.id === c.projectId)?.name ||
                         c.projectName ||
                         "—";
-                      const amount = parseFloat(c.amount) || 0;
+                      // ⚠️ كان `amount - paid` — بس amount في مستندات
+                      // /projects كانت **قبل** الخصم (net هي اللي بعدها).
+                      // فالمستخلّص اللي عليه خصم كان بيظهر "مستحق 100%"
+                      // وفي نفس الوقت الـ total كان يقول رقم تاني.
+                      // الـ helpers بتعرف تقرأ القديم والحديث زي بعض.
+                      const amount = certificateNet(c);
                       const paid = parseFloat(c.paidAmount) || 0;
-                      const remaining = amount - paid;
+                      const remaining = certificateRemaining(c);
                       return (
                         <tr key={c.id}>
                           <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>

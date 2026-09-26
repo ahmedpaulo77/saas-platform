@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import SuperAdminRoute from "./components/common/SuperAdminRoute";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 import { LanguageProvider } from "./i18n/LanguageContext";
 import { getAvailableModules } from "./utils/modules";
 import "./App.css";
@@ -24,7 +25,8 @@ const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Setup = lazy(() => import("./pages/Setup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Companies = lazy(() => import("./pages/Companies"));
+// ⚠️ مفيش صفحة Companies — صفحة إدارة الشركات في pages/admin/SuperAdminDashboard.js
+// (النسخة القديمة هنا كانت fork من Dashboard واتفتحت بالخطأ كـ "الشركات")
 const Clients = lazy(() => import("./pages/Clients"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const Sales = lazy(() => import("./pages/Sales"));
@@ -101,7 +103,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <IndustryRoute moduleKey="companies">
-              <Companies />
+              {/* ⚠️ كان هنا <Companies /> — وده كان **نسخة قديمة من
+                  Dashboard.js** (أول سطر فيه كان "// src/pages/Dashboard.js"
+                  و export default function Dashboard()). يعني سوبر أدمن
+                  بيفتح "الشركات" فيلاقي داشبورد تاني.
+
+                  صفحة إدارة الشركات الحقيقية هي /admin (SuperAdminDashboard)
+                  وبها: قائمة + بحث + فلتر + إحصائيات + تفعيل/إيقاف + حذف.
+                  فالرابط القديم بقى redirect ليها. */}
+              <Navigate to="/admin" replace />
             </IndustryRoute>
           </ProtectedRoute>
         }
@@ -513,9 +523,13 @@ function App() {
               userCompanyId و userRole، وبرا AppRoutes عشان Sidebar (اللي
               بيتعرض جوه أي صفحة) يقدر يقرا unreadCount في أي وقت */}
           <NotificationsProvider>
-            <Suspense fallback={<AppFallback />}>
-              <AppRoutes />
-            </Suspense>
+            {/* ✅ ErrorBoundary لازم يكون فوق الـ Routes: أي throw في الرندر
+                كان بيبوّض التطبيق كله وميطلعش أي رسالة. */}
+            <ErrorBoundary>
+              <Suspense fallback={<AppFallback />}>
+                <AppRoutes />
+              </Suspense>
+            </ErrorBoundary>
           </NotificationsProvider>
         </AuthProvider>
       </Router>

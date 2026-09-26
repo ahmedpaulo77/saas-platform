@@ -1,11 +1,11 @@
-// src/pages/admin/ManageUsers.js - إدارة المستخدمين وربطهم بالشركات
+﻿// src/pages/admin/ManageUsers.js - إدارة المستخدمين وربطهم بالشركات
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { db, createAuthUserWithoutSession } from '../../firebase/config';
+import { db, createAuthUserWithoutSession, revokeAccountAccess } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { logActivity } from '../../utils/auditLogger';
 import Sidebar from '../../components/common/Sidebar';
-import PasswordStrengthMeter, { getPasswordStrength } from '../../components/common/PasswordStrengthMeter';
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../../components/common/PasswordStrengthMeter';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function ManageUsers() {
@@ -47,13 +47,11 @@ export default function ManageUsers() {
       return;
     }
 
-    const { checks } = getPasswordStrength(newUser.password);
-    if (!checks.uppercase) {
-      alert(t('signup.needUppercase'));
-      return;
-    }
-    if (!checks.symbol) {
-      alert(t('signup.needSymbol'));
+    // ✅ نفس سياسة التطبيق (PasswordStrengthMeter.PASSWORD_POLICY)
+    const pw = validatePassword(newUser.password);
+    if (!pw.ok) {
+      const labels = pw.missing.map((k) => PASSWORD_MISSING_LABEL_AR[k]).filter(Boolean);
+      alert(t('pf.missing') + (labels.length ? ': ' + labels.join('، ') : ''));
       return;
     }
     setSubmitting(true);
@@ -125,21 +123,29 @@ export default function ManageUsers() {
 
   async function handleDeleteUser(userId) {
     if (userId === currentUser?.uid) {
-      alert('لا يمكنك حذف حسابك الحالي');
+      alert('لا يمكنك إيقاف حسابك الحالي');
       return;
     }
     if (!window.confirm(t('mu.delQ'))) return;
     try {
       const userDoc = users.find(u => u.id === userId);
-      await deleteDoc(doc(db, 'users', userId));
+      // ⚠️ soft delete مش deleteDoc — نفس السبب في Users.js:
+      //    (أ) حذف الدوك مش بيمسح حساب Auth، (ب) الـ uid بلا doc بيعتبر
+      //    "نشط" في Rules فالحساب المسروق هيفتح تاني.
+      await updateDoc(doc(db, 'users', userId), {
+        isActive: false,
+        deletedAt: new Date().toISOString(),
+      });
+      const emailed = await revokeAccountAccess(userDoc?.email);
       await logActivity({
         actionType: 'DELETE',
         collectionName: 'users',
         itemId: userId,
-        details: `Deleted user: ${userDoc?.email || 'Unknown'}`,
+        details: `Revoked access: ${userDoc?.email || 'Unknown'}${emailed ? ' (reset email sent)' : ' (no email)'}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       await fetchData();
+      alert(emailed ? t('success.userRevoked') : t('success.userRevokedNoEmail'));
     } catch (e) {
       console.error(e);
       alert(t('mu.updErr'));
@@ -317,7 +323,7 @@ export default function ManageUsers() {
                   <label>{t('mu.pass')}</label>
                   <input type="password" value={newUser.password}
                     onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                    placeholder={t('mu.passPh')} required minLength={6} />
+                    placeholder={t('mu.passPh')} required minLength={PASSWORD_POLICY.minLength} />
                   <PasswordStrengthMeter password={newUser.password} />
                 </div>
                 <div className="form-group">

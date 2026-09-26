@@ -54,12 +54,8 @@ export default function Sidebar() {
       module: "sales",
     },
     {
-      to: "/companies",
-      icon: "fas fa-building",
-      label: t("nav.companies"),
-      module: "companies",
-    },
-    {
+      // ⚠️ كان "/companies" ——was بيودّي لنسخة قديمة من الداشبورد.
+      // إدارة الشركات للسوبر أدمن في قسم "الإدارة" بالأسفل (/admin).
       to: "/patients",
       icon: "fas fa-hospital-user",
       label: t("nav.patients"),

@@ -1,13 +1,13 @@
-// src/pages/Signup.js - مع دعم كودين (Admin + User) وأنواع الشركات الجديدة
+﻿// src/pages/Signup.js - مع دعم كودين (Admin + User) وأنواع الشركات الجديدة
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { generateInviteCode } from '../utils/companyQuery';
+import { createCompanyInviteCodes } from '../utils/companyQuery';
 import { INDUSTRIES } from '../utils/modules';
 import { useLanguage } from '../i18n/LanguageContext';
-import PasswordStrengthMeter, { getPasswordStrength } from '../components/common/PasswordStrengthMeter';
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../components/common/PasswordStrengthMeter';
 
 export default function Signup() {
   const { t } = useLanguage();
@@ -33,18 +33,12 @@ export default function Signup() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError(t('signup.shortPass'));
-      return;
-    }
-
-    const { checks } = getPasswordStrength(formData.password);
-    if (!checks.uppercase) {
-      setError(t('signup.needUppercase'));
-      return;
-    }
-    if (!checks.symbol) {
-      setError(t('signup.needSymbol'));
+    // ✅ نفس سياسة التطبيق (PasswordStrengthMeter.PASSWORD_POLICY) — الـ meter
+    // بيعرض 5 متطلبات، فلازم النموذج يفرض الخمسة مش اتنين بس.
+    const pw = validatePassword(formData.password, { confirm: formData.confirmPassword });
+    if (!pw.ok) {
+      const labels = pw.missing.map((k) => PASSWORD_MISSING_LABEL_AR[k]).filter(Boolean);
+      setError(t("pf.missing") + (labels.length ? ": " + labels.join("، ") : ""));
       return;
     }
 
@@ -97,20 +91,9 @@ export default function Signup() {
         });
         companyId = companyRef.id;
 
-        // ✅ توليد الأكواد في كولكشن منفصل invite_codes - 10 حروف + crypto
-        const adminCode = generateInviteCode('ADMIN');
-        const userCode = generateInviteCode('USER');
-
-        await setDoc(doc(db, 'invite_codes', adminCode), {
-          companyId,
-          role: 'admin',
-          createdAt: new Date().toISOString(),
-        });
-        await setDoc(doc(db, 'invite_codes', userCode), {
-          companyId,
-          role: 'user',
-          createdAt: new Date().toISOString(),
-        });
+        // ✅ توليد الأكواد — نفس الدالة المستخدمة في Setup.js و MyCompany.js
+        //    (مصدر واحد للحقيقة: invite_codes/{code} — 10 حروف + crypto)
+        await createCompanyInviteCodes(companyId);
       }
 
       // ============================================================
@@ -247,7 +230,7 @@ export default function Signup() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
-                minLength="6"
+                minLength={PASSWORD_POLICY.minLength}
                 style={{ paddingRight: '42px' }}
               />
               <i className="fas fa-lock" style={{

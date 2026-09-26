@@ -170,6 +170,19 @@ export default function Messages() {
       return;
     }
 
+    // ⚠️ حارس أمني: newMessage.to بيتinitialized على "all". بعد قفل users list
+    // على الأدمن، المستخدم العادي مش بيلاقي حد في القائمة فيفضل to = "all" —
+    // وكان هيقدر يبعت رسالة لكل الشركة وهو مش أدمن. القواعد مفيهاش فحص على
+    // محتوى الرسالة، فالحارس لازم يكون هنا في الكود.
+    if (!isAdmin && newMessage.to === "all") {
+      alert(t("messages.adminOnlyToSend"));
+      return;
+    }
+    if (!isAdmin && !newMessage.to) {
+      alert(t("messages.adminOnlyToSend"));
+      return;
+    }
+
     setSending(true);
     try {
       const to = newMessage.to;
@@ -352,6 +365,14 @@ export default function Messages() {
                     </option>
                   ))}
                 </select>
+                {/* بعد قفل users list على الأدمن، المستخدم العادي مش هيشوف
+                    زملاءه — فبنقوله بوضوح بدل ما يشوف قائمة فاضية */}
+                {!isAdmin && users.length === 0 && (
+                  <p style={{ color: "#b45309", fontSize: 12, marginTop: 8, lineHeight: 1.7 }}>
+                    <i className="fas fa-lock" style={{ marginLeft: 6 }}></i>
+                    {t("messages.directoryAdminOnly")}
+                  </p>
+                )}
               </div>
               <div className="form-group" style={{ marginBottom: 16 }}>
                 <label>{t("messages.text")}:</label>

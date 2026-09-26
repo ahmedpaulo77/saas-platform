@@ -1,8 +1,16 @@
 // src/utils/invoiceHelpers.js - منطق مشترك مستخرج من Invoices.js لتقليل حجم الملف
+//
+// ⚠️ `completed` و `delivered` لازم يبقوا مع بعض في نفس الترتيب.
+//    Kitchen.js كان بيحطّ الحالةTerminal = "completed"، وهي **مش موجودة**
+//    في القايمة دي — فـ getOrderStatusConfig بيرجع fallback على الأول
+//    (ORDER_STATUSES[0]) والطلب المُنهيّ كان بيظهر "🆕 جديد"! والشارة
+//    كانت بتعرض "← جديد" وبالضغط ترجّع الطلب للمطبخ كأنه جديد.
+//    (الـ Rules أصلاً كانت سامحة بالحالتين: 'completed','delivered')
 export const ORDER_STATUSES = [
   { value: "new", label: "🆕 جديد", color: "#2563eb", bg: "#eff6ff" },
   { value: "preparing", label: "👨‍🍳 قيد التحضير", color: "#d97706", bg: "#fffbeb" },
   { value: "ready", label: "✅ جاهز", color: "#16a34a", bg: "#f0fdf4" },
+  { value: "completed", label: "🍽️ تم التنفيذ", color: "#7c3aed", bg: "#f5f3ff" },
   { value: "delivered", label: "🛵 تم التسليم", color: "#7c3aed", bg: "#f5f3ff" },
   { value: "cancelled", label: "❌ ملغي", color: "#dc2626", bg: "#fef2f2" },
 ];

@@ -7,6 +7,7 @@ import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getPaymentLabel } from "../utils/paymentMethods";
+import { invoiceRevenue, saleReturnsTotal, round2 } from "../utils/revenue";
 
 function toDate(v) {
   if (!v) return null;
@@ -31,10 +32,8 @@ function sameDay(a, b) {
   );
 }
 
-function invoiceRevenue(inv) {
-  if (inv.status === "paid") return parseFloat(inv.amount) || 0;
-  return parseFloat(inv.paidAmount) || 0;
-}
+// ✅ التعريف الموحّد للإيراد — كان هنا نسخة رابعة بتختلف عن التلاتة التانية
+// (مفيش فلتر approval + بتستخدم amount). شوف utils/revenue.js.
 
 export default function Sales() {
   const { t, lang } = useLanguage();
@@ -152,7 +151,7 @@ export default function Sales() {
   }, [dayInvoices, productMap, clientMap, t]);
 
   const revenue = useMemo(
-    () => dayInvoices.reduce((s, inv) => s + invoiceRevenue(inv), 0),
+    () => round2(dayInvoices.reduce((s, inv) => s + invoiceRevenue(inv), 0)),
     [dayInvoices]
   );
 
@@ -176,7 +175,18 @@ export default function Sales() {
     [rows]
   );
 
-  const net = revenue - returnsAmount;
+  // ⚠️ "إجمالي الكمية" كان بيجمع كميات الفواتير بس والمرتجعات مش ناقصة منه،
+  // فبعد أي مرتجع الرقم كان أعلى من reality. بننقص المرتجع من الكمية.
+  const returnedQty = useMemo(() => {
+    return dayReturns.reduce((s, r) => {
+      const items = r.items || r.products || [];
+      return s + items.reduce((x, l) => x + (parseFloat(l.quantity) || 0), 0);
+    }, 0);
+  }, [dayReturns]);
+
+  const netQty = Math.max(0, round2(totalQty - returnedQty));
+
+  const net = round2(revenue - returnsAmount);
 
   const byMethod = useMemo(() => {
     const grouped = {};
@@ -296,7 +306,7 @@ export default function Sales() {
               <i className="fas fa-shirt"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {totalQty.toLocaleString()}
+              {netQty.toLocaleString()}
             </div>
             <div className="stat-label">{t("sales.totalQty")}</div>
           </div>

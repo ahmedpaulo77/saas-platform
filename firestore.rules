@@ -41,6 +41,9 @@
         );
       }
 
+      // طلب الشركة: لازم يبقى نشط
+      // (لو الشركة اتمسحت، الحاجز الحقيقي في userCompanyWasDeleted تحت —
+      //  احنا هنا بنسمح لـ user لسه مالوش شركة إنه يعدّي)
       function requestingCompanyIsActive() {
         return isLoggedIn() && (
           isSuperAdmin() ||
@@ -50,8 +53,24 @@
         );
       }
 
+      // ✅ الشركة اتمسحت فعلًا؟ مستخدم شركة مفقود لازم يبقى محجوب.
+      //
+      // 🔴 المشكلة: requestingCompanyIsActive فوق بتعتبر "الشركة مش موجودة"
+      //    = نشطة (意図ها إن المستخدم اللي لسه مخلّيش شركة يقدر يسجّل).
+      //    بس ده كان بيعني إن **Superdelete الشركة ما كانش بيعمل حاجة**:
+      //    الـ users بيفضلوا معاهم companyId وfullyActive() بترجع true،
+      //    فيفضلوا شغالين على بيانات يتيمة ومخفية عن السوبر أدمن.
+      //    (userCompanyId() بترمي لو مفيش user doc — عشان كده الحاجز
+      //     الصريح للـ exists هنا)
+      function userCompanyWasDeleted() {
+        return isLoggedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          getUserData().companyId != null &&
+          !exists(/databases/$(database)/documents/companies/$(getUserData().companyId));
+      }
+
       function fullyActive() {
-        return requestingUserIsActive() && requestingCompanyIsActive();
+        return requestingUserIsActive() && requestingCompanyIsActive() && !userCompanyWasDeleted();
       }
 
       // ============================================================
@@ -166,12 +185,16 @@
             userCompanyId() != null
           );
 
+        // 🔴 إصلاح: list مقفول على الأدمن.
+        // السبب: أي قاعدة list ما بذكرش resource.data مش بتفرض أي شرط على الـ query،
+        // فـ getDocs(collection(db,'users')) من حساب عادي كان بيرجّع يوزرات *كل*
+        // الشركات (إيميل + role + companyId) + _joinCode بتاعهم، وكود الدعوة ده
+        // كافي يعمل حساب داخل أي شركة (انظر فرع "ب" في create بالظبط).
+        // ملاحظة: Messages.js بيقرا الـ users مفلتر بـ companyId، بس الكود
+        // مش ضابط أمني — لو الكويري اتغيّر أو حد فتح الكونسول، التسريب بيرجع.
         allow list: if fullyActive() && (
           isSuperAdmin() ||
-          (isAdmin() && userCompanyId() != null) ||
-          // أي فرد نشط يقدر يشوف أعضاء شركته (لصفحة الرسائل) — الكويري في الكود
-          // بيفلتر بـ companyId، وبنفس نموذج باقي كولكشنز الشركة
-          (userCompanyId() != null)
+          (isAdmin() && userCompanyId() != null)
         );
 
         // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
@@ -185,7 +208,9 @@
             exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
             get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
           ) || (
-            // ب) بينضم بكود دعوة حقيقي اتحقق منه عبر invite_codes
+            // ب) بينضم بكود دعوة حقيقي بيتحقق منه من invite_codes/{code}.
+            //    companyId بييجي من الكود نفسه (مش من تخمين المستخدم) وبيتحقق
+            //    إن الكود ده فعلاً متاع الشركة دي وإن دوره = الدور المطلوب.
             isLoggedIn() && request.auth.uid == userId &&
             request.resource.data.role != 'super_admin' &&
             '_joinCode' in request.resource.data &&
@@ -199,14 +224,27 @@
 
         // 🟡 allowlist: امنع أي حقل مش من القائمة دي يتغير أو يتضاف
         //    ⚠️ عدّل اللستة دي لو عندك حقول بروفايل تانية (زي name, phone, photoURL...)
+        //
+        //    deletedAt:Soft delete بتستخدمه صفحة المستخدمين. السبب إن
+        //    حذف المستند بالكامل مش بيمسح حساب Firebase Auth، والأسوأ إن
+        //    الـ uid اللي مالهوش doc بيعتبر "نشط" (شوف requestingUserIsActive)
+        //    فكان الحساب المسروق هيفتح تاني لو حذفنا الدوك. فبنوقفه بدل ما
+        //    نمسحه: isActive=false يمنع كل وصول فورًا + reset email.
         allow update: if fullyActive() &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode']) &&
+            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode', 'deletedAt']) &&
           (
           isSuperAdmin() ||
           (
             isAdmin() &&
             canManageTargetUser(resource.data) &&
+            // 🔴 إصلاح: منع نقل المستخدم لشركة تانية.
+            // canManageTargetUser بيتأكد إن companyId *القديم* = شركتي، بس من غير
+            // السطر ده كان ينفع أعمل updateDoc(users/uid, {companyId: '<شركة B>'})
+            // والحساب ده ياخد صلاحيات كاملة على شركة تانية.
+            // نفس الحماية موجودة في canUpdateCompanyDoc — هنا كانت ناقصة.
+            (!('companyId' in request.resource.data) ||
+             request.resource.data.companyId == resource.data.companyId) &&
             request.resource.data.role != 'super_admin' &&
             request.auth.uid != userId
           ) ||
@@ -255,20 +293,27 @@
         allow list: if isSuperAdmin();
 
         // إنشاء شركة — لازم يثبت creatorUid لنفسه، وميكونش عنده شركة أصلاً
+        // ✅ الستة دي بالظبط هي اللي Signup.js و Setup.js بيكتبوهم.
+        //    لو ضفت حقول في فورم إنشاء الشركة، ضيفها هنا في نفس اللحظة.
         allow create: if requestingUserIsActive() &&
           (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
           getUserData().companyId == null) &&
           request.resource.data.isActive == true &&
           request.resource.data.creatorUid == request.auth.uid &&
-          // 🟡 allowlist — عدّل اللستة لو فورم إنشاء الشركة فيه حقول زيادة (logo, address...)
           request.resource.data.keys().hasOnly(['name', 'email', 'industry', 'createdAt', 'isActive', 'creatorUid']);
 
       // 🔴 إصلاح ثغرة (3): التعديل لـ isAdmin() بس، مع حماية isActive/plan/subscription
       allow update: if fullyActive() &&
-        // 🟡 allowlist — عدّل اللستة لو صفحة إعدادات الشركة فيها حقول زيادة
-        // ✅ adminInviteCode/userInviteCode: صفحة "شركتي" بتولّدهم عند أول فتح لو ناقصين
+        // ⚠️ الأكواد (adminInviteCode/userInviteCode) اتشالوا من هنا: المصدر
+        //    الرسمي للتحقق هو invite_codes (كولكشن مسطح، list مقفولة)،
+        //    ونسخة العرض في companies/{companyId}/codes/current (get بالـ id).
+        //    لو لسه في بيانات قديمة بالحقلين دول، باقيين بس مش هيتقروا بالتعديل.
+        //
+        // ⚠️ updatedAt لازم تكون هنا: SuperAdminDashboard بيكتبها مع isActive
+        //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
+        //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'adminInviteCode', 'userInviteCode']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt']) &&
           (
           isSuperAdmin() ||
           (
@@ -285,30 +330,29 @@
       }
 
       // ============================================================
-      // companies/{companyId}/codes/current — نسخة عرض للأدمن بس
-      // (المصدر الحقيقي اللي بيتحقق منه وقت الانضمام هو invite_codes، ده للعرض فقط)
+      // invite_codes/{code} — المصدر الرسمي للتحقق من كود الدعوة
       // ============================================================
-      match /companies/{companyId}/codes/{docId} {
-        allow get, list: if fullyActive() && isAdmin() && userCompanyId() == companyId;
-        allow create, update: if fullyActive() && isAdmin() && userCompanyId() == companyId &&
-          request.resource.data.keys().hasOnly(['adminCode', 'userCode', 'updatedAt']);
-        allow delete: if false;
-      }
-
-      // ============================================================
-      // invite_codes/{code} — بديل joinCode الآمن (لا list خالص)
-      // ============================================================
+      // ⚠️ ليش كولكشن مسطح مش سبل-كولكشن؟ لأن المستخدم بيكتب الكود وهو
+      //    مش عارف رقم الشركة — يعني لازم نلاقي الشركة من الكود نفسه.
+      //    فـ doc id = الكود هو الفهرس الوحيد الممكن.
+      //    الأمان هنا مش في المسار، الأمان في:
+      //      1) list مقفولة تماماً — مستحيل أحد يجيب كل أكواد كل الشركات
+      //    2) get بالـ id بالظبط بس — والكود 10 حروف من 32 رمز
+      //         (≈ 10^15 احتمال) بـ crypto.getRandomValues، مش قابل للتخمين
+      //      3) التسريب الوحيد كان عبر users list (لأنه كان بيصدّر _joinCode)
+      //         واتقفل — شوف allow list في match /users بالظبط
       match /invite_codes/{code} {
-        // get فقط لو عارف الكود بالظبط — مفيش list
         allow get: if isLoggedIn();
         allow list: if false;
 
         // الإنشاء مسموح في 3 حالات:
         //  أ) السوبر أدمن (بينشئ شركة لعميل ويولّد أكوادها)
-        //  ب) نفس الشخص اللي أنشأ الشركة (لحظة الإنشاء، قبل ما يبقى عنده مستند user بالـ companyId)
-        //  ج) أي أدمن حالي للشركة دي (عشان يقدر "يولّد كود جديد" لو الكود القديم ضاع)
+        //  ب) صاحب الشركة (لحظة إنشاء الشركة، قبل ما يبقى عنده companyId)
+        //  ج) أدمن الشركة الحالي (تجديد / استبدال كود ضايع)
         allow create: if isLoggedIn() &&
           request.resource.data.companyId != null &&
+          request.resource.data.keys().hasOnly(['companyId', 'role', 'createdAt']) &&
+          request.resource.data.role in ['admin', 'user'] &&
           exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
           (
             isSuperAdmin() ||
@@ -316,9 +360,26 @@
             (fullyActive() && isAdmin() && userCompanyId() == request.resource.data.companyId)
           );
 
-        // إعادة توليد/حذف الكود: أدمن الشركة أو السوبر أدمن بس
-        allow update, delete: if fullyActive() && isAdmin() &&
+        // 🔴 update ممنوع نهائياً: ما ينفعش كود يتنقل لشركة تانية أو يتغيّر دوره.
+        //    "التجديد" = حذف القديم + إنشاء جديد (تحت).
+        allow update: if false;
+
+        // حذف (إبطال كود): أدمن نفس الشركة بس
+        allow delete: if fullyActive() && isAdmin() &&
           resource.data.companyId == userCompanyId();
+      }
+
+      // ============================================================
+      // companies/{companyId}/codes/current — نسخة العرض للأدمن
+      // ============================================================
+      // المصدر الحقيقي للتحقق هو invite_codes فوق. الدوك ده للعرض بس
+      // (نسخ/لصق الكود من صفحة "شركتي") — و get بالـ id فمفيش list خالص.
+      match /companies/{companyId}/codes/{docId} {
+        allow get: if fullyActive() && isAdmin() && userCompanyId() == companyId;
+        allow list: if false;
+        allow create, update: if fullyActive() && isAdmin() && userCompanyId() == companyId &&
+          request.resource.data.keys().hasOnly(['adminCode', 'userCode', 'updatedAt']);
+        allow delete: if false;
       }
 
       // ============================================================
@@ -542,22 +603,46 @@
       allow delete: if canDeleteCompanyDoc();
     }
 
-    // تقفيل الورديات — الإنشاء والتقفيل لأي فرد (الكاشير بيقفل ورديته)، الحذف للأدمن
-    // ملحوظة: الواجهة لا تعرض تعديل التقفيلات المغلقة — المراجعة من السجل فقط
+    // تقفيل الورديات — الإنشاء والتقفيل لأي فرد (الكاشير بيقفل ورديته)، التعديل للأدمن بس
+    // 🔴 إصلاح: كان update مسموح لكل فرد في الشركة (canUpdateCompanyDoc) رغم إن
+    // الحقول دي (countedCash / expectedCash / difference) هي تسوية كاش مقفولة.
+    // أي كاشير كان يقدر يعمل updateDoc على أي وردية ويكتب difference = 0.
+    // ⚠️ ملاحظة: مش بنعمل isAdmin() بس — لأن الكاشير نفسه هو اللي بيقفل
+    // ورديته (POS.js / StorePOS.jsx). الحل: العضو يقدر يقفل وردية مفتوحة
+    // هو اللي فتحها بس، ولما تقفل بتتقفل للأبد (الوردية المغلقة مش بتتعدل خالص).
     match /closings/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
+      allow update: if fullyActive() && canUpdateCompanyDoc() && (
+        isAdmin() ||
+        (
+          resource.data.status == 'open' &&
+          request.resource.data.status == 'closed' &&
+          (resource.data.openedBy == request.auth.uid ||
+           resource.data.createdBy == request.auth.uid)
+        )
+      );
       allow delete: if canDeleteCompanyDoc();
     }
 
-    // الحضور والانصراف — تسجيل لأي فرد، الحذف للأدمن
+    // الحضور والانصراف — تسجيل لأي فرد، التعديل لصاحب السجل أو الأدمن، الحذف للأدمن
+    //
+    // 🔴 إصلاح: كان update مسموح لـ canUpdateCompanyDoc() = **أي فرد في
+    // الشركة يعدّل أي سجل حضور لأي حد** (وغيّر checkOut بتاع زميله أو
+    // عدّل ساعات شغله). كمان السجلات مربوطة بـ employeeName (نص حر)
+    // مش بـ uid، فالتطابق كان هش.
+    //
+    // الحل: التعديل بسجل **أنت** سجّلته (createdBy) أو للأدمن.
+    // (الكود بقى يخزّن employeeId = uid مع الاسم — انظر Attendance.js)
     match /attendance/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();
-      allow update: if canUpdateCompanyDoc();
+      allow update: if fullyActive() && canUpdateCompanyDoc() && (
+        isAdmin() ||
+        resource.data.createdBy == request.auth.uid
+      );
       allow delete: if canDeleteCompanyDoc();
     }
 
@@ -566,10 +651,9 @@
       // ============================================================
       match /auditLogs/{docId} {
         allow get:    if fullyActive() && isAdmin() && canAccessCompanyDoc();
-        allow list:   if fullyActive() && isAdmin() && (
-                        isSuperAdmin() ||
-                        (userCompanyId() != null)
-                      );
+        // 🔴 إصلاح: list مقفول على السوبر أدمن — نفس سبب users list.
+        // ما كانش فيه أي صفحة بتقرا auditLogs أصلاً، فمفيش فقد وظيفي.
+        allow list:   if fullyActive() && isSuperAdmin();
         // ✅ إصلاح نهائي: الشكل الحقيقي 100% من utils/auditLogger.js
         //    - performedBy.uid بيتحقق منه مباشرة (أقوى من مقارنة الإيميل)
         //    - createdAt هو Timestamp حقيقي (new Date() بيتحول تلقائي) فبنتأكد إنه قريب من وقت السيرفر

@@ -7,6 +7,8 @@ import { getScopedQuery } from "../utils/companyQuery";
 import { getAvailableModules } from "../utils/modules";
 import { logActivity } from "../utils/auditLogger";
 import { useFirestorePagination } from "./useFirestorePagination";
+import { useLanguage } from "../i18n/LanguageContext";
+import { round2 } from "../utils/revenue";
 
 const PAGE_SIZE = 25;
 
@@ -23,6 +25,7 @@ export function getInvoiceApproval(inv) {
 }
 
 export function useInvoices() {
+  const { t } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
@@ -43,9 +46,16 @@ export function useInvoices() {
 
   const filters = useMemo(() => {
     const f = [];
-    if (filterStatus !== "all") f.push(["status", "==", filterStatus]);
+    if (filterStatus !== "all") {
+      // ⚠️ في المطاعم/الكافيهات، الفلتر ده بيبعت قيم ORDER_STATUSES
+      // (new/preparing/ready/delivered/cancelled) — دي حالة *المطبخ*،
+      // وحقلها في المستند `orderStatus` مش `status`.
+      // `status` هو حالة *الدفع* (paid/pending) — فاختيار "قيد التحضير"
+      // كان بيبعت where('status','==','preparing') وبيطلع **صفر نتيجة دايمًا**.
+      f.push([isRestaurant ? "orderStatus" : "status", "==", filterStatus]);
+    }
     return f;
-  }, [filterStatus]);
+  }, [filterStatus, isRestaurant]);
 
   const {
     data: invoices,
@@ -157,8 +167,23 @@ export function useInvoices() {
 
   async function handleOrderStatusChange(invoiceId, newOrderStatus) {
     try {
+      const inv = invoices.find((x) => x.id === invoiceId);
       const updateData = { orderStatus: newOrderStatus };
-      if (newOrderStatus === "delivered") updateData.status = "paid";
+      // (حتى من غير اعتماد) كان بيحوّل الحالة لـ delivered فيتبعت
+      // status = "paid" — والكاش بيُحسب محصّل لطلب ما حدّش اعتمده.
+      //
+      // ⚠️ مهم: الـ Rules بتسمح لغير الأدمن بتغيير `orderStatus` بس
+      // (hasOnly(['orderStatus'])) — فلو بعتنا status/paidAmount معاه
+      // الـ write هيرجع permission-denied وStay من غير تغيير. عشان كده
+      // الحقول الإضافية للأدمن بس، وغير الأدمن بيغير الحالة بس.
+      if (newOrderStatus === "delivered" && isAdmin && inv && isInvoiceValidated(inv)) {
+        updateData.status = "paid";
+        const curPaid = parseFloat(inv.paidAmount) || 0;
+        const curTotal = parseFloat(inv.total) > 0
+          ? parseFloat(inv.total)
+          : (parseFloat(inv.amount) || 0) + (parseFloat(inv.deliveryFee) || 0);
+        if (curPaid <= 0 && curTotal > 0) updateData.paidAmount = round2(curTotal);
+      }
       await updateDoc(doc(db, "invoices", invoiceId), updateData);
       await logActivity({
         actionType: "UPDATE",
@@ -170,6 +195,7 @@ export function useInvoices() {
       await resetPagination();
     } catch (e) {
       console.error(e);
+      alert(t("common.errorGeneric"));
     }
   }
 

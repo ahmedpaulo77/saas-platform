@@ -116,17 +116,39 @@ export function AuthProvider({ children }) {
     let unsubUserDoc = null;
     let unsubCompanyDoc = null;
     let pushInitialized = false;
+    // الـ uid اللي الـ listener الحالي متاعه — بنستخدمه عشان نستبعد
+    // callbacks قديمة بتيجي بعد ما الـ user يتغيّر.
+    let listeningUid = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAllDocs = () => {
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
       if (unsubCompanyDoc) {
         unsubCompanyDoc();
         unsubCompanyDoc = null;
       }
+    };
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // ⚠️ مهم: كان بيتنضف unsubCompanyDoc بس. مستند المستخدم القديم
+      // (unsubUserDoc) كان **يفضل شغال** بعد الـ logout — فلما المستخدم
+      // التاني يدخل، أي تغيير في مستند الأول كان بيكتب role/companyId
+      // بتاع الأول فوق بيانات الثاني (تسريب صلاحيات + حالة غلط).
+      unsubscribeAllDocs();
+      listeningUid = user?.uid || null;
       setCurrentUser(user);
-      
+      //صفّر القيم قبل ما نقرأ البروفايل الجديد — عشان مفيش لحظة
+      // تكون فيها صلاحيات قديمة نافذة على الحساب الجديد
+      setUserRole(null);
+      setUserCompanyId(null);
+
       if (user) {
         // ✅ استماع لحظي لتغييرات مستند المستخدم (Role و CompanyId)
         unsubUserDoc = onSnapshot(doc(db, "users", user.uid), async (docSnap) => {
+          // لو الـ user اتغيّر/antنينا لسه شغالين → دي نتيجة قديمة
+          if (listeningUid !== user.uid) return;
           if (unsubCompanyDoc) {
             unsubCompanyDoc();
             unsubCompanyDoc = null;
@@ -148,6 +170,7 @@ export function AuthProvider({ children }) {
             // ✅ جلب مجال العمل (Industry) من الشركة + إيقاف الشركة
             if (userData.companyId) {
               unsubCompanyDoc = onSnapshot(doc(db, "companies", userData.companyId), (companySnap) => {
+                if (listeningUid !== user.uid) return;
                 if (companySnap.exists()) {
                   const companyData = companySnap.data();
                   setUserIndustry(companyData.industry || 'general');
@@ -179,9 +202,15 @@ export function AuthProvider({ children }) {
           }
           setLoading(false);
         }, (error) => {
-          // ✅ منع ظهور الخطأ في الكونسول بشكل مزعج
           console.warn("Error listening to user doc:", error.message);
-          setLoading(false);
+          // ⚠️ قبل كده كان بيحط loading=false بس ويسيب userRole زي ما هو.
+          // ProtectedRoute كان بيرسم شاشة تحميل للأبد. دلوقتي بنحدّد
+          // الحالة بوضوح بدل ما نسيب المستخدم في حلقة.
+          if (listeningUid === user.uid) {
+            setUserRole("user");
+            setUserCompanyId(null);
+            setLoading(false);
+          }
         });
 
       } else {
@@ -195,7 +224,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       unsubscribeAuth();
-      if (unsubUserDoc) unsubUserDoc();
+      unsubscribeAllDocs();
     };
   }, []);
 

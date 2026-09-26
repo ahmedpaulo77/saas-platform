@@ -1,9 +1,10 @@
 // src/pages/Expiry.js - متابعة تواريخ الصلاحية + التشغيلات (صيدلية) مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
-import { getDocs, doc, updateDoc, collection, addDoc, deleteDoc } from "firebase/firestore";
+import { getDocs, doc, updateDoc, collection, addDoc, deleteDoc, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
+import { getProductUnit, roundQty } from "../utils/traderUnits";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -103,18 +104,39 @@ export default function Expiry() {
   }
 
   async function deleteBatch(batch) {
-    if (!window.confirm(t("common.confirmDelete"))) return;
+    const remaining = parseFloat(batch.quantity) || 0;
+    // ⚠️ batch.quantity هو الكمية *المتبقية* (بينقصها POS صرفاً بـ FEFO)،
+    // مش الكمية اللي اتستلمت. الكود القديم كان بيطرح الكمية الأصلية:
+    // تشغيلة 100 نزل منها 20 → المتبقي في المخزون 20 → max(0, 20-100) = 0،
+    // يعني 20 قطعة سليمة اتمسحت. دلوقتي بنطرح المتبقي بس.
+    const msg = remaining > 0
+      ? `${t("expiry.deleteConfirmWithQty")} (${remaining})`
+      : t("common.confirmDelete");
+    if (!window.confirm(msg)) return;
     try {
-      // رجّع كمية التشغيلة المتبقية من المخزون
+      const batchRef = doc(db, "batches", batch.id);
       const prod = products.find((p) => p.id === batch.productId);
-      if (prod) {
-        const left = Math.max(0, (parseFloat(prod.quantity) || 0) - (parseFloat(batch.quantity) || 0));
-        await updateDoc(doc(db, "inventory", prod.id), { quantity: left });
-      }
-      await deleteDoc(doc(db, "batches", batch.id));
+      const prodRef = prod ? doc(db, "inventory", prod.id) : null;
+
+      // ذرّي: المخزون + حذف التشغيلة ما ينفصلوش
+      await runTransaction(db, async (tx) => {
+        const batchSnap = await tx.get(batchRef);
+        const prodSnap = prodRef ? await tx.get(prodRef) : null;
+        if (!batchSnap.exists()) throw new Error(t("expiry.batchGone"));
+        if (!prodSnap || !prodSnap.exists()) return;
+
+        // نقرأ المتبقي من Firestore جوّه الـ transaction (مش من الـ snapshot القديم)
+        const left = parseFloat(batchSnap.data().quantity) || 0;
+        const currentQty = parseFloat(prodSnap.data().quantity) || 0;
+        // ما نخصمش أكتر من الموجود فعلاً
+        const deduct = Math.min(left, currentQty);
+        tx.update(prodRef, { quantity: roundQty(currentQty - deduct, getProductUnit(prodSnap.data())) });
+        tx.delete(batchRef);
+      });
+
       await logActivity({
         actionType: "DELETE", collectionName: "batches", itemId: batch.id,
-        details: `Deleted batch ${batch.batchNumber} for ${batch.productName}`,
+        details: `Deleted batch ${batch.batchNumber} for ${batch.productName}, returned ${remaining} to stock`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       await Promise.all([fetchProducts(), fetchBatches()]);

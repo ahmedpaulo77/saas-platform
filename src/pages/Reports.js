@@ -23,6 +23,8 @@ import {
 } from "recharts";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getAvailableModules } from "../utils/modules";
+import { isValidatedInvoice, invoiceRevenue } from "../utils/revenue";
+import { round2 } from "../utils/traderUnits";
 
 const ALL_EXPORT_ITEMS = [
   { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1", module: "companies" },
@@ -98,6 +100,7 @@ export default function Reports() {
     pendingTasks: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [failedSources, setFailedSources] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [allData, setAllData] = useState({});
@@ -147,54 +150,41 @@ export default function Reports() {
         companiesData = snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
       }
 
-      let clientsData = [];
-      let sellersData = [];
-      let buyersData = [];
-      let invoicesData = [];
-      let productsData = [];
-      let tasksData = [];
-      let usersData = [];
-      let returnsData = [];
+      // ⚠️ الكود كان بيستخدم Promise.all — أول getDocs بيفشل (غالبًا composite
+      // index ناقص) كان بيرمي الاستثناء، ومفيش setState بيحصل، والصفحة بتطلع
+      // "صفر" نضيف في 17 كارت إحصائي من غير أي رسالة. allSettled بيحمّل اللي نجح
+      // وبيقول للمستخدم بالظبط إيه اللي فشل.
+      const SRC_NAMES = ["clients", "sellers", "buyers", "invoices", "inventory", "tasks", "users", "returns"];
+      const settled = await Promise.allSettled(
+        SRC_NAMES.map((name) =>
+          superAdmin
+            ? getDocs(collection(db, name))
+            : getDocs(getScopedQuery(name, userRole, userCompanyId, currentUser?.uid)),
+        ),
+      );
 
-      if (superAdmin) {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap, rSnap] = await Promise.all([
-          getDocs(collection(db, "clients")),
-          getDocs(collection(db, "sellers")),
-          getDocs(collection(db, "buyers")),
-          getDocs(collection(db, "invoices")),
-          getDocs(collection(db, "inventory")),
-          getDocs(collection(db, "tasks")),
-          getDocs(collection(db, "users")),
-          getDocs(collection(db, "returns")),
-        ]);
-        clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        buyersData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        returnsData = rSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      } else {
-        const [clSnap, sSnap, bSnap, iSnap, pSnap, tSnap, uSnap, rSnap] = await Promise.all([
-          getDocs(getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("sellers", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("buyers", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("tasks", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("users", userRole, userCompanyId, currentUser?.uid)),
-          getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
-        ]);
-        clientsData = clSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        sellersData = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        buyersData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        invoicesData = iSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        productsData = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        tasksData = tSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        usersData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        returnsData = rSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      }
+      const failedSources = [];
+      const src = {};
+      settled.forEach((res, i) => {
+        const name = SRC_NAMES[i];
+        if (res.status === "fulfilled") {
+          src[name] = res.value.docs.map((d) => ({ id: d.id, ...d.data() }));
+        } else {
+          src[name] = [];
+          failedSources.push(name);
+          console.error(`[Reports] failed to load "${name}":`, res.reason);
+        }
+      });
+      setFailedSources(failedSources);
+
+      const clientsData = src.clients;
+      const sellersData = src.sellers;
+      const buyersData = src.buyers;
+      const invoicesData = src.invoices;
+      const productsData = src.inventory;
+      const tasksData = src.tasks;
+      const usersData = src.users;
+      const returnsData = src.returns;
 
       const cMap = {};
       clientsData.forEach((c) => {
@@ -213,32 +203,40 @@ export default function Reports() {
         pending = 0,
         overdue = 0;
       invoicesData.forEach((inv) => {
-        // Only validated invoices count in revenue (legacy docs without `approval` count as validated)
-        if (inv.approval && inv.approval !== "validated") return;
-        const amount = parseFloat(inv.amount) || 0;
-        if (inv.status === "paid") {
-          revenue += amount;
-          paid++;
-        } else if (inv.status === "pending") {
-          pending++;
-          revenue += parseFloat(inv.paidAmount) || 0;
-        } else if (inv.status === "overdue") {
-          overdue++;
-          revenue += parseFloat(inv.paidAmount) || 0;
-        }
+        // ✅ نفس تعريف الإيراد في كل الصفحات (utils/revenue.js).
+        // الكود القديم كان بيجمع `amount` — وده قيمة البضاعة بس، ففاتورة
+        // بتوصيل كانت بتتحسب ناقصة. وكمان مكانش بياخد `total`.
+        if (!isValidatedInvoice(inv)) return;
+        if (inv.status === "paid") { paid++; revenue += invoiceRevenue(inv); }
+        else if (inv.status === "pending") { pending++; revenue += invoiceRevenue(inv); }
+        else if (inv.status === "overdue") { overdue++; revenue += invoiceRevenue(inv); }
+        else revenue += invoiceRevenue(inv);
       });
 
       // مرتجعات البيع تنقص الإيراد (مرتجعات الشراء تخص المشتريات/الأرباح فقط)
+      // ⚠️ لازم في نفس الفترة — قبل كده كانت بتنقص إيراد كل الفترات،
+      // فكانت التقارير ما بتتسوّقش مع نفسها.
+      // ⚠️ ده-year-to-date: كنا بنحسب "كل الفترات" من غير حد. خليها السنة
+      // الحالية عشان الرقم يبقى مفهوم. (لو عايز فترة اختارها من الواجهة
+      // بعدين، ده المكان.)
+      const nowYear = new Date().getFullYear();
+      const inRange = (dateStr) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+        return d.getFullYear() === nowYear;
+      };
       let saleReturnsTotal = 0,
         returnsCount = 0;
       returnsData.forEach((r) => {
         if (r.kind && r.kind !== "sale") return;
+        if (!inRange(r.date || r.createdAt)) return;
         returnsCount++;
         saleReturnsTotal += parseFloat(r.amount) || 0;
       });
-      revenue -= saleReturnsTotal;
+      revenue = round2(revenue - saleReturnsTotal);
 
-      const lowStockList = productsData.filter((p) => p.quantity < 5);
+      const lowStockList = productsData.filter((p) => (parseFloat(p.quantity) || 0) < 5);
       const completed = tasksData.filter(
         (t) => t.status === "completed",
       ).length;
@@ -286,15 +284,11 @@ export default function Reports() {
       const revenueMap = {};
       invoicesData.forEach((inv) => {
         if (!inv.date) return;
-        if (inv.approval && inv.approval !== "validated") return;
-        let paidAmount = 0;
-        if (inv.status === "paid") {
-          paidAmount = parseFloat(inv.amount) || 0;
-        } else {
-          paidAmount = parseFloat(inv.paidAmount) || 0;
-        }
+        // ✅ نفس تعريف الإيراد في كل الصفحات (utils/revenue.js)
+        const paidAmount = invoiceRevenue(inv);
         if (paidAmount <= 0) return;
         const d = new Date(inv.date);
+        if (isNaN(d.getTime())) return;
         const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
         revenueMap[key] = (revenueMap[key] || 0) + paidAmount;
       });
@@ -317,8 +311,11 @@ export default function Reports() {
       }
       const last6 = [];
       for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
+        // ⚠️ لازم نثبّت اليوم = 1. لو استعملنا setMonth على تاريخ فيه يوم 29/30/31
+        // فإن JS بيعمل overflow (31 مايو - 5 شهور = 31 ديسمبر، مش يونيو) =>
+        // الرسم البياني كان بيطلع: ديسمبر، يناير، مارس، مارس، مايو، مايو.
+        const now = new Date();
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
         last6.push({
           name: monthNames[d.getMonth()],
@@ -486,6 +483,7 @@ export default function Reports() {
       });
     } catch (e) {
       console.error(e);
+      setFailedSources(["__all__"]);
     } finally {
       setLoading(false);
     }
@@ -747,6 +745,30 @@ export default function Reports() {
             <i className="fas fa-sync-alt"></i> {t('common.refresh')}
           </button>
         </div>
+
+        {/* ⚠️ بانر فشل التحميل — من غيره الصفحة كانت بتعرض أصفار نضيفة
+            والمستخدم بياخد قرار على أرقام غلط. أغلب السبب composite index ناقص. */}
+        {failedSources.length > 0 && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              color: "#b91c1c",
+              borderRadius: 12,
+              padding: "14px 16px",
+              marginBottom: 16,
+              lineHeight: 1.8,
+            }}
+          >
+            <strong>
+              <i className="fas fa-triangle-exclamation" style={{ marginLeft: 8 }}></i>
+              {t("common.errorGeneric")} — {t("common.errorLoadHint")}{" "}
+              <span style={{ direction: "ltr", display: "inline-block" }}>
+                ({failedSources.join(", ")})
+              </span>
+            </strong>
+          </div>
+        )}
 
         <div className="stats-row">
           {statCards.map((s) => (

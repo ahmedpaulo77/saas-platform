@@ -1,9 +1,9 @@
 // src/pages/MyCompany.js - مع دعم الترجمة وكودين
 import React, { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { generateInviteCode } from '../utils/companyQuery';
+import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery';
 import Sidebar from '../components/common/Sidebar';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -11,12 +11,16 @@ export default function MyCompany() {
   const { t } = useLanguage();
   const { userCompanyId, userRole } = useAuth();
   const [company, setCompany] = useState(null);
+  const [codes, setCodes] = useState({ adminCode: '', userCode: '' });
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState({ admin: false, user: false });
   const [regenerating, setRegenerating] = useState({ admin: false, user: false });
   const [error, setError] = useState('');
 
-  const fetchAndEnsureCode = useCallback(async () => {
+  // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
+  const fetchCompanyAndCodes = useCallback(async () => {
     if (!userCompanyId) return;
     setLoading(true);
     setError('');
@@ -28,22 +32,18 @@ export default function MyCompany() {
         setLoading(false);
         return;
       }
-      const data = snap.data();
+      setCompany({ id: snap.id, ...snap.data() });
 
-      // التأكد من وجود الكودين
-      let updates = {};
-      if (!data.adminInviteCode) {
-        updates.adminInviteCode = generateInviteCode('ADMIN');
-      }
-      if (!data.userInviteCode) {
-        updates.userInviteCode = generateInviteCode('USER');
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        await updateDoc(companyRef, updates);
-        setCompany({ id: snap.id, ...data, ...updates });
-      } else {
-        setCompany({ id: snap.id, ...data });
+      // الأكواد في السبل-كولكشن companies/{id}/codes/current
+      // (المصدر الرسمي للتحقق هو invite_codes — انظر utils/companyQuery.js)
+      if (isAdmin) {
+        try {
+          const c = await getCompanyInviteCodes(userCompanyId);
+          setCodes({ adminCode: c.adminCode, userCode: c.userCode });
+        } catch (e) {
+          console.error('Error loading invite codes:', e);
+          setError(t('mc.fetchErr'));
+        }
       }
     } catch (err) {
       console.error('Error fetching company:', err);
@@ -51,22 +51,22 @@ export default function MyCompany() {
     } finally {
       setLoading(false);
     }
-  }, [userCompanyId, t]);
+  }, [userCompanyId, isAdmin, t]);
 
   useEffect(() => {
-    fetchAndEnsureCode();
-  }, [fetchAndEnsureCode]);
+    fetchCompanyAndCodes();
+  }, [fetchCompanyAndCodes]);
 
   async function handleRegenerate(type) {
     if (!userCompanyId) return;
+    const role = type === 'admin' ? 'admin' : 'user';
+    if (!window.confirm(t('mc.regenConfirm'))) return;
     setRegenerating(prev => ({ ...prev, [type]: true }));
+    setError('');
     try {
-      const prefix = type === 'admin' ? 'ADMIN' : 'USER';
-      const newCode = generateInviteCode(prefix);
-      const companyRef = doc(db, 'companies', userCompanyId);
-      const field = type === 'admin' ? 'adminInviteCode' : 'userInviteCode';
-      await updateDoc(companyRef, { [field]: newCode });
-      setCompany((prev) => ({ ...prev, [field]: newCode }));
+      const newCode = await regenerateCompanyInviteCode(userCompanyId, role);
+      setCodes(prev => ({ ...prev, [type === 'admin' ? 'adminCode' : 'userCode']: newCode }));
+      alert(t('mc.regenOk'));
     } catch (err) {
       console.error('Error regenerating code:', err);
       setError(t('mc.regenErr'));
@@ -76,7 +76,7 @@ export default function MyCompany() {
   }
 
   async function handleCopy(type) {
-    const code = type === 'admin' ? company?.adminInviteCode : company?.userInviteCode;
+    const code = type === 'admin' ? codes.adminCode : codes.userCode;
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
@@ -94,8 +94,6 @@ export default function MyCompany() {
     }
   }
 
-  // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   return (
     <div className="app-layout">
@@ -211,12 +209,13 @@ export default function MyCompany() {
                         letterSpacing: 4,
                         color: '#d97706',
                       }}>
-                        {company.adminInviteCode || 'لم يتم التوليد'}
+                        {codes.adminCode || t('mc.notGenerated')}
                       </span>
                     </div>
                     <button
                       onClick={() => handleCopy('admin')}
                       className="btn-secondary btn-sm"
+                      disabled={!codes.adminCode}
                       style={{ padding: '8px 16px' }}
                     >
                       <i className={copied.admin ? 'fas fa-check' : 'fas fa-copy'}></i>
@@ -275,12 +274,13 @@ export default function MyCompany() {
                         letterSpacing: 4,
                         color: '#059669',
                       }}>
-                        {company.userInviteCode || 'لم يتم التوليد'}
+                        {codes.userCode || t('mc.notGenerated')}
                       </span>
                     </div>
                     <button
                       onClick={() => handleCopy('user')}
                       className="btn-secondary btn-sm"
+                      disabled={!codes.userCode}
                       style={{ padding: '8px 16px' }}
                     >
                       <i className={copied.user ? 'fas fa-check' : 'fas fa-copy'}></i>

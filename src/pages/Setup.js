@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { generateInviteCode } from '../utils/companyQuery';
+import { createCompanyInviteCodes } from '../utils/companyQuery';
+import { INDUSTRIES } from '../utils/modules';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export default function Setup() {
@@ -23,15 +24,22 @@ export default function Setup() {
     setError('');
 
     try {
+      // ⚠️ الـ payload لازم يطابق allowlist الـ companies create بالظبط:
+      //    ['name','email','industry','createdAt','isActive','creatorUid']
+      //    الكود القديم كان بيكتب adminInviteCode/userInviteCode (مش في
+      //    الـ allowlist) وبي omit الـ creatorUid (مطلوب) => permission-denied
+      //    مضمون، والمستخدم يفضل محبوس في /setup.
       const companyRef = await addDoc(collection(db, 'companies'), {
         name: companyName.trim(),
         email: currentUser.email,
         industry: industry,
-        adminInviteCode: generateInviteCode('ADMIN'),
-        userInviteCode: generateInviteCode('USER'),
         createdAt: new Date().toISOString(),
         isActive: true,
+        creatorUid: currentUser.uid,
       });
+
+      // أكواد الدعوة في السبل-كولكشن — نفس المصدر اللي بيقراه Signup.js
+      await createCompanyInviteCodes(companyRef.id);
 
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
@@ -87,51 +95,41 @@ export default function Setup() {
           <div className="form-group" style={{ marginBottom: 24 }}>
             <label>{t('setup.industry')}</label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[
-                { value: 'general', label: t('industry.general'), icon: 'fas fa-building' },
-                { value: 'trader', label: t('industry.trader'), icon: 'fas fa-box-open' },
-                { value: 'contractor', label: t('industry.contractor'), icon: 'fas fa-hard-hat' },
-                { value: 'real_estate', label: t('industry.real_estate'), icon: 'fas fa-home' },
-                { value: 'super_market', label: t('industry.super_market'), icon: 'fas fa-store' },
-                { value: 'pharmacy', label: t('industry.pharmacy'), icon: 'fas fa-pills' },
-                { value: 'restaurant', label: t('industry.restaurant'), icon: 'fas fa-utensils' },
-                { value: 'clothing', label: t('industry.clothing'), icon: 'fas fa-tshirt' },
-                { value: 'clinic', label: t('industry.clinic'), icon: 'fas fa-user-md' },
-              ].map((opt) => (
+              {INDUSTRIES.map((ind) => (
                 <button
-                  key={opt.value}
+                  key={ind.id}
                   type="button"
-                  onClick={() => setIndustry(opt.value)}
+                  onClick={() => setIndustry(ind.id)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
                     padding: '14px 12px',
                     borderRadius: 12,
-                    border: industry === opt.value
-                      ? '2px solid #10b981'
-                      : '1px solid rgba(255,255,255,0.12)',
-                    background: industry === opt.value
-                      ? 'rgba(16,185,129,0.15)'
-                      : 'rgba(255,255,255,0.07)',
-                    color: 'white',
-                    fontSize: 13,
-                    fontFamily: 'Cairo, sans-serif',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    textAlign: 'right',
-                  }}
-                >
-                  <span style={{
-                    fontSize: 18,
-                    color: industry === opt.value ? '#10b981' : 'rgba(255,255,255,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}>
-                    <i className={opt.icon}></i>
-                  </span>
-                  <span style={{ fontWeight: industry === opt.value ? 700 : 500 }}>
-                    {opt.label}
+                  border: industry === ind.id
+                    ? '2px solid #10b981'
+                    : '1px solid rgba(255,255,255,0.12)',
+                  background: industry === ind.id
+                    ? 'rgba(16,185,129,0.15)'
+                    : 'rgba(255,255,255,0.07)',
+                  color: 'white',
+                  fontSize: 13,
+                  fontFamily: 'Cairo, sans-serif',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  textAlign: 'right',
+                }}
+              >
+                <span style={{
+                  fontSize: 18,
+                  color: industry === ind.id ? '#10b981' : 'rgba(255,255,255,0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}>
+                  {ind.icon}
+                </span>
+                  <span style={{ fontWeight: industry === ind.id ? 700 : 500 }}>
+                    {t(ind.labelKey)}
                   </span>
                 </button>
               ))}
