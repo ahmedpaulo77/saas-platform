@@ -452,7 +452,7 @@ export default function Expiry() {
         <div style={styles.modalOverlay} onClick={closeEditModal}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3><i className="fas fa-calendar-edit"></i> {t("exp.editTitle")}</h3>
+              <h3><i className="fas fa-pen-ruler"></i> {t("exp.editTitle")}</h3>
               <button onClick={closeEditModal} style={styles.closeBtn}>&times;</button>
             </div>
             <form onSubmit={updateExpiry}>

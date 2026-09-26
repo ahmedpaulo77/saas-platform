@@ -4,6 +4,14 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationsContext";
 import { getAvailableModules } from "../../utils/modules";
+import {
+  iconFor,
+  INVENTORY_ICON,
+  PROJECTS_ICON,
+  APPOINTMENTS_ICON,
+  RAW_MATERIALS_ICON,
+  PROPERTY_ICON,
+} from "../../utils/icons";
 import LanguageToggle from "./LanguageToggle";
 import { useLanguage } from "../../i18n/LanguageContext";
 import "./Sidebar.css";
@@ -19,7 +27,14 @@ export default function Sidebar() {
 
   // ✅ تعريف القوائم جوه المكون (عشان الترجمة)
   const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
-    const isRealEstate = userIndustry === "real_estate";
+  const isRealEstate = userIndustry === "real_estate";
+  // 🆕 الأيقونات بتتبع المهنة — قبل كند كان كل الصفحات بتستخدم نفس
+  // الأيقونة (fa-boxes) فمحل سباكة كان بيشوف "علب" في المخزون وعيادة
+  // بتشوف "علب" بدل pills. العناوين كانت مظبوطة والأيقونات لأ.
+  const invIcon = iconFor(INVENTORY_ICON, userIndustry);
+  const projIcon = iconFor(PROJECTS_ICON, userIndustry);
+  const apptIcon = iconFor(APPOINTMENTS_ICON, userIndustry);
+  const rawIcon = iconFor(RAW_MATERIALS_ICON, userIndustry);
 
   const ALL_NAV_ITEMS = [
     {
@@ -63,7 +78,7 @@ export default function Sidebar() {
     },
     {
       to: "/appointments",
-      icon: "fas fa-calendar-alt",
+      icon: `fas ${apptIcon}`,
       label: t("nav.appointments"),
       module: "appointments",
     },
@@ -117,7 +132,7 @@ export default function Sidebar() {
     },
     {
       to: "/inventory",
-      icon: "fas fa-boxes",
+      icon: `fas ${invIcon}`,
       label: isRestaurant
         ? t("nav.inventory.restaurant")
         : isRealEstate
@@ -145,7 +160,7 @@ export default function Sidebar() {
     },
     {
       to: "/raw-materials",
-      icon: "fas fa-cubes",
+      icon: `fas ${rawIcon}`,
       label: t("nav.rawMaterials"),
       module: "raw-materials",
     },
@@ -193,7 +208,7 @@ export default function Sidebar() {
     },
     {
       to: "/projects",
-      icon: "fas fa-project-diagram",
+      icon: `fas ${projIcon}`,
       label: t("nav.projects"),
       module: "projects",
     },

@@ -8,7 +8,6 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
-import { Shirt } from "lucide-react";
 
 const NAVY = "#1e3a8a";
 
@@ -624,7 +623,7 @@ export default function StorePOS() {
         <div className="header">
           <div>
             <h1 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Shirt size={26} color={NAVY} />
+              <i className="fas fa-shirt" style={{ fontSize: 26, color: NAVY }}></i>
               {t("storepos.title")}
             </h1>
             <p className="subtitle">{t("storepos.subtitle")}</p>
@@ -774,7 +773,7 @@ export default function StorePOS() {
                         {product.imageUrl ? (
                           <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
-                          <Shirt size={44} color="#94a3b8" />
+                          <i className="fas fa-shirt" style={{ fontSize: 44, color: "#94a3b8" }}></i>
                         )}
                       </div>
                       {inCart && (
@@ -932,7 +931,7 @@ export default function StorePOS() {
                       <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0", flexShrink: 0 }} />
                     ) : (
                       <span style={{ width: 44, height: 44, borderRadius: 8, background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Shirt size={22} color="#94a3b8" />
+                        <i className="fas fa-shirt" style={{ fontSize: 22, color: "#94a3b8" }}></i>
                       </span>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>

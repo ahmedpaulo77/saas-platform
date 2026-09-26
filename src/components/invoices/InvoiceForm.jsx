@@ -143,7 +143,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label>{t("in.amountReq")}</label>
-            <input type="number" step="0.01" placeholder="0.00" value={getTotalAmount || ""} readOnly={newInvoice.products.length > 0} onChange={(e) => { if (newInvoice.products.length === 0) setNewInvoice({ ...newInvoice, amount: e.target.value }); }} required />
+            <input type="number" step="0.01" placeholder="0.00" value={getTotalAmount || ""}readOnly={!isClinic && newInvoice.products.length > 0} onChange={(e) => { if (newInvoice.products.length === 0) setNewInvoice({ ...newInvoice, amount: e.target.value }); }} required />
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>

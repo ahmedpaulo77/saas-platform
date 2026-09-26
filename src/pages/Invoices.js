@@ -401,19 +401,21 @@ export default function Invoices() {
 
         <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} />
 
-        {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة */}
-        <form onSubmit={handleBarcodeReturn} className="form-card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>مرتجع بالباركود</div>
-          <input
-            type="text"
-            placeholder="امسح باركود الفاتورة هنا..."
-            value={barcodeScan}
-            onChange={(e) => setBarcodeScan(e.target.value)}
-            autoFocus={false}
-            style={{ flex: 1, minWidth: 220, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, fontFamily: "monospace", direction: "ltr", textAlign: "left" }}
-          />
-          <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : "فتح المرتجع"}</button>
-        </form>
+       {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة */}
+{["pharmacy", "super_market", "clothing"].includes(userIndustry) && (
+  <form onSubmit={handleBarcodeReturn} className="form-card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>مرتجع بالباركود</div>
+    <input
+      type="text"
+      placeholder="امسح باركود الفاتورة هنا..."
+      value={barcodeScan}
+      onChange={(e) => setBarcodeScan(e.target.value)}
+      autoFocus={false}
+      style={{ flex: 1, minWidth: 220, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, fontFamily: "monospace", direction: "ltr", textAlign: "left" }}
+    />
+    <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : "فتح المرتجع"}</button>
+  </form>
+)}
 
         <InvoiceTable
           filteredInvoices={filteredInvoices} clients={clients} products={products} returnsByInvoice={returnsByInvoice}

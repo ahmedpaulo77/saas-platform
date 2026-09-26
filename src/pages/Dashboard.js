@@ -88,6 +88,17 @@ const ALL_FEATURE_CARDS = [
     descKey: "dash.c4.d",
     titleKeyByIndustry: { real_estate: "dash.c4.t.real_estate", restaurant: "dash.c4.t.restaurant" },
     descKeyByIndustry: { real_estate: "dash.c4.d.real_estate", restaurant: "dash.c4.d.restaurant" },
+    // 🆕 الأيقونة بتتبع المهنة زي العنوان — قبل كند كان "علب" لكل المهن
+    iconByIndustry: {
+      real_estate: "fa-house",
+      restaurant: "fa-utensils",
+      cafe: "fa-mug-hot",
+      pharmacy: "fa-pills",
+      clinic: "fa-kit-medical",
+      clothing: "fa-shirt",
+      super_market: "fa-store",
+      contractor: "fa-helmet-safety",
+    },
     module: "inventory",
   },
   {
@@ -219,9 +230,16 @@ export default function Dashboard() {
   const isAdmin = userRole === "admin" || userRole === "super_admin";
 
   const availableModules = getAvailableModules(userIndustry, userRole);
+  // 🆕 الأيقونة بتتبع المهنة زي العنوان والوصف.
+  // الكارت بيبقى "fas fa-..." جاهز، وبنستبدل الجزء terakhir باللي يناسب المهنة.
   const featureCards = ALL_FEATURE_CARDS.filter((card) =>
     availableModules.has(card.module),
-  );
+  ).map((card) => {
+    if (!card.iconByIndustry) return card;
+    const name = card.iconByIndustry[userIndustry];
+    if (!name) return card;
+    return { ...card, icon: `fas ${name}` };
+  });
   const [stats, setStats] = useState({
     companies: 0,
     clients: 0,
