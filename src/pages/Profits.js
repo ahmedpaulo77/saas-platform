@@ -1,7 +1,15 @@
 // src/pages/Profits.js - صفحة الأرباح: إيراد الشهر - مصروفات الشهر = الربح
 // + مقارنة تلقائية بالشهر اللي فات + خانة اختيارية "كفر" (احتياطي مالي)
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { collection, getDocs, query, where, doc, setDoc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  setDoc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
@@ -50,12 +58,32 @@ function dayRange(date) {
 
 const MONTH_NAMES = {
   ar: [
-    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+    "يناير",
+    "فبراير",
+    "مارس",
+    "أبريل",
+    "مايو",
+    "يونيو",
+    "يوليو",
+    "أغسطس",
+    "سبتمبر",
+    "أكتوبر",
+    "نوفمبر",
+    "ديسمبر",
   ],
   en: [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ],
 };
 
@@ -85,7 +113,9 @@ export default function Profits() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-11
   // Period selector: monthly (default) / quarterly / half / yearly
   const [periodType, setPeriodType] = useState("monthly");
-  const [selectedQuarter, setSelectedQuarter] = useState(Math.floor(now.getMonth() / 3)); // 0-3
+  const [selectedQuarter, setSelectedQuarter] = useState(
+    Math.floor(now.getMonth() / 3),
+  ); // 0-3
   const [selectedHalf, setSelectedHalf] = useState(now.getMonth() < 6 ? 0 : 1); // 0-1
   // ✅ اليوم المختار لتقرير اليومية (default = النهاردة)
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -102,10 +132,21 @@ export default function Profits() {
       try {
         // ⚠️ Promise.all: أول getDocs بيفشل = مفيش setState بيحصل = الأرباح
         // بتطلع "0" نضيف بدون أي رسالة، وصاحب محل ربحان بيبني قرارات عليه.
-        const SRC = ["invoices", "expenses", "purchases", "returns", "inventory"];
+        const SRC = [
+          "invoices",
+          "expenses",
+          "purchases",
+          "returns",
+          "inventory",
+        ];
         const settled = await Promise.allSettled(
           SRC.map((name) =>
-            getDocs(query(collection(db, name), where("companyId", "==", userCompanyId))),
+            getDocs(
+              query(
+                collection(db, name),
+                where("companyId", "==", userCompanyId),
+              ),
+            ),
           ),
         );
         const failed = [];
@@ -190,11 +231,15 @@ export default function Profits() {
       // المدفوع فعليًا للموردين (تدفق نقدي — مش تكلفة)
       const cashSpent = round2(
         purchases.reduce(
-          (sum, p) => (inRange(p.date || p.createdAt)
-            ? sum + (p.status === "paid" ? parseFloat(p.amount) || 0 : parseFloat(p.paidAmount) || 0)
-            : sum),
-          0
-        )
+          (sum, p) =>
+            inRange(p.date || p.createdAt)
+              ? sum +
+                (p.status === "paid"
+                  ? parseFloat(p.amount) || 0
+                  : parseFloat(p.paidAmount) || 0)
+              : sum,
+          0,
+        ),
       );
 
       return {
@@ -233,7 +278,7 @@ export default function Profits() {
       const names = MONTH_NAMES[lang] || MONTH_NAMES.ar;
       return `${names[monthIndex]} ${year}`;
     },
-    [lang]
+    [lang],
   );
 
   // -------- الفترات: شهري / ربع سنوي / نص سنوي / سنوي --------
@@ -251,7 +296,10 @@ export default function Profits() {
       return { cur, prev: halfRange(py, ph) };
     }
     if (periodType === "yearly") {
-      return { cur: yearRange(selectedYear), prev: yearRange(selectedYear - 1) };
+      return {
+        cur: yearRange(selectedYear),
+        prev: yearRange(selectedYear - 1),
+      };
     }
     const cur = monthRange(selectedYear, selectedMonth);
     const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
@@ -261,44 +309,80 @@ export default function Profits() {
 
   const periodData = useMemo(
     () => calcPeriod(periodRanges.cur.start, periodRanges.cur.end),
-    [calcPeriod, periodRanges]
+    [calcPeriod, periodRanges],
   );
   const prevPeriodData = useMemo(
     () => calcPeriod(periodRanges.prev.start, periodRanges.prev.end),
-    [calcPeriod, periodRanges]
+    [calcPeriod, periodRanges],
   );
 
   const periodLabel = useMemo(() => {
     if (periodType === "quarterly") {
-      const q = lang === "en" ? `Q${selectedQuarter + 1}` : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][selectedQuarter]}`;
+      const q =
+        lang === "en"
+          ? `Q${selectedQuarter + 1}`
+          : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][selectedQuarter]}`;
       return `${q} ${selectedYear}`;
     }
     if (periodType === "half") {
-      const h = lang === "en" ? (selectedHalf === 0 ? "H1" : "H2") : (selectedHalf === 0 ? "النصف الأول" : "النصف الثاني");
+      const h =
+        lang === "en"
+          ? selectedHalf === 0
+            ? "H1"
+            : "H2"
+          : selectedHalf === 0
+            ? "النصف الأول"
+            : "النصف الثاني";
       return `${h} ${selectedYear}`;
     }
     if (periodType === "yearly") return `${selectedYear}`;
     return monthLabel(selectedYear, selectedMonth);
-  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, lang, monthLabel]);
+  }, [
+    periodType,
+    selectedYear,
+    selectedMonth,
+    selectedQuarter,
+    selectedHalf,
+    lang,
+    monthLabel,
+  ]);
 
   const prevPeriodLabel = useMemo(() => {
     if (periodType === "quarterly") {
       const pq = selectedQuarter === 0 ? 3 : selectedQuarter - 1;
       const py = selectedQuarter === 0 ? selectedYear - 1 : selectedYear;
-      const q = lang === "en" ? `Q${pq + 1}` : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][pq]}`;
+      const q =
+        lang === "en"
+          ? `Q${pq + 1}`
+          : `الربع ${["الأول", "الثاني", "الثالث", "الرابع"][pq]}`;
       return `${q} ${py}`;
     }
     if (periodType === "half") {
       const ph = selectedHalf === 0 ? 1 : 0;
       const py = selectedHalf === 0 ? selectedYear - 1 : selectedYear;
-      const h = lang === "en" ? (ph === 0 ? "H1" : "H2") : (ph === 0 ? "النصف الأول" : "النصف الثاني");
+      const h =
+        lang === "en"
+          ? ph === 0
+            ? "H1"
+            : "H2"
+          : ph === 0
+            ? "النصف الأول"
+            : "النصف الثاني";
       return `${h} ${py}`;
     }
     if (periodType === "yearly") return `${selectedYear - 1}`;
     const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
     const py = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
     return monthLabel(py, pm);
-  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, lang, monthLabel]);
+  }, [
+    periodType,
+    selectedYear,
+    selectedMonth,
+    selectedQuarter,
+    selectedHalf,
+    lang,
+    monthLabel,
+  ]);
 
   // -------- الإيراد حسب طريقة الدفع للفترة الحالية --------
   const revenueByMethod = useMemo(() => {
@@ -354,11 +438,14 @@ export default function Profits() {
 
   const dayLabel = useMemo(() => {
     try {
-      return selectedDate.toLocaleDateString(lang === "en" ? "en-US" : "ar-EG", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
+      return selectedDate.toLocaleDateString(
+        lang === "en" ? "en-US" : "ar-EG",
+        {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        },
+      );
     } catch {
       return selectedDate.toLocaleDateString();
     }
@@ -417,11 +504,15 @@ export default function Profits() {
 
   function goToPrevPeriod() {
     if (periodType === "quarterly") {
-      if (selectedQuarter === 0) { setSelectedQuarter(3); setSelectedYear((y) => y - 1); }
-      else setSelectedQuarter((q) => q - 1);
+      if (selectedQuarter === 0) {
+        setSelectedQuarter(3);
+        setSelectedYear((y) => y - 1);
+      } else setSelectedQuarter((q) => q - 1);
     } else if (periodType === "half") {
-      if (selectedHalf === 0) { setSelectedHalf(1); setSelectedYear((y) => y - 1); }
-      else setSelectedHalf(0);
+      if (selectedHalf === 0) {
+        setSelectedHalf(1);
+        setSelectedYear((y) => y - 1);
+      } else setSelectedHalf(0);
     } else if (periodType === "yearly") {
       setSelectedYear((y) => y - 1);
     } else {
@@ -432,11 +523,15 @@ export default function Profits() {
   function goToNextPeriod() {
     if (isViewingCurrentPeriod) return;
     if (periodType === "quarterly") {
-      if (selectedQuarter === 3) { setSelectedQuarter(0); setSelectedYear((y) => y + 1); }
-      else setSelectedQuarter((q) => q + 1);
+      if (selectedQuarter === 3) {
+        setSelectedQuarter(0);
+        setSelectedYear((y) => y + 1);
+      } else setSelectedQuarter((q) => q + 1);
     } else if (periodType === "half") {
-      if (selectedHalf === 1) { setSelectedHalf(0); setSelectedYear((y) => y + 1); }
-      else setSelectedHalf(1);
+      if (selectedHalf === 1) {
+        setSelectedHalf(0);
+        setSelectedYear((y) => y + 1);
+      } else setSelectedHalf(1);
     } else if (periodType === "yearly") {
       setSelectedYear((y) => y + 1);
     } else {
@@ -446,19 +541,39 @@ export default function Profits() {
 
   const isViewingCurrentPeriod = useMemo(() => {
     if (periodType === "quarterly") {
-      return selectedYear === now.getFullYear() && selectedQuarter === Math.floor(now.getMonth() / 3);
+      return (
+        selectedYear === now.getFullYear() &&
+        selectedQuarter === Math.floor(now.getMonth() / 3)
+      );
     }
     if (periodType === "half") {
-      return selectedYear === now.getFullYear() && selectedHalf === (now.getMonth() < 6 ? 0 : 1);
+      return (
+        selectedYear === now.getFullYear() &&
+        selectedHalf === (now.getMonth() < 6 ? 0 : 1)
+      );
     }
     if (periodType === "yearly") return selectedYear === now.getFullYear();
-    return selectedYear === now.getFullYear() && selectedMonth === now.getMonth();
-  }, [periodType, selectedYear, selectedMonth, selectedQuarter, selectedHalf, now.getFullYear, now.getMonth]);
+    return (
+      selectedYear === now.getFullYear() && selectedMonth === now.getMonth()
+    );
+  }, [
+    periodType,
+    selectedYear,
+    selectedMonth,
+    selectedQuarter,
+    selectedHalf,
+    now.getFullYear,
+    now.getMonth,
+  ]);
 
   function deltaFmt(cur, prev) {
     const d = (parseFloat(cur) || 0) - (parseFloat(prev) || 0);
     const sign = d > 0 ? "+" : "";
-    return { value: d, text: `${sign}${d.toLocaleString()} ${t("currency")}`, positive: d >= 0 };
+    return {
+      value: d,
+      text: `${sign}${d.toLocaleString()} ${t("currency")}`,
+      positive: d >= 0,
+    };
   }
 
   if (loading) {
@@ -483,14 +598,25 @@ export default function Profits() {
           <div className="header">
             <div>
               <h1>
-                <i className="fas fa-chart-line" style={{ color: "#10b981", marginLeft: 10 }}></i>
+                <i
+                  className="fas fa-chart-line"
+                  style={{ color: "#10b981", marginLeft: 10 }}
+                ></i>
                 {t("profits.title")}
               </h1>
             </div>
           </div>
-          <div className="card" style={{ textAlign: "center", padding: "24px 20px" }}>
-            <i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i>
-            <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("profits.adminOnly")}</p>
+          <div
+            className="card"
+            style={{ textAlign: "center", padding: "24px 20px" }}
+          >
+            <i
+              className="fas fa-lock"
+              style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}
+            ></i>
+            <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
+              {t("profits.adminOnly")}
+            </p>
           </div>
         </div>
       </div>
@@ -504,7 +630,10 @@ export default function Profits() {
         <div className="header">
           <div>
             <h1>
-              <i className="fas fa-chart-line" style={{ color: "#10b981", marginLeft: 10 }}></i>
+              <i
+                className="fas fa-chart-line"
+                style={{ color: "#10b981", marginLeft: 10 }}
+              ></i>
               {t("profits.title")}
             </h1>
             <p className="subtitle">{t("profits.subtitle")}</p>
@@ -526,32 +655,15 @@ export default function Profits() {
             }}
           >
             <strong>
-              <i className="fas fa-triangle-exclamation" style={{ marginLeft: 8 }}></i>
+              <i
+                className="fas fa-triangle-exclamation"
+                style={{ marginLeft: 8 }}
+              ></i>
               {t("common.errorGeneric")} — {t("common.errorLoadHint")}{" "}
               <span style={{ direction: "ltr", display: "inline-block" }}>
                 ({failedSources.join(", ")})
               </span>
             </strong>
-          </div>
-        )}
-
-        {/* ⚠️ تنبيه: من غير تكلفة متوسطة، رقم "الربح" ده تدفق نقدي مش
-            ربح فعلي. قولها للمستخدم صراحةً بدل ما نعرض رقم مضلّل. */}}
-        {periodData.profitMode === "cash" && periodData.revenue > 0 && (
-          <div
-            style={{
-              background: "#fffbeb",
-              border: "1px solid #fde68a",
-              color: "#92400e",
-              borderRadius: 12,
-              padding: "12px 16px",
-              marginBottom: 16,
-              lineHeight: 1.8,
-              fontSize: 13,
-            }}
-          >
-            <i className="fas fa-circle-info" style={{ marginLeft: 8 }}></i>
-            {t("profits.noCostData")}
           </div>
         )}
 
@@ -563,9 +675,18 @@ export default function Profits() {
             </h3>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button className="btn-secondary btn-sm" onClick={goToPrevDay}>
-                <i className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}></i>
+                <i
+                  className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}
+                ></i>
               </button>
-              <span style={{ fontWeight: 800, fontSize: 13, minWidth: 130, textAlign: "center" }}>
+              <span
+                style={{
+                  fontWeight: 800,
+                  fontSize: 13,
+                  minWidth: 130,
+                  textAlign: "center",
+                }}
+              >
                 {dayLabel}
                 {isViewingToday && (
                   <span
@@ -588,7 +709,9 @@ export default function Profits() {
                 onClick={goToNextDay}
                 disabled={isViewingToday}
               >
-                <i className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}></i>
+                <i
+                  className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}
+                ></i>
               </button>
             </div>
           </div>
@@ -660,34 +783,62 @@ export default function Profits() {
               </div>
               <div className="stat-label">{t("profits.otherExpenses")}</div>
             </div>
-            <div className={`stat-card ${dayData.profit >= 0 ? "purple" : "red"}`}>
+            <div
+              className={`stat-card ${dayData.profit >= 0 ? "purple" : "red"}`}
+            >
               <div className="stat-icon">
                 <i className="fas fa-sack-dollar"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
                 {dayData.profit.toLocaleString()} {t("currency")}
               </div>
-              <div className="stat-label">{t("profits.profit")} {t("profits.day")}</div>
+              <div className="stat-label">
+                {t("profits.profit")} {t("profits.day")}
+              </div>
             </div>
           </div>
         </div>
 
         {/* منتقي الفترة: شهري / ربع سنوي / نص سنوي / سنوي */}
-        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{t("profits.period") || "الفترة"}:</span>
+        <div
+          className="card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "12px 16px",
+            marginBottom: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>
+            {t("profits.period") || "الفترة"}:
+          </span>
           {[
             { v: "monthly", label: t("profits.periodMonthly") || "شهري" },
-            { v: "quarterly", label: t("profits.periodQuarterly") || "ربع سنوي" },
+            {
+              v: "quarterly",
+              label: t("profits.periodQuarterly") || "ربع سنوي",
+            },
             { v: "half", label: t("profits.periodHalf") || "نص سنوي" },
             { v: "yearly", label: t("profits.periodYearly") || "سنوي" },
           ].map((p) => (
-            <button key={p.v} type="button" onClick={() => setPeriodType(p.v)}
+            <button
+              key={p.v}
+              type="button"
+              onClick={() => setPeriodType(p.v)}
               style={{
-                padding: "6px 14px", fontSize: 13, fontWeight: 700, borderRadius: 20, cursor: "pointer",
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 700,
+                borderRadius: 20,
+                cursor: "pointer",
                 border: `2px solid ${periodType === p.v ? "#10b981" : "#e2e8f0"}`,
                 background: periodType === p.v ? "#ecfdf5" : "white",
                 color: periodType === p.v ? "#059669" : "#64748b",
-              }}>
+              }}
+            >
               {p.label}
             </button>
           ))}
@@ -705,12 +856,29 @@ export default function Profits() {
             marginBottom: 20,
           }}
         >
-          <button className="btn-secondary btn-sm" onClick={periodType === "monthly" ? goToPrevMonth : goToPrevPeriod} title={t("profits.prevMonth")}>
-            <i className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}></i>
+          <button
+            className="btn-secondary btn-sm"
+            onClick={periodType === "monthly" ? goToPrevMonth : goToPrevPeriod}
+            title={t("profits.prevMonth")}
+          >
+            <i
+              className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}
+            ></i>
           </button>
-          <div style={{ fontWeight: 800, fontSize: 16, minWidth: 160, textAlign: "center" }}>
-            {periodType === "monthly" ? monthLabel(selectedYear, selectedMonth) : periodLabel}
-            {(periodType === "monthly" ? isViewingCurrentMonth : isViewingCurrentPeriod) && (
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: 16,
+              minWidth: 160,
+              textAlign: "center",
+            }}
+          >
+            {periodType === "monthly"
+              ? monthLabel(selectedYear, selectedMonth)
+              : periodLabel}
+            {(periodType === "monthly"
+              ? isViewingCurrentMonth
+              : isViewingCurrentPeriod) && (
               <span
                 style={{
                   marginRight: 8,
@@ -729,10 +897,16 @@ export default function Profits() {
           <button
             className="btn-secondary btn-sm"
             onClick={periodType === "monthly" ? goToNextMonth : goToNextPeriod}
-            disabled={periodType === "monthly" ? isViewingCurrentMonth : isViewingCurrentPeriod}
+            disabled={
+              periodType === "monthly"
+                ? isViewingCurrentMonth
+                : isViewingCurrentPeriod
+            }
             title={t("profits.nextMonth")}
           >
-            <i className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}></i>
+            <i
+              className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}
+            ></i>
           </button>
         </div>
 
@@ -779,7 +953,9 @@ export default function Profits() {
               <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
             </div>
           )}
-          <div className={`stat-card ${periodData.profit >= 0 ? "indigo" : "red"}`}>
+          <div
+            className={`stat-card ${periodData.profit >= 0 ? "indigo" : "red"}`}
+          >
             <div className="stat-icon">
               <i className="fas fa-sack-dollar"></i>
             </div>
@@ -789,7 +965,9 @@ export default function Profits() {
             <div className="stat-label">{t("profits.profit")}</div>
           </div>
           {!isFashion && coverageEnabled && (
-            <div className={`stat-card ${netAfterCoverage >= 0 ? "purple" : "red"}`}>
+            <div
+              className={`stat-card ${netAfterCoverage >= 0 ? "purple" : "red"}`}
+            >
               <div className="stat-icon">
                 <i className="fas fa-shield-halved"></i>
               </div>
@@ -805,7 +983,8 @@ export default function Profits() {
         <div className="table-container" style={{ marginBottom: 24 }}>
           <div className="table-header">
             <h3>
-              <i className="fas fa-clock-rotate-left"></i> {t("profits.comparison") || t("profits.previousMonth")}
+              <i className="fas fa-clock-rotate-left"></i>{" "}
+              {t("profits.comparison") || t("profits.previousMonth")}
             </h3>
             <span className="table-count">{prevPeriodLabel}</span>
           </div>
@@ -831,10 +1010,23 @@ export default function Profits() {
                   <td style={{ fontWeight: 700, color: "#dc2626" }}>
                     {prevPeriodData.expenses.toLocaleString()} {t("currency")}
                   </td>
-                  <td style={{ fontWeight: 800, color: prevPeriodData.profit >= 0 ? "#4338ca" : "#dc2626" }}>
+                  <td
+                    style={{
+                      fontWeight: 800,
+                      color: prevPeriodData.profit >= 0 ? "#4338ca" : "#dc2626",
+                    }}
+                  >
                     {prevPeriodData.profit.toLocaleString()} {t("currency")}
                   </td>
-                  <td style={{ fontWeight: 800, color: deltaFmt(periodData.profit, prevPeriodData.profit).positive ? "#059669" : "#dc2626" }}>
+                  <td
+                    style={{
+                      fontWeight: 800,
+                      color: deltaFmt(periodData.profit, prevPeriodData.profit)
+                        .positive
+                        ? "#059669"
+                        : "#dc2626",
+                    }}
+                  >
                     {deltaFmt(periodData.profit, prevPeriodData.profit).text}
                   </td>
                 </tr>
@@ -847,13 +1039,23 @@ export default function Profits() {
         <div className="table-container" style={{ marginBottom: 24 }}>
           <div className="table-header">
             <h3>
-              <i className="fas fa-wallet"></i> {t("profits.byMethod") || "الإيراد حسب طريقة الدفع"}
+              <i className="fas fa-wallet"></i>{" "}
+              {t("profits.byMethod") || "الإيراد حسب طريقة الدفع"}
             </h3>
             <span className="table-count">{periodLabel}</span>
           </div>
           <div className="table-wrapper">
             {Object.keys(revenueByMethod).length === 0 ? (
-              <p style={{ color: "#94a3b8", fontSize: 13, padding: "12px 16px", margin: 0 }}>لا توجد إيرادات في هذه الفترة</p>
+              <p
+                style={{
+                  color: "#94a3b8",
+                  fontSize: 13,
+                  padding: "12px 16px",
+                  margin: 0,
+                }}
+              >
+                لا توجد إيرادات في هذه الفترة
+              </p>
             ) : (
               <table>
                 <thead>
@@ -864,13 +1066,22 @@ export default function Profits() {
                   </tr>
                 </thead>
                 <tbody>
-                  {EGYPT_PAYMENTS.filter((p) => revenueByMethod[p.value] > 0).map((p) => {
+                  {EGYPT_PAYMENTS.filter(
+                    (p) => revenueByMethod[p.value] > 0,
+                  ).map((p) => {
                     const amt = revenueByMethod[p.value] || 0;
-                    const pct = periodData.revenue > 0 ? ((amt / periodData.revenue) * 100).toFixed(1) : "0.0";
+                    const pct =
+                      periodData.revenue > 0
+                        ? ((amt / periodData.revenue) * 100).toFixed(1)
+                        : "0.0";
                     return (
                       <tr key={p.value}>
-                        <td style={{ fontWeight: 700 }}>{getPaymentLabel(p.value, lang)}</td>
-                        <td style={{ fontWeight: 700, color: "#059669" }}>{amt.toLocaleString()} {t("currency")}</td>
+                        <td style={{ fontWeight: 700 }}>
+                          {getPaymentLabel(p.value, lang)}
+                        </td>
+                        <td style={{ fontWeight: 700, color: "#059669" }}>
+                          {amt.toLocaleString()} {t("currency")}
+                        </td>
                         <td style={{ color: "#64748b" }}>{pct}%</td>
                       </tr>
                     );
@@ -878,11 +1089,18 @@ export default function Profits() {
                   {Object.entries(revenueByMethod)
                     .filter(([m]) => !EGYPT_PAYMENTS.some((p) => p.value === m))
                     .map(([m, amt]) => {
-                      const pct = periodData.revenue > 0 ? ((amt / periodData.revenue) * 100).toFixed(1) : "0.0";
+                      const pct =
+                        periodData.revenue > 0
+                          ? ((amt / periodData.revenue) * 100).toFixed(1)
+                          : "0.0";
                       return (
                         <tr key={m}>
-                          <td style={{ fontWeight: 700 }}>{getPaymentLabel(m, lang)}</td>
-                          <td style={{ fontWeight: 700, color: "#059669" }}>{amt.toLocaleString()} {t("currency")}</td>
+                          <td style={{ fontWeight: 700 }}>
+                            {getPaymentLabel(m, lang)}
+                          </td>
+                          <td style={{ fontWeight: 700, color: "#059669" }}>
+                            {amt.toLocaleString()} {t("currency")}
+                          </td>
                           <td style={{ color: "#64748b" }}>{pct}%</td>
                         </tr>
                       );
@@ -895,69 +1113,99 @@ export default function Profits() {
 
         {/* خانة الكفر - احتياطي مالي اختياري (مخفية لنشاط الأزياء) */}
         {!isFashion && (
-        <div className="form-card">
-          <h3>
-            <i className="fas fa-shield-halved" style={{ color: "#7c3aed" }}></i>
-            {t("profits.coverageTitle")}
-          </h3>
-          <p style={{ color: "#64748b", fontSize: 13, marginTop: -6, marginBottom: 14 }}>
-            {t("profits.coverageDesc")}
-          </p>
-          <form onSubmit={saveCoverage}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="form-card">
+            <h3>
+              <i
+                className="fas fa-shield-halved"
+                style={{ color: "#7c3aed" }}
+              ></i>
+              {t("profits.coverageTitle")}
+            </h3>
+            <p
+              style={{
+                color: "#64748b",
+                fontSize: 13,
+                marginTop: -6,
+                marginBottom: 14,
+              }}
+            >
+              {t("profits.coverageDesc")}
+            </p>
+            <form onSubmit={saveCoverage}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 14 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: "#faf5ff",
+                    border: "1px solid #e9d5ff",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    id="coverageEnabled"
+                    checked={coverageEnabled}
+                    onChange={(e) => setCoverageEnabled(e.target.checked)}
+                    style={{ width: 18, height: 18, cursor: "pointer" }}
+                  />
+                  <label
+                    htmlFor="coverageEnabled"
+                    style={{ cursor: "pointer", fontWeight: 600, margin: 0 }}
+                  >
+                    {t("profits.coverageEnable")}
+                  </label>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>{t("profits.coverageAmount")}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={coverageAmount}
+                    onChange={(e) => setCoverageAmount(e.target.value)}
+                  />
+                </div>
+              </div>
               <div
                 style={{
+                  marginTop: 16,
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
-                  background: "#faf5ff",
-                  border: "1px solid #e9d5ff",
-                  borderRadius: 10,
-                  padding: "10px 14px",
+                  gap: 12,
                 }}
               >
-                <input
-                  type="checkbox"
-                  id="coverageEnabled"
-                  checked={coverageEnabled}
-                  onChange={(e) => setCoverageEnabled(e.target.checked)}
-                  style={{ width: 18, height: 18, cursor: "pointer" }}
-                />
-                <label htmlFor="coverageEnabled" style={{ cursor: "pointer", fontWeight: 600, margin: 0 }}>
-                  {t("profits.coverageEnable")}
-                </label>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>{t("profits.coverageAmount")}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={coverageAmount}
-                  onChange={(e) => setCoverageAmount(e.target.value)}
-                />
-              </div>
-            </div>
-            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
-              <button type="submit" className="btn-primary" disabled={savingCoverage}>
-                {savingCoverage ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i> {t("common.saving")}
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-save"></i> {t("common.save")}
-                  </>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={savingCoverage}
+                >
+                  {savingCoverage ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>{" "}
+                      {t("common.saving")}
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-save"></i> {t("common.save")}
+                    </>
+                  )}
+                </button>
+                {coverageSaved && (
+                  <span
+                    style={{ color: "#059669", fontSize: 13, fontWeight: 600 }}
+                  >
+                    <i className="fas fa-check-circle"></i>{" "}
+                    {t("profits.coverageSaved")}
+                  </span>
                 )}
-              </button>
-              {coverageSaved && (
-                <span style={{ color: "#059669", fontSize: 13, fontWeight: 600 }}>
-                  <i className="fas fa-check-circle"></i> {t("profits.coverageSaved")}
-                </span>
-              )}
-            </div>
-          </form>
-        </div>
+              </div>
+            </form>
+          </div>
         )}
       </div>
     </div>
