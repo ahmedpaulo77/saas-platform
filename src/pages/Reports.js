@@ -1255,7 +1255,7 @@ export default function Reports() {
                 <span style={{ fontSize: 13, color: "var(--gray-700)" }}>
                   {p.name}
                 </span>
-                <span className="badge badge-expired">{p.quantity} {t('rep.left')}</span>
+                <span className="badge badge-expired">{t('rep.left', { n: p.quantity })}</span>
               </div>
             ))}
           </div>
