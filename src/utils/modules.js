@@ -82,7 +82,8 @@ export const INDUSTRY_LABELS = {
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
 export const MODULE_MAP = {
   // الوحدات الأساسية المتاحة للجميع
-  _base: ["dashboard", "inventory", "reports", "expenses", "profits"],
+  // (المصروفات ليست أساسية: محلات الأكل والصيدليات والعيادات والأزياء فقط)
+  _base: ["dashboard", "inventory", "reports", "profits"],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
   trader: [
@@ -131,6 +132,7 @@ export const MODULE_MAP = {
     "pos",
     "clients",
     "invoices",
+    "expenses",
     "suppliers",
     "purchases",
     "barcode",
@@ -146,6 +148,7 @@ export const MODULE_MAP = {
     "pos",
     "clients",
     "invoices",
+    "expenses",
     "suppliers",
     "purchases",
     "barcode",
@@ -166,6 +169,7 @@ export const MODULE_MAP = {
     "raw-materials",
     "clients",
     "invoices",
+    "expenses",
     "suppliers",
     "purchases",
     "kitchen",
@@ -181,6 +185,7 @@ export const MODULE_MAP = {
     "menu-categories",
     "clients",
     "invoices",
+    "expenses",
     "suppliers",
     "purchases",
     "tables",
@@ -196,6 +201,7 @@ export const MODULE_MAP = {
     "sales",
     "clients",
     "invoices",
+    "expenses",
     "suppliers",
     "purchases",
     "variant-codes",
@@ -212,6 +218,7 @@ export const MODULE_MAP = {
     "appointments",
     "prescriptions",
     "invoices",
+    "expenses",
     "tasks",
     "messages",
     "search",
