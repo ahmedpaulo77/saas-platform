@@ -9,6 +9,7 @@ import { exportInvoicePDF } from "../utils/pdfExport.js";
 import { logActivity } from "../utils/auditLogger.js";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { createReturn } from "../utils/returns.js";
+import { stockTargetFor, readStockTx, planStockOut, planStockIn, expandRecipeLines } from "../utils/stock.js";
 import { canDelete } from "../utils/companyQuery.js";
 import { useInvoices } from "../hooks/useInvoices.js";
 import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
@@ -36,6 +37,39 @@ export default function Invoices() {
   const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
   const foodLabel = isCafe ? "الكافيه" : "المطعم";
+  // مخزنيًا: المطعم يستهلك خامات عبر الوصفات — الكافيه يبيع من المخزون كالمعتاد
+  const isRestaurantStock = userIndustry === "restaurant";
+
+  /**
+   * استهلاك خامات طلب مطعم عبر وصفات الأطباق (ذرّي).
+   * الأطباق بلا وصفة تُتخطى (تحذير فقط) حتى لا تتعطل المطاعم القديمة.
+   * @returns { skipped: [names] }
+   */
+  async function consumeRestaurantStock(dishLines) {
+    const dishIds = [...new Set((dishLines || []).map((l) => l.productId).filter(Boolean))];
+    if (dishIds.length === 0) return { skipped: [] };
+    const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+    const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+    const { materialLines, skipped } = expandRecipeLines(
+      dishLines.map((l) => ({ productId: l.productId, quantity: l.quantity })), dishById
+    );
+    if (skipped.length > 0) {
+      console.warn("restaurant dishes without recipe (stock not consumed):", skipped);
+    }
+    if (materialLines.length === 0) return { skipped };
+    try {
+      await runTransaction(db, async (tx) => {
+        const { refs, snaps } = await readStockTx(tx, "raw_materials", materialLines.map((l) => l.productId));
+        const entries = snaps.map((snap, idx) => ({ ref: refs[idx], snap, line: materialLines[idx] }));
+        const writes = planStockOut(entries, { isTrader: false });
+        writes.forEach(({ ref, updates }) => tx.update(ref, updates));
+      });
+    } catch (txErr) {
+      if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return { skipped, blocked: true }; }
+      throw txErr;
+    }
+    return { skipped };
+  }
 
   const {
     invoices, filteredInvoices, loading, loadingMore, hasMore, error, loadMore, resetPagination,
@@ -190,8 +224,13 @@ export default function Invoices() {
     if (!window.confirm(t("in.confirmAsk"))) return;
     try {
       // Deduct stock now (transaction — aborts all on insufficient stock).
+      // مطعم: استهلاك الخامات عبر الوصفات — غيره: خصم المخزون كالمعتاد.
       const invLines = invoice.products || invoice.items || [];
-      if (hasInventory && invLines.length > 0) {
+      if (isRestaurantStock && invLines.length > 0) {
+        const { skipped, blocked } = await consumeRestaurantStock(invLines);
+        if (blocked) return;
+        var recipeSkippedNames = skipped;
+      } else if (hasInventory && invLines.length > 0) {
         try {
           await runTransaction(db, async (tx) => {
             const reads = [];
@@ -237,7 +276,7 @@ export default function Invoices() {
       await updateDoc(doc(db, "invoices", invoice.id), patch);
       await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: invoice.id, details: `Invoice validated (${cur}→validated), stock deducted`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await Promise.all([resetPagination(), fetchProducts()]);
-      alert(t("in.validatedOk"));
+      alert(t("in.validatedOk") + (typeof recipeSkippedNames !== "undefined" && recipeSkippedNames.length > 0 ? "\n" + t("in.recipeSkipped", { names: recipeSkippedNames.join("، ") }) : ""));
     } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
   }
 
@@ -275,7 +314,36 @@ export default function Invoices() {
     const stockDeltas = deltas.filter((d) => Math.abs(d.delta) > 0.0001);
 
     try {
-      if (wasValidated && hasInventory && stockDeltas.length > 0) {
+      if (wasValidated && isRestaurantStock) {
+        // مطعم: فرق استهلاك الخامات (جديد − قديم) عبر الوصفات — ذرّيًا
+        const mixLines = [...oldLines.map((l) => ({ productId: l.productId, quantity: l.quantity })), ...newLines.map((l) => ({ productId: l.productId, quantity: l.quantity }))];
+        const dishIds = [...new Set(mixLines.map((l) => l.productId).filter(Boolean))];
+        const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+        const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+        const sumBy = (arr) => { const m = new Map(); (arr || []).forEach((l) => m.set(l.productId, (m.get(l.productId) || 0) + (parseFloat(l.quantity) || 0))); return m; };
+        const oM = sumBy(expandRecipeLines(oldLines, dishById).materialLines);
+        const nM = sumBy(expandRecipeLines(newLines, dishById).materialLines);
+        const allIds = [...new Set([...oM.keys(), ...nM.keys()])];
+        const netOut = [], netIn = [];
+        allIds.forEach((id) => {
+          const d = (nM.get(id) || 0) - (oM.get(id) || 0);
+          if (d > 0.0001) netOut.push({ productId: id, quantity: d });
+          else if (d < -0.0001) netIn.push({ productId: id, quantity: -d });
+        });
+        if (netOut.length > 0 || netIn.length > 0) {
+          try {
+            await runTransaction(db, async (tx) => {
+              const { refs, snaps } = await readStockTx(tx, "raw_materials", allIds);
+              const at = (l) => { const i = refs.findIndex((r) => r.id === l.productId); return { ref: refs[i], snap: snaps[i], line: l }; };
+              planStockOut(netOut.map(at), { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
+              planStockIn(netIn.map(at), { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
+            });
+          } catch (txErr) {
+            if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return; }
+            throw txErr;
+          }
+        }
+      } else if (wasValidated && hasInventory && stockDeltas.length > 0) {
         // نرجّع القديم ونخصم الجديد ذرّيًا
         const refs = stockDeltas.map((d) => doc(db, "inventory", d.productId));
         await runTransaction(db, async (tx) => {
@@ -314,7 +382,20 @@ export default function Invoices() {
     const wasValidated = invoice ? isInvoiceValidatedDoc(invoice) : false;
     const lines = invoice ? (invoice.products || invoice.items || []) : [];
     try {
-      if (wasValidated && hasInventory && lines.length > 0) {
+      if (wasValidated && isRestaurantStock && lines.length > 0) {
+        // مطعم: رد الخامات المستهلكة عبر الوصفات
+        const dishIds = [...new Set(lines.map((l) => l.productId).filter(Boolean))];
+        const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+        const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+        const { materialLines } = expandRecipeLines(lines, dishById);
+        if (materialLines.length > 0) {
+          await runTransaction(db, async (tx) => {
+            const { refs, snaps } = await readStockTx(tx, "raw_materials", materialLines.map((l) => l.productId));
+            const entries = snaps.map((snap, i) => ({ ref: refs[i], snap, line: materialLines[i] }));
+            planStockIn(entries, { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
+          });
+        }
+      } else if (wasValidated && hasInventory && lines.length > 0) {
         const refs = lines.filter((l) => l.productId).map((l) => doc(db, "inventory", l.productId));
         if (refs.length) {
           await runTransaction(db, async (tx) => {
@@ -394,7 +475,16 @@ export default function Invoices() {
     setReturning(true);
     try {
       const clientName = clients.find((c) => c.id === returningInvoice.clientId)?.name || "";
-      await createReturn({ kind: "sale", refId: returningInvoice.id, entityId: returningInvoice.clientId, entityName: clientName, lines: correctLines, reason: returnReason, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader });
+      // مطعم: التوثيق بالأطباق (لمنع التكرار)، وحركة المخزون بالخامات الموسّعة
+      let stockLines = null, stockTarget = stockTargetFor(userIndustry);
+      if (isRestaurantStock) {
+        const dishIds = [...new Set(correctLines.map((l) => l.productId).filter(Boolean))];
+        const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+        const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+        stockLines = expandRecipeLines(correctLines, dishById).materialLines;
+        stockTarget = "raw_materials";
+      }
+      await createReturn({ kind: "sale", refId: returningInvoice.id, entityId: returningInvoice.clientId, entityName: clientName, lines: correctLines, stockLines, target: stockTarget, reason: returnReason, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader });
       setShowReturnModal(false); setReturningInvoice(null); setReturnQtys({}); setReturnReason("");
       await Promise.all([resetPagination(), fetchProducts(), fetchReturnsMap()]); alert("تم تسجيل المرتجع ورد المخزون");
     } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }

@@ -9,6 +9,7 @@ import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
 import { fmtDateTime, moneyShort } from "../utils/fmt.js";
+import { planStockOut, expandRecipeLines } from "../utils/stock.js";
 
 // round2 بيقرّب فلوس عند حدّين عشان ما نتكسبش أخطاء 0.1+0.2.
 const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
@@ -40,6 +41,8 @@ export default function POS() {
   const isPharmacy = userIndustry === "pharmacy";
   const foodLabel = isCafe ? "الكافيه" : "المطعم";
   const foodIcon = isCafe ? "☕" : "🍽️";
+  // مخزنيًا: مطعم فقط يستهلك خامات عبر الوصفات — الكافيه يبيع من المخزون
+  const isRestaurantStock = isRestaurantOnly;
 
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -627,7 +630,30 @@ export default function POS() {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
       // ── مرحلة 1: تحقّق (مفيش أي كتابة) ──
-      const stockRefs = cart.map((item) => doc(db, "inventory", item.id));
+      // مطعم: توافر الخامات عبر وصفات الأطباق (كمية الطبق نفسها لا تُخصم)
+      let recipeMats = [];
+      if (isRestaurantStock) {
+        const dishIds = [...new Set(cart.map((item) => item.id))];
+        const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+        const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+        const { materialLines, skipped } = expandRecipeLines(
+          cart.map((item) => ({ productId: item.id, quantity: item.quantity })), dishById
+        );
+        if (skipped.length > 0) console.warn("POS dishes without recipe (stock not consumed):", skipped);
+        const matSnaps = await Promise.all(materialLines.map((l) => getDoc(doc(db, "raw_materials", l.productId))));
+        recipeMats = materialLines.map((line, i) => ({
+          line,
+          ref: doc(db, "raw_materials", line.productId),
+          name: matSnaps[i].data()?.name || line.productId,
+          avail: parseFloat(matSnaps[i].data()?.quantity) || 0,
+        }));
+        recipeMats.forEach(({ line, name, avail }) => {
+          if (avail < line.quantity) {
+            throw new Error(`الخامة غير متوفرة: "${name}" — المتاح ${avail} والمطلوب ${line.quantity}`);
+          }
+        });
+      }
+      const stockRefs = isRestaurantStock ? [] : cart.map((item) => doc(db, "inventory", item.id));
       const stockSnaps = await Promise.all(stockRefs.map((r) => getDoc(r)));
 
       stockSnaps.forEach((snap, i) => {
@@ -780,6 +806,10 @@ export default function POS() {
         const freshBatches = batchWriteRefs.length
           ? await Promise.all(batchWriteRefs.map((r) => tx.get(r)))
           : [];
+        // مطعم: إعادة قراءة الخامات جوّه الـ transaction
+        const freshMats = isRestaurantStock && recipeMats.length
+          ? await Promise.all(recipeMats.map((m) => tx.get(m.ref)))
+          : [];
 
         // إعادة التحقق جوّه الـ transaction (الكمية ممكن تكون اتغيّرت
         // بين التحقق الأول والـ transaction من جهاز تاني)
@@ -799,6 +829,18 @@ export default function POS() {
           const currentQty = parseFloat(snap.data()?.quantity) || 0;
           tx.update(stockRefs[i], { quantity: round2(currentQty - item.quantity) });
         });
+
+        // مطعم: خصم الخامات (كمية الطبق لا تُخصم — الاستهلاك عبر الوصفة فقط)
+        if (isRestaurantStock && recipeMats.length) {
+          try {
+            const entries = freshMats.map((snap, i) => ({ ref: recipeMats[i].ref, snap, line: recipeMats[i].line }));
+            planStockOut(entries, { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
+          } catch (txErr) {
+            // سباق نادر: خامة خلصت بين التحقق والكتابة — رسالة عربية للكاشير
+            if (txErr?.message === "INSUFFICIENT_STOCK") throw new Error("الكمية غير متوفرة في الخامات — قلل الكمية أو سجّل فاتورة شراء أولاً");
+            throw txErr;
+          }
+        }
 
         freshBatches.forEach((snap, i) => {
           const ref = batchWriteRefs[i];

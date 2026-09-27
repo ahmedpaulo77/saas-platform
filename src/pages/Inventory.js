@@ -38,6 +38,8 @@ export default function Inventory() {
 
   // ── أقسام المنيو من Firestore (للمطاعم فقط) ──
   const [menuCategories, setMenuCategories] = useState([]);
+  // خامات المطعم — للوصفات (مطعم فقط): الطبق = كميات من الخامات
+  const [rawMaterials, setRawMaterials] = useState([]);
   const fetchMenuCategories = useCallback(async () => {
     if (!isRestaurant || !userCompanyId) return;
     try {
@@ -287,6 +289,14 @@ export default function Inventory() {
     fetchMenuCategories();
     fetchLastSales();
     fetchVariantCodes();
+    // الخامات للوصفات — مطعم فقط
+    if (userIndustry === "restaurant" && userCompanyId) {
+      getDocs(getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid))
+        .then((snap) => setRawMaterials(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+        .catch((e) => console.warn("raw materials for recipes:", e?.message));
+    } else {
+      setRawMaterials([]);
+    }
   }, [fetchProducts, fetchMenuCategories, fetchLastSales, fetchVariantCodes]);
 
   // ── helpers للإضافات ──
@@ -407,6 +417,12 @@ export default function Inventory() {
         activeIngredient: isPharmacy ? (editingProduct.activeIngredient || "").trim() : "",
         extras: isRestaurantOnly ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
+        // وصفة الطبق (مطعم فقط): تُحفظ مضمّنة — باقي الأنشطة لا تُمس
+        ...(isRestaurantOnly ? {
+          recipe: (editingProduct.recipe || [])
+            .filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
+            .map((e) => ({ materialId: e.materialId, qty: parseFloat(e.qty), unit: e.unit || "piece" })),
+        } : {}),
         imageUrl,
       });
       await logActivity({
@@ -1211,6 +1227,11 @@ export default function Inventory() {
                       {isRestaurant && product.preparationNote && (
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{product.preparationNote}</div>
                       )}
+                      {isRestaurantOnly && (
+                        <div style={{ fontSize: 11, marginTop: 2, color: (product.recipe || []).length > 0 ? "#15803d" : "#b45309" }}>
+                          {(product.recipe || []).length > 0 ? `🧾 ${t("recipe.set")} (${product.recipe.length})` : `🧾 ${t("recipe.missing")}`}
+                        </div>
+                      )}
                       {product.description && !isRestaurant && (
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{product.description}</div>
                       )}
@@ -1354,6 +1375,43 @@ export default function Inventory() {
                     <input type="text" value={editingProduct.preparationNote || ""} style={styles.input}
                       placeholder="مثال: يُقدَّم ساخناً مع صلصة"
                       onChange={(e) => setEditingProduct({ ...editingProduct, preparationNote: e.target.value })} />
+                  </div>
+                )}
+                {/* وصفة الطبق — مطعم فقط: البيع يخصم هذه الخامات تلقائياً */}
+                {isRestaurantOnly && (
+                  <div style={styles.formGroup}>
+                    <label>🧾 {t("recipe.title")} <span style={{ fontWeight: 400, color: "#94a3b8", fontSize: 11 }}>— {t("recipe.hint")}</span></label>
+                    {(editingProduct.recipe || []).map((line, idx) => {
+                      const mat = rawMaterials.find((m) => m.id === line.materialId);
+                      return (
+                        <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                          <select value={line.materialId || ""} style={{ ...styles.input, flex: 2 }}
+                            onChange={(e) => {
+                              const recipe = (editingProduct.recipe || []).map((l, i) =>
+                                i === idx ? { ...l, materialId: e.target.value, unit: rawMaterials.find((m) => m.id === e.target.value)?.unit || l.unit || "piece" } : l);
+                              setEditingProduct({ ...editingProduct, recipe });
+                            }}>
+                            <option value="">— {t("recipe.chooseMaterial")} —</option>
+                            {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.quantity || 0} {m.unit || ""})</option>)}
+                          </select>
+                          <input type="number" min="0" step="0.001" placeholder={t("recipe.qtyPh")} value={line.qty || ""} style={{ ...styles.input, flex: 1 }}
+                            onChange={(e) => {
+                              const recipe = (editingProduct.recipe || []).map((l, i) => i === idx ? { ...l, qty: e.target.value } : l);
+                              setEditingProduct({ ...editingProduct, recipe });
+                            }} />
+                          <span style={{ alignSelf: "center", fontSize: 12, color: "#64748b", minWidth: 34 }}>{mat?.unit || line.unit || ""}</span>
+                          <button type="button" onClick={() => setEditingProduct({ ...editingProduct, recipe: (editingProduct.recipe || []).filter((_, i) => i !== idx) })}
+                            style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, recipe: [...(editingProduct.recipe || []), { materialId: "", qty: "", unit: "piece" }] })}
+                      style={{ background: "none", border: "1px dashed #cbd5e1", color: "#475569", borderRadius: 8, padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 600, width: "100%" }}>
+                      + {t("recipe.addLine")}
+                    </button>
+                    {(editingProduct.recipe || []).length === 0 && (
+                      <div style={{ fontSize: 11, color: "#b45309", marginTop: 4 }}>{t("recipe.emptyWarn")}</div>
+                    )}
                   </div>
                 )}
                 {/* الباركود */}

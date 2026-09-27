@@ -22,6 +22,9 @@ import { stockDelta, getProductUnit, roundQty } from "./traderUnits.js";
  *
  * kind: 'sale' (مرتجع بيع → يزوّد المخزون) | 'purchase' (مرتجع شراء → ينقص المخزون)
  * lines: [{ productId, quantity, weight, unit, amount }]
+ * target: كولكشن المخزون ('inventory' افتراضيًا، 'raw_materials' للمطعم)
+ * stockLines: سطور حركة المخزون الفعلية إن اختلفت عن lines (مرتجع بيع مطعم:
+ *   lines = الأطباق للتوثيق ومنع التكرار، stockLines = الخامات الموسّعة بالوصفة)
  */
 export async function createReturn({
   kind,
@@ -32,13 +35,17 @@ export async function createReturn({
   reason,
   user,
   isTrader,
+  target = "inventory",
+  stockLines = null,
 }) {
   const safeLines = Array.isArray(lines) ? lines : [];
   const totalAmount = safeLines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
 
   // نحسب فرق المخزون لكل سطر *قبل* أي كتابة، بنفس منطق Billing
+  // (stockLines للفصل بين التوثيق والحركة — انظر الترويسة)
+  const moveLines = Array.isArray(stockLines) ? stockLines : safeLines;
   const adjustments = [];
-  safeLines.forEach((line) => {
+  moveLines.forEach((line) => {
     if (!line.productId) return;
     const unit = isTrader ? (line.unit || "piece") : "piece";
     // ⚠️ نفس منطق المخزون في كل مرة — قبل كده quantity was الحارس
@@ -51,7 +58,7 @@ export async function createReturn({
   });
 
   const returnRef = doc(collection(db, "returns"));
-  const inventoryRefs = adjustments.map((a) => doc(db, "inventory", a.line.productId));
+  const inventoryRefs = adjustments.map((a) => doc(db, target, a.line.productId));
 
   await runTransaction(db, async (tx) => {
     // 1) كل القراءات أولاً

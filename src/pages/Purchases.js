@@ -25,6 +25,7 @@ import Pagination from "../components/common/PaginationV2.js";
 import { useFirestorePagination } from "../hooks/useFirestorePagination.js";
 import JsBarcode from "jsbarcode";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
+import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
 const PAGE_SIZE = 25;
 
@@ -36,6 +37,10 @@ export default function Purchases() {
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isTrader = userIndustry === "trader";
   const isClothing = userIndustry === "clothing";
+  // المطعم: هدف المخزون هو الخامات (raw_materials) — لا "inventory"
+  const isRestaurant = userIndustry === "restaurant";
+  const stockTarget = stockTargetFor(userIndustry);
+  const stockCostKey = stockCostKeyFor(stockTarget);
 
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -127,6 +132,8 @@ export default function Purchases() {
         reason: returnReason,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
         isTrader,
+        // المرتجع يعكس من نفس هدف المخزون الذي زادته الفاتورة
+        target: returningPurchase.stockTarget || stockTarget,
       });
       setShowReturnModal(false);
       setReturningPurchase(null);
@@ -233,18 +240,19 @@ export default function Purchases() {
     }
   }, [userRole, userCompanyId, currentUser?.uid]);
 
-  // جلب المنتجات (لل autocomplete - اختياري لو مفيش مخزون)
+  // جلب الأصناف (لل autocomplete - اختياري لو مفيش مخزون)
+  // مطعم: القائمة = الخامات (raw_materials)، غيره: المنتجات (inventory)
   const fetchProducts = useCallback(async () => {
     if (!userCompanyId || !hasInventory) return;
     try {
       const snap = await getDocs(
-        getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid)
+        getScopedQuery(stockTarget, userRole, userCompanyId, currentUser?.uid)
       );
       setProducts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
     }
-  }, [userRole, userCompanyId, currentUser?.uid, hasInventory]);
+  }, [userRole, userCompanyId, currentUser?.uid, hasInventory, stockTarget]);
 
   useEffect(() => {
     fetchSuppliers();
@@ -296,7 +304,20 @@ export default function Purchases() {
       //Inventory والفاتورة ما يبقاش فيه "" فاضية أو مقاس تاجر.
       const size = isClothing ? quickProductSize.trim() : "";
       const color = isClothing ? quickProductColor.trim() : "";
-      const docRef = await addDoc(collection(db, "inventory"), {
+      // مطعم: الصنف الجديد خامة (raw_materials) بتكلفة الوحدة، غيره: منتج مخزون
+      const docRef = isRestaurant
+        ? await addDoc(collection(db, "raw_materials"), {
+            name: quickProductName.trim(),
+            unit: "kg",
+            quantity: 0,
+            minQuantity: 0,
+            costPerUnit: parseFloat(quickProductPrice) || 0,
+            supplier: "",
+            companyId: userCompanyId,
+            createdBy: currentUser?.uid,
+            createdAt: new Date().toISOString(),
+          })
+        : await addDoc(collection(db, "inventory"), {
         name: quickProductName.trim(),
         price: parseFloat(quickProductPrice) || 0,
         quantity: 0,
@@ -363,49 +384,23 @@ export default function Purchases() {
       // كمان: كنا بنختم "آخر سعر شراء" بس (lastUnitCost) — مفيش متوسط
       // تكلفة خالص، فصفحة الأرباح مفيهاش أساس لحساب التكلفة.
       const purchaseRef = doc(collection(db, "purchases"));
-      const lineRefs = [];
-      items.forEach((it) => {
-        if (hasInventory && it.productId) lineRefs.push(doc(db, "inventory", it.productId));
-      });
+      // الأصناف المخزنية فقط (مطعم = خامات، غيره = منتجات) — عبر محرك المخزون
+      const stockItems = items.filter((it) => hasInventory && stockLineId(it));
 
       await runTransaction(db, async (tx) => {
         // 1) كل القراءات أولاً
-        const snaps = [];
-        for (const ref of lineRefs) {
-          snaps.push(await tx.get(ref));
-        }
+        const { refs: lineRefs, snaps } = await readStockTx(
+          tx, stockTarget, stockItems.map((it) => stockLineId(it))
+        );
 
-        // 2) الحسابات
-        const stockWrites = [];
-        snaps.forEach((snap, idx) => {
-          const item = items.filter((it) => hasInventory && it.productId)[idx];
-          if (!snap.exists()) return; // صنف مش موجود في المخزون: نتخطاه زي ما كان
-
-          const data = snap.data();
-          const unit = item.unit || getProductUnit(data);
-          const delta = stockDelta(unit, item.quantity, item.weight);
-          if (delta <= 0) return;
-
-          const currentQty = parseFloat(data.quantity) || 0;
-          const unitCost = parseFloat(item.unitCost) || 0;
-          const updates = {
-            quantity: roundQty(currentQty + delta, unit),
-            lastSupplierId: newPurchase.supplierId || "",
-            lastSupplierName: suppName,
-            lastUnitCost: unitCost,
-          };
-
-          // متوسط التكلفة المتحرك — الأساس الصح لحساب التكلفة
-          if (unitCost > 0) {
-            const oldAvg = parseFloat(data.avgCost) || parseFloat(data.purchasePrice) || 0;
-            const newQty = currentQty + delta;
-            updates.avgCost = roundQty(
-              newQty > 0 ? (currentQty * oldAvg + delta * unitCost) / newQty : unitCost,
-              unit
-            );
-          }
-
-          stockWrites.push({ ref: lineRefs[idx], updates });
+        // 2) تخطيط الإدخال (كمية + متوسط تكلفة) — نفس منطق المحرك لكل الأنشطة
+        const entries = snaps.map((snap, idx) => ({
+          ref: lineRefs[idx], snap, line: stockItems[idx],
+        }));
+        const stockWrites = planStockIn(entries, {
+          isTrader,
+          costKey: stockCostKey,
+          meta: { supplierId: newPurchase.supplierId || "", supplierName: suppName },
         });
 
         // 3) كل الكتابات بعد ما كل القراءات خلصت
@@ -429,6 +424,9 @@ export default function Purchases() {
           amount,
           unitCost: 0,
           quantity: hasInventory ? totalQty : 0,
+          // هدف المخزون وقت الإنشاء — الحذف/المرتجع يعكس من نفس المكان
+          // (فواتير المطعم القديمة راحت inventory، الجديدة raw_materials)
+          stockTarget: hasInventory ? stockTarget : null,
           date: new Date().toISOString(),
           dueDate: newPurchase.dueDate || null,
           status: newPurchase.status,
@@ -490,16 +488,47 @@ export default function Purchases() {
     }
   }
 
-  async function deletePurchase(id) {
+  // حذف فاتورة شراء = عكس أثرها المخزني أولاً (ذرّيًا)، ثم حذف المستند.
+  // لو البضاعة اتباعت (الرصيد أقل من الكمية المدخلة) الحذف بيتمنع برسالة —
+  // حذفها كان هيسيب مخزونًا وهميًا (بضاعة محسوبة مخزنيًا من غير فاتورة).
+  async function deletePurchase(purchaseOrId) {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
-      await deleteDoc(doc(db, "purchases", id));
+      const purchase = typeof purchaseOrId === "object"
+        ? purchaseOrId
+        : purchases.find((x) => x.id === purchaseOrId) || { id: purchaseOrId };
+      const target = purchase.stockTarget || "inventory";
+      const stockItems = getPurchaseItems(purchase).filter((it) => stockLineId(it));
+      if (hasInventory && stockItems.length > 0) {
+        try {
+          await runTransaction(db, async (tx) => {
+            const { refs, snaps } = await readStockTx(
+              tx, target, stockItems.map((it) => stockLineId(it))
+            );
+            const entries = snaps.map((snap, idx) => ({
+              ref: refs[idx], snap, line: stockItems[idx],
+            }));
+            // عكس الإدخال = إخراج بنفس الكميات؛ الناقص يمنع الحذف
+            const writes = planStockOut(entries, { isTrader });
+            writes.forEach(({ ref, updates }) => tx.update(ref, updates));
+            tx.delete(doc(db, "purchases", purchase.id));
+          });
+        } catch (txErr) {
+          if (txErr?.message === "INSUFFICIENT_STOCK") {
+            alert(t("pur.deleteBlockedStock"));
+            return;
+          }
+          throw txErr;
+        }
+      } else {
+        await deleteDoc(doc(db, "purchases", purchase.id));
+      }
 
       await logActivity({
         actionType: "DELETE",
         collectionName: "purchases",
-        itemId: id,
-        details: `Deleted purchase`,
+        itemId: purchase.id,
+        details: `Deleted purchase (stock reversed from ${target})`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
@@ -731,7 +760,8 @@ export default function Purchases() {
       }
       barcodeValue = asciiSafe(barcodeValue, String(purchase.id || "0000").slice(0, 4));
       // Persist printed barcode so POS scan finds the label later
-      if (it.productId && !prod.barcode && !it.barcode) {
+      // (مخزون فقط — الخامات ملهاش باركود بيع)
+      if (!isRestaurant && it.productId && !prod.barcode && !it.barcode) {
         barcodePersist.push(updateDoc(doc(db, "inventory", it.productId), { barcode: barcodeValue }).catch((e) => console.warn("barcode persist:", e?.message)));
       }
 
@@ -1034,14 +1064,17 @@ ${labelDivs}
                       // في خانة *التكلفة*. حد بيفتتح فاتورة شراء ويختار منتج
                       // من غير ما يعدّل الرقم كان بيسجّل تكلفة = سعر البيع،
                       // فكل تقرير التكلفة/الأرباح كان غلط والهامش 0%.
-                      // الافتراضي الصح: آخر سعر شراء معروف، أو متوسط التكلفة.
-                      // ولو مفيش أي منهم، نسيب الحقل فاضي ونطلب رقم صريح.
+                      // الافتراضي الصح: آخر سعر شراء معروف، أو متوسط التكلفة
+                      // (الخامات: costPerUnit). ولو مفيش أي منهم، نسيب الحقل
+                      // فاضي ونطلب رقم صريح.
                       const defaultCost =
                         prod?.lastUnitCost != null && parseFloat(prod.lastUnitCost) > 0
                           ? parseFloat(prod.lastUnitCost)
                           : parseFloat(prod?.avgCost) > 0
                             ? parseFloat(prod.avgCost)
-                            : 0;
+                            : parseFloat(prod?.costPerUnit) > 0
+                              ? parseFloat(prod.costPerUnit)
+                              : 0;
                       const newItem = {
                         productId,
                         quantity: "1",
@@ -1545,7 +1578,7 @@ ${labelDivs}
                               </button>
                               {userCanDelete && (
                                 <button
-                                  onClick={() => deletePurchase(p.id)}
+                                  onClick={() => deletePurchase(p)}
                                   className="btn-danger btn-sm"
                                   title={t("common.delete")}
                                 >
