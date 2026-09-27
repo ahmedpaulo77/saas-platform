@@ -42,10 +42,10 @@
 .form-card select,
 .form-card textarea {
   flex: 1;
-  padding: 16px 20px;
+  padding: 12px 14px;
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-sm);
-  font-size: 16px;
+  font-size: 14px;
   transition: var(--transition-fast);
   background: var(--gray-50);
   color: var(--gray-800);
@@ -80,10 +80,10 @@
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 16px 20px;
+  padding: 12px 14px;
   border: 1.5px solid var(--gray-200);
   border-radius: var(--radius-sm);
-  font-size: 16px;
+  font-size: 14px;
   transition: var(--transition-fast);
   background: var(--gray-50);
   color: var(--gray-800);
@@ -282,4 +282,47 @@ tbody tr:last-child td {
 .badge-high { background: var(--danger-bg); color: var(--danger-dark); }
 .badge-medium { background: var(--warning-bg); color: var(--warning-dark); }
 .badge-low { background: var(--success-bg); color: var(--success-dark); }
+
+/* ==================
+   Form row — حقول جنب بعض بمقاس موحد
+   ================== */
+.form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.form-row > .form-group {
+  flex: 1 1 180px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+@media (max-width: 768px) {
+  .form-row { flex-direction: column; }
+}
+
+/* ==================
+   input-sm — المقاس المدمج الموحد (مودالات/صفوف)
+   بديل موحد للـ inline styles المتفرقة (10px 14px)
+   ================== */
+.input-sm,
+.form-group.input-sm input,
+.form-group.input-sm select {
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+/* ==================
+   Sticky table header — يثبت تلقائياً مع أي سكرول داخلي (مودال/سكرول)
+   ================== */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* opt-in: جدول طويل بسكرول داخلي ورأس ثابت */
+.table-wrapper.table-scroll {
+  max-height: min(62vh, 640px);
+  overflow-y: auto;
+}
 

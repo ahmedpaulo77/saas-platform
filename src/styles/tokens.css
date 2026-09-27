@@ -3,7 +3,8 @@
    Modern Arabic RTL Business Platform
    ================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+/* NOTE: Cairo font loads via <link> in index.html (faster first paint).
+   No @import here on purpose — @import blocks rendering. */
 * {
   margin: 0;
   padding: 0;
@@ -48,10 +49,10 @@
 
   /* Sidebar */
   --sidebar-bg: #0f172a;
-  --sidebar-width: 270px;
+  --sidebar-width: 292px;
   --sidebar-link: rgba(255,255,255,0.65);
   --sidebar-link-hover: rgba(255,255,255,0.9);
-  --sidebar-active-bg: rgba(99,102,241,0.2);
+  --sidebar-active-bg: rgba(99,102,241,0.16);
 
   /* Layout */
   --radius-xs: 6px;
@@ -66,7 +67,7 @@
   --shadow: 0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.04);
   --shadow-md: 0 8px 32px rgba(0,0,0,0.09), 0 4px 12px rgba(0,0,0,0.06);
   --shadow-lg: 0 16px 48px rgba(0,0,0,0.12), 0 8px 20px rgba(0,0,0,0.07);
-  --shadow-primary: 0 8px 24px rgba(99,102,241,0.3);
+  --shadow-primary: 0 8px 24px rgba(99,102,241,0.22);
 
   /* Transitions */
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
