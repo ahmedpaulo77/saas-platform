@@ -15,6 +15,7 @@ import { db, storage } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
+import { iconFor, INVENTORY_ICON } from "../utils/icons";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import Pagination from "../components/common/Pagination";
@@ -622,9 +623,23 @@ export default function Inventory() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        <h2 style={{ color: "#333", marginBottom: "20px" }}>
-          {isRestaurant ? (isCafe ? "☕ منيو الكافيه" : "🍽️ منيو المطعم") : userIndustry === "real_estate" ? "🏠" : "📦"}{" "}
-          {!isRestaurant && t(userIndustry === "real_estate" ? "inv.title.real_estate" : "inv.title")}
+        {/* 🆕 الأيقونة بتتبع المهنة (نفس خريطة السايدبار والداشبورد).
+            قبل كند كان إيموجي ثابت 📦 لكل المهن غير المطعم/الكافيه/العقارات
+            — فمحل ملابس أو صيدلية أو مقاول بيشوف "علبة". وFont Awesome
+            أأفق: نفس الحجم ونفس اللون في كل الصفحات. */}
+        <h2 style={{ color: "#333", marginBottom: "20px", display: "flex", alignItems: "center", gap: 10 }}>
+          <i
+            className={`fas ${iconFor(INVENTORY_ICON, userIndustry)}`}
+            style={{ color: "#d97706", fontSize: 24 }}
+            aria-hidden="true"
+          />
+          {isRestaurant
+            ? isCafe
+              ? t("inv.title.cafe")
+              : t("inv.title.restaurant")
+            : userIndustry === "real_estate"
+            ? t("inv.title.real_estate")
+            : t("inv.title")}
         </h2>
 
         {/* ── Add Form ── */}

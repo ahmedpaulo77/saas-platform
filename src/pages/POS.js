@@ -661,14 +661,36 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
           const valid = allBatches
             .filter((b) => b.productId === item.id && (parseFloat(b.quantity) || 0) > 0)
             .sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
+
+          // ⚠️🔴 إصلاح: الصنف اللي **مالوش تشغيلات مسجّلة خالص** (غالبًا
+          // اتعمل من صفحة المخزون مباشرة، أو دوا قديم) كان بيترمي
+          // "ناقص 1" وميتباعش أبدًا — مع إن مخزونه وافر.
+          // السبب: usable فاضي فـ remaining فضل = الكمية المطلوبة.
+          //
+          // الصحيح: FEFO بتطبَّق على الأدوية اللي **بتتتبع صلاحيتها فقط**
+          // (اللي ليها تشغيلة). اللي مالوش تشغيلة = صنف عادي، نبيعه من
+          // المخزون زي ما الكود القديم كان بيعمل.
+          if (valid.length === 0) {
+            fefoPlan.set(item.id, []); // من غير صرف على تشكيلات
+            return;
+          }
+
           const usable = valid.filter(
             (b) => !b.expiryDate || new Date(b.expiryDate) >= todayStart
           );
           const expired = valid.filter(
             (b) => b.expiryDate && new Date(b.expiryDate) < todayStart
           );
-          if (valid.length > 0 && usable.length === 0) {
-            throw new Error(`الدواء "${item.name}" كل تشغيلاته منتهية الصلاحية — البيع موقوف`);
+          if (usable.length === 0) {
+            const names = valid.map((b) => b.batchNumber || b.id).join("، ");
+            const dates = valid
+              .map((b) => b.expiryDate)
+              .filter(Boolean)
+              .join("، ");
+            throw new Error(
+              `الدواء "${item.name}" كل تشغيلاته منتهية الصلاحية (${names}${dates ? " — " + dates : ""}). ` +
+              `امسح/عدّل التشغيلة من صفحة "التشغيلات" أو سجّل له تشغيلة جديدة.`
+            );
           }
           let remaining = item.quantity;
           const plan = [];
@@ -678,8 +700,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
             if (take > 0) plan.push({ batchId: b.id, take });
             remaining = round2(remaining - take);
           });
-          // ⚠️ ما نكملش لو التشغيلات الصالحة مش مكفية — الكود القديم كان
-          // بيواصل وبيسيب الـ batches غلط عن الـ inventory.
+          // ⚠️ هنا التشكيلات موجودة، فلازم تغطي الكمية. لو ماغطتتش
+          // معناه إن الكمية المتبقية مش موجودة فعلاً.
           if (remaining > 0.001) {
             throw new Error(
               `الكمية غير متوفرة في التشغيلات الصالحة: "${item.name}" — ناقص ${remaining}`
