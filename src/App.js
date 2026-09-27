@@ -39,7 +39,9 @@ const Aging = lazy(() => import("./pages/Aging"));
 const POS = lazy(() => import("./pages/POS"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Expiry = lazy(() => import("./pages/Expiry"));
-const Batches = lazy(() => import("./pages/Batches"));
+// صفحة Batches القديمة اتدمعت في Expiry (نفس البيانات + سعر الشراء والمورد
+// والفلترة بالمنتج). /batches بقى redirect لـ /expiry عشان البوكمارك القديم
+// والروابط المحفوظة في المتصفح ما تبقاش 404.
 const Notifications = lazy(() => import("./pages/Notifications"));
 const About = lazy(() => import("./pages/About"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -328,21 +330,15 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/batches"
+        element={<Navigate to="/expiry" replace />}
+      />
+      <Route
         path="/expiry"
         element={
           <ProtectedRoute>
             <IndustryRoute moduleKey="expiry">
               <Expiry />
-            </IndustryRoute>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/batches"
-        element={
-          <ProtectedRoute>
-            <IndustryRoute moduleKey="batches">
-              <Batches />
             </IndustryRoute>
           </ProtectedRoute>
         }

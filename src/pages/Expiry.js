@@ -22,16 +22,29 @@ function startOfDay(d) {
 }
 
 export default function Expiry() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const userCanDelete = canDelete(userRole);
   const isPharmacy = userIndustry === "pharmacy";
   const [products, setProducts] = useState([]);
   const [batches, setBatches] = useState([]);
-  const [newBatch, setNewBatch] = useState({ productId: "", batchNumber: "", quantity: "", expiryDate: "" });
+  const [newBatch, setNewBatch] = useState({
+    productId: "",
+    batchNumber: "",
+    quantity: "",
+    expiryDate: "",
+    // كان ناقص عن صفحة Batches القديمة، وبmanent بعد الدمج
+    purchasePrice: "",
+    supplier: "",
+  });
   const [addingBatch, setAddingBatch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
+  const [batchProductFilter, setBatchProductFilter] = useState("all");
+  // تعديل التشغيلة (كان في صفحة Batches القديمة). مهم: تصحيح تاريخ/رقم
+  // التشغيلة الغلط من غير ما نلمس الكمية.
+  const [editingBatch, setEditingBatch] = useState(null);
+  const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -81,6 +94,10 @@ export default function Expiry() {
         batchNumber: newBatch.batchNumber.trim(),
         quantity: qty,
         expiryDate: newBatch.expiryDate,
+        // كان ناقص عن صفحة Batches القديمة — من غيرهما مش بعرف سعر
+        // الشراء الحقيقي للدواء ولا المورد اللي جهّ منه.
+        purchasePrice: newBatch.purchasePrice ? parseFloat(newBatch.purchasePrice) : 0,
+        supplier: newBatch.supplier ? newBatch.supplier.trim() : "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid || null,
         createdAt: new Date().toISOString(),
@@ -94,7 +111,7 @@ export default function Expiry() {
         details: `Received batch ${newBatch.batchNumber} for ${prod?.name || ""} qty ${qty}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewBatch({ productId: "", batchNumber: "", quantity: "", expiryDate: "" });
+      setNewBatch({ productId: "", batchNumber: "", quantity: "", expiryDate: "", purchasePrice: "", supplier: "" });
       await Promise.all([fetchProducts(), fetchBatches()]);
     } catch (err) {
       console.error(err);
@@ -174,6 +191,71 @@ export default function Expiry() {
   }).length;
 
   const noExpiryCount = products.filter((p) => !p.expiryDate).length;
+
+  function openBatchEdit(batch) {
+    setEditingBatch({
+      id: batch.id,
+      productId: batch.productId || "",
+      productName: batch.productName || "",
+      batchNumber: batch.batchNumber || "",
+      quantity: String(batch.quantity ?? ""),
+      expiryDate: batch.expiryDate || "",
+      purchasePrice: batch.purchasePrice != null ? String(batch.purchasePrice) : "",
+      supplier: batch.supplier || "",
+    });
+    setShowBatchEdit(true);
+  }
+
+  function closeBatchEdit() {
+    setEditingBatch(null);
+    setShowBatchEdit(false);
+  }
+
+  async function handleBatchUpdate(e) {
+    e.preventDefault();
+    if (
+      !editingBatch.productId ||
+      !editingBatch.batchNumber.trim() ||
+      editingBatch.quantity === "" ||
+      !editingBatch.expiryDate
+    ) {
+      alert(t("common.fillRequired"));
+      return;
+    }
+    try {
+      const prod = products.find((p) => p.id === editingBatch.productId);
+      // ⚠️ الكمية مقفولة على التعديل عن قصد: هي الكمية *المتبقية* من
+      // التشغيلة، وبيخصمها POS صرفاً (FEFO) + بترجع للمخزون عند الحذف.
+      // لو سمحنا بتعديلها، الـ inventory والـ batch بيبقوا مختلفين.
+      await updateDoc(doc(db, "batches", editingBatch.id), {
+        productId: editingBatch.productId,
+        productName: prod?.name || editingBatch.productName || "",
+        batchNumber: editingBatch.batchNumber.trim(),
+        expiryDate: editingBatch.expiryDate,
+        purchasePrice: editingBatch.purchasePrice ? parseFloat(editingBatch.purchasePrice) : 0,
+        supplier: editingBatch.supplier ? editingBatch.supplier.trim() : "",
+      });
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "batches",
+        itemId: editingBatch.id,
+        details: `Updated batch ${editingBatch.batchNumber}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      closeBatchEdit();
+      await fetchBatches();
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+  }
+
+  // جدول التشغيلات: فلترة بالمنتج (كانت في صفحة Batches القديمة)
+  // + ترتيب بالأقرب صلاحية عشان صرف الـ FEFO يبقى مفهوم للعين.
+  const visibleBatches = batches
+    .filter((b) => batchProductFilter === "all" || b.productId === batchProductFilter)
+    .slice()
+    .sort((a, b) => new Date(a.expiryDate || "9999") - new Date(b.expiryDate || "9999"));
 
   const filteredProducts = products.filter((p) => {
     const status = getExpiryStatus(p);
@@ -282,75 +364,116 @@ export default function Expiry() {
           <div className="form-card" style={{ border: "2px solid #8b5cf655", marginBottom: 20 }}>
             <h3>
               <i className="fas fa-pills" style={{ color: "#8b5cf6" }}></i>
-              💊 استلام تشغيلة جديدة (بتزود المخزون)
+              {t("exp.receiveBatch")}
             </h3>
             <form onSubmit={addBatch}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 150px auto", gap: 12, alignItems: "end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px 150px", gap: 12, alignItems: "end" }}>
                 <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الدواء *</label>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.drug")} *</label>
                   <select value={newBatch.productId} onChange={(e) => setNewBatch({ ...newBatch, productId: e.target.value })} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white", boxSizing: "border-box" }}>
-                    <option value="">— اختر الدواء —</option>
+                    <option value="">{t("exp.pickDrug")}</option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>رقم التشغيلة *</label>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.batchNo")} *</label>
                   <input type="text" placeholder="B123" value={newBatch.batchNumber}
                     onChange={(e) => setNewBatch({ ...newBatch, batchNumber: e.target.value })} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكمية *</label>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.quantity")} *</label>
                   <input type="number" min="1" step="1" placeholder="0" value={newBatch.quantity}
                     onChange={(e) => setNewBatch({ ...newBatch, quantity: e.target.value })} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الصلاحية *</label>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.expiry")} *</label>
                   <input type="date" value={newBatch.expiryDate}
                     onChange={(e) => setNewBatch({ ...newBatch, expiryDate: e.target.value })} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px", gap: 12, alignItems: "end", marginTop: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.supplier")}</label>
+                  <input type="text" placeholder={t("exp.supplierPh")} value={newBatch.supplier}
+                    onChange={(e) => setNewBatch({ ...newBatch, supplier: e.target.value })}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>{t("exp.purchasePrice")}</label>
+                  <input type="number" min="0" step="0.01" placeholder="0.00" value={newBatch.purchasePrice}
+                    onChange={(e) => setNewBatch({ ...newBatch, purchasePrice: e.target.value })}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
                 <button type="submit" className="btn-primary" disabled={addingBatch}>
-                  <i className="fas fa-plus"></i> {addingBatch ? "..." : "استلام"}
+                  <i className="fas fa-plus"></i> {addingBatch ? "..." : t("exp.receive")}
                 </button>
               </div>
             </form>
 
             {batches.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <h4 style={{ fontSize: 13, color: "#334155", margin: "0 0 8px" }}>التشغيلات ({batches.length}) — مرتبة بالأقرب صلاحية (الصرف FEFO)</h4>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+                  <h4 style={{ fontSize: 13, color: "#334155", margin: 0 }}>
+                    {t("exp.batchesTitle", { n: batches.length })}
+                  </h4>
+                  <select
+                    value={batchProductFilter}
+                    onChange={(e) => setBatchProductFilter(e.target.value)}
+                    style={{ padding: "6px 12px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}
+                  >
+                    <option value="all">{t("exp.allProducts")}</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div style={{ maxHeight: 260, overflowY: "auto" }}>
                   <table>
                     <thead>
                       <tr>
-                        <th>الدواء</th>
-                        <th>التشغيلة</th>
-                        <th>الكمية</th>
-                        <th>الصلاحية</th>
-                        <th>الحالة</th>
+                        <th>{t("exp.drug")}</th>
+                        <th>{t("exp.batchNo")}</th>
+                        <th>{t("exp.quantity")}</th>
+                        <th>{t("exp.purchasePrice")}</th>
+                        <th>{t("exp.supplier")}</th>
+                        <th>{t("exp.expiry")}</th>
+                        <th>{t("exp.status")}</th>
                         <th></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {batches.map((b) => {
+                      {visibleBatches.map((b) => {
                         const st = getExpiryStatus(b);
                         return (
                           <tr key={b.id} style={{ background: st.daysLeft !== null && st.daysLeft < 0 ? "#fff5f5" : st.daysLeft !== null && st.daysLeft <= 30 ? "#fffbeb" : "white" }}>
                             <td style={{ fontWeight: 600 }}>{b.productName}</td>
                             <td style={{ fontFamily: "monospace" }}>{b.batchNumber}</td>
                             <td style={{ fontWeight: 700 }}>{b.quantity}</td>
-                            <td>{b.expiryDate ? new Date(b.expiryDate).toLocaleDateString("ar-EG") : "—"}</td>
+                            <td>{b.purchasePrice ? Number(b.purchasePrice).toFixed(2) : "—"}</td>
+                            <td>{b.supplier || "—"}</td>
+                            <td>{b.expiryDate ? new Date(b.expiryDate).toLocaleDateString(locale) : "—"}</td>
                             <td><span className="badge" style={{ background: st.bg, color: st.color, fontWeight: 700 }}>{st.label}</span></td>
                             <td>
-                              {userCanDelete && (
-                                <button onClick={() => deleteBatch(b)} className="btn-danger btn-sm" title={t("common.delete")}>
-                                  <i className="fas fa-trash"></i>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => openBatchEdit(b)}
+                                  className="btn-secondary btn-sm"
+                                  title={t("exp.editBatch")}
+                                >
+                                  <i className="fas fa-pen-ruler"></i>
                                 </button>
-                              )}
+                                {userCanDelete && (
+                                  <button onClick={() => deleteBatch(b)} className="btn-danger btn-sm" title={t("common.delete")}>
+                                    <i className="fas fa-trash"></i>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -472,6 +595,100 @@ export default function Expiry() {
               </div>
               <div style={styles.modalFooter}>
                 <button type="button" onClick={closeEditModal} className="btn-danger" style={{ marginLeft: "10px" }}>
+                  {t("common.cancel")}
+                </button>
+                <button type="submit" className="btn-primary">
+                  <i className="fas fa-save"></i> {t("common.save")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── تعديل التشغيلة (من صفحة Batches القديمة) ── */}
+      {showBatchEdit && editingBatch && (
+        <div style={styles.modalOverlay} onClick={closeBatchEdit}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h3><i className="fas fa-pen-ruler"></i> {t("exp.editBatchTitle")}</h3>
+              <button onClick={closeBatchEdit} style={styles.closeBtn}>&times;</button>
+            </div>
+            <form onSubmit={handleBatchUpdate}>
+              <div style={styles.formGroup}>
+                <label>{t("exp.drug")} *</label>
+                <select
+                  value={editingBatch.productId}
+                  onChange={(e) => setEditingBatch({ ...editingBatch, productId: e.target.value })}
+                  required
+                  style={styles.input}
+                >
+                  <option value="">{t("exp.pickDrug")}</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label>{t("exp.batchNo")} *</label>
+                <input
+                  type="text"
+                  value={editingBatch.batchNumber}
+                  onChange={(e) => setEditingBatch({ ...editingBatch, batchNumber: e.target.value })}
+                  required
+                  style={styles.input}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={styles.formGroup}>
+                  <label>{t("exp.quantity")} *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editingBatch.quantity}
+                    onChange={(e) => setEditingBatch({ ...editingBatch, quantity: e.target.value })}
+                    required
+                    readOnly
+                    title={t("exp.qtyLocked")}
+                    style={{ ...styles.input, background: "#f1f5f9", color: "#64748b", cursor: "not-allowed" }}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label>{t("exp.expiry")} *</label>
+                  <input
+                    type="date"
+                    value={editingBatch.expiryDate}
+                    onChange={(e) => setEditingBatch({ ...editingBatch, expiryDate: e.target.value })}
+                    required
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={styles.formGroup}>
+                  <label>{t("exp.purchasePrice")}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editingBatch.purchasePrice}
+                    onChange={(e) => setEditingBatch({ ...editingBatch, purchasePrice: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label>{t("exp.supplier")}</label>
+                  <input
+                    type="text"
+                    value={editingBatch.supplier}
+                    onChange={(e) => setEditingBatch({ ...editingBatch, supplier: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+              <div style={styles.modalFooter}>
+                <button type="button" onClick={closeBatchEdit} className="btn-danger" style={{ marginLeft: "10px" }}>
                   {t("common.cancel")}
                 </button>
                 <button type="submit" className="btn-primary">

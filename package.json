@@ -35,6 +35,8 @@
     "verify:scopes": "node tools/verify-scopes.mjs",
     "verify:encoding": "node tools/verify-encoding.mjs",
     "test:receipt": "node tools/test-receipt.mjs",
+    "verify:i18n": "node tools/verify-i18n.mjs",
+    "verify:all": "npm run verify:icons && npm run verify:scopes && npm run verify:encoding && npm run verify:i18n && npm run test:receipt",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
     "deploy:storage": "firebase deploy --only storage"

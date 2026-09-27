@@ -123,14 +123,8 @@ export default function Sidebar() {
     {
       to: "/viewings",
       icon: "fas fa-eye",
-      label: "المعاينات",
+      label: t("nav.viewings"),
       module: "viewings",
-    },
-    {
-      to: "/batches",
-      icon: "fas fa-layer-group",
-      label: "التشغيلات",
-      module: "batches",
     },
     {
       to: "/messages",
