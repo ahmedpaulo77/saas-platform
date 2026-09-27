@@ -17,9 +17,10 @@ import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { logActivity } from "../utils/auditLogger";
+import { fmtDate } from "../utils/fmt";
 
 export default function Prescriptions() {
-  const { t, lang } = useLanguage();
+  const { t, lang, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
   const [prescriptions, setPrescriptions] = useState([]);
@@ -494,7 +495,7 @@ export default function Prescriptions() {
                           {r.medicines?.length || 0} {t("rx.medicines")}
                         </span>
                       </td>
-                      <td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}</td>
+                      <td>{r.createdAt ? new fmtDate(Date(r.createdAt), locale) : "—"}</td>
                       <td>
                         <div className="table-actions">
                           <button
@@ -619,7 +620,7 @@ export default function Prescriptions() {
                   <div style={{ textAlign: lang === "ar" ? "right" : "left" }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{viewingRx.doctor || "—"}</div>
                     <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                      {viewingRx.createdAt ? new Date(viewingRx.createdAt).toLocaleDateString() : ""}
+                      {viewingRx.createdAt ? new fmtDate(Date(viewingRx.createdAt), locale) : ""}
                     </div>
                   </div>
                 </div>

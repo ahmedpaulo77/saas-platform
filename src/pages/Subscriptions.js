@@ -7,6 +7,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { moneyShort } from "../utils/fmt";
 
 const STATUS = {
   active: { label: "🟢 نشط", color: "#16a34a", bg: "#f0fdf4" },
@@ -21,7 +22,7 @@ function addMonths(dateStr, n) {
 }
 
 export default function Subscriptions() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const userCanDelete = canDelete(userRole);
 
@@ -168,7 +169,7 @@ export default function Subscriptions() {
         <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", marginBottom: 20 }}>
           <div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{subs.filter((s) => s.status === "active").length}</div><div className="stat-label">نشطة</div></div>
           <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-bell"></i></div><div className="stat-value">{dueSubs.length}</div><div className="stat-label">مستحقة الآن</div></div>
-          <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{subs.filter((s) => s.status === "active").reduce((s, x) => s + (parseFloat(x.amount) || 0), 0).toLocaleString()}</div><div className="stat-label">إيراد شهري متوقع ({t("currency")})</div></div>
+          <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(subs.filter((s) => s.status === "active").reduce((s, x) => s + (parseFloat(x.amount) || 0), 0), locale)}</div><div className="stat-label">إيراد شهري متوقع ({t("currency")})</div></div>
         </div>
 
         <div className="form-card">
@@ -222,7 +223,7 @@ export default function Subscriptions() {
                     <tr key={s.id} style={{ background: isDue ? "#fffbeb" : "white" }}>
                       <td style={{ fontWeight: 700 }}>{s.clientName}</td>
                       <td>{s.title}{s.notes && <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.notes}</div>}</td>
-                      <td style={{ fontWeight: 700 }}>{Number(s.amount || 0).toLocaleString()} {t("currency")}</td>
+                      <td style={{ fontWeight: 700 }}>{moneyShort(Number(s.amount || 0), locale)} {t("currency")}</td>
                       <td style={{ fontWeight: 700, color: isDue ? "#d97706" : "#475569" }}>{s.nextDueDate || "—"}{isDue && " ⏰"}</td>
                       <td>
                         <select value={s.status} onChange={(e) => setStatus(s, e.target.value)}

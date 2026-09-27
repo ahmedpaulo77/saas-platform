@@ -405,7 +405,7 @@ label: t("nav.attendance"),
             {!!item.badge && (
               <span
                 style={{
-                  marginRight: "auto",
+                  marginInlineEnd: "auto",
                   background: "#ef4444",
                   color: "#fff",
                   fontSize: 11,

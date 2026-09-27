@@ -8,6 +8,7 @@ import { useLanguage } from "../../i18n/LanguageContext";
 import { getAvailableModules } from "../../utils/modules";
 import { canDelete } from "../../utils/companyQuery";
 import { round2 } from "../../utils/revenue";
+import { fmtDate, moneyShort } from "../../utils/fmt";
 
 export default function InvoiceTable({
   filteredInvoices,
@@ -36,7 +37,7 @@ export default function InvoiceTable({
   onExportPDF,
   PAGE_SIZE = 25,
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userIndustry } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -170,14 +171,14 @@ export default function InvoiceTable({
                         {isRestaurant && <td><OrderStatusBadge status={inv.orderStatus || "new"} orderId={inv.id} onStatusChange={onOrderStatusChange} isRestaurant={isRestaurant} /></td>}
                         {hasInventory && <td style={{ fontSize: 13 }}>{productStr}</td>}
                         {hasInventory && <td>{totalQty}</td>}
-                        <td style={{ fontWeight: 700 }}>{round2(grandTotal).toLocaleString()} {t("currency")}</td>
+                        <td style={{ fontWeight: 700 }}>{moneyShort(round2(grandTotal), locale)} {t("currency")}</td>
                         {isRestaurant && <td style={{ fontWeight: 700, color: "#059669" }}>{totalWithFee.toFixed(2)} {t("currency")}{inv.deliveryFee > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>+{inv.deliveryFee} توصيل</div>}</td>}
                         {!isRestaurant && <>
-                          <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}</td>
-                          <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>{remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}</td>
-                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span>{(inv.hasReturn || returnedAmt > 0) && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", marginRight: 6, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d", display: "inline-block", marginTop: 4 }}><i className="fas fa-undo" style={{ marginLeft: 4 }}></i>مرتجع{returnedAmt > 0 ? `: ${returnedAmt.toLocaleString()} ${t("currency")}` : ""}</span>}</td>
+                          <td style={{ color: "#10b981", fontWeight: 600 }}>{paid > 0 ? `${moneyShort(paid, locale)} ${t("currency")}` : "—"}</td>
+                          <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>{remaining > 0 ? `${moneyShort(remaining, locale)} ${t("currency")}` : "✓"}</td>
+                          <td><span className={`badge ${inv.status === "paid" ? "badge-paid" : inv.status === "pending" ? "badge-pending" : "badge-overdue"}`}>{inv.status === "paid" ? t("in.statusPaid") : inv.status === "pending" ? t("in.statusWait") : t("in.statusOver")}</span>{(inv.hasReturn || returnedAmt > 0) && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", marginRight: 6, background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d", display: "inline-block", marginTop: 4 }}><i className="fas fa-undo" style={{ marginLeft: 4 }}></i>مرتجع{returnedAmt > 0 ? `: ${moneyShort(returnedAmt, locale)} ${t("currency")}` : ""}</span>}</td>
                         </>}
-                        <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "-"}</td>
+                        <td style={{ color: "#64748b", fontSize: 13 }}>{inv.date ? fmtDate(inv.date, locale) : "-"}</td>
                         <td>
                           <div className="table-actions">
                             {!isRestaurant && onSendToReview && getApproval(inv) === "new" && <button onClick={() => onSendToReview(inv)} className="btn-secondary btn-sm" title={t("in.sendToReview")} style={{ borderColor: "#c7d2fe", color: "#4338ca" }}><i className="fas fa-share"></i> {t("in.sendToReview")}</button>}

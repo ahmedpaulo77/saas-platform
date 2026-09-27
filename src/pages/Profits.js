@@ -17,6 +17,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
 import { computePeriod, invoiceRevenue } from "../utils/revenue";
 import { round2 } from "../utils/traderUnits";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 // بيرجع أول وآخر يوم في شهر معين (year, monthIndex 0-11)
 function monthRange(year, monthIndex) {
@@ -88,7 +89,7 @@ const MONTH_NAMES = {
 };
 
 export default function Profits() {
-  const { t, lang, dir } = useLanguage();
+  const { t, lang, dir, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   // 🔴 خانة "الكفر" (احتياطي مالي) للمطعم والكافيه بس.
@@ -446,18 +447,15 @@ export default function Profits() {
 
   const dayLabel = useMemo(() => {
     try {
-      return selectedDate.toLocaleDateString(
-        lang === "en" ? "en-US" : "ar-EG",
-        {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        },
-      );
-    } catch {
-      return selectedDate.toLocaleDateString();
-    }
-  }, [selectedDate, lang]);
+    return selectedDate.toLocaleDateString(locale, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  } catch {
+    return fmtDate(selectedDate, locale);
+  }
+}, [selectedDate, lang, locale]);
 
   // لو الشركة مش مطعم، المتغير دول صفر ومفيش واجهة بتستخدمهم. الـ gate
   // (showCoverage) بيمنع العرض، وده اللي يضمن إن رقم "الربح بعد خصم الكفر"
@@ -585,7 +583,7 @@ export default function Profits() {
     const sign = d > 0 ? "+" : "";
     return {
       value: d,
-      text: `${sign}${d.toLocaleString()} ${t("currency")}`,
+      text: `${sign}${moneyShort(d, locale)} ${t("currency")}`,
       positive: d >= 0,
     };
   }
@@ -688,9 +686,15 @@ export default function Profits() {
               <i className="fas fa-calendar-day"></i> {t("profits.dailyTitle")}
             </h3>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button className="btn-secondary btn-sm" onClick={goToPrevDay}>
+              <button
+                className="btn-secondary btn-sm"
+                onClick={goToPrevDay}
+                title={t("profits.prevDay")}
+                aria-label={t("profits.prevDay")}
+              >
                 <i
                   className={`fas fa-chevron-${dir === "rtl" ? "right" : "left"}`}
+                  aria-hidden="true"
                 ></i>
               </button>
               <span
@@ -722,9 +726,12 @@ export default function Profits() {
                 className="btn-secondary btn-sm"
                 onClick={goToNextDay}
                 disabled={isViewingToday}
+                title={t("profits.nextDay")}
+                aria-label={t("profits.nextDay")}
               >
                 <i
                   className={`fas fa-chevron-${dir === "rtl" ? "left" : "right"}`}
+                  aria-hidden="true"
                 ></i>
               </button>
             </div>
@@ -735,7 +742,7 @@ export default function Profits() {
                 <i className="fas fa-arrow-trend-up"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.revenue.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.revenue, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.revenue")}</div>
             </div>
@@ -744,7 +751,7 @@ export default function Profits() {
                 <i className="fas fa-boxes-stacked"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.cogs.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.cogs, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.cogs")}</div>
             </div>
@@ -753,7 +760,7 @@ export default function Profits() {
                 <i className="fas fa-cart-arrow-down"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.purchases.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.purchases, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.cashSpent")}</div>
             </div>
@@ -762,7 +769,7 @@ export default function Profits() {
                 <i className="fas fa-trash-can"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.waste.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.waste, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.waste")}</div>
             </div>
@@ -772,7 +779,7 @@ export default function Profits() {
                   <i className="fas fa-undo"></i>
                 </div>
                 <div className="stat-value" style={{ fontSize: 18 }}>
-                  {dayData.saleReturns.toLocaleString()} {t("currency")}
+                  {moneyShort(dayData.saleReturns, locale)} {t("currency")}
                 </div>
                 <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
               </div>
@@ -783,7 +790,7 @@ export default function Profits() {
                   <i className="fas fa-arrow-trend-up"></i>
                 </div>
                 <div className="stat-value" style={{ fontSize: 18 }}>
-                  {dayData.income.toLocaleString()} {t("currency")}
+                  {moneyShort(dayData.income, locale)} {t("currency")}
                 </div>
                 <div className="stat-label">{t("profits.income")}</div>
               </div>
@@ -793,7 +800,7 @@ export default function Profits() {
                 <i className="fas fa-receipt"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.otherExpenses.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.otherExpenses, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.otherExpenses")}</div>
             </div>
@@ -804,7 +811,7 @@ export default function Profits() {
                 <i className="fas fa-sack-dollar"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
-                {dayData.profit.toLocaleString()} {t("currency")}
+                {moneyShort(dayData.profit, locale)} {t("currency")}
               </div>
               <div className="stat-label">
                 {t("profits.profit")} {t("profits.day")}
@@ -931,7 +938,7 @@ export default function Profits() {
               <i className="fas fa-arrow-trend-up"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {periodData.revenue.toLocaleString()} {t("currency")}
+              {moneyShort(periodData.revenue, locale)} {t("currency")}
             </div>
             <div className="stat-label">{t("profits.revenue")}</div>
           </div>
@@ -940,7 +947,7 @@ export default function Profits() {
               <i className="fas fa-cart-arrow-down"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {periodData.purchases.toLocaleString()} {t("currency")}
+              {moneyShort(periodData.purchases, locale)} {t("currency")}
             </div>
             <div className="stat-label">{t("pur.title")}</div>
           </div>
@@ -949,11 +956,11 @@ export default function Profits() {
               <i className="fas fa-arrow-trend-down"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {periodData.expenses.toLocaleString()} {t("currency")}
+              {moneyShort(periodData.expenses, locale)} {t("currency")}
             </div>
             <div className="stat-label">
               {t("profits.expenses")} ({t("profits.waste")}:{" "}
-              {periodData.waste.toLocaleString()})
+              {moneyShort(periodData.waste, locale)})
             </div>
           </div>
           {(periodData.saleReturns > 0 || periodData.purchaseReturns > 0) && (
@@ -962,7 +969,7 @@ export default function Profits() {
                 <i className="fas fa-undo"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {periodData.saleReturns.toLocaleString()} {t("currency")}
+                {moneyShort(periodData.saleReturns, locale)} {t("currency")}
               </div>
               <div className="stat-label">مرتجعات (مخصومة من الإيراد)</div>
             </div>
@@ -974,7 +981,7 @@ export default function Profits() {
               <i className="fas fa-sack-dollar"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {periodData.profit.toLocaleString()} {t("currency")}
+              {moneyShort(periodData.profit, locale)} {t("currency")}
             </div>
             <div className="stat-label">{t("profits.profit")}</div>
           </div>
@@ -986,7 +993,7 @@ export default function Profits() {
                 <i className="fas fa-shield-halved"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {netAfterCoverage.toLocaleString()} {t("currency")}
+                {moneyShort(netAfterCoverage, locale)} {t("currency")}
               </div>
               <div className="stat-label">{t("profits.netAfterCoverage")}</div>
             </div>
@@ -1016,13 +1023,13 @@ export default function Profits() {
               <tbody>
                 <tr>
                   <td style={{ fontWeight: 700, color: "#059669" }}>
-                    {prevPeriodData.revenue.toLocaleString()} {t("currency")}
+                    {moneyShort(prevPeriodData.revenue, locale)} {t("currency")}
                   </td>
                   <td style={{ fontWeight: 700, color: "#d97706" }}>
-                    {prevPeriodData.purchases.toLocaleString()} {t("currency")}
+                    {moneyShort(prevPeriodData.purchases, locale)} {t("currency")}
                   </td>
                   <td style={{ fontWeight: 700, color: "#dc2626" }}>
-                    {prevPeriodData.expenses.toLocaleString()} {t("currency")}
+                    {moneyShort(prevPeriodData.expenses, locale)} {t("currency")}
                   </td>
                   <td
                     style={{
@@ -1030,7 +1037,7 @@ export default function Profits() {
                       color: prevPeriodData.profit >= 0 ? "#4338ca" : "#dc2626",
                     }}
                   >
-                    {prevPeriodData.profit.toLocaleString()} {t("currency")}
+                    {moneyShort(prevPeriodData.profit, locale)} {t("currency")}
                   </td>
                   <td
                     style={{
@@ -1094,7 +1101,7 @@ export default function Profits() {
                           {getPaymentLabel(p.value, lang)}
                         </td>
                         <td style={{ fontWeight: 700, color: "#059669" }}>
-                          {amt.toLocaleString()} {t("currency")}
+                          {moneyShort(amt, locale)} {t("currency")}
                         </td>
                         <td style={{ color: "#64748b" }}>{pct}%</td>
                       </tr>
@@ -1113,7 +1120,7 @@ export default function Profits() {
                             {getPaymentLabel(m, lang)}
                           </td>
                           <td style={{ fontWeight: 700, color: "#059669" }}>
-                            {amt.toLocaleString()} {t("currency")}
+                            {moneyShort(amt, locale)} {t("currency")}
                           </td>
                           <td style={{ color: "#64748b" }}>{pct}%</td>
                         </tr>

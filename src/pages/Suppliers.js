@@ -7,9 +7,10 @@ import { getScopedQuery } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 export default function Suppliers() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -150,7 +151,7 @@ export default function Suppliers() {
       .map((p, i) => {
         const pPaid = parseFloat(p.paidAmount) || 0;
         const pTotal = parseFloat(p.amount) || 0;
-        const date = p.date ? new Date(p.date).toLocaleDateString("ar-EG") : "—";
+        const date = p.date ? fmtDate(p.date, locale) : "—";
         return `<tr>
         <td style="padding:3px 6px;border-bottom:1px dashed #ccc;text-align:center;">${i + 1}</td>
         <td style="padding:3px 6px;border-bottom:1px dashed #ccc;text-align:center;">${date}</td>
@@ -332,7 +333,7 @@ export default function Suppliers() {
                     <td>{supplier.address || "-"}</td>
                     <td style={{ fontWeight: 800, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
                       {remaining > 0
-                        ? `${remaining.toLocaleString()} ${t("currency.short")}`
+                        ? `${moneyShort(remaining, locale)} ${t("currency.short")}`
                         : "✓"}
                     </td>
                     <td>{supplier.taxNumber || "-"}</td>
@@ -477,19 +478,19 @@ export default function Suppliers() {
               <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                 <div className="stat-card cyan" style={{ flex: 1, minWidth: 140 }}>
                   <div className="stat-value" style={{ fontSize: 18 }}>
-                    {total.toLocaleString()} {t("currency.short")}
+                    {moneyShort(total, locale)} {t("currency.short")}
                   </div>
                   <div className="stat-label">{t("sup.totalPurchases")}</div>
                 </div>
                 <div className="stat-card green" style={{ flex: 1, minWidth: 140 }}>
                   <div className="stat-value" style={{ fontSize: 18 }}>
-                    {paid.toLocaleString()} {t("currency.short")}
+                    {moneyShort(paid, locale)} {t("currency.short")}
                   </div>
                   <div className="stat-label">{t("sup.totalPaid")}</div>
                 </div>
                 <div className="stat-card red" style={{ flex: 1, minWidth: 140 }}>
                   <div className="stat-value" style={{ fontSize: 18 }}>
-                    {remaining.toLocaleString()} {t("currency.short")}
+                    {moneyShort(remaining, locale)} {t("currency.short")}
                   </div>
                   <div className="stat-label">{t("sup.totalRemaining")}</div>
                 </div>
@@ -518,11 +519,11 @@ export default function Suppliers() {
                         return (
                           <tr key={p.id}>
                             <td>{i + 1}</td>
-                            <td>{p.date ? new Date(p.date).toLocaleDateString() : "-"}</td>
-                            <td style={{ fontWeight: 700 }}>{pTotal.toLocaleString()}</td>
-                            <td style={{ color: "#10b981" }}>{pPaid.toLocaleString()}</td>
+                            <td>{p.date ? new fmtDate(Date(p.date), locale) : "-"}</td>
+                            <td style={{ fontWeight: 700 }}>{moneyShort(pTotal, locale)}</td>
+                            <td style={{ color: "#10b981" }}>{moneyShort(pPaid, locale)}</td>
                             <td style={{ fontWeight: 700, color: pTotal - pPaid > 0 ? "#ef4444" : "#10b981" }}>
-                              {pTotal - pPaid > 0 ? (pTotal - pPaid).toLocaleString() : "✓"}
+                              {pTotal - pPaid > 0 ? (moneyShort(pTotal - pPaid), locale) : "✓"}
                             </td>
                             <td>{p.status}</td>
                           </tr>

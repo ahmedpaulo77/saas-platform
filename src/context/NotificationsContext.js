@@ -8,6 +8,7 @@ import { onSnapshot } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 import { getScopedQuery } from '../utils/companyQuery';
 import { useLanguage } from '../i18n/LanguageContext';
+import { moneyShort, fmtDate } from '../utils/fmt';
 
 const NotificationsContext = createContext();
 
@@ -35,7 +36,7 @@ function startOfDay(d) {
 
 export function NotificationsProvider({ children }) {
   const { userRole, userCompanyId, currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   // ✅ كل مصدر بيانات ليه state منفصلة، وبيتجمعوا مع بعض تحت
   const [stockAlerts, setStockAlerts] = useState([]);
@@ -145,7 +146,7 @@ const q = getScopedQuery('invoices', userRole, userCompanyId, currentUser?.uid);
               type: 'danger',
               icon: 'fas fa-file-invoice',
               title: t('nt.invTitle'),
-              message: t('nt.invMsg', { amount: inv.amount?.toLocaleString() }),
+              message: t('nt.invMsg', { amount: moneyShort(inv.amount, locale) }),
               date: inv.date || new Date().toISOString(),
             });
           }
@@ -157,7 +158,7 @@ const q = getScopedQuery('invoices', userRole, userCompanyId, currentUser?.uid);
               type: 'info',
               icon: 'fas fa-check-circle',
               title: t('nt.approvalTitle'),
-              message: t('nt.approvalMsg', { amount: (parseFloat(inv.amount) || 0).toLocaleString() }),
+              message: t('nt.approvalMsg', { amount: moneyShort(parseFloat(inv.amount) || 0, locale) }),
               date: inv.createdAt || inv.date || new Date().toISOString(),
             });
           }
@@ -253,7 +254,7 @@ const q = getScopedQuery('tasks', userRole, userCompanyId, currentUser?.uid);   
                 icon: 'fas fa-tasks',
                 title: t('nt.taskTitle', { title: task.title }),
                 message: t('nt.taskMsg', {
-                  date: due.toLocaleDateString(),
+                  date: fmtDate(due, locale),
                   when: when,
                 }),
                 date: task.dueDate,

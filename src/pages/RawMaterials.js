@@ -9,6 +9,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { moneyShort } from "../utils/fmt";
 
 const UNITS = [
   { value: "kg",     label: { ar: "كيلو",          en: "KG" } },
@@ -37,7 +38,7 @@ const FIELD = (style) => ({
 });
 
 export default function RawMaterials() {
-  const { t, lang } = useLanguage();
+  const { t, lang, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const userCanDelete = canDelete(userRole);
 
@@ -213,7 +214,7 @@ export default function RawMaterials() {
           </div>
           <div className="stat-card green">
             <div className="stat-icon"><i className="fas fa-dollar-sign"></i></div>
-            <div className="stat-value" style={{ fontSize: 18 }}>{totalValue.toLocaleString()}</div>
+            <div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(totalValue, locale)}</div>
             <div className="stat-label">{t("currency")}</div>
           </div>
         </div>
@@ -391,7 +392,7 @@ export default function RawMaterials() {
                         {mat.costPerUnit > 0 ? `${mat.costPerUnit} ${t("currency")}` : "—"}
                       </td>
                       <td style={{ fontWeight: 700, color: "#6366f1" }}>
-                        {totalVal > 0 ? `${totalVal.toLocaleString()} ${t("currency")}` : "—"}
+                        {totalVal > 0 ? `${moneyShort(totalVal, locale)} ${t("currency")}` : "—"}
                       </td>
                       <td style={{ color: "#64748b" }}>{mat.supplier || "—"}</td>
                       <td>

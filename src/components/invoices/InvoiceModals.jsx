@@ -6,6 +6,7 @@ import { getAvailableModules } from "../../utils/modules";
 import AutocompleteInput from "../common/AutocompleteInput";
 import { ORDER_STATUSES, ORDER_TYPES } from "../../utils/invoiceHelpers";
 import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits";
+import { moneyShort } from "../../utils/fmt";
 
 export default function InvoiceModals({
   // edit
@@ -16,7 +17,7 @@ export default function InvoiceModals({
   returningInvoice, showReturnModal, setShowReturnModal, returnQtys, setReturnQtys, returnReason, setReturnReason, onSubmitReturn, returning,
   clients, products,
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userIndustry, userRole } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -25,8 +26,8 @@ export default function InvoiceModals({
   const isTrader = userIndustry === "trader";
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
-  const entityColumnLabel = isClinic ? t("in.patientColumn") || "المريض" : t("in.client") || "العميل";
-  const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") || "اختر المريض" : t("in.chooseClient") || "اختر العميل";
+  const entityColumnLabel = isClinic ? t("in.patientColumn") : t("in.client");
+  const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") : t("in.chooseClient");
 
   const calculateProductAmount = (productId, quantity, weight = "") => {
     const product = products.find((p) => p.id === productId);
@@ -88,7 +89,7 @@ export default function InvoiceModals({
                     )}
                     {(editingInvoice.orderType || "takeaway") === "dine_in" && (
                       <>
-                        <div className="form-group"><label>{t("in.tableNumber") || "رقم الطاولة"}</label><input type="number" min="1" placeholder={t("in.tableNumberPh") || "مثال: 5"} value={editingInvoice.tableNumber || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, tableNumber: e.target.value })} /></div>
+                        <div className="form-group"><label>{t("in.tableNumber")}</label><input type="number" min="1" placeholder={t("in.tableNumberPh")} value={editingInvoice.tableNumber || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, tableNumber: e.target.value })} /></div>
                         <div className="form-group"><label>📞 هاتف (اختياري)</label><input type="tel" value={editingInvoice.deliveryPhone || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, deliveryPhone: e.target.value })} /></div>
                       </>
                     )}
@@ -102,7 +103,7 @@ export default function InvoiceModals({
                 {!isRestaurant && (<div className="form-group"><label>{t("in.due")}</label><input type="date" value={editingInvoice.dueDate || ""} onChange={(e) => setEditingInvoice({ ...editingInvoice, dueDate: e.target.value })} /></div>)}
                 {hasInventory && editingInvoice.products && (
                   <div style={{ marginTop: 16, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14 }}>
-                    <h4 style={{ margin: "0 0 10px", fontSize: 14, color: "#1e293b", fontWeight: 700, display: "flex", justifyContent: "space-between" }}><span>{isRestaurant ? "أصناف الطلب" : t("in.currentProducts") || "المنتجات الحالية"}</span><span style={{ color: "#6366f1" }}>({editingInvoice.products.length})</span></h4>
+                    <h4 style={{ margin: "0 0 10px", fontSize: 14, color: "#1e293b", fontWeight: 700, display: "flex", justifyContent: "space-between" }}><span>{isRestaurant ? "أصناف الطلب" : t("in.currentProducts")}</span><span style={{ color: "#6366f1" }}>({editingInvoice.products.length})</span></h4>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                       {editingInvoice.products.map((item, idx) => {
                         const product = products.find((p) => p.id === item.productId);
@@ -117,15 +118,15 @@ export default function InvoiceModals({
                               )}
                               <input type="number" min="1" value={item.quantity} onChange={(e) => { const newQty = parseFloat(e.target.value) || 1; const newAmount = isTrader ? calculateProductAmount(item.productId, newQty, item.weight).toString() : ((product ? parseFloat(product.price) || 0 : 0) * newQty).toString(); setEditingInvoice({ ...editingInvoice, products: editingInvoice.products.map((p, i) => i === idx ? { ...p, quantity: newQty, amount: newAmount } : p) }); }} style={{ width: "60px", padding: "4px 6px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1", textAlign: "center" }} />
                             </div>
-                            <span style={{ fontSize: 13, color: "#10b981", fontWeight: 700, minWidth: "70px", textAlign: "left" }}>{(parseFloat(item.amount) || 0).toLocaleString()} {t("currency")}</span>
+                            <span style={{ fontSize: 13, color: "#10b981", fontWeight: 700, minWidth: "70px", textAlign: "end" }}>{(parseFloat(moneyShort(item.amount) || 0), locale)} {t("currency")}</span>
                             <button type="button" onClick={() => setEditingInvoice({ ...editingInvoice, products: editingInvoice.products.filter((_, i) => i !== idx) })} style={{ background: "#fee2e2", border: "none", color: "#ef4444", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontSize: 12 }}>✕</button>
                           </div>
                         );
                       })}
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>+ {isRestaurant ? "إضافة صنف" : t("in.addProduct") || "إضافة منتج جديد"}</label>
-                      <AutocompleteInput key={`inv-edit-${editingInvoice.products?.length || 0}`} items={products.map((p) => ({ id: p.id, label: p.name, sublabel: `${t("currency")} ${p.price || 0}` }))} value="" onChange={(productId) => { if (!productId || editingInvoice.products?.some((p) => p.productId === productId)) return; setEditingInvoice({ ...editingInvoice, products: [...(editingInvoice.products || []), { productId, quantity: 1, unit: getProductUnit(products.find((p) => p.id === productId)), weight: "", amount: calculateProductAmount(productId, 1).toString() }] }); }} placeholder={isRestaurant ? (isCafe ? "اختر صنف من منيو الكافيه..." : "اختر صنف من منيو المطعم...") : t("in.chooseProduct") || "اختر المنتج..."} />
+                      <label style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>+ {isRestaurant ? "إضافة صنف" : t("in.addProduct")}</label>
+                      <AutocompleteInput key={`inv-edit-${editingInvoice.products?.length || 0}`} items={products.map((p) => ({ id: p.id, label: p.name, sublabel: `${t("currency")} ${p.price || 0}` }))} value="" onChange={(productId) => { if (!productId || editingInvoice.products?.some((p) => p.productId === productId)) return; setEditingInvoice({ ...editingInvoice, products: [...(editingInvoice.products || []), { productId, quantity: 1, unit: getProductUnit(products.find((p) => p.id === productId)), weight: "", amount: calculateProductAmount(productId, 1).toString() }] }); }} placeholder={isRestaurant ? (isCafe ? "اختر صنف من منيو الكافيه..." : "اختر صنف من منيو المطعم...") : t("in.chooseProduct")} />
                     </div>
                   </div>
                 )}
@@ -149,9 +150,9 @@ export default function InvoiceModals({
             <form onSubmit={onRecordPayment}>
               <div className="modal-body">
                 <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.invoiceVal")}</span><span style={{ fontWeight: 800 }}>{(payingInvoice.amount || 0).toLocaleString()} {t("currency")}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.prevPaid")}</span><span style={{ fontWeight: 700, color: "#10b981" }}>{(parseFloat(payingInvoice.paidAmount) || 0).toLocaleString()} {t("currency")}</span></div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.remaining")}</span><span style={{ fontWeight: 900, color: "#ef4444" }}>{((parseFloat(payingInvoice.amount) || 0) - (parseFloat(payingInvoice.paidAmount) || 0)).toLocaleString()} {t("currency")}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.invoiceVal")}</span><span style={{ fontWeight: 800 }}>{moneyShort(payingInvoice.amount || 0, locale)} {t("currency")}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.prevPaid")}</span><span style={{ fontWeight: 700, color: "#10b981" }}>{(parseFloat(moneyShort(payingInvoice.paidAmount) || 0), locale)} {t("currency")}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#64748b", fontSize: 13 }}>{t("in.remaining")}</span><span style={{ fontWeight: 900, color: "#ef4444" }}>{((parseFloat(payingInvoice.amount) || 0) - (parseFloat(moneyShort(payingInvoice.paidAmount) || 0)), locale)} {t("currency")}</span></div>
                 </div>
                 <div className="form-group"><label>{t("in.payAmount")}</label><input type="number" step="0.01" min="0.01" placeholder="0.00" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} required autoFocus /></div>
               </div>

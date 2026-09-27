@@ -10,6 +10,7 @@ import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import AddBuyerModal from "../components/buyers/AddBuyerModal";
+import { fmtDate, fmtDateTime } from "../utils/fmt";
 
 const VIEWING_STATUS = {
   scheduled: { label: "📅 مجدولة", color: "#2563eb", bg: "#eff6ff" },
@@ -18,7 +19,7 @@ const VIEWING_STATUS = {
 };
 
 export default function Buyers() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [buyers, setBuyers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -265,7 +266,7 @@ export default function Buyers() {
                       <td>{buyer.phone || "-"}</td>
                       <td>{buyer.interest || "-"}</td>
                       <td>{buyer.agent || "-"}</td>
-                      <td>{buyer.lastCall ? new Date(buyer.lastCall).toLocaleDateString() : "-"}</td>
+                      <td>{buyer.lastCall ? new fmtDate(Date(buyer.lastCall), locale) : "-"}</td>
                       <td>
                         <button
                           onClick={() => setExpandedId(expandedId === buyer.id ? null : buyer.id)}
@@ -308,7 +309,7 @@ export default function Buyers() {
                               <div><strong>{t("buyers.followUp1")}:</strong> {buyer.followUp1 || "-"}</div>
                               <div><strong>{t("buyers.followUp2")}:</strong> {buyer.followUp2 || "-"}</div>
                               <div><strong>{t("buyers.followUp3")}:</strong> {buyer.followUp3 || "-"}</div>
-                              <div><strong>{t("buyers.lastCall")}:</strong> {buyer.lastCall ? new Date(buyer.lastCall).toLocaleString() : "-"}</div>
+                              <div><strong>{t("buyers.lastCall")}:</strong> {buyer.lastCall ? new fmtDateTime(Date(buyer.lastCall), locale) : "-"}</div>
                             </div>
                             {/* المعاينات */}
                             <div style={{ marginTop: 12 }}>
@@ -322,10 +323,10 @@ export default function Buyers() {
                                     return (
                                       <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
                                         <span style={{ fontWeight: 700 }}>{v.unitName}</span>
-                                        <span style={{ color: "#64748b" }}>📅 {v.date ? new Date(v.date).toLocaleDateString("ar-EG") : "—"}</span>
+                                        <span style={{ color: "#64748b" }}>📅 {v.date ? fmtDate(v.date, locale) : "—"}</span>
                                         {v.notes && <span style={{ color: "#94a3b8" }}>— {v.notes}</span>}
                                         <select value={v.status} onChange={(e) => setViewingStatus(v, e.target.value)}
-                                          style={{ marginRight: "auto", background: st.bg, color: st.color, border: `1px solid ${st.color}44`, borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                                          style={{ marginInlineEnd: "auto", background: st.bg, color: st.color, border: `1px solid ${st.color}44`, borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                                           <option value="scheduled">📅 مجدولة</option>
                                           <option value="done">✅ تمت</option>
                                           <option value="cancelled">❌ ملغية</option>

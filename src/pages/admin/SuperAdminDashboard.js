@@ -13,6 +13,7 @@ import Sidebar from "../../components/common/Sidebar";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits";
 import { logActivity } from "../../utils/auditLogger";
+import { fmtDate } from "../../utils/fmt";
 
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState([]);
@@ -28,7 +29,7 @@ export default function SuperAdminDashboard() {
     inactive: 0,
   });
   const { currentUser, userRole } = useAuth();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   useEffect(() => {
     fetchCompanies();
@@ -376,7 +377,7 @@ export default function SuperAdminDashboard() {
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13, whiteSpace: "nowrap" }}>
                             {company.createdAt
-                              ? new Date(company.createdAt).toLocaleDateString()
+                              ? new fmtDate(Date(company.createdAt), locale)
                               : t("common.unspecified")}
                           </td>
 
@@ -578,7 +579,7 @@ export default function SuperAdminDashboard() {
                                             </td>
                                             <td style={{ color: "var(--gray-500)", fontSize: 12 }}>
                                               {u.createdAt
-                                                ? new Date(u.createdAt).toLocaleDateString()
+                                                ? new fmtDate(Date(u.createdAt), locale)
                                                 : "—"}
                                             </td>
                                             <td>

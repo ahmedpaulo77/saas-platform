@@ -117,7 +117,7 @@ export default function Setup() {
                   fontFamily: 'Cairo, sans-serif',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  textAlign: 'right',
+                  textAlign: 'start',
                 }}
               >
                 <span style={{

@@ -136,7 +136,7 @@ export default function Profile() {
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
-                textAlign: "right",
+                textAlign: "start",
               }}
             >
               {[

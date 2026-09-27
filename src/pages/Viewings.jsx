@@ -16,6 +16,7 @@ import { buildViewing, normalizeViewing, viewingDate } from "../utils/contracts"
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { moneyShort } from "../utils/fmt";
 
 const STATUS_BADGES = {
   scheduled: { bg: "#dbeafe", color: "#1d4ed8", label: "مجدولة" },
@@ -24,7 +25,7 @@ const STATUS_BADGES = {
 };
 
 export default function Viewings() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
 
   const [viewings, setViewings] = useState([]);
@@ -129,11 +130,11 @@ export default function Viewings() {
   async function addViewing(e) {
     e.preventDefault();
     if (!newViewing.propertyId || !newViewing.clientId || !newViewing.date || !newViewing.time) {
-      alert(t("common.fillRequired") || "Please fill required fields");
+      alert(t("common.fillRequired"));
       return;
     }
     if (!userCompanyId) {
-      alert(t("common.errorGeneric") || "Missing company");
+      alert(t("common.errorGeneric"));
       return;
     }
     try {
@@ -161,10 +162,10 @@ export default function Viewings() {
       });
       setNewViewing({ propertyId: "", clientId: "", date: "", time: "", status: "scheduled", notes: "" });
       await fetchViewings();
-      alert(t("common.addOk") || "Viewing added");
+      alert(t("common.addOk"));
     } catch (error) {
       console.error("Error adding viewing:", error);
-      alert(t("common.errorGeneric") || "Failed to add viewing");
+      alert(t("common.errorGeneric"));
     }
   }
 
@@ -181,7 +182,7 @@ export default function Viewings() {
   async function saveEdit(e) {
     e.preventDefault();
     if (!editingViewing.propertyId || !editingViewing.clientId || !editingViewing.date || !editingViewing.time) {
-      alert(t("common.fillRequired") || "Please fill required fields");
+      alert(t("common.fillRequired"));
       return;
     }
     try {
@@ -210,15 +211,15 @@ export default function Viewings() {
       });
       closeEdit();
       await fetchViewings();
-      alert(t("common.updOk") || "Viewing updated");
+      alert(t("common.updOk"));
     } catch (error) {
       console.error("Error updating viewing:", error);
-      alert(t("common.errorGeneric") || "Failed to update");
+      alert(t("common.errorGeneric"));
     }
   }
 
   async function delViewing(id) {
-    if (!window.confirm(t("common.confirmDelete") || "Delete this viewing?")) return;
+    if (!window.confirm(t("common.confirmDelete"))) return;
     try {
       await deleteDoc(doc(db, "viewings", id));
       await logActivity({
@@ -229,10 +230,10 @@ export default function Viewings() {
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       await fetchViewings();
-      alert(t("common.delOk") || "Deleted");
+      alert(t("common.delOk"));
     } catch (error) {
       console.error("Error deleting viewing:", error);
-      alert(t("common.errorGeneric") || "Failed to delete");
+      alert(t("common.errorGeneric"));
     }
   }
 
@@ -257,7 +258,7 @@ export default function Viewings() {
         <div className="main-content">
           <div className="loading">
             <div className="spinner"></div>
-            {t("common.loading") || "Loading..."}
+            {t("common.loading")}
           </div>
         </div>
       </div>
@@ -278,16 +279,16 @@ export default function Viewings() {
           }}
         >
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>
-            🏠 {t("viewings.title") || "المعاينات العقارية"}
+            🏠 {t("viewings.title")}
           </h1>
           <p style={{ margin: "4px 0 0 0", color: "rgba(255,255,255,0.8)", fontSize: 14 }}>
-            {t("viewings.subtitle") || "إدارة معاينات العقارات للعملاء"}
+            {t("viewings.subtitle")}
           </p>
         </div>
 
         <div className="card" style={{ marginBottom: 20 }}>
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-            <i className="fas fa-plus-circle"></i> {t("viewings.add") || "إضافة معاينة"}
+            <i className="fas fa-plus-circle"></i> {t("viewings.add")}
           </h3>
           <form onSubmit={addViewing}>
             <div style={styles.grid}>
@@ -297,10 +298,10 @@ export default function Viewings() {
                 style={styles.input}
                 required
               >
-                <option value="">{t("viewings.chooseProperty") || "اختر العقار"}</option>
+                <option value="">{t("viewings.chooseProperty")}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} {p.category ? `(${p.category})` : ""} {p.price ? `- ${Number(p.price).toLocaleString()} EGP` : ""}
+                    {p.name} {p.category ? `(${p.category})` : ""} {p.price ? `- ${moneyShort(Number(p.price), locale)} EGP` : ""}
                   </option>
                 ))}
               </select>
@@ -311,7 +312,7 @@ export default function Viewings() {
                 style={styles.input}
                 required
               >
-                <option value="">{t("viewings.chooseClient") || "اختر العميل"}</option>
+                <option value="">{t("viewings.chooseClient")}</option>
                 {clients.map((c) => (
                   <option key={`${c.type}-${c.id}`} value={c.id}>
                     {c.name} {c.phone ? `(${c.phone})` : ""} — {c.type === "buyer" ? "مشتري" : "بائع"}
@@ -343,14 +344,14 @@ export default function Viewings() {
                 <option value="cancelled">ملغية</option>
               </select>
               <textarea
-                placeholder={t("viewings.phNotes") || "ملاحظات"}
+                placeholder={t("viewings.phNotes")}
                 value={newViewing.notes}
                 onChange={(e) => setNewViewing({ ...newViewing, notes: e.target.value })}
                 style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
               />
             </div>
             <button type="submit" className="btn-primary" style={{ marginTop: 16 }}>
-              <i className="fas fa-plus"></i> {t("common.add") || "إضافة"}
+              <i className="fas fa-plus"></i> {t("common.add")}
             </button>
           </form>
         </div>
@@ -360,13 +361,13 @@ export default function Viewings() {
             <i className="fas fa-search search-icon"></i>
             <input
               type="text"
-              placeholder={t("viewings.search") || "بحث بالعقار أو العميل..."}
+              placeholder={t("viewings.search")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">{t("common.all") || "الكل"}</option>
+            <option value="all">{t("common.all")}</option>
             <option value="scheduled">مجدولة</option>
             <option value="done">تمت</option>
             <option value="cancelled">ملغية</option>
@@ -376,7 +377,7 @@ export default function Viewings() {
         <div className="table-container">
           <div className="table-header">
             <h3>
-              <i className="fas fa-list"></i> {t("viewings.list") || "قائمة المعاينات"}
+              <i className="fas fa-list"></i> {t("viewings.list")}
             </h3>
             <span className="table-count">{filtered.length}</span>
           </div>
@@ -388,7 +389,7 @@ export default function Viewings() {
               empty={
                 <div className="table-empty">
                   <i className="fas fa-eye-slash"></i>
-                  <p>{searchTerm || statusFilter !== "all" ? t("common.emptySearch") || "لا توجد نتائج" : t("viewings.empty") || "لا توجد معاينات"}</p>
+                  <p>{searchTerm || statusFilter !== "all" ? t("common.emptySearch") : t("viewings.empty")}</p>
                 </div>
               }
               render={(pageItems, total, start) => (
@@ -396,13 +397,13 @@ export default function Viewings() {
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>{t("viewings.property") || "العقار"}</th>
-                      <th>{t("viewings.client") || "العميل"}</th>
-                      <th>{t("viewings.date") || "التاريخ"}</th>
-                      <th>{t("viewings.time") || "الوقت"}</th>
-                      <th>{t("viewings.status") || "الحالة"}</th>
-                      <th>{t("viewings.notes") || "ملاحظات"}</th>
-                      <th>{t("common.actions") || "إجراءات"}</th>
+                      <th>{t("viewings.property")}</th>
+                      <th>{t("viewings.client")}</th>
+                      <th>{t("viewings.date")}</th>
+                      <th>{t("viewings.time")}</th>
+                      <th>{t("viewings.status")}</th>
+                      <th>{t("viewings.notes")}</th>
+                      <th>{t("common.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -450,7 +451,7 @@ export default function Viewings() {
           <div className="modal-backdrop" onClick={closeEdit}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
               <div className="modal-header">
-                <h3>{t("viewings.editTitle") || "تعديل المعاينة"}</h3>
+                <h3>{t("viewings.editTitle")}</h3>
                 <button className="modal-close" onClick={closeEdit}>
                   &times;
                 </button>
@@ -465,7 +466,7 @@ export default function Viewings() {
                     style={styles.input}
                     required
                   >
-                    <option value="">{t("viewings.chooseProperty") || "اختر العقار"}</option>
+                    <option value="">{t("viewings.chooseProperty")}</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} {p.category ? `(${p.category})` : ""}
@@ -480,7 +481,7 @@ export default function Viewings() {
                     style={styles.input}
                     required
                   >
-                    <option value="">{t("viewings.chooseClient") || "اختر العميل"}</option>
+                    <option value="">{t("viewings.chooseClient")}</option>
                     {clients.map((c) => (
                       <option key={`${c.type}-${c.id}`} value={c.id}>
                         {c.name} {c.phone ? `(${c.phone})` : ""} — {c.type === "buyer" ? "مشتري" : "بائع"}
@@ -511,7 +512,7 @@ export default function Viewings() {
                     <option value="cancelled">ملغية</option>
                   </select>
                   <textarea
-                    placeholder={t("viewings.phNotes") || "ملاحظات"}
+                    placeholder={t("viewings.phNotes")}
                     value={editingViewing.notes || ""}
                     onChange={(e) => setEditingViewing({ ...editingViewing, notes: e.target.value })}
                     style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
@@ -519,10 +520,10 @@ export default function Viewings() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
                   <button type="button" className="btn-secondary" onClick={closeEdit}>
-                    {t("common.cancel") || "إلغاء"}
+                    {t("common.cancel")}
                   </button>
                   <button type="submit" className="btn-primary">
-                    {t("common.saveEdits") || "حفظ"}
+                    {t("common.saveEdits")}
                   </button>
                 </div>
               </form>

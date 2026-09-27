@@ -16,9 +16,10 @@ import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import { buildCertificate, certificateNet, certificateRemaining, normalizeCertificate } from "../utils/contracts";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 export default function Projects() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [projects, setProjects] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -402,16 +403,16 @@ export default function Projects() {
                     <td>{start + index + 1}</td>
                     <td>{project.name}</td>
                     <td>{project.description || "-"}</td>
-                    <td>{new Date(project.startDate).toLocaleDateString()}</td>
-                    <td>{new Date(project.endDate).toLocaleDateString()}</td>
+                    <td>{fmtDate(new Date(project.startDate), locale)}</td>
+                    <td>{fmtDate(new Date(project.endDate), locale)}</td>
                     <td>
                       {project.budget
-                        ? project.budget.toLocaleString() + ` ${t("currency")}`
+                        ? moneyShort(project.budget, locale) + ` ${t("currency")}`
                         : "-"}
                     </td>
                     <td style={{ fontWeight: 700 }}>
                       {project.contractValue
-                        ? Number(project.contractValue).toLocaleString() + ` ${t("currency")}`
+                        ? Number(moneyShort(project.contractValue), locale) + ` ${t("currency")}`
                         : "-"}
                     </td>
                     <td>
@@ -485,11 +486,11 @@ export default function Projects() {
           {selectedProject && (
             <>
               <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", marginBottom: 16 }}>
-                <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-handshake"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{contractVal.toLocaleString()}</div><div className="stat-label">قيمة العقد ({t("currency")})</div></div>
-                <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-file-contract"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{certNetTotal.toLocaleString()}</div><div className="stat-label">المعتمد (صافي) {contractVal > 0 && <span>({Math.round((certNetTotal / contractVal) * 100)}%)</span>}</div></div>
-                <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{certPaidTotal.toLocaleString()}</div><div className="stat-label">المحصّل</div></div>
-                <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{projExpTotal.toLocaleString()}</div><div className="stat-label">مصروفات المشروع</div></div>
-                <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-chart-line"></i></div><div className="stat-value" style={{ fontSize: 16, color: certNetTotal - projExpTotal >= 0 ? "#16a34a" : "#dc2626" }}>{(certNetTotal - projExpTotal).toLocaleString()}</div><div className="stat-label">الربح (معتمد − مصروف)</div></div>
+                <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-handshake"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(contractVal, locale)}</div><div className="stat-label">قيمة العقد ({t("currency")})</div></div>
+                <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-file-contract"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(certNetTotal, locale)}</div><div className="stat-label">المعتمد (صافي) {contractVal > 0 && <span>({Math.round((certNetTotal / contractVal) * 100)}%)</span>}</div></div>
+                <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(certPaidTotal, locale)}</div><div className="stat-label">المحصّل</div></div>
+                <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(projExpTotal, locale)}</div><div className="stat-label">مصروفات المشروع</div></div>
+                <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-chart-line"></i></div><div className="stat-value" style={{ fontSize: 16, color: certNetTotal - projExpTotal >= 0 ? "#16a34a" : "#dc2626" }}>{(moneyShort(certNetTotal - projExpTotal), locale)}</div><div className="stat-label">الربح (معتمد − مصروف)</div></div>
               </div>
 
               <form onSubmit={addCertificate}>
@@ -537,9 +538,9 @@ export default function Projects() {
                       {selectedCerts.map((c) => (
                         <tr key={c.id}>
                           <td style={{ fontWeight: 700 }}>مستخلص {c.number}</td>
-                          <td>{Number(c.amount || 0).toLocaleString()}</td>
-                          <td style={{ color: "#d97706" }}>{Number(c.deduction || 0).toLocaleString()}</td>
-                          <td style={{ fontWeight: 800 }}>{Number(c.net ?? ((c.amount || 0) - (c.deduction || 0))).toLocaleString()}</td>
+                          <td>{Number(moneyShort(c.amount || 0), locale)}</td>
+                          <td style={{ color: "#d97706" }}>{Number(moneyShort(c.deduction || 0), locale)}</td>
+                          <td style={{ fontWeight: 800 }}>{Number(c.net ?? ((c.amount || 0) - (moneyShort(c.deduction || 0))), locale)}</td>
                           <td>
                             <select value={c.status} onChange={(e) => setCertStatus(c, e.target.value)}
                               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, background: c.status === "paid" ? "#f0fdf4" : c.status === "approved" ? "#eef2ff" : "#fffbeb" }}>
@@ -548,7 +549,7 @@ export default function Projects() {
                               <option value="paid">محصّل</option>
                             </select>
                           </td>
-                          <td style={{ fontSize: 12 }}>{c.dueDate ? new Date(c.dueDate).toLocaleDateString("ar-EG") : "—"}</td>
+                          <td style={{ fontSize: 12 }}>{c.dueDate ? fmtDate(c.dueDate, locale) : "—"}</td>
                           <td>
                             {canDelete(userRole) && (
                               <button onClick={() => deleteCertificate(c.id)} className="btn-danger btn-sm"><i className="fas fa-trash"></i></button>

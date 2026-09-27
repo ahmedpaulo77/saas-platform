@@ -14,9 +14,10 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate } from "../utils/fmt";
 
 export default function Tasks() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -347,7 +348,7 @@ export default function Tasks() {
                           : t("tk.pending")}
                       </span>
                     </td>
-                    <td>{new Date(task.dueDate).toLocaleDateString()}</td>
+                    <td>{new fmtDate(Date(task.dueDate), locale)}</td>
                     <td>{task.assignedTo || "-"}</td>
                     <td>
                       <button

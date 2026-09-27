@@ -9,9 +9,10 @@ import { ORDER_STATUSES, ORDER_TYPES, ORDER_SOURCES } from "../../utils/invoiceH
 import { EGYPT_PAYMENTS } from "../../utils/paymentMethods";
 import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits";
 import { getAvailableModules } from "../../utils/modules";
+import { moneyShort } from "../../utils/fmt";
 
 export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userCompanyId, currentUser, userIndustry, userRole } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -28,11 +29,11 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
   const manualAmountMode =
     MANUAL_AMOUNT_INDUSTRIES.has(userIndustry) && newInvoice.products.length === 0;
 
-  const entityLabel = isClinic ? t("in.patient") || "المريض" : "العميل";
-  const entityLabelReq = isClinic ? t("in.patientReq") || `${entityLabel} *` : t("in.clientReq") || `${entityLabel} *`;
-  const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") || "اختر المريض" : t("in.chooseClient") || "اختر العميل";
-  const productLabel = isClinic ? t("in.medicine") || "الدواء" : t("in.productOpt") || "منتج (اختياري)";
-  const chooseProductPlaceholder = isClinic ? t("in.chooseMedicine") || "اختر الدواء" : t("in.chooseProduct") || "اختر المنتج";
+  const entityLabel = isClinic ? t("in.patient") : "العميل";
+  const entityLabelReq = isClinic ? t("in.patientReq") : t("in.clientReq");
+  const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") : t("in.chooseClient");
+  const productLabel = isClinic ? t("in.medicine") : t("in.productOpt");
+  const chooseProductPlaceholder = isClinic ? t("in.chooseMedicine") : t("in.chooseProduct");
   const entityCollection = isClinic ? "patients" : "clients";
 
   const [showQuickAddClient, setShowQuickAddClient] = useState(false);
@@ -137,14 +138,14 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                           <input type="number" min="0" step="0.01" title={t("trader.weight")} placeholder={t("trader.weight")} value={item.weight || ""} onChange={(e) => { const weight = e.target.value; setNewInvoice({ ...newInvoice, products: newInvoice.products.map((p, i) => i === idx ? { ...p, weight, amount: recalc(p.quantity, weight) } : p) }); }} style={{ width: 80, padding: "4px 6px", fontSize: 12, borderRadius: 6, border: "1px solid #f59e0b", textAlign: "center", background: "#fffbeb" }} />
                         )}
                         <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => { const qty = e.target.value; const numQty = parseFloat(qty); const amount = !isNaN(numQty) && numQty > 0 ? recalc(numQty, item.weight) : ""; setNewInvoice({ ...newInvoice, products: newInvoice.products.map((p, i) => i === idx ? { ...p, quantity: qty, amount } : p) }); }} style={{ width: 60, padding: "4px 6px", fontSize: 12, borderRadius: 6, border: "1px solid #cbd5e1", textAlign: "center" }} />
-                        <span style={{ fontSize: 12, color: "#6366f1", minWidth: 60 }}>{(parseFloat(item.amount) || 0).toLocaleString()} {t("currency")}</span>
+                        <span style={{ fontSize: 12, color: "#6366f1", minWidth: 60 }}>{(parseFloat(moneyShort(item.amount) || 0), locale)} {t("currency")}</span>
                         <button type="button" onClick={() => setNewInvoice({ ...newInvoice, products: newInvoice.products.filter((_, i) => i !== idx) })} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>✕</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, color: "#1e293b" }}><span>الإجمالي:</span><span>{getTotalAmount.toLocaleString()} {t("currency")}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, color: "#1e293b" }}><span>الإجمالي:</span><span>{moneyShort(getTotalAmount, locale)} {t("currency")}</span></div>
             </div>
           )}
 
@@ -180,7 +181,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>{t("pay.title") || "طريقة الدفع"}</label>
+            <label>{t("pay.title")}</label>
             <select value={newInvoice.paymentMethod || "cash"} onChange={(e) => setNewInvoice({ ...newInvoice, paymentMethod: e.target.value })}>
               {EGYPT_PAYMENTS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -215,7 +216,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
               )}
               {newInvoice.orderType === "dine_in" && (
                 <>
-                  <div className="form-group" style={{ marginBottom: 0 }}><label>{t("in.tableNumber") || "رقم الطاولة"}</label><input type="number" min="1" placeholder={t("in.tableNumberPh") || "مثال: 5"} value={newInvoice.tableNumber || ""} onChange={(e) => setNewInvoice({ ...newInvoice, tableNumber: e.target.value })} /></div>
+                  <div className="form-group" style={{ marginBottom: 0 }}><label>{t("in.tableNumber")}</label><input type="number" min="1" placeholder={t("in.tableNumberPh")} value={newInvoice.tableNumber || ""} onChange={(e) => setNewInvoice({ ...newInvoice, tableNumber: e.target.value })} /></div>
                   <div className="form-group" style={{ marginBottom: 0 }}><label>📞 رقم الهاتف (اختياري)</label><input type="tel" placeholder="رقم الهاتف" value={newInvoice.deliveryPhone} onChange={(e) => setNewInvoice({ ...newInvoice, deliveryPhone: e.target.value })} /></div>
                 </>
               )}

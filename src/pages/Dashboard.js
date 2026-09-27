@@ -18,6 +18,7 @@ import Sidebar from "../components/common/Sidebar";
 import { getAvailableModules } from "../utils/modules";
 import { round2 } from "../utils/traderUnits";
 import { useLanguage } from "../i18n/LanguageContext";
+import { moneyShort } from "../utils/fmt";
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [
@@ -221,7 +222,7 @@ const ALL_FEATURE_CARDS = [
 ];
 
 export default function Dashboard() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { currentUser, userRole, userCompanyId, userIndustry, logout } =
     useAuth();
   const navigate = useNavigate();
@@ -666,7 +667,7 @@ export default function Dashboard() {
                   <i className="fas fa-money-bill-wave"></i>
                 </div>
                 <div className="stat-value" style={{ fontSize: 22 }}>
-                  {loading ? "..." : stats.revenue.toLocaleString()}
+                  {loading ? "..." : moneyShort(stats.revenue, locale)}
                 </div>
                 <div className="stat-label">{t("dash.revenue")}</div>
               </div>

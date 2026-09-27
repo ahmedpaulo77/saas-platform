@@ -166,7 +166,7 @@ export default function Login() {
           </div>
 
           {/* Forgot password */}
-          <div style={{ textAlign: 'left', marginBottom: 20 }}>
+          <div style={{ textAlign: "start", marginBottom: 20 }}>
             <button
               type="button"
               onClick={() => {

@@ -5,9 +5,10 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDateTime } from "../utils/fmt";
 
 export default function Messages() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { currentUser, userRole, userCompanyId } = useAuth();
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
   
@@ -504,7 +505,7 @@ export default function Messages() {
                       }}>
                         <span>
                           <i className="fas fa-clock" style={{ marginLeft: 4 }}></i>
-                          {new Date(msg.createdAt).toLocaleString()}
+                          {new fmtDateTime(Date(msg.createdAt), locale)}
                         </span>
                         {isIncoming && msg.read && (
                           <span style={{ color: "#10b981" }}>

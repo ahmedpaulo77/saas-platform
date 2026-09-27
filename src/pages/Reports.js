@@ -25,6 +25,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { getAvailableModules } from "../utils/modules";
 import { isValidatedInvoice, invoiceRevenue } from "../utils/revenue";
 import { round2 } from "../utils/traderUnits";
+import { moneyShort, fmtDate } from "../utils/fmt";
 
 const ALL_EXPORT_ITEMS = [
   { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1", module: "companies" },
@@ -59,7 +60,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             style={{ fontSize: 14, fontWeight: 700, color: p.color || p.fill }}
           >
             {p.name}:{" "}
-            {typeof p.value === "number" ? p.value.toLocaleString() : p.value}
+            {typeof p.value === "number" ? moneyShort(p.value, locale) : p.value}
           </p>
         ))}
       </div>
@@ -69,7 +70,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Reports() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, userIndustry, currentUser } = useAuth();
   const superAdmin = userRole === "super_admin";
   const isAdmin = userRole === "admin" || superAdmin;
@@ -580,7 +581,7 @@ export default function Reports() {
             quantity: totalQty,
             amount: inv.amount,
             status: inv.status,
-            date: inv.date ? new Date(inv.date).toLocaleDateString() : '',
+            date: inv.date ? new fmtDate(Date(inv.date), locale) : '',
             description: inv.description || '',
           };
         });
@@ -688,8 +689,8 @@ export default function Reports() {
     { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber", module: "invoices" },
     { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple", module: "inventory" },
     { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink", module: "tasks" },
-    { label: t('rep.revenue'), value: stats.totalRevenue.toLocaleString() + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
-    { label: t('rep.returns'), value: `${stats.returnsCount} • ${stats.returnsTotal.toLocaleString()} ${t('currency')}`, icon: "fas fa-undo", cls: "red", module: "invoices" },
+    { label: t('rep.revenue'), value: moneyShort(stats.totalRevenue, locale) + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
+    { label: t('rep.returns'), value: `${stats.returnsCount} • ${moneyShort(stats.returnsTotal, locale)} ${t('currency')}`, icon: "fas fa-undo", cls: "red", module: "invoices" },
   ];
   const statCards = ALL_STAT_CARDS.filter((s) => availableModules.has(s.module));
 
@@ -819,7 +820,7 @@ export default function Reports() {
                 />
                 <YAxis
                   tick={{ fontSize: 11, fontFamily: "Cairo", fill: "#64748b" }}
-                  tickFormatter={(v) => v.toLocaleString()}
+                  tickFormatter={(v) => moneyShort(v, locale)}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
@@ -1004,7 +1005,7 @@ export default function Reports() {
                   <XAxis
                     type="number"
                     tick={{ fontSize: 11, fill: "#64748b" }}
-                    tickFormatter={(v) => v.toLocaleString()}
+                    tickFormatter={(v) => moneyShort(v, locale)}
                   />
                   <YAxis
                     type="category"
@@ -1113,7 +1114,7 @@ export default function Reports() {
               </select>
               <input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder={t('rep.searchProduct')} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontFamily: "Cairo", fontSize: 13, minWidth: 180 }} />
               {(filterType || filterSize || filterColor || filterSearch) && (
-                <button onClick={() => { setFilterType(""); setFilterSize(""); setFilterColor(""); setFilterSearch(""); }} className="btn-secondary" style={{ fontSize: 12 }}>{t('common.clearAll') || "✕"}</button>
+                <button onClick={() => { setFilterType(""); setFilterSize(""); setFilterColor(""); setFilterSearch(""); }} className="btn-secondary" style={{ fontSize: 12 }}>{t('common.clearAll')}</button>
               )}
             </div>
             <div className="table-wrapper">
@@ -1174,7 +1175,7 @@ export default function Reports() {
                   {topSellers.map((s, i) => (
                     <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#fffbeb" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #fde68a" : "1px solid transparent" }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {s.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{s.email} • {s.count} {t('rep.invoicesCount')}</span></span>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: "#d97706" }}>{s.revenue.toLocaleString()} {t('currency')}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#d97706" }}>{moneyShort(s.revenue, locale)} {t('currency')}</span>
                     </div>
                   ))}
                 </>
@@ -1201,7 +1202,7 @@ export default function Reports() {
                   {topClients.map((c, i) => (
                     <div key={c.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#f0fdf4" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #bbf7d0" : "1px solid transparent" }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {c.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{c.count} {t('rep.invoicesCount')}</span></span>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{c.revenue.toLocaleString()} {t('currency')}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{moneyShort(c.revenue, locale)} {t('currency')}</span>
                     </div>
                   ))}
                 </>
@@ -1426,7 +1427,7 @@ export default function Reports() {
                         {clientsMap[inv.clientId] || t('common.unspecified')}
                       </td>
                       <td style={{ fontWeight: 700 }}>
-                        {(inv.amount || 0).toLocaleString()} {t('currency')}
+                        {(moneyShort(inv.amount || 0), locale)} {t('currency')}
                       </td>
                       <td>
                         <span
@@ -1441,7 +1442,7 @@ export default function Reports() {
                       </td>
                       <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                         {inv.date
-                          ? new Date(inv.date).toLocaleDateString()
+                          ? new fmtDate(Date(inv.date), locale)
                           : "-"}{" "}
                       </td>
                     </tr>

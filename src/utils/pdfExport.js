@@ -1,3 +1,4 @@
+import { moneyShort } from "../utils/fmt";
 // src/utils/pdfExport.js - يدعم العربية والإنجليزية
 export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice") {
   // كشف اللغة بناءً على اسم العميل أو المنتج
@@ -283,8 +284,8 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
             ${invoice.description ? `<br><span style="font-size:11px;color:#94a3b8">${invoice.description}</span>` : ''}
           </td>
           <td class="td-center">${qty}</td>
-          <td class="td-left">${parseFloat(unitPrice).toLocaleString()} ${translations.currency}</td>
-          <td class="td-left">${amount.toLocaleString()} ${translations.currency}</td>
+          <td class="td-left">${moneyShort(parseFloat(unitPrice), locale)} ${translations.currency}</td>
+          <td class="td-left">${moneyShort(amount, locale)} ${translations.currency}</td>
         </tr>
       </tbody>
     </table>
@@ -294,7 +295,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
       <div class="totals-box">
         <div class="totals-row">
           <span>${translations.subtotal}</span>
-          <span>${amount.toLocaleString()} ${translations.currency}</span>
+          <span>${moneyShort(amount, locale)} ${translations.currency}</span>
         </div>
         <div class="totals-row">
           <span>${translations.tax}</span>
@@ -302,7 +303,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
         </div>
         <div class="totals-row">
           <span>${translations.total}</span>
-          <span>${amount.toLocaleString()} ${translations.currency}</span>
+          <span>${moneyShort(amount, locale)} ${translations.currency}</span>
         </div>
       </div>
     </div>

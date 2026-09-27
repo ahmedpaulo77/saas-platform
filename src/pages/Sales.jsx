@@ -8,6 +8,7 @@ import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import { getPaymentLabel } from "../utils/paymentMethods";
 import { invoiceRevenue, saleReturnsTotal, round2 } from "../utils/revenue";
+import { moneyShort } from "../utils/fmt";
 
 function toDate(v) {
   if (!v) return null;
@@ -36,7 +37,7 @@ function sameDay(a, b) {
 // (مفيش فلتر approval + بتستخدم amount). شوف utils/revenue.js.
 
 export default function Sales() {
-  const { t, lang } = useLanguage();
+  const { t, lang, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
 
   const [dateStr, setDateStr] = useState(() => todayLocal());
@@ -202,19 +203,19 @@ export default function Sales() {
   function fmtTime(dt) {
     if (!dt) return "—";
     try {
-      return dt.toLocaleTimeString(lang === "en" ? "en-US" : "ar-EG", {
+      return dt.toLocaleTimeString(locale, {
         hour: "2-digit",
         minute: "2-digit",
       });
     } catch {
-      return dt.toLocaleTimeString();
+      return dt.toLocaleTimeString(locale);
     }
   }
 
   function dayLabel() {
     try {
       return selectedDate.toLocaleDateString(
-        lang === "en" ? "en-US" : "ar-EG",
+        locale,
         { weekday: "long", day: "numeric", month: "long", year: "numeric" }
       );
     } catch {
@@ -306,7 +307,7 @@ export default function Sales() {
               <i className="fas fa-shirt"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
-              {netQty.toLocaleString()}
+              {moneyShort(netQty, locale)}
             </div>
             <div className="stat-label">{t("sales.totalQty")}</div>
           </div>
@@ -324,7 +325,7 @@ export default function Sales() {
               <i className="fas fa-money-bill-wave"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 18 }}>
-              {revenue.toLocaleString()} {t("currency")}
+              {moneyShort(revenue, locale)} {t("currency")}
             </div>
             <div className="stat-label">{t("sales.revenue")}</div>
           </div>
@@ -333,7 +334,7 @@ export default function Sales() {
               <i className="fas fa-undo"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 18 }}>
-              {dayReturns.length} • {returnsAmount.toLocaleString()}{" "}
+              {dayReturns.length} • {moneyShort(returnsAmount, locale)}{" "}
               {t("currency")}
             </div>
             <div className="stat-label">{t("sales.returns")}</div>
@@ -343,7 +344,7 @@ export default function Sales() {
               <i className="fas fa-sack-dollar"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 18 }}>
-              {net.toLocaleString()} {t("currency")}
+              {moneyShort(net, locale)} {t("currency")}
             </div>
             <div className="stat-label">{t("sales.net")}</div>
           </div>
@@ -372,7 +373,7 @@ export default function Sales() {
                     border: "1px solid #c7d2fe",
                   }}
                 >
-                  {getPaymentLabel(m, lang)}: {amt.toLocaleString()}{" "}
+                  {getPaymentLabel(m, lang)}: {moneyShort(amt, locale)}{" "}
                   {t("currency")}
                 </span>
               ))}
@@ -428,7 +429,7 @@ export default function Sales() {
                       <td>{r.color}</td>
                       <td style={{ fontWeight: 800 }}>{r.qty}</td>
                       <td style={{ fontWeight: 700, color: "#059669" }}>
-                        {r.lineAmount.toLocaleString()}
+                        {moneyShort(r.lineAmount, locale)}
                       </td>
                       <td>
                         <span

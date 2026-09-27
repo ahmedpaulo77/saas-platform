@@ -8,14 +8,15 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
+import { moneyShort } from "../utils/fmt";
 
 const NAVY = "#1e3a8a";
 
 const TYPE_LABELS = { men: "رجالي", women: "حريمي", kids: "أطفال", unisex: "يونيسكس" };
 
 export default function StorePOS() {
-  const { t, lang } = useLanguage();
-  const timeLocale = lang === "en" ? "en-US" : "ar-EG";
+  const { t, lang, locale } = useLanguage();
+  const timeLocale = locale;
   const { userRole, userCompanyId, currentUser } = useAuth();
 
   const [products, setProducts] = useState([]);
@@ -637,7 +638,7 @@ export default function StorePOS() {
             <input type="number" min="0" step="0.01" placeholder={t("shift.startCashPh")}
               value={openingCash} onChange={(e) => setOpeningCash(e.target.value)}
               style={{ padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, width: 200 }} />
-            <button type="submit" disabled={opening} className="btn-primary btn-sm" style={{ background: NAVY }}>{opening ? (t("common.loading") || "...") : t("shift.open")}</button>
+            <button type="submit" disabled={opening} className="btn-primary btn-sm" style={{ background: NAVY }}>{opening ? (t("common.loading")) : t("shift.open")}</button>
             {closings.length > 0 && (
               <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">{t("shift.history")} ({closings.length})</button>
             )}
@@ -647,8 +648,8 @@ export default function StorePOS() {
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
               🟢 {t("shift.openSince", { n: shift.number, time: shift.openedAt ? new Date(shift.openedAt).toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" }) : "—" })}
             </span>
-            <span style={{ fontSize: 12, color: "#64748b" }}>{t("shift.startCash")}: {(shift.openingCash || 0).toLocaleString()}</span>
-            <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginRight: "auto", background: NAVY }}>{t("shift.close")}</button>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{t("shift.startCash")}: {(moneyShort(shift.openingCash || 0), locale)}</span>
+            <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginInlineEnd: "auto", background: NAVY }}>{t("shift.close")}</button>
             <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">{t("shift.historyShort")}</button>
           </div>
         )}
@@ -665,14 +666,14 @@ export default function StorePOS() {
                     <td style={{ fontSize: 12 }}>{c.openedAt ? new Date(c.openedAt).toLocaleString(timeLocale) : "—"}</td>
                     <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString(timeLocale) : <span style={{ color: "#16a34a", fontWeight: 700 }}>{t("shift.openLabel")}</span>}</td>
                     <td>{c.salesCount ?? "—"}</td>
-                    <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(c.paidTotal).toLocaleString() : "—"}</td>
+                    <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(moneyShort(c.paidTotal), locale) : "—"}</td>
                     <td>{c.returnsCount ?? "—"}</td>
-                    <td style={{ color: "#b45309", fontWeight: 700 }}>{c.returnsTotal != null ? Number(c.returnsTotal).toLocaleString() : "—"}</td>
-                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? Number(c.cashIn).toLocaleString() : "—"}</td>
-                    <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? Number(c.cashOut).toLocaleString() : "—"}</td>
-                    <td>{c.countedCash != null ? Number(c.countedCash).toLocaleString() : "—"}</td>
+                    <td style={{ color: "#b45309", fontWeight: 700 }}>{c.returnsTotal != null ? Number(moneyShort(c.returnsTotal), locale) : "—"}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? Number(moneyShort(c.cashIn), locale) : "—"}</td>
+                    <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? Number(moneyShort(c.cashOut), locale) : "—"}</td>
+                    <td>{c.countedCash != null ? Number(moneyShort(c.countedCash), locale) : "—"}</td>
                     <td style={{ fontWeight: 800, color: (c.difference || 0) === 0 ? "#16a34a" : (c.difference || 0) > 0 ? "#2563eb" : "#dc2626" }}>
-                      {c.difference != null ? `${c.difference > 0 ? "+" : ""}${Number(c.difference).toLocaleString()}` : "—"}
+                      {c.difference != null ? `${c.difference > 0 ? "+" : ""}${Number(moneyShort(c.difference), locale)}` : "—"}
                     </td>
                     <td style={{ fontSize: 12 }}>{c.receiver || "—"}</td>
                   </tr>
@@ -750,7 +751,7 @@ export default function StorePOS() {
                         cursor: out ? "not-allowed" : "pointer",
                         opacity: out ? 0.55 : 1,
                         transition: "border-color 0.2s, transform 0.15s, box-shadow 0.15s",
-                        textAlign: "right",
+                        textAlign: "start",
                         fontFamily: "Cairo, sans-serif",
                         overflow: "hidden",
                         position: "relative",
@@ -1046,31 +1047,31 @@ export default function StorePOS() {
                   </div>
                   <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statTotal")}</div>
-                    <div style={{ fontWeight: 800, fontSize: 18 }}>{closePreview.total.toLocaleString()}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>{moneyShort(closePreview.total, locale)}</div>
                   </div>
                   <div style={{ background: "#eff6ff", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statCollected")}</div>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>{closePreview.paid.toLocaleString()}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>{moneyShort(closePreview.paid, locale)}</div>
                   </div>
                   <div style={{ background: "#fffbeb", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statReturns")} ({closePreview.returnsCount || 0})</div>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{(closePreview.returnsTotal || 0).toLocaleString()}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{(moneyShort(closePreview.returnsTotal || 0), locale)}</div>
                   </div>
                 </div>
                 {Object.keys(closePreview.byMethod).length > 0 && (
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>{t("close.byMethod") || "التحصيل حسب طريقة الدفع"}</div>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>{t("close.byMethod")}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {Object.entries(closePreview.byMethod).map(([m, amt]) => (
                         <span key={m} style={{ background: "#eef2ff", color: NAVY, padding: "4px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
-                          {getPaymentLabel(m)}: {amt.toLocaleString()}
+                          {getPaymentLabel(m)}: {moneyShort(amt, locale)}
                         </span>
                       ))}
                     </div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
-                      {t("shift.cashSales")}: {(closePreview.cashSales ?? 0).toLocaleString()} {t("currency")}
+                      {t("shift.cashSales")}: {(moneyShort(closePreview.cashSales ?? 0), locale)} {t("currency")}
                       {(closePreview.returnsTotal || 0) > 0 && (
-                        <span style={{ color: "#b45309" }}> — {t("shift.returnsDeduct")}: {(closePreview.returnsTotal || 0).toLocaleString()}</span>
+                        <span style={{ color: "#b45309" }}> — {t("shift.returnsDeduct")}: {(moneyShort(closePreview.returnsTotal || 0), locale)}</span>
                       )}
                     </div>
                   </div>
@@ -1079,11 +1080,11 @@ export default function StorePOS() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 10, textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: "#64748b" }}>داخل تلقائي ({closePreview.expInCount || 0})</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#16a34a" }}>{(closePreview.cashIn || 0).toLocaleString()}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#16a34a" }}>{(moneyShort(closePreview.cashIn || 0), locale)}</div>
                     </div>
                     <div style={{ background: "#fef2f2", borderRadius: 8, padding: 10, textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: "#64748b" }}>خارج تلقائي ({closePreview.expOutCount || 0})</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#dc2626" }}>{(closePreview.cashOut || 0).toLocaleString()}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#dc2626" }}>{(moneyShort(closePreview.cashOut || 0), locale)}</div>
                     </div>
                   </div>
                   <div className="form-group">
@@ -1105,12 +1106,12 @@ export default function StorePOS() {
                     <div style={{ fontSize: 14, fontWeight: 800, padding: 10, borderRadius: 8, textAlign: "center",
                       background: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#f0fdf4" : "#fef2f2",
                       color: Math.abs((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) < 0.005 ? "#16a34a" : "#dc2626" }}>
-                      {t("close.expected") || "المتوقع"}: {closingExpected(closePreview, shift.openingCash).toLocaleString()} — {t("close.diff") || "الفرق"}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + round2((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)).toLocaleString()}
+                      {t("close.expected")}: {moneyShort(closingExpected(closePreview, shift.openingCash), locale)} — {t("close.diff")}: {(((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)) > 0 ? "+" : "") + moneyShort(round2((parseFloat(closeForm.countedCash) || 0) - closingExpected(closePreview, shift.openingCash)), locale)}
                     </div>
                   )}
                   <div className="modal-footer" style={{ marginTop: 12 }}>
-                    <button type="button" className="btn-secondary" onClick={() => setShowCloseModal(false)}>{t("common.cancel") || "إلغاء"}</button>
-                    <button type="submit" className="btn-primary" style={{ background: NAVY }} disabled={closing}>{closing ? (t("common.loading") || "...") : t("shift.confirm")}</button>
+                    <button type="button" className="btn-secondary" onClick={() => setShowCloseModal(false)}>{t("common.cancel")}</button>
+                    <button type="submit" className="btn-primary" style={{ background: NAVY }} disabled={closing}>{closing ? (t("common.loading")) : t("shift.confirm")}</button>
                   </div>
                 </form>
               </div>

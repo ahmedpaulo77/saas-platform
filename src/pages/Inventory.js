@@ -20,9 +20,10 @@ import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import Pagination from "../components/common/Pagination";
 import * as XLSX from "xlsx";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 export default function Inventory() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
 
   const isClothing = userIndustry === "clothing";
@@ -939,8 +940,14 @@ export default function Inventory() {
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input type="text" placeholder="الماركة (اختياري)" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
                   style={{ flex: 1, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14 }} />
-                <button type="submit" className="btn-primary" disabled={generating}>
-                  <i className="fas fa-magic"></i> {generating ? "جاري التوليد..." : `توليد ${genSizes.length * genColors.length} صنف`}
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={generating}
+                  title={t("inv.generateVariants")}
+                >
+                  <i className="fas fa-magic" aria-hidden="true"></i>{" "}
+                  {generating ? t("common.saving") : t("inv.generateVariants")}
                 </button>
               </div>
             </form>
@@ -962,7 +969,7 @@ export default function Inventory() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <h3 style={{ margin: 0 }}><i className="fas fa-box-open" style={{ color: "#d97706" }}></i> 📦 الراكد ({dead.length})</h3>
                   <select value={deadDays} onChange={(e) => setDeadDays(parseInt(e.target.value))}
-                    style={{ marginRight: "auto", padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
+                    style={{ marginInlineEnd: "auto", padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
                     <option value={14}>بدون بيع 14 يوم</option>
                     <option value={30}>بدون بيع 30 يوم</option>
                     <option value={60}>بدون بيع 60 يوم</option>
@@ -974,7 +981,7 @@ export default function Inventory() {
                   {dead.slice(0, 24).map((p) => {
                     const last = lastSaleByProduct[p.id];
                     return (
-                      <span key={p.id} title={last ? `آخر بيع: ${new Date(last).toLocaleDateString("ar-EG")}` : "متباعش خالص"} style={{ background: "#fffbeb", color: "#92400e", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                      <span key={p.id} title={last ? `آخر بيع: ${fmtDate(new Date(last), locale)}` : "متباعش خالص"} style={{ background: "#fffbeb", color: "#92400e", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
                         {p.model || p.name} {p.size ? `(${p.size}${p.color ? "/" + p.color : ""})` : ""} ×{p.quantity}
                       </span>
                     );
@@ -1011,8 +1018,14 @@ export default function Inventory() {
                     value={countQty} onChange={(e) => setCountQty(e.target.value)} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
-                <button type="submit" className="btn-primary" disabled={counting}>
-                  <i className="fas fa-check"></i> {counting ? "جاري..." : "تسوية"}
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={counting}
+                  title={t("inv.stocktakeSettle")}
+                >
+                  <i className="fas fa-check" aria-hidden="true"></i>{" "}
+                  {counting ? t("common.saving") : t("inv.stocktakeSettle")}
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
@@ -1062,17 +1075,17 @@ export default function Inventory() {
               <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", marginBottom: 20 }}>
                 <div className="stat-card indigo">
                   <div className="stat-icon"><i className="fas fa-vault"></i></div>
-                  <div className="stat-value" style={{ fontSize: 17 }}>{capital.toLocaleString()}</div>
+                  <div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(capital, locale)}</div>
                   <div className="stat-label">رأس المال (بسعر الشراء) {t("currency")}</div>
                 </div>
                 <div className="stat-card green">
                   <div className="stat-icon"><i className="fas fa-tag"></i></div>
-                  <div className="stat-value" style={{ fontSize: 17 }}>{retail.toLocaleString()}</div>
+                  <div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(retail, locale)}</div>
                   <div className="stat-label">القيمة بسعر البيع {t("currency")}</div>
                 </div>
                 <div className="stat-card amber">
                   <div className="stat-icon"><i className="fas fa-chart-line"></i></div>
-                  <div className="stat-value" style={{ fontSize: 17, color: retail - capital >= 0 ? "#16a34a" : "#dc2626" }}>{(retail - capital).toLocaleString()}</div>
+                  <div className="stat-value" style={{ fontSize: 17, color: retail - capital >= 0 ? "#16a34a" : "#dc2626" }}>{(moneyShort(retail - capital), locale)}</div>
                   <div className="stat-label">الهامش المتوقع</div>
                 </div>
                 {noCost > 0 && (
@@ -1290,7 +1303,7 @@ export default function Inventory() {
                   <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px", fontSize: 13 }}>
                     <strong>{p.name}</strong>
                     <span style={{ color: "#64748b" }}>{p.drugCategory || ""}</span>
-                    <span style={{ marginRight: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ marginInlineEnd: "auto", display: "flex", gap: 8, alignItems: "center" }}>
                       <span className={`badge ${parseFloat(p.quantity) < 5 ? "badge-expired" : "badge-active"}`}>متاح: {p.quantity}</span>
                       <strong style={{ color: "#16a34a" }}>{p.price} {t("currency")}</strong>
                     </span>

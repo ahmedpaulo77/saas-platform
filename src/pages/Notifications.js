@@ -6,9 +6,10 @@ import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { initializePushNotifications, onForegroundMessage } from "../firebase/config";
+import { fmtDate } from "../utils/fmt";
 
 export default function Notifications() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { currentUser, userCompanyId } = useAuth();
   // ✅ نفس المصدر اللي بيقرا منه الـ Sidebar
   const { notifications, loading, refresh, markAllAsRead } = useNotifications();
@@ -96,11 +97,12 @@ export default function Notifications() {
                 <button
                   onClick={handleEnablePush}
                   className="btn-primary"
+                  title={pushStatus === 'active' ? t("notif.pushOn") : t("notif.pushEnable")}
                   style={{ background: pushStatus === 'active' ? '#10b981' : '#6366f1', borderColor: pushStatus === 'active' ? '#10b981' : '#6366f1' }}
                   disabled={pushStatus === 'جاري التفعيل...'}
                 >
-                  <i className="fas fa-satellite-dish" style={{ marginLeft: 6 }}></i>
-                  {pushStatus === 'active' ? '✅ مفعل' : pushStatus || 'تفعيل إشعارات Push'}
+                  <i className="fas fa-satellite-dish" style={{ marginLeft: 6 }} aria-hidden="true"></i>
+                  {pushStatus === 'active' ? t("notif.pushOn") : pushStatus || t("notif.pushEnable")}
                 </button>
                 {pushStatus && (
                   <span style={{ fontSize: 12, color: pushStatus === 'active' ? '#10b981' : '#ef4444' }}>
@@ -231,7 +233,7 @@ export default function Notifications() {
                   <div className="notification-msg">{n.message}</div>
                   <div className="notification-date">
                     <i className="fas fa-clock" style={{ marginLeft: 4 }}></i>
-                    {new Date(n.date).toLocaleDateString()}
+                    {new fmtDate(Date(n.date), locale)}
                   </div>
                 </div>
                 <span

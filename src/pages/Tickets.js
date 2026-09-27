@@ -7,6 +7,7 @@ import { getScopedQuery, canDelete } from "../utils/companyQuery";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate } from "../utils/fmt";
 
 const STATUS = {
   open: { label: "🔴 مفتوحة", color: "#dc2626", bg: "#fef2f2" },
@@ -22,7 +23,7 @@ const PRIORITY = {
 };
 
 export default function Tickets() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const userCanDelete = canDelete(userRole);
 
@@ -216,7 +217,7 @@ export default function Tickets() {
                           <option value="closed">⚪ مغلقة</option>
                         </select>
                       </td>
-                      <td style={{ fontSize: 12, color: "#64748b" }}>{tk.createdAt ? new Date(tk.createdAt).toLocaleDateString("ar-EG") : "—"}</td>
+                      <td style={{ fontSize: 12, color: "#64748b" }}>{tk.createdAt ? fmtDate(tk.createdAt, locale) : "—"}</td>
                       <td>
                         {userCanDelete && (
                           <button onClick={() => deleteTicket(tk.id)} className="btn-danger btn-sm"><i className="fas fa-trash"></i></button>

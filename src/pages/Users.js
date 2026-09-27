@@ -21,9 +21,10 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { createUserSeated } from "../utils/seats";
 import { limitFor, isAdminRole } from "../utils/limits";
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter";
+import { fmtDate } from "../utils/fmt";
 
 export default function Users() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { currentUser, userRole, userCompanyId, userIndustry } = useAuth();
   // أدوار الكاشير/المطبخ خاصة بنشاط المطعم فقط
   const showShiftRoles = userIndustry === "restaurant";
@@ -477,7 +478,7 @@ export default function Users() {
                     </td>
                     <td>
                       {user.createdAt
-                        ? new Date(user.createdAt).toLocaleDateString()
+                        ? new fmtDate(Date(user.createdAt), locale)
                         : "-"}
                     </td>
                     <td>

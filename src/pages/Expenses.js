@@ -9,6 +9,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { logActivity } from "../utils/auditLogger";
 import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
+import { moneyShort, fmtDate } from "../utils/fmt";
 
 const PAGE_SIZE = 25;
 
@@ -32,7 +33,7 @@ const INCOME_CATEGORIES = [
 ];
 
 export default function Expenses() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isContractor = userIndustry === "contractor";
   const isAdmin = userRole === "admin" || userRole === "super_admin";
@@ -276,7 +277,7 @@ export default function Expenses() {
                 <i className="fas fa-arrow-down"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {totalIn.toLocaleString()}
+                {moneyShort(totalIn, locale)}
               </div>
               <div className="stat-label">{t("expn.statIn")}</div>
             </div>
@@ -285,7 +286,7 @@ export default function Expenses() {
                 <i className="fas fa-file-invoice-dollar"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {totalOut.toLocaleString()}
+                {moneyShort(totalOut, locale)}
               </div>
               <div className="stat-label">{t("expn.statOut")}</div>
             </div>
@@ -294,7 +295,7 @@ export default function Expenses() {
                 <i className="fas fa-calendar-alt"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {thisMonthTotal.toLocaleString()}
+                {moneyShort(thisMonthTotal, locale)}
               </div>
               <div className="stat-label">{t("expn.statThisMonth")}</div>
             </div>
@@ -488,7 +489,7 @@ export default function Expenses() {
                         </td>
                         <td style={{ fontWeight: 600 }}>{categoryLabel(exp.category)}</td>
                         <td style={{ fontWeight: 700, color: (exp.direction || "out") === "in" ? "#16a34a" : "#dc2626" }}>
-                          {(exp.amount || 0).toLocaleString()} {t("currency")}
+                          {(moneyShort(exp.amount || 0), locale)} {t("currency")}
                         </td>
                         <td>{exp.description || "-"}</td>
                         {isContractor && (
@@ -497,7 +498,7 @@ export default function Expenses() {
                         </td>
                         )}
                         <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                          {exp.date ? new Date(exp.date).toLocaleDateString() : "-"}
+                          {exp.date ? new fmtDate(Date(exp.date), locale) : "-"}
                         </td>
                         <td>
                           <div className="table-actions">

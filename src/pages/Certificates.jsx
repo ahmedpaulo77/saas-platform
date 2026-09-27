@@ -16,9 +16,10 @@ import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import { buildCertificate, certificateNet, certificateRemaining, normalizeCertificate } from "../utils/contracts";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 export default function Certificates() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [certificates, setCertificates] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -494,9 +495,9 @@ export default function Certificates() {
                             {start + i + 1}
                           </td>
                           <td style={{ fontWeight: 600 }}>{projName}</td>
-                          <td style={{ fontWeight: 700 }}>{amount.toLocaleString()}</td>
+                          <td style={{ fontWeight: 700 }}>{moneyShort(amount, locale)}</td>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>
-                            {paid > 0 ? paid.toLocaleString() : "—"}
+                            {paid > 0 ? moneyShort(paid, locale) : "—"}
                           </td>
                           <td
                             style={{
@@ -504,7 +505,7 @@ export default function Certificates() {
                               color: remaining > 0 ? "#ef4444" : "#10b981",
                             }}
                           >
-                            {remaining > 0 ? remaining.toLocaleString() : "✓"}
+                            {remaining > 0 ? moneyShort(remaining, locale) : "✓"}
                           </td>
                           <td>
                             <span className={`badge ${statusBadge(c.status)}`}>
@@ -512,7 +513,7 @@ export default function Certificates() {
                             </span>
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                            {c.dueDate ? new Date(c.dueDate).toLocaleDateString("ar-EG") : "—"}
+                            {c.dueDate ? fmtDate(c.dueDate, locale) : "—"}
                           </td>
                           <td style={{ fontSize: 13, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {c.description || "—"}

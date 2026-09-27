@@ -6,6 +6,7 @@ import { getScopedQuery } from "../utils/companyQuery";
 import { getAvailableModules } from "../utils/modules";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 function toDate(v) {
   if (!v) return null;
@@ -15,7 +16,7 @@ function toDate(v) {
 }
 
 export default function Statements() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const available = getAvailableModules(userIndustry, userRole);
   const isClinic = userIndustry === "clinic";
@@ -122,9 +123,9 @@ export default function Statements() {
         <td>${m.date ? new Date(m.date).toLocaleDateString("ar-EG") : "—"}</td>
         <td>${m.type}</td>
         <td>${m.ref || "—"}</td>
-        <td>${m.debit ? m.debit.toLocaleString() : "—"}</td>
-        <td>${m.credit ? m.credit.toLocaleString() : "—"}</td>
-        <td>${m.paid ? m.paid.toLocaleString() : "—"}</td>
+        <td>${m.debit ? moneyShort(m.debit, locale) : "—"}</td>
+        <td>${m.credit ? moneyShort(m.credit, locale) : "—"}</td>
+        <td>${m.paid ? moneyShort(m.paid, locale) : "—"}</td>
       </tr>`).join("");
     const win = window.open("", "_blank", "width=800,height=600");
     if (!win) return;
@@ -134,7 +135,7 @@ export default function Statements() {
       <h2>${t("st.title")} ${tab === "clients" ? entityLabel : t("st.tabSuppliers")}: ${entityName}</h2>
       <div>${t("st.period")}: ${fromDate || "..."} → ${toDateStr || "..."}</div>
       <table style="margin-top:12px"><thead><tr><th>#</th><th>${t("st.date")}</th><th>${t("st.movement")}</th><th>${t("st.ref")}</th><th>${t("st.debit")}</th><th>${t("st.credit")}</th><th>${t("st.paid")}</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-      <div style="margin-top:12px;font-weight:bold;">${t("st.totalInvoices")}: ${totals.debit.toLocaleString()} — ${t("st.paid")}: ${totals.paid.toLocaleString()} — ${t("st.returned")}: ${totals.credit.toLocaleString()} — ${t("st.balance")}: ${totals.balance.toLocaleString()} ${t("currency")}</div>
+      <div style="margin-top:12px;font-weight:bold;">${t("st.totalInvoices")}: ${moneyShort(totals.debit, locale)} — ${t("st.paid")}: ${moneyShort(totals.paid, locale)} — ${t("st.returned")}: ${moneyShort(totals.credit, locale)} — ${t("st.balance")}: ${moneyShort(totals.balance, locale)} ${t("currency")}</div>
       </body></html>`);
     win.document.close();
     win.focus();
@@ -230,10 +231,10 @@ export default function Statements() {
         {entityId && (
           <>
             <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", marginBottom: 20 }}>
-              <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.debit.toLocaleString()}</div><div className="stat-label">{t("st.totalInvoices")}</div></div>
-              <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.paid.toLocaleString()}</div><div className="stat-label">{t("st.paid")}</div></div>
-              <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-undo"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.credit.toLocaleString()}</div><div className="stat-label">{t("st.returned")}</div></div>
-              <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{totals.balance.toLocaleString()}</div><div className="stat-label">{t("st.balance")} ({t("currency")})</div></div>
+              <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.debit, locale)}</div><div className="stat-label">{t("st.totalInvoices")}</div></div>
+              <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.paid, locale)}</div><div className="stat-label">{t("st.paid")}</div></div>
+              <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-undo"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.credit, locale)}</div><div className="stat-label">{t("st.returned")}</div></div>
+              <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.balance, locale)}</div><div className="stat-label">{t("st.balance")} ({t("currency")})</div></div>
             </div>
 
             <div className="table-container">
@@ -247,13 +248,13 @@ export default function Statements() {
                     {movements.map((m, i) => (
                       <tr key={i}>
                         <td style={{ color: "#94a3b8" }}>{i + 1}</td>
-                        <td>{m.date ? new Date(m.date).toLocaleDateString("ar-EG") : "—"}</td>
+                        <td>{m.date ? fmtDate(m.date, locale) : "—"}</td>
                         <td><span style={{ background: m.credit ? "#fffbeb" : "#eef2ff", color: m.credit ? "#d97706" : "#4338ca", padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700 }}>{m.type}</span></td>
                         <td style={{ fontFamily: "monospace" }}>{m.ref || "—"}</td>
-                        <td style={{ fontWeight: 700 }}>{m.debit ? m.debit.toLocaleString() : "—"}</td>
-                        <td style={{ fontWeight: 700, color: "#d97706" }}>{m.credit ? m.credit.toLocaleString() : "—"}</td>
-                        <td style={{ color: "#16a34a" }}>{m.paid ? m.paid.toLocaleString() : "—"}</td>
-                        <td style={{ fontWeight: 700 }}>{m.remaining ? m.remaining.toLocaleString() : "—"}</td>
+                        <td style={{ fontWeight: 700 }}>{m.debit ? moneyShort(m.debit, locale) : "—"}</td>
+                        <td style={{ fontWeight: 700, color: "#d97706" }}>{m.credit ? moneyShort(m.credit, locale) : "—"}</td>
+                        <td style={{ color: "#16a34a" }}>{m.paid ? moneyShort(m.paid, locale) : "—"}</td>
+                        <td style={{ fontWeight: 700 }}>{m.remaining ? moneyShort(m.remaining, locale) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -411,7 +411,7 @@ export default function Appointments() {
                   <strong>{a.patientName}</strong>
                   <span style={{ color: "#2563eb", fontWeight: 700 }}>{a.time}</span>
                   {a.doctor && <span style={{ color: "#64748b" }}>{a.doctor}</span>}
-                  <button onClick={() => remindWhatsApp(a)} className="btn-sm" style={{ marginRight: "auto", background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 700 }}>
+                  <button onClick={() => remindWhatsApp(a)} className="btn-sm" style={{ marginInlineEnd: "auto", background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 700 }}>
                     <i className="fab fa-whatsapp"></i> تذكير
                   </button>
                 </div>

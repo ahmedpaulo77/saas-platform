@@ -8,9 +8,10 @@ import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
 import AddSellerModal from "../components/sellers/AddSellerModal";
+import { moneyShort } from "../utils/fmt";
 
 export default function Sellers() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [sellers, setSellers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,8 +189,8 @@ export default function Sellers() {
           <div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{statusCounts.available}</div><div className="stat-label">وحدات متاحة</div></div>
           <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-pause-circle"></i></div><div className="stat-value">{statusCounts.reserved}</div><div className="stat-label">محجوزة</div></div>
           <div className="stat-card red"><div className="stat-icon"><i className="fas fa-tag"></i></div><div className="stat-value">{statusCounts.sold}</div><div className="stat-label">مباعة</div></div>
-          <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-hourglass-half"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{pendingCommission.toLocaleString()}</div><div className="stat-label">عمولات معلقة (ج.م)</div></div>
-          <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{paidCommission.toLocaleString()}</div><div className="stat-label">عمولات محصّلة (ج.م)</div></div>
+          <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-hourglass-half"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(pendingCommission, locale)}</div><div className="stat-label">عمولات معلقة (ج.م)</div></div>
+          <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(paidCommission, locale)}</div><div className="stat-label">عمولات محصّلة (ج.م)</div></div>
         </div>
 
         {filtered.length === 0 ? (
@@ -229,7 +230,7 @@ export default function Sellers() {
                       <td>{seller.developer || "-"}</td>
                       <td>{seller.project || "-"}</td>
                       <td>{seller.phone || "-"}</td>
-                      <td>{seller.price ? `${Number(seller.price).toLocaleString()} EGP` : "-"}</td>
+                      <td>{seller.price ? `${moneyShort(Number(seller.price), locale)} EGP` : "-"}</td>
                       <td>
                         {(() => {
                           const st = UNIT_STATUS[seller.unitStatus || "available"] || UNIT_STATUS.available;
@@ -284,7 +285,7 @@ export default function Sellers() {
                               <div><strong>{t("sellers.kitchen")}:</strong> {seller.kitchen || "-"}</div>
                               <div><strong>{t("sellers.reception")}:</strong> {seller.reception || "-"}</div>
                               <div><strong>{t("sellers.terrace")}:</strong> {seller.terrace || "-"}</div>
-                              <div><strong>{t("sellers.commission")}:</strong> {seller.commission ? `${Number(seller.commission).toLocaleString()} EGP` : "-"}
+                              <div><strong>{t("sellers.commission")}:</strong> {seller.commission ? `${moneyShort(Number(seller.commission), locale)} EGP` : "-"}
                                 {" "}
                                 <select value={seller.commissionStatus || "pending"}
                                   onChange={(e) => setCommissionStatus(seller, e.target.value)}

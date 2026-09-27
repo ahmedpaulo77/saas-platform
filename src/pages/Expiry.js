@@ -8,6 +8,7 @@ import { getProductUnit, roundQty } from "../utils/traderUnits";
 import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate } from "../utils/fmt";
 
 function parseDate(value) {
   if (!value) return null;
@@ -176,7 +177,7 @@ export default function Expiry() {
     } else if (daysLeft <= 30) {
       return { label: t("exp.expiresIn", { n: daysLeft }), color: "#d97706", bg: "#fef3c7", daysLeft };
     } else {
-      return { label: t("exp.validUntil", { date: expDate.toLocaleDateString("ar-EG") }), color: "#16a34a", bg: "#f0fdf4", daysLeft };
+      return { label: t("exp.validUntil", { date: fmtDate(expDate, locale) }), color: "#16a34a", bg: "#f0fdf4", daysLeft };
     }
   }
 
@@ -540,7 +541,7 @@ export default function Expiry() {
                       <td>{product.category || "-"}</td>
                       <td style={{ fontWeight: 700 }}>
                         {product.expiryDate
-                          ? parseDate(product.expiryDate).toLocaleDateString("ar-EG")
+                          ? fmtDate(parseDate(product.expiryDate), locale)
                           : <span style={{ color: "#94a3b8", fontWeight: 400 }}>—</span>}
                       </td>
                       <td>

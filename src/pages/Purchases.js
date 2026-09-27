@@ -25,10 +25,11 @@ import Pagination from "../components/common/PaginationV2";
 import { useFirestorePagination } from "../hooks/useFirestorePagination";
 import JsBarcode from "jsbarcode";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits";
+import { moneyShort, fmtDate } from "../utils/fmt";
 const PAGE_SIZE = 25;
 
 export default function Purchases() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const availableModules = getAvailableModules(userIndustry, userRole);
   const hasInventory = availableModules.has("inventory");
@@ -735,7 +736,7 @@ export default function Purchases() {
       }
 
       const priceNum = parseFloat(it.unitCost) || parseFloat(prod.price) || 0;
-      const priceLine = `${priceNum.toLocaleString()} EGP`;
+      const priceLine = `${moneyShort(priceNum, locale)} EGP`;
 
       const rawQty = Math.floor(parseFloat(it.quantity) || 1);
       const qty = Math.max(1, rawQty);
@@ -945,7 +946,7 @@ ${labelDivs}
                 <i className="fas fa-money-bill-wave"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {totalSpent.toLocaleString()}
+                {moneyShort(totalSpent, locale)}
               </div>
               <div className="stat-label">{t("pur.statSpent")}</div>
             </div>
@@ -954,7 +955,7 @@ ${labelDivs}
                 <i className="fas fa-exclamation-triangle"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 20 }}>
-                {totalOwed.toLocaleString()}
+                {moneyShort(totalOwed, locale)}
               </div>
               <div className="stat-label">{t("pur.statOwed")}</div>
             </div>
@@ -1272,7 +1273,7 @@ ${labelDivs}
                                   padding: "8px 4px",
                                 }}
                               >
-                                {(parseFloat(item.amount) || 0).toLocaleString()}{" "}
+                                {(parseFloat(moneyShort(item.amount) || 0), locale)}{" "}
                                 {t("currency")}
                               </div>
                             </div>
@@ -1461,13 +1462,13 @@ ${labelDivs}
                           )}
                           {hasInventory && <td>{totalQty || p.quantity || 0}</td>}
                           <td style={{ fontWeight: 700, color: "var(--gray-800)" }}>
-                            {(p.amount || 0).toLocaleString()} {t("currency")}
+                            {(moneyShort(p.amount || 0), locale)} {t("currency")}
                           </td>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>
-                            {paid > 0 ? `${paid.toLocaleString()} ${t("currency")}` : "—"}
+                            {paid > 0 ? `${moneyShort(paid, locale)} ${t("currency")}` : "—"}
                           </td>
                           <td style={{ fontWeight: 700, color: remaining > 0 ? "#ef4444" : "#10b981" }}>
-                            {remaining > 0 ? `${remaining.toLocaleString()} ${t("currency")}` : "✓"}
+                            {remaining > 0 ? `${moneyShort(remaining, locale)} ${t("currency")}` : "✓"}
                           </td>
                           <td>
                             <span
@@ -1487,14 +1488,14 @@ ${labelDivs}
                             </span>
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                            {p.date ? new Date(p.date).toLocaleDateString() : "-"}
+                            {p.date ? new fmtDate(Date(p.date), locale) : "-"}
                           </td>
                           <td>
                             <div className="table-actions">
                               <button
                                 onClick={() => handlePrintPurchase(p)}
                                 className="btn-secondary btn-sm"
-                                title={t("in.print") || "طباعة"}
+                                title={t("in.print")}
                               >
                                 <i className="fas fa-print"></i>
                               </button>
@@ -1675,22 +1676,23 @@ ${labelDivs}
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("pur.purchaseVal")}</span>
                     <span style={{ fontWeight: 800 }}>
-                      {(payingPurchase.amount || 0).toLocaleString()} {t("currency")}
+                      {(moneyShort(payingPurchase.amount || 0), locale)} {t("currency")}
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.prevPaid")}</span>
                     <span style={{ fontWeight: 700, color: "#10b981" }}>
-                      {(parseFloat(payingPurchase.paidAmount) || 0).toLocaleString()} {t("currency")}
+                      {(parseFloat(moneyShort(payingPurchase.paidAmount) || 0), locale)} {t("currency")}
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.remaining")}</span>
                     <span style={{ fontWeight: 900, color: "#ef4444" }}>
-                      {(
+                      {moneyShort(
                         (parseFloat(payingPurchase.amount) || 0) -
-                        (parseFloat(payingPurchase.paidAmount) || 0)
-                      ).toLocaleString()}{" "}
+                          (parseFloat(payingPurchase.paidAmount) || 0),
+                        locale
+                      )}{" "}
                       {t("currency")}
                     </span>
                   </div>

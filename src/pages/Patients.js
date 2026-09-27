@@ -13,9 +13,10 @@ import { useAuth } from "../context/AuthContext";
 import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
+import { fmtDate, moneyShort } from "../utils/fmt";
 
 export default function Patients() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const superAdmin = isSuperAdmin(userRole);
   const [patients, setPatients] = useState([]);
@@ -493,7 +494,7 @@ export default function Patients() {
                 <div>🎂 السن: <strong>{filePatient.age || "—"}</strong></div>
                 <div>📋 التاريخ المرضي: <strong>{filePatient.medicalHistory || "—"}</strong></div>
                 <div>⚠️ الحساسية: <strong>{filePatient.allergies || "—"}</strong></div>
-                <div>💰 إجمالي المدفوع: <strong>{fileData.invoices.reduce((s, i) => s + (parseFloat(i.paidAmount) || 0), 0).toLocaleString()} {t("currency")}</strong></div>
+                <div>💰 إجمالي المدفوع: <strong>{moneyShort(fileData.invoices.reduce((s, i) => s + (parseFloat(i.paidAmount) || 0), 0), locale)} {t("currency")}</strong></div>
               </div>
               {fileLoading ? (
                 <div className="loading"><div className="spinner"></div>{t("common.loading")}</div>
@@ -506,7 +507,7 @@ export default function Patients() {
                         <div key={a.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
                           <strong>{a.date} {a.time}</strong>
                           <span style={{ color: "#64748b" }}>{a.type === "first_visit" ? "كشف" : a.type === "follow_up" ? "متابعة" : a.type || ""}</span>
-                          <span style={{ marginRight: "auto", background: a.status === "done" ? "#f0fdf4" : "#eff6ff", color: a.status === "done" ? "#16a34a" : "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>{a.status}</span>
+                          <span style={{ marginInlineEnd: "auto", background: a.status === "done" ? "#f0fdf4" : "#eff6ff", color: a.status === "done" ? "#16a34a" : "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>{a.status}</span>
                         </div>
                       ))}
                     </div>
@@ -516,7 +517,7 @@ export default function Patients() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, maxHeight: 180, overflowY: "auto" }}>
                       {fileData.prescriptions.map((r) => (
                         <div key={r.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
-                          <div style={{ display: "flex", gap: 8 }}><strong>{r.createdAt ? new Date(r.createdAt).toLocaleDateString("ar-EG") : "—"}</strong><span style={{ color: "#7c3aed" }}>{r.diagnosis || ""}</span></div>
+                          <div style={{ display: "flex", gap: 8 }}><strong>{r.createdAt ? fmtDate(r.createdAt, locale) : "—"}</strong><span style={{ color: "#7c3aed" }}>{r.diagnosis || ""}</span></div>
                           {(r.medicines || []).map((m, i) => (
                             <div key={i} style={{ color: "#475569" }}>• {m.name} — {m.dose} — {m.frequency} — {m.duration}</div>
                           ))}
@@ -529,9 +530,9 @@ export default function Patients() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto" }}>
                       {fileData.invoices.map((inv) => (
                         <div key={inv.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8 }}>
-                          <strong>{inv.date ? new Date(inv.date).toLocaleDateString("ar-EG") : "—"}</strong>
-                          <span>الإجمالي: {Number(inv.amount || 0).toLocaleString()}</span>
-                          <span style={{ color: "#16a34a" }}>المدفوع: {Number(inv.paidAmount || 0).toLocaleString()}</span>
+                          <strong>{inv.date ? fmtDate(inv.date, locale) : "—"}</strong>
+                          <span>الإجمالي: {moneyShort(Number(inv.amount || 0), locale)}</span>
+                          <span style={{ color: "#16a34a" }}>المدفوع: {moneyShort(Number(inv.paidAmount || 0), locale)}</span>
                         </div>
                       ))}
                     </div>

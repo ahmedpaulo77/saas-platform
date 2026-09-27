@@ -15,6 +15,7 @@ import InvoiceForm from "../components/invoices/InvoiceForm";
 import InvoiceTable from "../components/invoices/InvoiceTable";
 import InvoiceModals from "../components/invoices/InvoiceModals";
 import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers";
+import { moneyShort } from "../utils/fmt";
 
 /**
  * الفاتورة معتمدة (يعني مخزونها اتخصم)؟
@@ -27,7 +28,7 @@ function isInvoiceValidatedDoc(inv) {
 }
 
 export default function Invoices() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -424,8 +425,8 @@ export default function Invoices() {
           <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))" }}>
             <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value">{filteredInvoices.length}</div><div className="stat-label">{isRestaurant ? "إجمالي الطلبات" : t("in.statTotal")}</div></div>
             {isRestaurant ? (<><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-bell"></i></div><div className="stat-value">{stats.newOrdersCount}</div><div className="stat-label">طلبات جديدة</div></div><div className="stat-card amber"><div className="stat-icon"><i className="fas fa-fire"></i></div><div className="stat-value">{stats.preparingCount}</div><div className="stat-label">قيد التحضير</div></div></>) : (<><div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{stats.paidCount}</div><div className="stat-label">{t("in.statPaid")}</div></div><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-clock"></i></div><div className="stat-value">{stats.pendingCount}</div><div className="stat-label">{t("in.statPending")}</div></div></>)}
-            <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{stats.totalRevenue.toLocaleString()}</div><div className="stat-label">{t("in.statRevenue")}</div></div>
-            {!isRestaurant && <div className="stat-card red"><div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{stats.totalOverdue.toLocaleString()}</div><div className="stat-label">{t("in.statOverdueAmount")}</div></div>}
+            <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(stats.totalRevenue, locale)}</div><div className="stat-label">{t("in.statRevenue")}</div></div>
+            {!isRestaurant && <div className="stat-card red"><div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(stats.totalOverdue, locale)}</div><div className="stat-label">{t("in.statOverdueAmount")}</div></div>}
           </div>
         ) : (<div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}><i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i><p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("in.statsAdminOnly")}</p></div>)}
 

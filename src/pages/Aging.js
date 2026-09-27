@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/common/Sidebar';
 import * as XLSX from 'xlsx';
 import { useLanguage } from '../i18n/LanguageContext';
+import { moneyShort } from "../utils/fmt";
 
 const BUCKETS = [
   { labelKey: 'ag.b0', color: '#6366f1', bg: '#e0e7ff', textColor: '#3730a3' },
@@ -45,7 +46,7 @@ function getBucket(days) {
 }
 
 export default function Aging() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, userIndustry } = useAuth();
   const superAdmin = userRole === 'super_admin';
   const isAdmin = userRole === 'admin' || superAdmin;
@@ -247,7 +248,7 @@ export default function Aging() {
           </div>
           <div className="stat-card amber">
             <div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div>
-            <div className="stat-value" style={{ fontSize: 20 }}>{summary.totalDebt.toLocaleString()}</div>
+            <div className="stat-value" style={{ fontSize: 20 }}>{moneyShort(summary.totalDebt, locale)}</div>
             <div className="stat-label">{t('ag.totalDebt')}</div>
           </div>
           <div className="stat-card red">
@@ -284,7 +285,7 @@ export default function Aging() {
                   {t(bucket.labelKey)}
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: bucket.color }}>
-                  {totals.buckets[i].toLocaleString()}
+moneyShort(totals.buckets[i], locale)}
                 </div>
                 <div style={{ fontSize: 11, color: bucket.textColor, opacity: 0.7, marginTop: 2 }}>
                   {t('currency')} — {summary.totalDebt > 0
@@ -374,7 +375,7 @@ export default function Aging() {
                                 fontSize: 13,
                                 display: 'inline-block',
                               }}>
-                                {amount.toLocaleString()} {t('currency')}
+                                {moneyShort(amount, locale)} {t('currency')}
                               </span>
                             ) : (
                               <span style={{ color: 'var(--gray-300)' }}>—</span>
@@ -382,7 +383,7 @@ export default function Aging() {
                           </td>
                         ))}
                         <td style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>
-                          {client.total.toLocaleString()} {t('currency')}
+                          {moneyShort(client.total, locale)} {t('currency')}
                         </td>
                         <td>
                           {isHighRisk ? (
@@ -411,11 +412,11 @@ export default function Aging() {
                     </td>
                     {totals.buckets.map((total, i) => (
                       <td key={i} style={{ fontWeight: 800, color: BUCKETS[i].color, padding: '14px 16px' }}>
-                        {total.toLocaleString()} {t('currency')}
+                        {moneyShort(total, locale)} {t('currency')}
                       </td>
                     ))}
                     <td style={{ fontWeight: 900, fontSize: 16, color: '#ef4444', padding: '14px 16px' }}>
-                      {totals.total.toLocaleString()} {t('currency')}
+                      {moneyShort(totals.total, locale)} {t('currency')}
                     </td>
                     <td></td>
                   </tr>

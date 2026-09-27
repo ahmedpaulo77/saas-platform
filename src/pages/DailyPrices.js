@@ -8,9 +8,10 @@ import { useLanguage } from "../i18n/LanguageContext";
 import { getProductUnit, TRADER_UNITS } from "../utils/traderUnits";
 import { logActivity } from "../utils/auditLogger";
 import * as XLSX from "xlsx";
+import { moneyShort } from "../utils/fmt";
 
 export default function DailyPrices() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
 
   const [rows, setRows] = useState([]);
@@ -276,7 +277,7 @@ export default function DailyPrices() {
                         <td>{row.category || "—"}</td>
                         <td>{unitCfg ? t(unitCfg.labelKey) : row.unit}</td>
                         <td>
-                          {row.originalPrice.toLocaleString()} {t("currency")}
+                          {moneyShort(row.originalPrice, locale)} {t("currency")}
                         </td>
                         <td>
                           <input
