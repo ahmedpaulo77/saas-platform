@@ -1,4 +1,4 @@
-// src/pages/Dashboard.js
+﻿// src/pages/Dashboard.js
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -48,7 +48,7 @@ const ALL_FEATURE_CARDS = [
     descKey: "dash.c2.d",
     titleKeyByIndustry: { restaurant: "dash.c2.t.restaurant" },
     descKeyByIndustry: { restaurant: "dash.c2.d.restaurant" },
-    module: "clients",
+    iconByIndustry: { restaurant: "fa-utensils", cafe: "fa-mug-hot", clinic: "fa-user-md", pharmacy: "fa-user-nurse", clothing: "fa-user-tie", real_estate: "fa-user-tie" },
   },
   {
     to: "/sellers",
@@ -57,7 +57,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#fef3c7",
     titleKey: "dash.c9.t",
     descKey: "dash.c9.d",
-    module: "sellers",
+    iconByIndustry: { real_estate: "fa-city", clothing: "fa-shirt", pharmacy: "fa-pills", restaurant: "fa-boxes-packing", cafe: "fa-mug-hot", clinic: "fa-user-md", super_market: "fa-store" },
   },
   {
     to: "/buyers",
@@ -77,7 +77,7 @@ const ALL_FEATURE_CARDS = [
     descKey: "dash.c3.d",
     titleKeyByIndustry: { restaurant: "dash.c3.t.restaurant" },
     descKeyByIndustry: { restaurant: "dash.c3.d.restaurant" },
-    module: "invoices",
+    iconByIndustry: { restaurant: "fa-receipt", cafe: "fa-receipt", pharmacy: "fa-receipt", clinic: "fa-file-invoice-dollar", real_estate: "fa-file-contract", clothing: "fa-bag-shopping", super_market: "fa-cart-shopping" },
   },
   {
     to: "/inventory",
@@ -117,7 +117,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#ffe4e6",
     titleKey: "dash.c6.t",
     descKey: "dash.c6.d",
-    module: "projects",
+    iconByIndustry: { contractor: "fa-trowel", real_estate: "fa-building", restaurant: "fa-kitchen-set", cafe: "fa-mug-hot", pharmacy: "fa-flask", clothing: "fa-palette", clinic: "fa-clipboard-list" },
   },
   {
     to: "/users",
@@ -153,7 +153,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#eff6ff",
     titleKey: "dash.storepos.t",
     descKey: "dash.storepos.d",
-    module: "store-pos",
+    iconByIndustry: { clothing: "fa-shirt", pharmacy: "fa-pills", restaurant: "fa-utensils", cafe: "fa-mug-hot", super_market: "fa-store", real_estate: "fa-house" },
   },
   {
     to: "/suppliers",
@@ -162,7 +162,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#cffafe",
     titleKey: "dash.c12.t",
     descKey: "dash.c12.d",
-    module: "suppliers",
+    iconByIndustry: { restaurant: "fa-truck-ramp-box", cafe: "fa-mug-hot", pharmacy: "fa-truck-medical", clothing: "fa-shirt", super_market: "fa-truck" },
   },
   {
     to: "/expiry",
@@ -180,7 +180,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#eef2ff",
     titleKey: "dash.c14.t",
     descKey: "dash.c14.d",
-    module: "appointments",
+    iconByIndustry: { contractor: "fa-calendar-check", real_estate: "fa-key", pharmacy: "fa-pills", clinic: "fa-user-md", restaurant: "fa-utensils", cafe: "fa-mug-hot" },
   },
   {
     to: "/prescriptions",
@@ -189,7 +189,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#fdf2f8",
     titleKey: "dash.c15.t",
     descKey: "dash.c15.d",
-    module: "prescriptions",
+    iconByIndustry: { clinic: "fa-prescription", pharmacy: "fa-prescription" },
   },
   {
     to: "/aging",
@@ -216,7 +216,7 @@ const ALL_FEATURE_CARDS = [
     bg: "#d1fae5",
     titleKey: "dash.c18.t",
     descKey: "dash.c18.d",
-    module: "patients",
+    iconByIndustry: { clinic: "fa-user-md", pharmacy: "fa-user-nurse" },
   },
 ];
 

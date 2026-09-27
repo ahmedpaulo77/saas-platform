@@ -95,16 +95,46 @@ export default function Invoices() {
   const getTotalAmount = useMemo(() => newInvoice.products.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0), [newInvoice.products]);
   const getEditTotalAmount = useMemo(() => !editingInvoice?.products ? 0 : editingInvoice.products.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0), [editingInvoice]);
 
+  // 🆘 وضع المبلغ الحر: العيادة تكتب فاتورة بأصناف حرّة (كشف).
+  // الكود القديم كان بيعمل `return` صامت — المستخدم بيدوس "حفظ" ومفيش
+  // حاجة بتحصل ومفيش رسالة. دلوقتي: رسالة واضحة + مسموح فعليًا.
+  // لو عايز كمان الصيدلية، ضيف "pharmacy" هنا وفي InvoiceForm.jsx برضه.
+  const MANUAL_AMOUNT_INDUSTRIES = new Set(["clinic"]);
+
+  // 🆕 مرتجع بالباركود: بس في المهن اللي الفاتورة نفسها مطبوع عليها
+  // باركود (الملابس والصيدلية). في غير كده الباركود بيكون على الصنف
+  // مش على الفاتورة، فالمسح بيفتح فاتورة غلط.
+  const BARCODE_RETURN_INDUSTRIES = new Set(["clothing", "pharmacy"]);
+
   async function addInvoice(e) {
     e.preventDefault();
-    if (!newInvoice.clientId || newInvoice.products.length === 0) return;
+    const manualAmountMode = MANUAL_AMOUNT_INDUSTRIES.has(userIndustry) && newInvoice.products.length === 0;
+    const manualAmount = parseFloat(newInvoice.amount) || 0;
+
+    if (!newInvoice.clientId) { alert(t("in.clientRequired")); return; }
+    if (!manualAmountMode && newInvoice.products.length === 0) { alert(t("in.needProducts")); return; }
+    if (manualAmountMode && !(manualAmount > 0)) { alert(t("in.manualAmountRequired")); return; }
     setSubmitting(true);
     try {
       // NOTE: stock is NOT deducted here — deduction happens on confirmation (validateInvoice).
-      const totalAmount = getTotalAmount;
+      const totalAmount = manualAmountMode ? manualAmount : getTotalAmount;
       const invoiceData = {
         clientId: newInvoice.clientId,
         products: newInvoice.products.map((item) => ({ productId: item.productId, quantity: item.quantity, amount: item.amount, paidAmount: item.paidAmount || 0, weight: item.weight || "", unit: item.unit || "" })),
+        // 🆕 في وضع المبلغ الحر مفيش بنود — بنسجل سطر واحد افتراضي
+        // عشان التقارير والطباعة والـ PDF تتعامل معاه زي أي فاتورة.
+        // من غير كده الصفحات اللي بتقرا `products` كانت هتعرض الفاتورة فاضية.
+        ...(manualAmountMode ? {
+          manualAmount: true,
+          products: [{
+            productId: "",
+            productName: newInvoice.description || t("in.manualLine"),
+            quantity: 1,
+            amount: totalAmount,
+            paidAmount: 0,
+            isManual: true,
+          }],
+        } : {}),
         status: isRestaurant ? "pending" : newInvoice.status,
         approval: "new",
         orderStatus: isRestaurant ? newInvoice.orderStatus || "new" : "",
@@ -401,19 +431,25 @@ export default function Invoices() {
 
         <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} />
 
-       {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة */}
-{["pharmacy", "super_market", "clothing"].includes(userIndustry) && (
+       {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة
+
+           ⚠️ كان ظاهر لـ super_market كمان. الباركود في السوبر ماركت
+           بيكون على **القطعة** (بيتجيب فاتورة من رقم الصنف)، لا على الفاتورة —
+           يعني المسح بيفتح فاتورة غلط أو مفيش حاجة. سيبناها في
+           المهن اللي الفاتورة نفسها ليها باركود مطبوع (الملابس والصيدلية).
+           لو عايز تضيفها لمهنة تانية، ضيف هنا سطر واحد. */}
+{BARCODE_RETURN_INDUSTRIES.has(userIndustry) && (
   <form onSubmit={handleBarcodeReturn} className="form-card" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-    <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>مرتجع بالباركود</div>
+    <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>{t("in.returnByBarcode")}</div>
     <input
       type="text"
-      placeholder="امسح باركود الفاتورة هنا..."
+      placeholder={t("in.scanInvoicePh")}
       value={barcodeScan}
       onChange={(e) => setBarcodeScan(e.target.value)}
       autoFocus={false}
       style={{ flex: 1, minWidth: 220, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, fontFamily: "monospace", direction: "ltr", textAlign: "left" }}
     />
-    <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : "فتح المرتجع"}</button>
+    <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : t("in.openReturn")}</button>
   </form>
 )}
 

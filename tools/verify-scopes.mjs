@@ -50,6 +50,11 @@ const SHARED = [
   "getPaymentLabel", "EGYPT_PAYMENTS",
   // utils/companyQuery.js
   "canCreateForCompany", "canDeleteCompanyDoc",
+  // utils/icons.js  (constants, not functions — the old checker only matched calls)
+  "iconFor", "INVENTORY_ICON", "PROJECTS_ICON", "APPOINTMENTS_ICON", "RAW_MATERIALS_ICON",
+  "SALES_ICON", "POS_ICON", "STORE_POS_ICON", "CLIENTS_ICON", "SELLERS_ICON",
+  "PATIENTS_ICON", "SUPPLIERS_ICON", "PROPERTY_ICON", "CLIENT_ICON", "SELLER_ICON",
+  "ITEMS_ICON", "PRINT_ICON", "ICON_NOTES", "VIEWING_STATUSES",
 ];
 
 const GLOBALS = new Set([
@@ -77,7 +82,13 @@ let problems = 0;
 const notes = [];
 
 for (const f of files) {
-  const src = readFileSync(f, "utf8");
+  const raw = readFileSync(f, "utf8");
+  // strip comments so mentions inside them don't count as usage.
+  // (block comments first, then line comments — order matters to avoid
+  //  eating a "//" that sits inside a string like "https://")
+  const src = raw
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/(^|[^:"'\\])\/\/[^\n]*/g, (m, p1) => p1 + " ".repeat(Math.max(0, m.length - p1.length)));
   const rel = relative(ROOT, f).replace(/\\/g, "/");
   const imported = new Set();
 
@@ -130,16 +141,17 @@ for (const f of files) {
 
   for (const name of SHARED) {
     if (imported.has(name) || defined.has(name)) continue;
-    const used = new RegExp("(?<![\\w$.])" + name + "\\s*\\(").test(src);
-    if (used) {
-      // if it looks like a destructured param of an exported fn, note not fail
-      if (new RegExp("\\{[^}]*\\b" + name + "\\b[^}]*\\}\\s*\\)\\s*=>").test(src)) {
-        notes.push(`${rel}  (looks like a param) ${name}()`);
-        continue;
-      }
-      console.log(`MISSING IMPORT  ${rel}  ->  ${name}()`);
-      problems++;
+    // constants are referenced as bare identifiers, not called
+    const isCall = new RegExp("(?<![\\w$.])" + name + "\\s*\\(").test(src);
+    const isBare = new RegExp("(?<![\\w$.])" + name + "(?![\\w$])").test(src);
+    if (!isCall && !isBare) continue;
+    // if it looks like a destructured param, note not fail
+    if (new RegExp("\\{[^}]*\\b" + name + "\\b[^}]*\\}\\s*\\)").test(src)) {
+      notes.push(`${rel}  (looks like a param) ${name}`);
+      continue;
     }
+    console.log(`MISSING IMPORT  ${rel}  ->  ${name}`);
+    problems++;
   }
 }
 

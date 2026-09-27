@@ -127,3 +127,75 @@ export const ICON_NOTES = {
   verifiedAgainst: "font-awesome 6.5.0 free (2465 icons)",
   tool: "node tools/verify-icons.mjs",
 };
+
+/** أيقونة نقطة البيع (الكاشير) حسب المهنة */
+export const POS_ICON = {
+  restaurant: "fa-utensils",
+  cafe: "fa-mug-hot",
+  pharmacy: "fa-pills",
+  clinic: "fa-stethoscope",
+  clothing: "fa-shirt",
+  real_estate: "fa-file-contract",
+  super_market: "fa-cart-shopping",
+  contractor: "fa-screwdriver-wrench",
+  trader: "fa-cash-register",
+  general: "fa-cash-register",
+  _default: "fa-cash-register",
+};
+
+/** أيقونة البيع السريع (StorePOS) */
+export const STORE_POS_ICON = {
+  clothing: "fa-shirt",
+  pharmacy: "fa-pills",
+  restaurant: "fa-utensils",
+  cafe: "fa-mug-hot",
+  super_market: "fa-store",
+  real_estate: "fa-house",
+  _default: "fa-store",
+};
+
+/** أيقونة العملاء/المرضى حسب المهنة */
+export const CLIENTS_ICON = {
+  restaurant: "fa-utensils",
+  cafe: "fa-mug-hot",
+  clinic: "fa-user-md",
+  pharmacy: "fa-user-nurse",
+  clothing: "fa-user-tie",
+  real_estate: "fa-user-tie",
+  _default: "fa-user-friends",
+};
+
+/** أيقونة البائعين/الوحدات حسب المهنة */
+export const SELLERS_ICON = {
+  real_estate: "fa-city",
+  clothing: "fa-shirt",
+  pharmacy: "fa-pills",
+  restaurant: "fa-boxes-packing",
+  super_market: "fa-store",
+  clinic: "fa-user-md",
+  _default: "fa-store",
+};
+
+/** أيقونة الروشتات */
+export const PRESCRIPTIONS_ICON = {
+  clinic: "fa-prescription",
+  pharmacy: "fa-prescription",
+  _default: "fa-prescription",
+};
+
+/** أيقونة المرضى */
+export const PATIENTS_ICON = {
+  clinic: "fa-user-md",
+  pharmacy: "fa-user-nurse",
+  _default: "fa-hospital-user",
+};
+
+/** أيقونة التوريدات/الموردين */
+export const SUPPLIERS_ICON = {
+  restaurant: "fa-truck-ramp-box",
+  cafe: "fa-mug-hot",
+  pharmacy: "fa-truck-medical",
+  clothing: "fa-shirt",
+  super_market: "fa-truck",
+  _default: "fa-truck",
+};

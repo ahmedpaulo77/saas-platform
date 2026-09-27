@@ -1,4 +1,4 @@
-// src/components/common/Sidebar.js - نسخة محسنة مع Messages + Badge للإشعارات
+﻿// src/components/common/Sidebar.js - نسخة محسنة مع Messages + Badge للإشعارات
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -10,7 +10,13 @@ import {
   PROJECTS_ICON,
   APPOINTMENTS_ICON,
   RAW_MATERIALS_ICON,
-  PROPERTY_ICON,
+  SALES_ICON,
+  POS_ICON,
+  STORE_POS_ICON,
+  CLIENTS_ICON,
+  SELLERS_ICON,
+  PATIENTS_ICON,
+  SUPPLIERS_ICON,
 } from "../../utils/icons";
 import LanguageToggle from "./LanguageToggle";
 import { useLanguage } from "../../i18n/LanguageContext";
@@ -35,6 +41,14 @@ export default function Sidebar() {
   const projIcon = iconFor(PROJECTS_ICON, userIndustry);
   const apptIcon = iconFor(APPOINTMENTS_ICON, userIndustry);
   const rawIcon = iconFor(RAW_MATERIALS_ICON, userIndustry);
+  // 🆕 العيادة: "فاتورة الكشف" مش "الفواتير" — كشف بأتعاب مش بيع أصناف
+  const isClinic = userIndustry === "clinic";
+  const posIcon = iconFor(POS_ICON, userIndustry);
+  const storePosIcon = iconFor(STORE_POS_ICON, userIndustry);
+  const clientsIcon = iconFor(CLIENTS_ICON, userIndustry);
+  const sellersIcon = iconFor(SELLERS_ICON, userIndustry);
+  const patientsIcon = iconFor(PATIENTS_ICON, userIndustry);
+  const suppliersIcon = iconFor(SUPPLIERS_ICON, userIndustry);
 
   const ALL_NAV_ITEMS = [
     {
@@ -52,13 +66,13 @@ export default function Sidebar() {
 
     {
       to: "/pos",
-      icon: "fas fa-cash-register",
+      icon: `fas ${posIcon}`,
       label: t("nav.pos"),
       module: "pos",
     },
     {
       to: "/store-pos",
-      icon: "fas fa-cash-register",
+      icon: `fas ${storePosIcon}`,
       label: t("nav.storePos"),
       module: "store-pos",
     },
@@ -72,7 +86,7 @@ export default function Sidebar() {
       // ⚠️ كان "/companies" ——was بيودّي لنسخة قديمة من الداشبورد.
       // إدارة الشركات للسوبر أدمن في قسم "الإدارة" بالأسفل (/admin).
       to: "/patients",
-      icon: "fas fa-hospital-user",
+      icon: `fas ${patientsIcon}`,
       label: t("nav.patients"),
       module: "patients",
     },
@@ -90,13 +104,13 @@ export default function Sidebar() {
     },
     {
       to: "/clients",
-      icon: "fas fa-user-friends",
+      icon: `fas ${clientsIcon}`,
       label: isRestaurant ? t("nav.clients.restaurant") : t("nav.clients"),
       module: "clients",
     },
     {
       to: "/sellers",
-      icon: "fas fa-store",
+      icon: `fas ${sellersIcon}`,
       label: t("sellers.title"),
       module: "sellers",
     },
@@ -126,8 +140,12 @@ export default function Sidebar() {
     },
     {
       to: "/invoices",
-      icon: "fas fa-file-invoice",
-      label: isRestaurant ? t("nav.invoices.restaurant") : t("nav.invoices"),
+      icon: `fas ${iconFor(SALES_ICON, userIndustry)}`,
+      label: isRestaurant
+        ? t("nav.invoices.restaurant")
+        : isClinic
+        ? t("nav.invoices.clinic")
+        : t("nav.invoices"),
       module: "invoices",
     },
     {
@@ -178,7 +196,7 @@ export default function Sidebar() {
     },
     {
       to: "/suppliers",
-      icon: "fas fa-truck",
+      icon: `fas ${suppliersIcon}`,
       label: t("nav.suppliers"),
       module: "suppliers",
     },
@@ -229,7 +247,8 @@ label: t("nav.attendance"),
   const ALL_SECONDARY_ITEMS = [
     {
       to: "/my-company",
-      icon: "fas fa-store",
+      // ⚠️ كان fa-store (محل) — والمقصود "بيانات شركتي"
+      icon: "fas fa-building-circle-check",
       label: t("nav.myCompany"),
       module: "my-company",
     },

@@ -21,6 +21,13 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
   const isClinic = userIndustry === "clinic";
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
 
+  // وضع المبلغ الحر: العيادة بس (كشف حر، مش بيع أصناف).
+  // لما يكون فيه بنود، المبلغ بيتحسب منهم وبيتقفل — زي باقي المهن.
+  // لو عايز كمان الصيدلية، ضيف "pharmacy" هنا.
+  const MANUAL_AMOUNT_INDUSTRIES = new Set(["clinic"]);
+  const manualAmountMode =
+    MANUAL_AMOUNT_INDUSTRIES.has(userIndustry) && newInvoice.products.length === 0;
+
   const entityLabel = isClinic ? t("in.patient") || "المريض" : "العميل";
   const entityLabelReq = isClinic ? t("in.patientReq") || `${entityLabel} *` : t("in.clientReq") || `${entityLabel} *`;
   const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") || "اختر المريض" : t("in.chooseClient") || "اختر العميل";
@@ -142,8 +149,34 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
           )}
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>{t("in.amountReq")}</label>
-            <input type="number" step="0.01" placeholder="0.00" value={getTotalAmount || ""}readOnly={!isClinic && newInvoice.products.length > 0} onChange={(e) => { if (newInvoice.products.length === 0) setNewInvoice({ ...newInvoice, amount: e.target.value }); }} required />
+            <label>{manualAmountMode ? t("in.manualAmount") : t("in.amountReq")}</label>
+            {/* ⚠️ الحقل ده كان مكسور تمامًا:
+                 - value كان مربوط بـ getTotalAmount (مجموع البنود) بس — فاللي
+                   يكتبه المستخدم بيختفي فورًا (مش محفوظ خالص)
+                 - readOnly كان `!isClinic && products.length > 0` يعني لما
+                   مفيش بنود بيقفل **لحتى العيادة** مش بيفتح
+                 - و Invoices.js كان بيعمل return صامت لو مفيش بنود، فـ
+                   "حفظ" م يكنعملش حاجة من غير أي رسالة.
+                 دلوقتي: في العيادة بس، لما مفيش بنود، الحقل بيتكتب فيه
+                 مبلغ حر بيعتمد فعلاً. وباقي المهن تفضل مقفولة. */}
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder={manualAmountMode ? "0.00" : "0.00"}
+              value={manualAmountMode ? (newInvoice.amount || "") : getTotalAmount || ""}
+              readOnly={!manualAmountMode}
+              onChange={(e) => {
+                if (!manualAmountMode) return;
+                setNewInvoice({ ...newInvoice, amount: e.target.value });
+              }}
+              required
+            />
+            {manualAmountMode && (
+              <small style={{ display: "block", color: "#64748b", fontSize: 11, marginTop: 4 }}>
+                {t("in.manualAmountHint")}
+              </small>
+            )}
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
