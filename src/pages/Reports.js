@@ -37,7 +37,7 @@ const ALL_EXPORT_ITEMS = [
   { type: "tasks", labelKey: "rep.file.tasks", icon: "fas fa-tasks", color: "#ec4899", module: "tasks" },
 ];
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, locale }) => {
   if (active && payload && payload.length) {
     return (
       <div
@@ -822,7 +822,7 @@ export default function Reports() {
                   tick={{ fontSize: 11, fontFamily: "Cairo", fill: "#64748b" }}
                   tickFormatter={(v) => moneyShort(v, locale)}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip locale={locale} />} />
                 <Area
                   type="monotone"
                   dataKey="الإيرادات"
@@ -870,7 +870,7 @@ export default function Reports() {
                         <Cell key={i} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip locale={locale} />} />
                     <Legend
                       formatter={(v) => (
                         <span style={{ fontFamily: "Cairo", fontSize: 12 }}>
@@ -948,7 +948,7 @@ export default function Reports() {
                       tick={{ fontSize: 11, fill: "#64748b" }}
                       allowDecimals={false}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip locale={locale} />} />
                     <Bar dataKey="القيمة" radius={[6, 6, 0, 0]}>
                       {taskStatusData.map((entry, i) => (
                         <Cell key={i} fill={entry.fill} />
@@ -1014,7 +1014,7 @@ export default function Reports() {
                     width={140}
                     tickMargin={8}
                   />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CustomTooltip locale={locale} />} />
                   <Bar
                     dataKey="السعر"
                     fill="#8b5cf6"
@@ -1042,7 +1042,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#8b5cf6" radius={[6, 6, 0, 0]} barSize={26} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1056,7 +1056,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#6366f1" radius={[6, 6, 0, 0]} barSize={26} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1070,7 +1070,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} allowDecimals={false} width={30} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="quantity" name={t('rep.soldQty')} fill="#1e3a8a" radius={[6, 6, 0, 0]} barSize={26} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1168,7 +1168,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="revenue" name={t('rep.revenue')} fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1195,7 +1195,7 @@ export default function Reports() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                       <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="revenue" name={t('rep.revenue')} fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
