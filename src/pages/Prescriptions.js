@@ -495,7 +495,7 @@ export default function Prescriptions() {
                           {r.medicines?.length || 0} {t("rx.medicines")}
                         </span>
                       </td>
-                      <td>{r.createdAt ? new fmtDate(Date(r.createdAt), locale) : "—"}</td>
+                      <td>{r.createdAt ? fmtDate(r.createdAt, locale) : "—"}</td>
                       <td>
                         <div className="table-actions">
                           <button
@@ -620,7 +620,7 @@ export default function Prescriptions() {
                   <div style={{ textAlign: lang === "ar" ? "right" : "left" }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{viewingRx.doctor || "—"}</div>
                     <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                      {viewingRx.createdAt ? new fmtDate(Date(viewingRx.createdAt), locale) : ""}
+                      {viewingRx.createdAt ? fmtDate(viewingRx.createdAt, locale) : ""}
                     </div>
                   </div>
                 </div>

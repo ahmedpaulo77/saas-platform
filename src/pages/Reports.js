@@ -581,7 +581,7 @@ export default function Reports() {
             quantity: totalQty,
             amount: inv.amount,
             status: inv.status,
-            date: inv.date ? new fmtDate(Date(inv.date), locale) : '',
+            date: inv.date ? fmtDate(inv.date, locale) : '',
             description: inv.description || '',
           };
         });
@@ -1442,7 +1442,7 @@ export default function Reports() {
                       </td>
                       <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                         {inv.date
-                          ? new fmtDate(Date(inv.date), locale)
+                          ? fmtDate(inv.date, locale)
                           : "-"}{" "}
                       </td>
                     </tr>

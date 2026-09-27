@@ -377,7 +377,7 @@ export default function SuperAdminDashboard() {
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13, whiteSpace: "nowrap" }}>
                             {company.createdAt
-                              ? new fmtDate(Date(company.createdAt), locale)
+                              ? fmtDate(company.createdAt, locale)
                               : t("common.unspecified")}
                           </td>
 
@@ -579,7 +579,7 @@ export default function SuperAdminDashboard() {
                                             </td>
                                             <td style={{ color: "var(--gray-500)", fontSize: 12 }}>
                                               {u.createdAt
-                                                ? new fmtDate(Date(u.createdAt), locale)
+                                                ? fmtDate(u.createdAt, locale)
                                                 : "—"}
                                             </td>
                                             <td>

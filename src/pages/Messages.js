@@ -505,7 +505,7 @@ export default function Messages() {
                       }}>
                         <span>
                           <i className="fas fa-clock" style={{ marginLeft: 4 }}></i>
-                          {new fmtDateTime(Date(msg.createdAt), locale)}
+                          {fmtDateTime(msg.createdAt, locale)}
                         </span>
                         {isIncoming && msg.read && (
                           <span style={{ color: "#10b981" }}>

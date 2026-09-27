@@ -478,7 +478,7 @@ export default function Users() {
                     </td>
                     <td>
                       {user.createdAt
-                        ? new fmtDate(Date(user.createdAt), locale)
+                        ? fmtDate(user.createdAt, locale)
                         : "-"}
                     </td>
                     <td>

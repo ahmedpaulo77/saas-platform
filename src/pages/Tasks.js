@@ -348,7 +348,7 @@ export default function Tasks() {
                           : t("tk.pending")}
                       </span>
                     </td>
-                    <td>{new fmtDate(Date(task.dueDate), locale)}</td>
+                    <td>{fmtDate(task.dueDate, locale)}</td>
                     <td>{task.assignedTo || "-"}</td>
                     <td>
                       <button

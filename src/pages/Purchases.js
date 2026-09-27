@@ -1488,7 +1488,7 @@ ${labelDivs}
                             </span>
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                            {p.date ? new fmtDate(Date(p.date), locale) : "-"}
+                            {p.date ? fmtDate(p.date, locale) : "-"}
                           </td>
                           <td>
                             <div className="table-actions">

@@ -266,7 +266,7 @@ export default function Buyers() {
                       <td>{buyer.phone || "-"}</td>
                       <td>{buyer.interest || "-"}</td>
                       <td>{buyer.agent || "-"}</td>
-                      <td>{buyer.lastCall ? new fmtDate(Date(buyer.lastCall), locale) : "-"}</td>
+                      <td>{buyer.lastCall ? fmtDate(buyer.lastCall, locale) : "-"}</td>
                       <td>
                         <button
                           onClick={() => setExpandedId(expandedId === buyer.id ? null : buyer.id)}
@@ -309,7 +309,7 @@ export default function Buyers() {
                               <div><strong>{t("buyers.followUp1")}:</strong> {buyer.followUp1 || "-"}</div>
                               <div><strong>{t("buyers.followUp2")}:</strong> {buyer.followUp2 || "-"}</div>
                               <div><strong>{t("buyers.followUp3")}:</strong> {buyer.followUp3 || "-"}</div>
-                              <div><strong>{t("buyers.lastCall")}:</strong> {buyer.lastCall ? new fmtDateTime(Date(buyer.lastCall), locale) : "-"}</div>
+                              <div><strong>{t("buyers.lastCall")}:</strong> {buyer.lastCall ? fmtDateTime(buyer.lastCall, locale) : "-"}</div>
                             </div>
                             {/* المعاينات */}
                             <div style={{ marginTop: 12 }}>

@@ -519,7 +519,7 @@ export default function Suppliers() {
                         return (
                           <tr key={p.id}>
                             <td>{i + 1}</td>
-                            <td>{p.date ? new fmtDate(Date(p.date), locale) : "-"}</td>
+                            <td>{p.date ? fmtDate(p.date, locale) : "-"}</td>
                             <td style={{ fontWeight: 700 }}>{moneyShort(pTotal, locale)}</td>
                             <td style={{ color: "#10b981" }}>{moneyShort(pPaid, locale)}</td>
                             <td style={{ fontWeight: 700, color: pTotal - pPaid > 0 ? "#ef4444" : "#10b981" }}>

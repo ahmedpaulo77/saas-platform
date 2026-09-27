@@ -233,7 +233,7 @@ export default function Notifications() {
                   <div className="notification-msg">{n.message}</div>
                   <div className="notification-date">
                     <i className="fas fa-clock" style={{ marginLeft: 4 }}></i>
-                    {new fmtDate(Date(n.date), locale)}
+                    {fmtDate(n.date, locale)}
                   </div>
                 </div>
                 <span
