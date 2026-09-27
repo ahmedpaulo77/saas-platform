@@ -7,6 +7,8 @@ import { logActivity } from '../../utils/auditLogger';
 import Sidebar from '../../components/common/Sidebar';
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../../components/common/PasswordStrengthMeter';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { createUserSeated } from '../../utils/seats';
+import { limitFor, countFor, isCappedRole, isAdminRole } from '../../utils/limits';
 
 export default function ManageUsers() {
   const { t } = useLanguage();
@@ -72,13 +74,38 @@ export default function ManageUsers() {
     }
     setSubmitting(true);
     try {
+      // 🔴 فحص السقف *قبل* إنشاء حساب Firebase Auth. لو رسبحنا في الفحص
+      // وبعتنا for 後 نكتشف إن السقف خلص، يبقى في حساب على Firebase
+      // من غير مستند — مشكل�� صعب تتشال.
+      const companyRequired2 = newUser.role !== 'super_admin';
+      if (companyRequired2) {
+        const co = companies.find((c) => c.id === newUser.companyId);
+        if (!co) { alert(t('mu.companyRequired')); setSubmitting(false); return; }
+        const cap = limitFor(co, newUser.role);
+        const used = isAdminRole(newUser.role) ? co.adminsCount : co.usersCount;
+        if (cap > 0 && (used || 0) >= cap) {
+          alert(
+            t('mu.seatLimit', {
+              role: isAdminRole(newUser.role) ? t('role.admin') : t('role.user'),
+              cap,
+              used: used || 0,
+            })
+          );
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const newCred = await createAuthUserWithoutSession(newUser.email, newUser.password);
-      await setDoc(doc(db, 'users', newCred.uid), {
-        email: newCred.email,
-        role: newUser.role,
-        companyId: newUser.companyId || null,
-        createdAt: new Date().toISOString(),
-        isActive: true,
+      await createUserSeated({
+        uid: newCred.uid,
+        payload: {
+          email: newCred.email,
+          role: newUser.role,
+          companyId: newUser.companyId || null,
+          createdAt: new Date().toISOString(),
+          isActive: true,
+        },
       });
 
       await logActivity({
@@ -96,6 +123,15 @@ export default function ManageUsers() {
     } catch (e) {
       if (e.code === 'auth/email-already-in-use') {
         alert(t('mu.exists'));
+      } else if (e.code === 'limits/seat-exceeded') {
+        // السقف اتقفل بين الفحص والكتابة (حد تاني ضاغط في نفس الوقت)
+        alert(t('mu.seatLimit', {
+          role: isAdminRole(newUser.role) ? t('role.admin') : t('role.user'),
+          cap: e.cap,
+          used: e.used,
+        }));
+      } else if (e.code === 'limits/company-missing') {
+        alert(t('mu.companyRequired'));
       } else {
         alert(t('mu.err', { msg: e.message || e }));
       }

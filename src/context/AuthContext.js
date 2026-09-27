@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db, initializePushNotifications } from '../firebase/config';
+import { createUserSeated } from '../utils/seats';
 
 const AUTH_BLOCK_KEY = 'saas-auth-block';
 
@@ -65,7 +66,10 @@ export function AuthProvider({ children }) {
     if (joinCode) {
       payload._joinCode = joinCode;
     }
-    await setDoc(doc(db, "users", uid), payload);
+    // ⚠️ مش setDoc عادي: لو الشركة عندها سقف users/admins، الكتابة لازم
+    // تكون جوه transaction مع العدّاد بتاعها. غير كده حد ممكن يعمل 101
+    // يوزر لو ضغط "إضافة" في نفس اللحظة مع حد تاني.
+    return createUserSeated({ uid, payload });
   }
 
   /**

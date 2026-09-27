@@ -11,9 +11,14 @@ import { db } from "../../firebase/config";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/common/Sidebar";
 import { useLanguage } from "../../i18n/LanguageContext";
+import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits";
+import { logActivity } from "../../utils/auditLogger";
 
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [saving, setSaving] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -22,7 +27,7 @@ export default function SuperAdminDashboard() {
     active: 0,
     inactive: 0,
   });
-  const { currentUser } = useAuth();
+  const { currentUser, userRole } = useAuth();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -31,9 +36,15 @@ export default function SuperAdminDashboard() {
 
   async function fetchCompanies() {
     try {
-      // جلب الشركات فقط
-      const snap = await getDocs(collection(db, "companies"));
-      const companiesData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // جلب الشركات + المستخدمين مع بعض: العدّادات على الشاشة بتتحسب من
+      // مستندات المستخدمين الحقيقية (مش من العدّاد المخزّن) عشان لو
+      // العدّاد اتلخبط نقدر نصحّحه بضغطة.
+      const [coSnap, usSnap] = await Promise.all([
+        getDocs(collection(db, "companies")),
+        getDocs(collection(db, "users")),
+      ]);
+      const companiesData = coSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const usersData = usSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       let active = 0,
         inactive = 0;
@@ -44,6 +55,7 @@ export default function SuperAdminDashboard() {
       });
 
       setCompanies(companiesData);
+      setUsers(usersData);
       setStats({
         total: companiesData.length,
         active,
@@ -53,6 +65,72 @@ export default function SuperAdminDashboard() {
       console.error("Error fetching data:", e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // كل مستخدمي شركة واحدة
+  const usersOf = (companyId) =>
+    users.filter((u) => u.companyId === companyId && u.role !== "super_admin");
+
+  /**
+   * حفظ سقف واحد.
+   * غيّرنا العدّاد المخزّن كمان في نفس الكتابة (batch) — الـ rules بتطلب
+   * إن العدّاد يبقى متطابق مع الواقع، وعند lowering السقف تحت العدد الحالي
+   * السقف الجديد بيبقى "مكسور" لحد ما ينقص مستخدمين، وده مقصود: بيظهر
+   * بالأحمر في الجدول بدل ما نخفي الكسر.
+   */
+  async function saveLimit(company, role, rawValue) {
+    const field = role === "admin" ? "maxAdmins" : "maxUsers";
+    const value = parseLimitInput(rawValue);
+    const key = company.id + ":" + field;
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      const live = tallyCompany(company.id, users);
+      const patch = { [field]: value, updatedAt: new Date().toISOString() };
+      // لو company's counter drifted, fix it while we are here.
+      if (live.adminsCount !== company.adminsCount) patch.adminsCount = live.adminsCount;
+      if (live.usersCount !== company.usersCount) patch.usersCount = live.usersCount;
+      await updateDoc(doc(db, "companies", company.id), patch);
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "companies",
+        itemId: company.id,
+        details: `Set ${field} = ${value} (was ${company[field] || 0}) for ${company.name}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole },
+      });
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === company.id ? { ...c, ...patch } : c))
+      );
+    } catch (e) {
+      console.error("saveLimit failed:", e);
+      alert(t("limits.saveFailed") + ": " + (e.message || e));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  }
+
+  /**
+   * إعادة حساب العدّادات من مستندات المستخدمين. مستخدمين إنت أضفتهم
+   * من مكان تاني (أو اتحذفوا) العدّاد المخزّن بيكون قديم.
+   */
+  async function resyncCounters(company) {
+    const key = company.id + ":resync";
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      const live = tallyCompany(company.id, users);
+      await updateDoc(doc(db, "companies", company.id), {
+        adminsCount: live.adminsCount,
+        usersCount: live.usersCount,
+        updatedAt: new Date().toISOString(),
+      });
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === company.id ? { ...c, ...live } : c))
+      );
+    } catch (e) {
+      console.error("resync failed:", e);
+      alert(t("limits.saveFailed") + ": " + (e.message || e));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
     }
   }
 
@@ -96,16 +174,30 @@ export default function SuperAdminDashboard() {
     }
   }
 
-  const filtered = companies.filter((c) => {
-    const matchSearch =
-      (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (c.email || "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      filterStatus === "all" ||
-      (filterStatus === "active" && c.isActive) ||
-      (filterStatus === "inactive" && !c.isActive);
-    return matchSearch && matchStatus;
-  });
+  // 🆕 الترتيب: الأحدث إنشاءً فوق. قبل كند كان getDocs بيرجع بترتيب
+  // المستند (doc id) وده عشوائي، فمش كان حد يعرف إيه الجديد.
+  // مقارنة ISO strings نصوصية كفاية، وندفع اللي مالهوش تاريخ لآخر
+  // القائمة (مش في الأول عشان ما يغطّوش الشركات الجديدة).
+  const filtered = companies
+    .filter((c) => {
+      const matchSearch =
+        (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
+        (c.email || "").toLowerCase().includes(search.toLowerCase());
+      const matchStatus =
+        filterStatus === "all" ||
+        (filterStatus === "active" && c.isActive) ||
+        (filterStatus === "inactive" && !c.isActive);
+      return matchSearch && matchStatus;
+    })
+    .slice()
+    .sort((a, b) => {
+      const at = a.createdAt ? String(a.createdAt) : "";
+      const bt = b.createdAt ? String(b.createdAt) : "";
+      if (at && bt) return bt.localeCompare(at); // تنازلي = الأحدث فوق
+      if (at) return -1; // اللي ليه تاريخ قبل اللي معندوش
+      if (bt) return 1;
+      return b.id.localeCompare(a.id);
+    });
 
   if (loading)
     return (
@@ -234,66 +326,285 @@ export default function SuperAdminDashboard() {
                     <th>{t("sa.email")}</th>
                     <th>{t("sa.status")}</th>
                     <th>{t("sa.createdAt")}</th>
+                    <th>{t("limits.adminsCol")}</th>
+                    <th>{t("limits.usersCol")}</th>
                     <th>{t("sa.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((company, i) => (
-                    <tr key={company.id}>
-                      <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>
-                        {i + 1}
-                      </td>
-                      <td style={{ fontWeight: 700 }}>
-                        {company.name || t("common.unspecified")}
-                      </td>
-                      <td style={{ color: "var(--gray-500)" }}>
-                        {company.email}
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            company.isActive ? "badge-active" : "badge-expired"
-                          }`}
+                  {filtered.map((company, i) => {
+                    const live = tallyCompany(company.id, users);
+                    const aSeats = seatStatus(company, "admin", live.adminsCount);
+                    const uSeats = seatStatus(company, "user", live.usersCount);
+                    const drifted =
+                      live.adminsCount !== company.adminsCount ||
+                      live.usersCount !== company.usersCount;
+                    const isOpen = expanded === company.id;
+                    return (
+                      <React.Fragment key={company.id}>
+                        <tr
+                          onClick={() => setExpanded(isOpen ? null : company.id)}
+                          style={{
+                            cursor: "pointer",
+                            background: isOpen ? "var(--gray-50, #f8fafc)" : undefined,
+                          }}
                         >
-                          {company.isActive ? t("sa.statusActive") : t("sa.statusInactive")}
-                        </span>
-                      </td>
-                      <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
-                        {company.createdAt
-                          ? new Date(company.createdAt).toLocaleDateString()
-                          : t("common.unspecified")}
-                      </td>
-                      <td>
-                        <div className="table-actions">
-                          <button
-                            onClick={() =>
-                              toggleActive(company.id, company.isActive)
-                            }
-                            className={`btn-sm ${
-                              company.isActive
-                                ? "btn-secondary"
-                                : "btn-primary"
-                            }`}
-                          >
+                          <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>
+                            {i + 1}
+                          </td>
+                          <td style={{ fontWeight: 700 }}>
                             <i
-                              className={`fas ${
-                                company.isActive
-                                  ? "fa-pause-circle"
-                                  : "fa-play-circle"
-                              }`}
+                              className={`fas ${isOpen ? "fa-chevron-down" : "fa-chevron-left"}`}
+                              style={{ marginInlineEnd: 6, fontSize: 11, color: "var(--gray-400)" }}
                             ></i>
-                            {company.isActive ? t("sa.deactivate") : t("sa.activate")}
-                          </button>
-                          <button
-                            onClick={() => deleteCompany(company.id)}
-                            className="btn-danger btn-sm"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {company.name || t("common.unspecified")}
+                            <div style={{ fontSize: 11, color: "var(--gray-500)", fontWeight: 500 }}>
+                              {usersOf(company.id).length} {t("limits.people")}
+                            </div>
+                          </td>
+                          <td style={{ color: "var(--gray-500)" }}>
+                            {company.email}
+                          </td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                company.isActive ? "badge-active" : "badge-expired"
+                              }`}
+                            >
+                              {company.isActive ? t("sa.statusActive") : t("sa.statusInactive")}
+                            </span>
+                          </td>
+                          <td style={{ color: "var(--gray-500)", fontSize: 13, whiteSpace: "nowrap" }}>
+                            {company.createdAt
+                              ? new Date(company.createdAt).toLocaleDateString()
+                              : t("common.unspecified")}
+                          </td>
+
+                          {/* ── عمود سقف الأدمن ── */}
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: 13,
+                                  minWidth: 42,
+                                  textAlign: "center",
+                                  color: aSeats.over
+                                    ? "#dc2626"
+                                    : aSeats.unlimited
+                                    ? "var(--gray-500)"
+                                    : aSeats.left === 0
+                                    ? "#d97706"
+                                    : "#059669",
+                                }}
+                                title={aSeats.unlimited ? t("limits.unlimited") : `${aSeats.used} / ${aSeats.cap}`}
+                              >
+                                {aSeats.used}
+                                <span style={{ color: "var(--gray-400)" }}> / </span>
+                                {aSeats.unlimited ? "∞" : aSeats.cap}
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                defaultValue={company.maxAdmins || 0}
+                                onBlur={(e) => saveLimit(company, "admin", e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") e.currentTarget.blur();
+                                }}
+                                placeholder={t("limits.unlimited")}
+                                style={{
+                                  width: 74,
+                                  padding: "5px 8px",
+                                  border: "2px solid #e2e8f0",
+                                  borderRadius: 7,
+                                  fontSize: 13,
+                                }}
+                              />
+                            </div>
+                          </td>
+
+                          {/* ── عمود سقف اليوزرز ── */}
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: 13,
+                                  minWidth: 42,
+                                  textAlign: "center",
+                                  color: uSeats.over
+                                    ? "#dc2626"
+                                    : uSeats.unlimited
+                                    ? "var(--gray-500)"
+                                    : uSeats.left === 0
+                                    ? "#d97706"
+                                    : "#059669",
+                                }}
+                                title={uSeats.unlimited ? t("limits.unlimited") : `${uSeats.used} / ${uSeats.cap}`}
+                              >
+                                {uSeats.used}
+                                <span style={{ color: "var(--gray-400)" }}> / </span>
+                                {uSeats.unlimited ? "∞" : uSeats.cap}
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                defaultValue={company.maxUsers || 0}
+                                onBlur={(e) => saveLimit(company, "user", e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") e.currentTarget.blur();
+                                }}
+                                placeholder={t("limits.unlimited")}
+                                style={{
+                                  width: 74,
+                                  padding: "5px 8px",
+                                  border: "2px solid #e2e8f0",
+                                  borderRadius: 7,
+                                  fontSize: 13,
+                                }}
+                              />
+                            </div>
+                          </td>
+
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div className="table-actions">
+                              <button
+                                onClick={() =>
+                                  toggleActive(company.id, company.isActive)
+                                }
+                                className={`btn-sm ${
+                                  company.isActive
+                                    ? "btn-secondary"
+                                    : "btn-primary"
+                                }`}
+                              >
+                                <i
+                                  className={`fas ${
+                                    company.isActive
+                                      ? "fa-pause-circle"
+                                      : "fa-play-circle"
+                                  }`}
+                                ></i>
+                                {company.isActive ? t("sa.deactivate") : t("sa.activate")}
+                              </button>
+                              <button
+                                onClick={() => deleteCompany(company.id)}
+                                className="btn-danger btn-sm"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* ── سطر اليوزرز: يظهر لما تدوس على الشركة ── */}
+                        {isOpen && (
+                          <tr>
+                            <td colSpan={8} style={{ background: "#f8fafc", padding: 0 }}>
+                              <div style={{ padding: "12px 16px" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    marginBottom: 8,
+                                    flexWrap: "wrap",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <strong style={{ fontSize: 13 }}>
+                                    <i className="fas fa-users" style={{ marginInlineEnd: 6 }}></i>
+                                    {t("limits.membersOf", { name: company.name || "—" })}
+                                  </strong>
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    {drifted && (
+                                      <button
+                                        onClick={() => resyncCounters(company)}
+                                        disabled={saving[company.id + ":resync"]}
+                                        className="btn-sm"
+                                        style={{
+                                          background: "#fef3c7",
+                                          color: "#92400e",
+                                          border: "1px solid #fcd34d",
+                                          borderRadius: 7,
+                                          fontWeight: 700,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        <i className="fas fa-sync-alt"></i> {t("limits.resync")}
+                                      </button>
+                                    )}
+                                    <span style={{ fontSize: 12, color: "var(--gray-500)" }}>
+                                      {t("limits.hint")}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {usersOf(company.id).length === 0 ? (
+                                  <div style={{ fontSize: 13, color: "var(--gray-500)" }}>
+                                    {t("limits.noMembers")}
+                                  </div>
+                                ) : (
+                                  <table style={{ fontSize: 13 }}>
+                                    <thead>
+                                      <tr>
+                                        <th>{t("common.email")}</th>
+                                        <th>{t("limits.role")}</th>
+                                        <th>{t("common.date")}</th>
+                                        <th>{t("common.status")}</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {usersOf(company.id)
+                                        .slice()
+                                        .sort((a, b) =>
+                                          String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+                                        )
+                                        .map((u) => (
+                                          <tr key={u.id}>
+                                            <td style={{ fontWeight: 600 }}>{u.email}</td>
+                                            <td>
+                                              <span className="badge" style={{ fontSize: 11 }}>
+                                                {u.role === "admin"
+                                                  ? t("role.admin")
+                                                  : u.role === "cashier"
+                                                  ? t("role.cashier")
+                                                  : u.role === "kitchen"
+                                                  ? t("role.kitchen")
+                                                  : t("role.user")}
+                                              </span>
+                                            </td>
+                                            <td style={{ color: "var(--gray-500)", fontSize: 12 }}>
+                                              {u.createdAt
+                                                ? new Date(u.createdAt).toLocaleDateString()
+                                                : "—"}
+                                            </td>
+                                            <td>
+                                              <span
+                                                className={`badge ${
+                                                  u.isActive === false ? "badge-expired" : "badge-active"
+                                                }`}
+                                                style={{ fontSize: 11 }}
+                                              >
+                                                {u.isActive === false
+                                                  ? t("limits.disabled")
+                                                  : t("limits.active")}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

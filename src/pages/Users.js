@@ -18,6 +18,8 @@ import { logActivity } from "../utils/auditLogger";
 import Sidebar from "../components/common/Sidebar";
 import Pagination from "../components/common/Pagination";
 import { useLanguage } from "../i18n/LanguageContext";
+import { createUserSeated } from "../utils/seats";
+import { limitFor, isAdminRole } from "../utils/limits";
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter";
 
 export default function Users() {
@@ -121,17 +123,43 @@ export default function Users() {
 
     setSubmitting(true);
     try {
+      // 🔴 فحص السقف قبل إنشاء حساب Firebase Auth — لو اكتشفناه بعد
+      // الإنشاء يبقى في يوزر على Firebase من غير مستند.
+      if (companyId) {
+        const cSnap = await getDoc(doc(db, "companies", companyId));
+        const co = cSnap.exists() ? cSnap.data() : null;
+        const cap = limitFor(co, targetRole);
+        if (cap > 0) {
+          const field = isAdminRole(targetRole) ? "adminsCount" : "usersCount";
+          const used = parseInt(co?.[field], 10) || 0;
+          if (used >= cap) {
+            alert(
+              t("limits.reached", {
+                role: isAdminRole(targetRole) ? t("role.admin") : t("role.user"),
+                cap,
+                used,
+              })
+            );
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const newCred = await createAuthUserWithoutSession(
         newUser.email,
         newUser.password,
       );
 
-      await setDoc(doc(db, "users", newCred.uid), {
-        email: newCred.email,
-        role: targetRole,
-        companyId,
-        isActive: true,
-        createdAt: new Date().toISOString(),
+      await createUserSeated({
+        uid: newCred.uid,
+        payload: {
+          email: newCred.email,
+          role: targetRole,
+          companyId,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
       });
       
       await logActivity({
@@ -150,6 +178,12 @@ export default function Users() {
       console.error("Error adding user:", error);
       if (error.code === 'auth/email-already-in-use') {
         alert(t("mu.exists"));
+      } else if (error.code === "limits/seat-exceeded") {
+        alert(t("limits.reached", {
+          role: isAdminRole(targetRole) ? t("role.admin") : t("role.user"),
+          cap: error.cap,
+          used: error.used,
+        }));
       } else {
         alert(t("errors.addUser") + ": " + (error.message || error));
       }

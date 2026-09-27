@@ -172,7 +172,90 @@
               newUserData.companyId == userCompanyId() &&
               userCompanyId() != null
             )
-          );
+          ) &&
+          // 🔴 السقف: مقعد متاح + العدّاد اتزاد في نفس الـ batch
+          seatAvailable(newUserData.companyId, newUserData.role) &&
+          seatClaimed(newUserData.companyId, newUserData.role);
+      }
+
+      // ============================================================
+      // 🆕 حدود المقاعد (seats) — كل شركة عندها سقف أدمن وسقف يوزرز
+      // ============================================================
+      // الفكرة: الـ rules مش بتعرف تعدّ collection، فالعدّاد (adminsCount /
+      // usersCount) متخزّن على مستند الشركة نفسه عشان تتقريه في نفس الكتابة.
+      //
+      //    - maxAdmins / maxUsers = 0 أو مش موجود  =>  مفتوح (الوضع الافتراضي)
+      //    - إنشاء يوزر لازم يزيد العدّاد المناسب +1 بالظبط في نفس الـ batch،
+      //      وممنوع يعدّي السقف. يعني مستحيل حد يتخطى الحد من غير ما يعدّل
+      //      مستند الشركة من سيفر — وده مسموح بسوبر أدمن بس.
+      function companyPath(cid) {
+        return /databases/$(database)/documents/companies/$(cid);
+      }
+
+      function adminCapOf(c) {
+        return c.maxAdmins is int && c.maxAdmins > 0 ? c.maxAdmins : 0;
+      }
+
+      function userCapOf(c) {
+        return c.maxUsers is int && c.maxUsers > 0 ? c.maxUsers : 0;
+      }
+
+      function adminCountOf(c) {
+        return c.adminsCount is int && c.adminsCount > 0 ? c.adminsCount : 0;
+      }
+
+      function userCountOf(c) {
+        return c.usersCount is int && c.usersCount > 0 ? c.usersCount : 0;
+      }
+
+      // المقعد المطلوب موجود في السقف دلوقتي؟
+      // companyId == null أو role == super_admin => مفتوح دايماً
+      function seatAvailable(cid, role) {
+        if (cid == null || role == 'super_admin') { return true; }
+        if (!exists(companyPath(cid))) { return false; }
+        let c = get(companyPath(cid)).data;
+        return role == 'admin'
+          ? adminCapOf(c) == 0 || adminCountOf(c) < adminCapOf(c)
+          : userCapOf(c) == 0 || userCountOf(c) < userCapOf(c);
+      }
+
+      // نفس الـ batch لازم يكون زوّد العدّاد المناسب +1 بالظبط.
+      // ده اللي بيمنع أي حد يعمل users doc من غير transaction بتاعنا
+      // (يعني من غير احترام السقف).
+      //
+      // ⚠️ ملاحظة: مفيش let capOf = adminCapOf ولا كده — لغة الـ rules
+      //    مش بتسمح بمرجع لدالة كـ قيمة (functions aren't first-class).
+      //    لازم分支 صريح على الـ role.
+      function seatClaimed(cid, role) {
+        if (cid == null || role == 'super_admin') { return true; }
+        if (!exists(companyPath(cid))) { return false; }
+        let before = get(companyPath(cid)).data;
+        let cap = role == 'admin' ? adminCapOf(before) : userCapOf(before);
+        // الشركة مفتوحة: مفيش عدّاد متتبع، فمفيش شرط
+        if (cap == 0) { return true; }
+        if (!existsAfter(companyPath(cid))) { return false; }
+        let after = getAfter(companyPath(cid)).data;
+        let now = role == 'admin' ? adminCountOf(before) : userCountOf(before);
+        let next = role == 'admin'
+          ? (after.adminsCount is int ? after.adminsCount : 0)
+          : (after.usersCount is int ? after.usersCount : 0);
+        return next == now + 1 && next <= cap;
+      }
+
+      // العدّادات ما تتزydayش غير ±1 في المرة الواحدة، ومش فوق السقف.
+      // (super admin يقدر يعدّل السقف نفسه في أي وقت — راجع companies update)
+      function counterChangeIsSane(after, before) {
+        let admins = after.diff(before).affectedKeys();
+        let users = after.diff(before).affectedKeys();
+        let adminsOk = !admins.hasAny(['adminsCount']) ||
+          ((after.adminsCount is int ? after.adminsCount : 0)
+             == (before.adminsCount is int ? before.adminsCount : 0) + 1
+           && (adminCapOf(after) == 0 || (after.adminsCount is int ? after.adminsCount : 0) <= adminCapOf(after)));
+        let usersOk = !users.hasAny(['usersCount']) ||
+          ((after.usersCount is int ? after.usersCount : 0)
+             == (before.usersCount is int ? before.usersCount : 0) + 1
+           && (userCapOf(after) == 0 || (after.usersCount is int ? after.usersCount : 0) <= userCapOf(after)));
+        return adminsOk && usersOk;
       }
 
       // ============================================================
@@ -217,12 +300,17 @@
             // ب) بينضم بكود دعوة حقيقي بيتحقق منه من invite_codes/{code}.
             //    companyId بييجي من الكود نفسه (مش من تخمين المستخدم) وبيتحقق
             //    إن الكود ده فعلاً متاع الشركة دي وإن دوره = الدور المطلوب.
+            //    🔴 وكمان بيتشيك على السقف: ما ينفعش كود دعوة يتخطى حد
+            //    الـ users/admins بتاع الشركة (كان واصل لـ 100 يوزر وأنا
+            //    فاضي السقف، فأي حد عنده الكود يقدر يزيد).
             isLoggedIn() && request.auth.uid == userId &&
             request.resource.data.role != 'super_admin' &&
             '_joinCode' in request.resource.data &&
             exists(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)) &&
             get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.companyId == request.resource.data.companyId &&
-            get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.role == request.resource.data.role
+            get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.role == request.resource.data.role &&
+            seatAvailable(request.resource.data.companyId, request.resource.data.role) &&
+            seatClaimed(request.resource.data.companyId, request.resource.data.role)
           ) || (
             // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا
             canCreateTargetUser(request.resource.data)
@@ -319,7 +407,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount']) &&
           (
           isSuperAdmin() ||
           (
@@ -328,7 +416,13 @@
             (!('isActive' in request.resource.data) || request.resource.data.isActive == resource.data.isActive) &&
             (!('plan' in request.resource.data) || request.resource.data.plan == resource.data.plan) &&
             (!('subscription' in request.resource.data) || request.resource.data.subscription == resource.data.subscription) &&
-            (!('creatorUid' in request.resource.data) || request.resource.data.creatorUid == resource.data.creatorUid)
+            (!('creatorUid' in request.resource.data) || request.resource.data.creatorUid == resource.data.creatorUid) &&
+            // 🔴 أدمن الشركة يقدر يزيد عدّاده هو (لإضافة يوزر) بس مش يعدّل
+            //    السقف نفسه — السقف حقّ السير أدمن بس. والعدّاد ±1 بس
+            //    ومش فوق السقف.
+            (!('maxAdmins' in request.resource.data) || request.resource.data.maxAdmins == resource.data.maxAdmins) &&
+            (!('maxUsers' in request.resource.data) || request.resource.data.maxUsers == resource.data.maxUsers) &&
+            counterChangeIsSane(request.resource.data, resource.data)
           )
         );
 
