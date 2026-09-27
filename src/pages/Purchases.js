@@ -12,20 +12,20 @@ import {
   where,
   runTransaction,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { getAvailableModules } from "../utils/modules";
-import { logActivity } from "../utils/auditLogger";
-import { createReturn } from "../utils/returns";
-import AutocompleteInput from "../components/common/AutocompleteInput";
-import Pagination from "../components/common/PaginationV2";
-import { useFirestorePagination } from "../hooks/useFirestorePagination";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { getAvailableModules } from "../utils/modules.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { createReturn } from "../utils/returns.js";
+import AutocompleteInput from "../components/common/AutocompleteInput.js";
+import Pagination from "../components/common/PaginationV2.js";
+import { useFirestorePagination } from "../hooks/useFirestorePagination.js";
 import JsBarcode from "jsbarcode";
-import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits";
-import { moneyShort, fmtDate } from "../utils/fmt";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
+import { moneyShort, fmtDate } from "../utils/fmt.js";
 const PAGE_SIZE = 25;
 
 export default function Purchases() {

@@ -1,7 +1,7 @@
 // src/components/common/PasswordStrengthMeter.js
 // مقياس قوة كلمة المرور مع متطلبات واضحة
 import React from 'react';
-import { useLanguage } from '../../i18n/LanguageContext';
+import { useLanguage } from '../../i18n/LanguageContext.js';
 
 /**
  * 🔴 سياسة كلمة المرور — المصدر الوحيد.

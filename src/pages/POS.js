@@ -1,14 +1,14 @@
 ﻿// src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, fetchUserCompany } from "../utils/companyQuery";
-import { printReceipt, receiptCode } from "../utils/receipt";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
-import { fmtDateTime, moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, fetchUserCompany } from "../utils/companyQuery.js";
+import { printReceipt, receiptCode } from "../utils/receipt.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
+import { fmtDateTime, moneyShort } from "../utils/fmt.js";
 
 // round2 بيقرّب فلوس عند حدّين عشان ما نتكسبش أخطاء 0.1+0.2.
 const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;

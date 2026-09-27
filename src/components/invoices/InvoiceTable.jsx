@@ -1,14 +1,14 @@
 // src/components/invoices/InvoiceTable.jsx - extracted from Invoices.js
 import React from "react";
-import Pagination from "../common/PaginationV2";
-import OrderStatusBadge from "./OrderStatusBadge";
-import { ORDER_TYPES, ORDER_STATUSES, getSourceLabel } from "../../utils/invoiceHelpers";
-import { useAuth } from "../../context/AuthContext";
-import { useLanguage } from "../../i18n/LanguageContext";
-import { getAvailableModules } from "../../utils/modules";
-import { canDelete } from "../../utils/companyQuery";
-import { round2 } from "../../utils/revenue";
-import { fmtDate, moneyShort } from "../../utils/fmt";
+import Pagination from "../common/PaginationV2.js";
+import OrderStatusBadge from "./OrderStatusBadge.jsx";
+import { ORDER_TYPES, ORDER_STATUSES, getSourceLabel } from "../../utils/invoiceHelpers.js";
+import { useAuth } from "../../context/AuthContext.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
+import { getAvailableModules } from "../../utils/modules.js";
+import { canDelete } from "../../utils/companyQuery.js";
+import { round2 } from "../../utils/revenue.js";
+import { fmtDate, moneyShort } from "../../utils/fmt.js";
 
 export default function InvoiceTable({
   filteredInvoices,

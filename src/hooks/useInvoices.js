@@ -1,14 +1,14 @@
 // src/hooks/useInvoices.js - extracted from src/pages/Invoices.js
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getDocs, doc, updateDoc, collection, query, where } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import { getAvailableModules } from "../utils/modules";
-import { logActivity } from "../utils/auditLogger";
-import { useFirestorePagination } from "./useFirestorePagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { round2 } from "../utils/revenue";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import { getAvailableModules } from "../utils/modules.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { useFirestorePagination } from "./useFirestorePagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { round2 } from "../utils/revenue.js";
 
 const PAGE_SIZE = 25;
 

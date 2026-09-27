@@ -1,6 +1,6 @@
 // src/components/common/LanguageToggle.js
 import React from 'react';
-import { useLanguage } from '../../i18n/LanguageContext';
+import { useLanguage } from '../../i18n/LanguageContext.js';
 
 export default function LanguageToggle({ variant = 'fab' }) {
   const { lang, toggleLang, t } = useLanguage();

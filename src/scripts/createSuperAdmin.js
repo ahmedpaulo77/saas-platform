@@ -1,5 +1,5 @@
 // src/scripts/createSuperAdmin.js
-import { auth, db } from '../firebase/config';
+import { auth, db } from '../firebase/config.js';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 

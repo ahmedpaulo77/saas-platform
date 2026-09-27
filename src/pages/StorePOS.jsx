@@ -1,14 +1,14 @@
 ﻿// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
-import { moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
+import { moneyShort } from "../utils/fmt.js";
 
 const NAVY = "#1e3a8a";
 

@@ -1,15 +1,15 @@
 // src/components/invoices/InvoiceForm.jsx - extracted from Invoices.js
 import React, { useState, useMemo } from "react";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../../firebase/config";
-import { useAuth } from "../../context/AuthContext";
-import { useLanguage } from "../../i18n/LanguageContext";
-import AutocompleteInput from "../common/AutocompleteInput";
-import { ORDER_STATUSES, ORDER_TYPES, ORDER_SOURCES } from "../../utils/invoiceHelpers";
-import { EGYPT_PAYMENTS } from "../../utils/paymentMethods";
-import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits";
-import { getAvailableModules } from "../../utils/modules";
-import { moneyShort } from "../../utils/fmt";
+import { db } from "../../firebase/config.js";
+import { useAuth } from "../../context/AuthContext.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
+import AutocompleteInput from "../common/AutocompleteInput.js";
+import { ORDER_STATUSES, ORDER_TYPES, ORDER_SOURCES } from "../../utils/invoiceHelpers.js";
+import { EGYPT_PAYMENTS } from "../../utils/paymentMethods.js";
+import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits.js";
+import { getAvailableModules } from "../../utils/modules.js";
+import { moneyShort } from "../../utils/fmt.js";
 
 export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients }) {
   const { t, locale } = useLanguage();

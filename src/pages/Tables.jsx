@@ -1,13 +1,13 @@
 // src/pages/Tables.jsx - إدارة الطاولات للمطاعم/الكافيهات
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/PaginationV2";
-import { useLanguage } from "../i18n/LanguageContext";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/PaginationV2.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
 
 const STATUS_OPTIONS = [
   { value: "available", label: "🟢 متاح", color: "#16a34a", bg: "#f0fdf4" },

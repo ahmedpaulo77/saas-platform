@@ -1,13 +1,13 @@
 // src/pages/Subscriptions.js - الاشتراكات المتكررة (خدمات/عام/مقاولات) + توليد الفواتير المستحقة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { moneyShort } from "../utils/fmt.js";
 
 const STATUS = {
   active: { label: "🟢 نشط", color: "#16a34a", bg: "#f0fdf4" },

@@ -1,11 +1,11 @@
 // src/pages/Messages.js - نظام إرسال واستقبال الرسائل مع إشعارات وفلتر
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, query, where, doc, updateDoc, onSnapshot, orderBy } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDateTime } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDateTime } from "../utils/fmt.js";
 
 export default function Messages() {
   const { t, locale } = useLanguage();

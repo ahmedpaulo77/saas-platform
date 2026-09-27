@@ -9,13 +9,13 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import Pagination from "../components/common/Pagination";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, isSuperAdmin, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import Pagination from "../components/common/Pagination.js";
 
 export default function Clients() {
   const { t } = useLanguage();

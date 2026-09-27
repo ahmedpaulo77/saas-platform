@@ -1,11 +1,11 @@
 ﻿// src/pages/Profile.js - مع دعم الترجمة
 import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext.js";
 import { updatePassword } from "firebase/auth";
-import { auth } from "../firebase/config";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR } from "../components/common/PasswordStrengthMeter";
+import { auth } from "../firebase/config.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR } from "../components/common/PasswordStrengthMeter.js";
 
 export default function Profile() {
   const { t } = useLanguage();

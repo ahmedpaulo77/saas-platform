@@ -1,12 +1,12 @@
 // src/components/invoices/InvoiceModals.jsx - extracted from Invoices.js
 import React, { useMemo } from "react";
-import { useAuth } from "../../context/AuthContext";
-import { useLanguage } from "../../i18n/LanguageContext";
-import { getAvailableModules } from "../../utils/modules";
-import AutocompleteInput from "../common/AutocompleteInput";
-import { ORDER_STATUSES, ORDER_TYPES } from "../../utils/invoiceHelpers";
-import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits";
-import { moneyShort } from "../../utils/fmt";
+import { useAuth } from "../../context/AuthContext.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
+import { getAvailableModules } from "../../utils/modules.js";
+import AutocompleteInput from "../common/AutocompleteInput.js";
+import { ORDER_STATUSES, ORDER_TYPES } from "../../utils/invoiceHelpers.js";
+import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits.js";
+import { moneyShort } from "../../utils/fmt.js";
 
 export default function InvoiceModals({
   // edit

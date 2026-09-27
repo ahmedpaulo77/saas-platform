@@ -1,14 +1,14 @@
 ﻿// src/pages/admin/ManageUsers.js - إدارة المستخدمين وربطهم بالشركات
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { db, createAuthUserWithoutSession, revokeAccountAccess } from '../../firebase/config';
-import { useAuth } from '../../context/AuthContext';
-import { logActivity } from '../../utils/auditLogger';
-import Sidebar from '../../components/common/Sidebar';
-import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../../components/common/PasswordStrengthMeter';
-import { useLanguage } from '../../i18n/LanguageContext';
-import { createUserSeated } from '../../utils/seats';
-import { limitFor, countFor, isCappedRole, isAdminRole } from '../../utils/limits';
+import { db, createAuthUserWithoutSession, revokeAccountAccess } from '../../firebase/config.js';
+import { useAuth } from '../../context/AuthContext.js';
+import { logActivity } from '../../utils/auditLogger.js';
+import Sidebar from '../../components/common/Sidebar.js';
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../../components/common/PasswordStrengthMeter.js';
+import { useLanguage } from '../../i18n/LanguageContext.js';
+import { createUserSeated } from '../../utils/seats.js';
+import { limitFor, countFor, isCappedRole, isAdminRole } from '../../utils/limits.js';
 
 export default function ManageUsers() {
   const { t } = useLanguage();

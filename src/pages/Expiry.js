@@ -1,14 +1,14 @@
 // src/pages/Expiry.js - متابعة تواريخ الصلاحية + التشغيلات (صيدلية) مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { getDocs, doc, updateDoc, collection, addDoc, deleteDoc, runTransaction } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { getProductUnit, roundQty } from "../utils/traderUnits";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDate } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { getProductUnit, roundQty } from "../utils/traderUnits.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDate } from "../utils/fmt.js";
 
 function parseDate(value) {
   if (!value) return null;

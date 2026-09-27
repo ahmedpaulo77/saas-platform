@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { LanguageContext } from "../../i18n/LanguageContext";
+import { LanguageContext } from "../../i18n/LanguageContext.js";
 
 /**
  * ErrorBoundary — بيمسك أي exception بيطلع من الرندر أو من effect قبل ما

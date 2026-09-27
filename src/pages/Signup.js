@@ -1,13 +1,13 @@
 ﻿// src/pages/Signup.js - مع دعم كودين (Admin + User) وأنواع الشركات الجديدة
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.js';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { createCompanyInviteCodes } from '../utils/companyQuery';
-import { INDUSTRIES } from '../utils/modules';
-import { useLanguage } from '../i18n/LanguageContext';
-import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../components/common/PasswordStrengthMeter';
+import { db } from '../firebase/config.js';
+import { createCompanyInviteCodes } from '../utils/companyQuery.js';
+import { INDUSTRIES } from '../utils/modules.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../components/common/PasswordStrengthMeter.js';
 
 export default function Signup() {
   const { t } = useLanguage();

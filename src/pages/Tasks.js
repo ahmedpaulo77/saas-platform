@@ -8,13 +8,13 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDate } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDate } from "../utils/fmt.js";
 
 export default function Tasks() {
   const { t, locale } = useLanguage();

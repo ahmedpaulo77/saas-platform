@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { query, orderBy, limit, startAfter, getDocs, where, getCountFromServer } from 'firebase/firestore';
-import { getScopedQuery } from '../utils/companyQuery';
+import { getScopedQuery } from '../utils/companyQuery.js';
 
 export function useFirestorePagination(collectionName, userRole, userCompanyId, userId, options = {}) {
   const {

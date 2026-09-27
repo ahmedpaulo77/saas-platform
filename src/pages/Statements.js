@@ -1,12 +1,12 @@
 // src/pages/Statements.js - كشف حساب عميل / مورد (فواتير + مرتجعات + أرصدة)
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getDocs } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import { getAvailableModules } from "../utils/modules";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDate, moneyShort } from "../utils/fmt";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import { getAvailableModules } from "../utils/modules.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDate, moneyShort } from "../utils/fmt.js";
 
 function toDate(v) {
   if (!v) return null;

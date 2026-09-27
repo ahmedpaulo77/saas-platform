@@ -7,8 +7,8 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
-import { auth, db, initializePushNotifications } from '../firebase/config';
-import { createUserSeated } from '../utils/seats';
+import { auth, db, initializePushNotifications } from '../firebase/config.js';
+import { createUserSeated } from '../utils/seats.js';
 
 const AUTH_BLOCK_KEY = 'saas-auth-block';
 

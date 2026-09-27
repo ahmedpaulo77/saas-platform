@@ -1,11 +1,11 @@
 // src/pages/MyCompany.js - مع دعم الترجمة وكودين
 import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
-import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery';
-import Sidebar from '../components/common/Sidebar';
-import { useLanguage } from '../i18n/LanguageContext';
+import { db } from '../firebase/config.js';
+import { useAuth } from '../context/AuthContext.js';
+import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery.js';
+import Sidebar from '../components/common/Sidebar.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 export default function MyCompany() {
   const { t } = useLanguage();

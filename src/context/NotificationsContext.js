@@ -5,10 +5,10 @@
 
 import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { onSnapshot } from 'firebase/firestore';
-import { useAuth } from './AuthContext';
-import { getScopedQuery } from '../utils/companyQuery';
-import { useLanguage } from '../i18n/LanguageContext';
-import { moneyShort, fmtDate } from '../utils/fmt';
+import { useAuth } from './AuthContext.js';
+import { getScopedQuery } from '../utils/companyQuery.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
+import { moneyShort, fmtDate } from '../utils/fmt.js';
 
 const NotificationsContext = createContext();
 

@@ -12,7 +12,7 @@
 // That is what makes the cap real rather than cosmetic.
 
 import { doc, getDoc, runTransaction, setDoc } from "firebase/firestore";
-import { db } from "../firebase/config";
+import { db } from "../firebase/config.js";
 import { counterFieldFor, limitFor, countFor, isCappedRole } from "./limits.js";
 
 /** Thrown when the company has no seat left. Carries machine-readable fields so

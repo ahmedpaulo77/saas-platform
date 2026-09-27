@@ -8,13 +8,13 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
 
 export default function VariantCodes() {
   const { t } = useLanguage();

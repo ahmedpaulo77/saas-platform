@@ -1,21 +1,21 @@
 // src/pages/Invoices.js - thin orchestrator after split (was 2564 lines)
 import React, { useState, useMemo } from "react";
 import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, where, runTransaction } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../i18n/LanguageContext";
-import Sidebar from "../components/common/Sidebar";
-import { exportInvoicePDF } from "../utils/pdfExport";
-import { logActivity } from "../utils/auditLogger";
-import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits";
-import { createReturn } from "../utils/returns";
-import { canDelete } from "../utils/companyQuery";
-import { useInvoices } from "../hooks/useInvoices";
-import InvoiceForm from "../components/invoices/InvoiceForm";
-import InvoiceTable from "../components/invoices/InvoiceTable";
-import InvoiceModals from "../components/invoices/InvoiceModals";
-import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers";
-import { moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { exportInvoicePDF } from "../utils/pdfExport.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
+import { createReturn } from "../utils/returns.js";
+import { canDelete } from "../utils/companyQuery.js";
+import { useInvoices } from "../hooks/useInvoices.js";
+import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
+import InvoiceTable from "../components/invoices/InvoiceTable.jsx";
+import InvoiceModals from "../components/invoices/InvoiceModals.jsx";
+import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers.js";
+import { moneyShort } from "../utils/fmt.js";
 
 /**
  * الفاتورة معتمدة (يعني مخزونها اتخصم)؟
@@ -409,7 +409,17 @@ export default function Invoices() {
   function handleExportPDF(invoice) {
     const clientName = clients.find((c) => c.id === invoice.clientId)?.name || t("common.unspecified");
     const productNames = invoice.products?.map((p) => products.find((pr) => pr.id === p.productId)?.name || t("common.unspecified")) || [];
-    exportInvoicePDF(invoice, clientName, productNames.join(", "));
+    // مرّرنا المنتجات و locale: الـ PDF بيعرض بنود الفاتورة واحد واحد،
+    // و moneyShort كان بيرجع 0 من غير locale. كمان لو المتصفح رفض الـ popup
+    // الكود بيرجع false — قبل كند كان بيرمي exception والصفحة بتقع.
+    const ok = exportInvoicePDF(
+      { ...invoice, __products: products },
+      clientName,
+      productNames.join(", "),
+      "invoice",
+      locale
+    );
+    if (!ok) alert(t("common.allowPopups"));
   }
 
   if (loading) return (<div style={{ display: "flex", minHeight: "100vh" }}><Sidebar /><div className="main-content"><div className="loading"><div className="spinner"></div>{t("common.loading")}</div></div></div>);

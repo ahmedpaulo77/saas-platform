@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
-import { createCompanyInviteCodes } from '../utils/companyQuery';
-import { INDUSTRIES } from '../utils/modules';
-import { useLanguage } from '../i18n/LanguageContext';
+import { db } from '../firebase/config.js';
+import { useAuth } from '../context/AuthContext.js';
+import { createCompanyInviteCodes } from '../utils/companyQuery.js';
+import { INDUSTRIES } from '../utils/modules.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 export default function Setup() {
   const { t } = useLanguage();

@@ -1,12 +1,12 @@
 // src/pages/Aging.js - تعديل: User ميشوفش حاجة
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/common/Sidebar';
+import { db } from '../firebase/config.js';
+import { useAuth } from '../context/AuthContext.js';
+import Sidebar from '../components/common/Sidebar.js';
 import * as XLSX from 'xlsx';
-import { useLanguage } from '../i18n/LanguageContext';
-import { moneyShort } from "../utils/fmt";
+import { useLanguage } from '../i18n/LanguageContext.js';
+import { moneyShort } from "../utils/fmt.js";
 
 const BUCKETS = [
   { labelKey: 'ag.b0', color: '#6366f1', bg: '#e0e7ff', textColor: '#3730a3' },

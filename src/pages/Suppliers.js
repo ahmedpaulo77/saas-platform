@@ -1,13 +1,13 @@
 // src/pages/Suppliers.js - إدارة الموردين مع دعم الترجمة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDate, moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDate, moneyShort } from "../utils/fmt.js";
 
 export default function Suppliers() {
   const { t, locale } = useLanguage();

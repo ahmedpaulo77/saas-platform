@@ -1,10 +1,10 @@
 // src/pages/Login.js - نسخة مترجمة بالكامل
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.js';
 import { useNavigate, Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase/config';
-import { useLanguage } from '../i18n/LanguageContext';
+import { auth } from '../firebase/config.js';
+import { useLanguage } from '../i18n/LanguageContext.js';
 
 const AUTH_BLOCK_KEY = 'saas-auth-block';
 

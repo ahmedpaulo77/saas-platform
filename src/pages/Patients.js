@@ -8,12 +8,12 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { fmtDate, moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { fmtDate, moneyShort } from "../utils/fmt.js";
 
 export default function Patients() {
   const { t, locale } = useLanguage();

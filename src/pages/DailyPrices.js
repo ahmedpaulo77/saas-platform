@@ -1,14 +1,14 @@
 // src/pages/DailyPrices.js - تعديل سعر اليوم لكل الأصناف في شاشة واحدة (تاجر فقط)
 import React, { useState, useEffect, useCallback } from "react";
-import { getDocs, writeBatch, doc, updateDoc } from "firebase/firestore";import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { getProductUnit, TRADER_UNITS } from "../utils/traderUnits";
-import { logActivity } from "../utils/auditLogger";
+import { getDocs, writeBatch, doc, updateDoc } from "firebase/firestore";import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { getProductUnit, TRADER_UNITS } from "../utils/traderUnits.js";
+import { logActivity } from "../utils/auditLogger.js";
 import * as XLSX from "xlsx";
-import { moneyShort } from "../utils/fmt";
+import { moneyShort } from "../utils/fmt.js";
 
 export default function DailyPrices() {
   const { t, locale } = useLanguage();

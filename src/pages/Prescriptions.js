@@ -11,13 +11,13 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { logActivity } from "../utils/auditLogger";
-import { fmtDate } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { fmtDate } from "../utils/fmt.js";
 
 export default function Prescriptions() {
   const { t, lang, locale } = useLanguage();

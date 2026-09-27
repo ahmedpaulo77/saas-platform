@@ -1,10 +1,10 @@
 // src/pages/Reports.js - تعديل: User ميشوفش حاجة + فلترة حسب الصناعة
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, getDoc, doc, query, where } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
 import * as XLSX from "xlsx";
 import {
   BarChart,
@@ -21,11 +21,11 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { useLanguage } from "../i18n/LanguageContext";
-import { getAvailableModules } from "../utils/modules";
-import { isValidatedInvoice, invoiceRevenue } from "../utils/revenue";
-import { round2 } from "../utils/traderUnits";
-import { moneyShort, fmtDate } from "../utils/fmt";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { getAvailableModules } from "../utils/modules.js";
+import { isValidatedInvoice, invoiceRevenue } from "../utils/revenue.js";
+import { round2 } from "../utils/traderUnits.js";
+import { moneyShort, fmtDate } from "../utils/fmt.js";
 
 const ALL_EXPORT_ITEMS = [
   { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1", module: "companies" },

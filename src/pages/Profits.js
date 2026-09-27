@@ -10,14 +10,14 @@ import {
   setDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
-import { computePeriod, invoiceRevenue } from "../utils/revenue";
-import { round2 } from "../utils/traderUnits";
-import { fmtDate, moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
+import { computePeriod, invoiceRevenue } from "../utils/revenue.js";
+import { round2 } from "../utils/traderUnits.js";
+import { fmtDate, moneyShort } from "../utils/fmt.js";
 
 // بيرجع أول وآخر يوم في شهر معين (year, monthIndex 0-11)
 function monthRange(year, monthIndex) {

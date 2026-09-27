@@ -8,11 +8,11 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
 
 const STATUS_BADGES = {
   scheduled: { bg: "#dbeafe", color: "#1d4ed8", label: "appt.scheduled" },

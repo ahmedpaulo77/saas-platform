@@ -10,17 +10,17 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db, storage } from "../firebase/config";
+import { db, storage } from "../firebase/config.js";
 
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import { iconFor, INVENTORY_ICON } from "../utils/icons";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import Pagination from "../components/common/Pagination";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { iconFor, INVENTORY_ICON } from "../utils/icons.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import Pagination from "../components/common/Pagination.js";
 import * as XLSX from "xlsx";
-import { fmtDate, moneyShort } from "../utils/fmt";
+import { fmtDate, moneyShort } from "../utils/fmt.js";
 
 export default function Inventory() {
   const { t, locale } = useLanguage();

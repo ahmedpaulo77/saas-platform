@@ -1,16 +1,16 @@
 // src/pages/Buyers.js
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery, canDelete } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import { buildViewing, normalizeViewing } from "../utils/contracts";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import AddBuyerModal from "../components/buyers/AddBuyerModal";
-import { fmtDate, fmtDateTime } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { buildViewing, normalizeViewing } from "../utils/contracts.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import AddBuyerModal from "../components/buyers/AddBuyerModal.js";
+import { fmtDate, fmtDateTime } from "../utils/fmt.js";
 
 const VIEWING_STATUS = {
   scheduled: { label: "📅 مجدولة", color: "#2563eb", bg: "#eff6ff" },

@@ -5,7 +5,7 @@
  * @typedef {string | null | undefined} CompanyId
  */
 import { collection, query, where, doc, getDoc, getDocs, setDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db } from '../firebase/config.js';
 
 /**
  * @param {string} collectionName

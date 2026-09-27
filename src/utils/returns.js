@@ -1,8 +1,8 @@
 // src/utils/returns.js - المرتجعات (بيع/شراء) مع رد المخزون
 import { collection, doc, runTransaction } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { logActivity } from "./auditLogger";
-import { stockDelta, getProductUnit, roundQty } from "./traderUnits";
+import { db } from "../firebase/config.js";
+import { logActivity } from "./auditLogger.js";
+import { stockDelta, getProductUnit, roundQty } from "./traderUnits.js";
 
 /**
  * إنشاء مرتجع ورد المخزون — ذرّي.

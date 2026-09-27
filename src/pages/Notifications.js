@@ -2,11 +2,11 @@
 // ✅ الحساب دلوقتي مركزي في NotificationsContext، والصفحة دي بس بتعرض
 // نفس الداتا اللي بيشوفها الـ Sidebar (رقم واحد متطابق في كل مكان)
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
-import { useNotifications } from "../context/NotificationsContext";import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { initializePushNotifications, onForegroundMessage } from "../firebase/config";
-import { fmtDate } from "../utils/fmt";
+import { useAuth } from "../context/AuthContext.js";
+import { useNotifications } from "../context/NotificationsContext.js";import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { initializePushNotifications, onForegroundMessage } from "../firebase/config.js";
+import { fmtDate } from "../utils/fmt.js";
 
 export default function Notifications() {
   const { t, locale } = useLanguage();

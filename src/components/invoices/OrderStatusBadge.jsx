@@ -1,5 +1,5 @@
 import React from "react";
-import { getOrderStatusConfig, ORDER_STATUSES } from "../../utils/invoiceHelpers";
+import { getOrderStatusConfig, ORDER_STATUSES } from "../../utils/invoiceHelpers.js";
 
 export default function OrderStatusBadge({ status, orderId, onStatusChange, isRestaurant }) {
   if (!isRestaurant) return null;

@@ -1,7 +1,7 @@
 // src/pages/About.js - بيانات التواصل قابلة للتخصيص من سجل الشركة
 import React from "react";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
 
 const featuresKeys = [
   {

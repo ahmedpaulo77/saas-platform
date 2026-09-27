@@ -11,14 +11,14 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/common/Sidebar";
-import { getAvailableModules } from "../utils/modules";
-import { round2 } from "../utils/traderUnits";
-import { useLanguage } from "../i18n/LanguageContext";
-import { moneyShort } from "../utils/fmt";
+import Sidebar from "../components/common/Sidebar.js";
+import { getAvailableModules } from "../utils/modules.js";
+import { round2 } from "../utils/traderUnits.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { moneyShort } from "../utils/fmt.js";
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [

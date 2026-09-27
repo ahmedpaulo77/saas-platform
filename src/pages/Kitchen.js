@@ -4,9 +4,9 @@
 // onSnapshot عشان أي أوردر جديد يظهر فورًا من غير ما حد يعمل Refresh يدوي.
 import React, { useState, useEffect, useMemo } from "react";
 import { onSnapshot, doc, updateDoc, collection, query, where } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../i18n/LanguageContext";
-import { db } from "../firebase/config";
+import { useAuth } from "../context/AuthContext.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { db } from "../firebase/config.js";
 import { Link } from "react-router-dom";
 
 const COLUMNS = [

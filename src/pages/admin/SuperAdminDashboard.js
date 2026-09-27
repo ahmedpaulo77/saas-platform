@@ -7,13 +7,13 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { db } from "../../firebase/config";
-import { useAuth } from "../../context/AuthContext";
-import Sidebar from "../../components/common/Sidebar";
-import { useLanguage } from "../../i18n/LanguageContext";
-import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits";
-import { logActivity } from "../../utils/auditLogger";
-import { fmtDate } from "../../utils/fmt";
+import { db } from "../../firebase/config.js";
+import { useAuth } from "../../context/AuthContext.js";
+import Sidebar from "../../components/common/Sidebar.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
+import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits.js";
+import { logActivity } from "../../utils/auditLogger.js";
+import { fmtDate } from "../../utils/fmt.js";
 
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState([]);

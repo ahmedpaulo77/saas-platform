@@ -1,14 +1,14 @@
 // src/pages/Sales.jsx - المبيعات اليومية (ملابس) — قراءة فقط
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getDocs } from "firebase/firestore";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { getPaymentLabel } from "../utils/paymentMethods";
-import { invoiceRevenue, saleReturnsTotal, round2 } from "../utils/revenue";
-import { moneyShort } from "../utils/fmt";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { getPaymentLabel } from "../utils/paymentMethods.js";
+import { invoiceRevenue, saleReturnsTotal, round2 } from "../utils/revenue.js";
+import { moneyShort } from "../utils/fmt.js";
 
 function toDate(v) {
   if (!v) return null;

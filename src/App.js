@@ -6,13 +6,13 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { NotificationsProvider } from "./context/NotificationsContext";
-import ProtectedRoute from "./components/common/ProtectedRoute";
-import SuperAdminRoute from "./components/common/SuperAdminRoute";
-import ErrorBoundary from "./components/common/ErrorBoundary";
-import { LanguageProvider } from "./i18n/LanguageContext";
-import { getAvailableModules } from "./utils/modules";
+import { AuthProvider, useAuth } from "./context/AuthContext.js";
+import { NotificationsProvider } from "./context/NotificationsContext.js";
+import ProtectedRoute from "./components/common/ProtectedRoute.js";
+import SuperAdminRoute from "./components/common/SuperAdminRoute.js";
+import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
+import { LanguageProvider } from "./i18n/LanguageContext.js";
+import { getAvailableModules } from "./utils/modules.js";
 import "./App.css";
 
 // ✅ Code-splitting: كل صفحة تتحمل عند الطلب فقط

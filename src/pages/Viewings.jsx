@@ -8,15 +8,15 @@ import {
   doc,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import { buildViewing, normalizeViewing, viewingDate } from "../utils/contracts";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { moneyShort } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import { buildViewing, normalizeViewing, viewingDate } from "../utils/contracts.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { moneyShort } from "../utils/fmt.js";
 
 const STATUS_BADGES = {
   scheduled: { bg: "#dbeafe", color: "#1d4ed8", label: "مجدولة" },

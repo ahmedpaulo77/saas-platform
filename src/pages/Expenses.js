@@ -1,15 +1,15 @@
 // src/pages/Expenses.js - تسجيل مصروفات الشركة (إيجار، مرتبات، فواتير...)
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { canDelete, getScopedQuery } from "../utils/companyQuery";
-import Sidebar from "../components/common/Sidebar";
-import { useLanguage } from "../i18n/LanguageContext";
-import { logActivity } from "../utils/auditLogger";
-import Pagination from "../components/common/PaginationV2";
-import { useFirestorePagination } from "../hooks/useFirestorePagination";
-import { moneyShort, fmtDate } from "../utils/fmt";
+import { db } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { canDelete, getScopedQuery } from "../utils/companyQuery.js";
+import Sidebar from "../components/common/Sidebar.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Pagination from "../components/common/PaginationV2.js";
+import { useFirestorePagination } from "../hooks/useFirestorePagination.js";
+import { moneyShort, fmtDate } from "../utils/fmt.js";
 
 const PAGE_SIZE = 25;
 

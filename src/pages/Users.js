@@ -11,17 +11,17 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db, createAuthUserWithoutSession, revokeAccountAccess } from "../firebase/config";
-import { useAuth } from "../context/AuthContext";
-import { isSuperAdmin, canManageUsers } from "../utils/companyQuery";
-import { logActivity } from "../utils/auditLogger";
-import Sidebar from "../components/common/Sidebar";
-import Pagination from "../components/common/Pagination";
-import { useLanguage } from "../i18n/LanguageContext";
-import { createUserSeated } from "../utils/seats";
-import { limitFor, isAdminRole } from "../utils/limits";
-import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter";
-import { fmtDate } from "../utils/fmt";
+import { db, createAuthUserWithoutSession, revokeAccountAccess } from "../firebase/config.js";
+import { useAuth } from "../context/AuthContext.js";
+import { isSuperAdmin, canManageUsers } from "../utils/companyQuery.js";
+import { logActivity } from "../utils/auditLogger.js";
+import Sidebar from "../components/common/Sidebar.js";
+import Pagination from "../components/common/Pagination.js";
+import { useLanguage } from "../i18n/LanguageContext.js";
+import { createUserSeated } from "../utils/seats.js";
+import { limitFor, isAdminRole } from "../utils/limits.js";
+import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter.js";
+import { fmtDate } from "../utils/fmt.js";
 
 export default function Users() {
   const { t, locale } = useLanguage();

@@ -1,9 +1,9 @@
 ﻿// src/components/common/Sidebar.js - نسخة محسنة مع Messages + Badge للإشعارات
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { useNotifications } from "../../context/NotificationsContext";
-import { getAvailableModules } from "../../utils/modules";
+import { useAuth } from "../../context/AuthContext.js";
+import { useNotifications } from "../../context/NotificationsContext.js";
+import { getAvailableModules } from "../../utils/modules.js";
 import {
   iconFor,
   INVENTORY_ICON,
@@ -17,9 +17,9 @@ import {
   SELLERS_ICON,
   PATIENTS_ICON,
   SUPPLIERS_ICON,
-} from "../../utils/icons";
-import LanguageToggle from "./LanguageToggle";
-import { useLanguage } from "../../i18n/LanguageContext";
+} from "../../utils/icons.js";
+import LanguageToggle from "./LanguageToggle.js";
+import { useLanguage } from "../../i18n/LanguageContext.js";
 import "./Sidebar.css";
 
 export default function Sidebar() {

@@ -1,15 +1,45 @@
-import { moneyShort } from "../utils/fmt";
+// الملف جوّه src/utils، فالمسار لازم "./fmt". "../utils/fmt" كان بيروح لمجلد
+// src/Utils مفقود — Vite كان بيعملها صح بالصدفة، لكن أي أداة Node (unit test /
+// سكربت) بتقول ERR_MODULE_NOT_FOUND.
+import { moneyShort } from "./fmt.js";
 // src/utils/pdfExport.js - يدعم العربية والإنجليزية
-export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice") {
+export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice", locale) {
   // كشف اللغة بناءً على اسم العميل أو المنتج
   const isArabic = /[\u0600-\u06FF]/.test(clientName) || /[\u0600-\u06FF]/.test(productName);
   const isQuotation = docType === "quotation";
+
+  // locale كان بيتقري في القالب من غير ما يكون معرّف، فكل خانة فلوس كانت
+  // بتطلع 0. دلوقتي: لو الـ caller مبعتوش، بنستنتجه من لغة المستند نفسه
+  // (المستند ثنائي اللغة أصلاً حسب isArabic).
+  const docLocale = locale || (isArabic ? "ar-EG" : "en-US");
   
-  const date     = invoice.date    ? new Date(invoice.date).toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB') : new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB');
-  const dueDate  = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(isArabic ? 'ar-EG' : 'en-GB') : '—';
-  const qty      = invoice.quantity || 1;
-  const amount   = parseFloat(invoice.amount) || 0;
-  const unitPrice = qty > 0 ? (amount / qty).toFixed(2) : amount.toFixed(2);
+  const date     = invoice.date    ? new Date(invoice.date).toLocaleDateString(docLocale) : new Date().toLocaleDateString(docLocale);
+  const dueDate  = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(docLocale) : '—';
+
+  // ⚠️ الفاتورة الحقيقية مخزّنة كده:
+  //    products / items = [{ productId, productName, quantity, amount }]
+  //    amount            = إجمالي الفاتورة
+  // `invoice.quantity` مش موجود خالص، فالكود القديم كان بيحسب
+  // سعر الوحدة = الإجمالي ÷ 1 والجدول بيطلع سطر واحد فاضي.
+  const rawLines = invoice.items || invoice.products || [];
+  const productIndex = {};
+  for (const p of invoice.__products || []) productIndex[p.id] = p;
+
+  const lines = rawLines
+    .map((p) => {
+      const prod = productIndex[p.productId];
+      return {
+        name: p.productName || prod?.name || "",
+        qty: parseFloat(p.quantity) || 0,
+        amount: parseFloat(p.amount ?? p.itemTotal ?? p.total) || 0,
+      };
+    })
+    .filter((l) => l.name || l.amount);
+
+  const amount = parseFloat(invoice.amount ?? invoice.total) ||
+    lines.reduce((s, l) => s + l.amount, 0);
+  const totalQty = lines.reduce((s, l) => s + l.qty, 0);
+  const unitPrice = totalQty > 0 ? (amount / totalQty).toFixed(2) : amount.toFixed(2);
 
   // ترجمات حسب اللغة
   const translations = isArabic ? {
@@ -277,16 +307,35 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
         </tr>
       </thead>
       <tbody>
+        ${
+          lines.length
+            ? lines
+                .map(
+                  (l, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>
+            <strong>${String(l.name).replace(/[<>&]/g, "")}</strong>
+            ${invoice.description ? `<br><span style="font-size:11px;color:#94a3b8">${String(invoice.description).replace(/[<>&]/g, "")}</span>` : ''}
+          </td>
+          <td class="td-center">${l.qty}</td>
+          <td class="td-left">${moneyShort(l.qty > 0 ? l.amount / l.qty : 0, docLocale)} ${translations.currency}</td>
+          <td class="td-left">${moneyShort(l.amount, docLocale)} ${translations.currency}</td>
+        </tr>`
+                )
+                .join("")
+            : `
         <tr>
           <td>1</td>
           <td>
-            <strong>${productName}</strong>
-            ${invoice.description ? `<br><span style="font-size:11px;color:#94a3b8">${invoice.description}</span>` : ''}
+            <strong>${String(productName || "").replace(/[<>&]/g, "")}</strong>
+            ${invoice.description ? `<br><span style="font-size:11px;color:#94a3b8">${String(invoice.description).replace(/[<>&]/g, "")}</span>` : ''}
           </td>
-          <td class="td-center">${qty}</td>
-          <td class="td-left">${moneyShort(parseFloat(unitPrice), locale)} ${translations.currency}</td>
-          <td class="td-left">${moneyShort(amount, locale)} ${translations.currency}</td>
-        </tr>
+          <td class="td-center">${totalQty || 1}</td>
+          <td class="td-left">${moneyShort(parseFloat(unitPrice), docLocale)} ${translations.currency}</td>
+          <td class="td-left">${moneyShort(amount, docLocale)} ${translations.currency}</td>
+        </tr>`
+        }
       </tbody>
     </table>
 
@@ -295,7 +344,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
       <div class="totals-box">
         <div class="totals-row">
           <span>${translations.subtotal}</span>
-          <span>${moneyShort(amount, locale)} ${translations.currency}</span>
+          <span>${moneyShort(amount, docLocale)} ${translations.currency}</span>
         </div>
         <div class="totals-row">
           <span>${translations.tax}</span>
@@ -303,7 +352,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
         </div>
         <div class="totals-row">
           <span>${translations.total}</span>
-          <span>${moneyShort(amount, locale)} ${translations.currency}</span>
+          <span>${moneyShort(amount, docLocale)} ${translations.currency}</span>
         </div>
       </div>
     </div>
@@ -358,6 +407,13 @@ ${'<'}/script>
 </html>`;
 
   const printWindow = window.open('', '_blank', 'width=900,height=700');
+  // المتصفح ممكن يرفض الـ popup. قبل كند printWindow كان null، والسطر اللي
+  // بعده (printWindow.document) كان بيعمل throw وبيقتل الصفحة كلها.
+  if (!printWindow) {
+    console.error("PDF: the browser blocked the print window (popups)");
+    return false;
+  }
   printWindow.document.write(html);
   printWindow.document.close();
+  return true;
 }

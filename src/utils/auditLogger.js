@@ -1,6 +1,6 @@
 // src/utils/auditLogger.js
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "../firebase/config";
+import { db } from "../firebase/config.js";
 
 /**
  * تسجّيل حركة جديدة في سجل العمليات Audit Log

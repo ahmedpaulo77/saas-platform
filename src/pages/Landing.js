@@ -1,7 +1,7 @@
 // src/pages/Landing.js - مع زر Login و Sign Up
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLanguage } from "../i18n/LanguageContext";
+import { useLanguage } from "../i18n/LanguageContext.js";
 
 const features = [
   {
