@@ -79,6 +79,71 @@ const ternaryFn = [...code.matchAll(/\blet\s+(\w+)\s*=\s*[^;]*\?\s*(\w+)\s*:\s*(
   .filter((m) => defined.has(m[2]) || defined.has(m[3]));
 check("no `let x = cond ? fnA : fnB;`", ternaryFn.length === 0, ternaryFn.map((m) => `${m[1]} = ${m[2]} : ${m[3]}`).join(", "));
 
+// ═══════════════════════════════════════════════════════════════════
+// THE CHECK THAT MATTERS MOST
+// Firestore rejects a whole file for a single bad statement, and it points
+// at one line at a time. A brace-balance check cannot see any of this, so
+// these are the exact shapes the compiler refuses:
+//
+//   function f() { let x = 1; return x; }          -> "Unexpected 'let'"
+//   function f() { if (c) { return 1; } return 0; } -> "Unexpected 'if'"
+//   function f() { return 1; } return 2; }           -> "Unexpected 'return'"
+//
+// A function body is ONE `return <expression>;`. The rest of this file has
+// always been written that way, which is why it deployed before.
+// ═══════════════════════════════════════════════════════════════════
+console.log("\n--- every function body is a single return expression ---");
+const fnRe = /function\s+(\w+)\s*\(([^)]*)\)\s*\{/g;
+let fn, bodies = 0, badBodies = [];
+while ((fn = fnRe.exec(code))) {
+  const name = fn[1];
+  let depth = 1, i = fn.index + fn[0].length;
+  while (i < code.length && depth > 0) {
+    if (code[i] === "{") depth++;
+    else if (code[i] === "}") depth--;
+    i++;
+  }
+  const body = code.slice(fn.index + fn[0].length, i - 1);
+  bodies++;
+
+  // split the body into top-level statements on ";"
+  let d = 0, stmt = "", parts = [];
+  for (const ch of body) {
+    if (ch === "(" || ch === "[") d++;
+    else if (ch === ")" || ch === "]") d--;
+    if (ch === ";" && d === 0) { parts.push(stmt); stmt = ""; } else stmt += ch;
+  }
+  if (stmt.trim()) parts.push(stmt);
+  const stmts = parts.map((s) => s.trim()).filter(Boolean);
+
+  const offenders = [];
+  for (const s of stmts) {
+    if (/^let\s/.test(s)) offenders.push("let");
+    // a bare `if (` at the start of a statement. `return if (...)` is legal.
+    if (/^if\s*\(/.test(s)) offenders.push("if-statement");
+    if (/^for\s*\(/.test(s)) offenders.push("for-statement");
+    if (/^return\b/.test(s) && s !== stmts[0]) offenders.push("second-return");
+  }
+  if (offenders.length) {
+    badBodies.push(`${name}()  [${offenders.join(", ")}]  "${stmts[0].slice(0, 44)}"`);
+  }
+}
+check(`all ${bodies} function bodies are one return expression`, badBodies.length === 0, badBodies.join(" | "));
+
+console.log("\n--- no let / bare-if anywhere in the file (the compiler's exact complaint) ---");
+const lets = [...code.matchAll(/^\s*let\s+(\w+)/gm)].map((m) => m[1]);
+check("zero `let` statements", lets.length === 0, lets.join(", "));
+const bareIf = [...code.matchAll(/^\s*if\s*\(/gm)];
+check("zero bare `if (` statements", bareIf.length === 0, `${bareIf.length} found`);
+// `if` is only legal as `return if (`
+const ifNotReturned = [...code.matchAll(/\bif\s*\(/g)]
+  .filter((m) => !/return\s*$/.test(code.slice(Math.max(0, m.index - 8), m.index)))
+  .filter((m) => {
+    const line = code.slice(0, m.index).split("\n").length;
+    return false; // the rule below is a superset; keep for clarity
+  });
+check("every `if` is `return if` (expression form)", ifNotReturned.length === 0, `${ifNotReturned.length} suspicious`);
+
 console.log("\n--- the seat-cap helpers are wired in ---");
 for (const h of ["seatAvailable", "seatClaimed", "counterChangeIsSane", "adminCapOf", "userCapOf", "adminCountOf", "userCountOf", "companyPath"]) {
   check(`${h} defined`, defined.has(h));

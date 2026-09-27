@@ -208,54 +208,85 @@
         return c.usersCount is int && c.usersCount > 0 ? c.usersCount : 0;
       }
 
-      // المقعد المطلوب موجود في السقف دلوقتي؟
-      // companyId == null أو role == super_admin => مفتوح دايماً
+      // الـ role باراميتر (مش متغيّر) — فمفيش مرجع لدالة كقيمة.
+      // دي بتلمّ الفروع على الـ role عشان ما نكرّرش ternary في كل دالة.
+      function capOf(c, role) {
+        return role == 'admin' ? adminCapOf(c) : userCapOf(c);
+      }
+
+      function countOf(c, role) {
+        return role == 'admin' ? adminCountOf(c) : userCountOf(c);
+      }
+
+      // 🆕 قواعد اللغة اللي لازم نعرفها (、秋itters بتوقفت عند السطر 214):
+      //   1) body بتاعة أي function = return <expression> واحدة بس.
+      //      `let` كـ statement مش مدعوم، و`if (...) { return x; }` برضو.
+      //      `if` موجود كـ expression بس: return if (c) { a } else { b }
+      //   2) `&&` و `||` بيعملوا short-circuit — وده اللي بيخلّي
+      //      `exists(p) && get(p)` آمن، وهو النمط اللي الملف كله بيستخدمه.
+      //   3) الدوال مش first-class: ممنوع `let capOf = adminCapOf`.
+      //      بنمرّر `role` كـ parameter بدل ما نخزّن دالة في متغيّر.
+
+      // المقعد المطلوب متاح دلوقتي؟ (0 = مفتوح)
       function seatAvailable(cid, role) {
-        if (cid == null || role == 'super_admin') { return true; }
-        if (!exists(companyPath(cid))) { return false; }
-        let c = get(companyPath(cid)).data;
+        return cid == null || role == 'super_admin' || !exists(companyPath(cid)) ||
+          (
+            capOf(get(companyPath(cid)).data, role) == 0 ||
+            countOf(get(companyPath(cid)).data, role) < capOf(get(companyPath(cid)).data, role)
+          );
+      }
+
+      // العدّاد *بعد* الكتابة.
+      function afterCountOf(cid, role) {
         return role == 'admin'
-          ? adminCapOf(c) == 0 || adminCountOf(c) < adminCapOf(c)
-          : userCapOf(c) == 0 || userCountOf(c) < userCapOf(c);
+          ? (getAfter(companyPath(cid)).data.adminsCount is int
+              ? getAfter(companyPath(cid)).data.adminsCount : 0)
+          : (getAfter(companyPath(cid)).data.usersCount is int
+              ? getAfter(companyPath(cid)).data.usersCount : 0);
       }
 
-      // نفس الـ batch لازم يكون زوّد العدّاد المناسب +1 بالظبط.
-      // ده اللي بيمنع أي حد يعمل users doc من غير transaction بتاعنا
-      // (يعني من غير احترام السقف).
-      //
-      // ⚠️ ملاحظة: مفيش let capOf = adminCapOf ولا كده — لغة الـ rules
-      //    مش بتسمح بمرجع لدالة كـ قيمة (functions aren't first-class).
-      //    لازم分支 صريح على الـ role.
+      // نفس الـ batch لازم يكون زوّد العدّاد المناسب +1 بالظبط ومش فوق السقف.
+      // ده اللي بيمنع أي حد يعمل users doc من غير transaction بتاعنا.
       function seatClaimed(cid, role) {
-        if (cid == null || role == 'super_admin') { return true; }
-        if (!exists(companyPath(cid))) { return false; }
-        let before = get(companyPath(cid)).data;
-        let cap = role == 'admin' ? adminCapOf(before) : userCapOf(before);
-        // الشركة مفتوحة: مفيش عدّاد متتبع، فمفيش شرط
-        if (cap == 0) { return true; }
-        if (!existsAfter(companyPath(cid))) { return false; }
-        let after = getAfter(companyPath(cid)).data;
-        let now = role == 'admin' ? adminCountOf(before) : userCountOf(before);
-        let next = role == 'admin'
-          ? (after.adminsCount is int ? after.adminsCount : 0)
-          : (after.usersCount is int ? after.usersCount : 0);
-        return next == now + 1 && next <= cap;
+        return cid == null || role == 'super_admin' ||
+          !exists(companyPath(cid)) ||
+          capOf(get(companyPath(cid)).data, role) == 0 ||
+          !existsAfter(companyPath(cid)) ||
+          (
+            afterCountOf(cid, role) == countOf(get(companyPath(cid)).data, role) + 1 &&
+            afterCountOf(cid, role) <= capOf(get(companyPath(cid)).data, role)
+          );
       }
 
-      // العدّادات ما تتزydayش غير ±1 في المرة الواحدة، ومش فوق السقف.
-      // (super admin يقدر يعدّل السقف نفسه في أي وقت — راجع companies update)
+      // العدّادات ما تتزوايدش غير +1 في المرة، ومش فوق السقف.
+      // (سوبر أدمن يقدر يعدّل السقف نفسه في أي وقت — راجع companies update)
       function counterChangeIsSane(after, before) {
-        let admins = after.diff(before).affectedKeys();
-        let users = after.diff(before).affectedKeys();
-        let adminsOk = !admins.hasAny(['adminsCount']) ||
-          ((after.adminsCount is int ? after.adminsCount : 0)
-             == (before.adminsCount is int ? before.adminsCount : 0) + 1
-           && (adminCapOf(after) == 0 || (after.adminsCount is int ? after.adminsCount : 0) <= adminCapOf(after)));
-        let usersOk = !users.hasAny(['usersCount']) ||
-          ((after.usersCount is int ? after.usersCount : 0)
-             == (before.usersCount is int ? before.usersCount : 0) + 1
-           && (userCapOf(after) == 0 || (after.usersCount is int ? after.usersCount : 0) <= userCapOf(after)));
-        return adminsOk && usersOk;
+        return (
+          (
+            after.diff(before).affectedKeys().hasAny(['adminsCount'])
+              ? (
+                  (after.adminsCount is int ? after.adminsCount : 0)
+                    == (before.adminsCount is int ? before.adminsCount : 0) + 1 &&
+                  (
+                    adminCapOf(after) == 0 ||
+                    (after.adminsCount is int ? after.adminsCount : 0) <= adminCapOf(after)
+                  )
+                )
+              : true
+          ) &&
+          (
+            after.diff(before).affectedKeys().hasAny(['usersCount'])
+              ? (
+                  (after.usersCount is int ? after.usersCount : 0)
+                    == (before.usersCount is int ? before.usersCount : 0) + 1 &&
+                  (
+                    userCapOf(after) == 0 ||
+                    (after.usersCount is int ? after.usersCount : 0) <= userCapOf(after)
+                  )
+                )
+              : true
+          )
+        );
       }
 
       // ============================================================

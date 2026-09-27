@@ -91,7 +91,12 @@ export default function Profits() {
   const { t, lang, dir } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isAdmin = userRole === "admin" || userRole === "super_admin";
-  const isFashion = userIndustry === "clothing";
+  // 🔴 خانة "الكفر" (احتياطي مالي) للمطعم والكافيه بس.
+  // كانت مفتوحة لكل المهن غير الملابس، يعني بتظهر في 8 من 10 — تاجر،
+  // صيدلية، مقاول، عقارات، سوبر ماركت، عيادة، عام — ومحدش بيطلبها هناك.
+  // المفهوم ده مصطلح مطاعم: "كفر" = هامش تالف/كسور بيتخصم من صافي الربح.
+  const isFood = userIndustry === "restaurant" || userIndustry === "cafe";
+  const showCoverage = isFood;
 
   const [loading, setLoading] = useState(true);
   const [failedSources, setFailedSources] = useState([]);
@@ -186,10 +191,13 @@ export default function Profits() {
     loadData();
   }, [userCompanyId]);
 
-  // -------- تحميل إعداد الكفر الخاص بالشركة --------
+  // -------- تحميل إعداد الكفر الخاص بالشركة (مطعم/كافيه بس) --------
   useEffect(() => {
     async function loadCoverage() {
-      if (!userCompanyId) return;
+      // مش مطعم/كافيه: متقراش المستند أصلاً. كل شركة غير مطعم كانت بتعمل
+      // read على profitCoverage كل مرة تفتح فيها صفحة الأرباح، من غير أي
+      // فايدة — دلوقتي صفر طلب.
+      if (!userCompanyId || !showCoverage) return;
       try {
         const snap = await getDoc(doc(db, "profitCoverage", userCompanyId));
         if (snap.exists()) {
@@ -202,7 +210,7 @@ export default function Profits() {
       }
     }
     loadCoverage();
-  }, [userCompanyId]);
+  }, [userCompanyId, showCoverage]);
 
   // -------- حساب فترة: إيراد / تكلفة بضاعة / مصروف / ربح --------
   // الربح الصافي = (إيراد محقق − مرتجعات − تكلفة البضاعة) + دخل − مصروفات
@@ -451,14 +459,20 @@ export default function Profits() {
     }
   }, [selectedDate, lang]);
 
-  const coverageValue = parseFloat(coverageAmount) || 0;
-  const netAfterCoverage = coverageEnabled
+  // لو الشركة مش مطعم، المتغير دول صفر ومفيش واجهة بتستخدمهم. الـ gate
+  // (showCoverage) بيمنع العرض، وده اللي يضمن إن رقم "الربح بعد خصم الكفر"
+  // ما يظهرش لحد ما الخانة موجودة أصلاً.
+  const coverageValue = showCoverage ? parseFloat(coverageAmount) || 0 : 0;
+  const netAfterCoverage = showCoverage && coverageEnabled
     ? periodData.profit - coverageValue
     : periodData.profit;
 
   async function saveCoverage(e) {
     e.preventDefault();
     if (!userCompanyId) return;
+    // قفل في الكود مش بس في الواجهة: مستحيل حد يبعت الكتابة دي من كونسول
+    // لشركة مش مطعم/كافيه.
+    if (!showCoverage) return;
     setSavingCoverage(true);
     setCoverageSaved(false);
     try {
@@ -964,7 +978,7 @@ export default function Profits() {
             </div>
             <div className="stat-label">{t("profits.profit")}</div>
           </div>
-          {!isFashion && coverageEnabled && (
+          {showCoverage && coverageEnabled && (
             <div
               className={`stat-card ${netAfterCoverage >= 0 ? "purple" : "red"}`}
             >
@@ -1111,8 +1125,8 @@ export default function Profits() {
           </div>
         </div>
 
-        {/* خانة الكفر - احتياطي مالي اختياري (مخفية لنشاط الأزياء) */}
-        {!isFashion && (
+        {/* خانة الكفر - احتياطي مالي اختياري (مطعم/كافيه بس) */}
+        {showCoverage && (
           <div className="form-card">
             <h3>
               <i
