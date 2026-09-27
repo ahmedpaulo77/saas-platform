@@ -768,14 +768,14 @@ export default function StorePOS() {
                         e.currentTarget.style.boxShadow = "none";
                       }}
                     >
-                      {/* صورة المنتج */}
-                      <div style={{ height: 120, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <i className="fas fa-shirt" style={{ fontSize: 44, color: "#94a3b8" }}></i>
-                        )}
-                      </div>
+                      {/* صورة المنتج — مفيش placeholder. الصنف من غير صورة
+                          بيعرض اسمه بس؛ أيقونة قميص كانت بتوهم إن كل
+                          المنتجين قمصان. */}
+                      {product.imageUrl && (
+                        <div style={{ height: 120, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                        </div>
+                      )}
                       {inCart && (
                         <span
                           style={{
@@ -927,12 +927,8 @@ export default function StorePOS() {
               ) : (
                 cart.map((item) => (
                   <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 8, alignItems: "center" }}>
-                    {item.imageUrl ? (
+                    {item.imageUrl && (
                       <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0", flexShrink: 0 }} />
-                    ) : (
-                      <span style={{ width: 44, height: 44, borderRadius: 8, background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <i className="fas fa-shirt" style={{ fontSize: 22, color: "#94a3b8" }}></i>
-                      </span>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

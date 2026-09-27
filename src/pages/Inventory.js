@@ -852,10 +852,8 @@ export default function Inventory() {
                 📷 صورة المنتج (اختياري)
               </label>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                {(newImagePreview) ? (
+                {newImagePreview && (
                   <img src={newImagePreview} alt="preview" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 10, border: "2px solid #e2e8f0" }} />
-                ) : (
-                  <span style={{ width: 56, height: 56, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>📦</span>
                 )}
                 <input type="file" accept="image/*" onChange={handleNewImageChange} />
               </div>
@@ -1177,10 +1175,8 @@ export default function Inventory() {
                     <td>{start + index + 1}</td>
                     <td>
                       <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                        {product.imageUrl ? (
+                        {product.imageUrl && (
                           <img src={product.imageUrl} alt={product.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                        ) : (
-                          <span style={{ width: 40, height: 40, borderRadius: 8, background: "#f1f5f9", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📦</span>
                         )}
                         <span>{product.name}</span>
                         {isPharmacy && (
@@ -1445,10 +1441,8 @@ export default function Inventory() {
                 <div style={styles.formGroup}>
                   <label>📷 صورة المنتج</label>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    {(editImagePreview || editingProduct.imageUrl) ? (
+                    {(editImagePreview || editingProduct.imageUrl) && (
                       <img src={editImagePreview || editingProduct.imageUrl} alt="preview" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 10, border: "2px solid #e2e8f0" }} />
-                    ) : (
-                      <span style={{ width: 56, height: 56, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>📦</span>
                     )}
                     <input type="file" accept="image/*" onChange={handleEditImageChange} />
                   </div>
