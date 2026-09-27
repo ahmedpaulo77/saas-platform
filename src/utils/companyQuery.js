@@ -1,5 +1,5 @@
 ﻿// @ts-check
-// src/utils/companyQuery.js - Ù…Ø¹ Types Ø¹Ø¨Ø± JSDoc (ÙŠØ¹Ù…Ù„ Ù…Ø¹ TS Ø¨Ø¯ÙˆÙ† ÙƒØ³Ø± Ø§Ù„Ù€ build)
+// src/utils/companyQuery.js - مع Types عبر JSDoc (يعمل مع TS بدون كسر الـ build)
 /**
  * @typedef {'super_admin' | 'admin' | 'user' | 'cashier' | 'kitchen'} UserRole
  * @typedef {string | null | undefined} CompanyId
@@ -56,7 +56,7 @@ export function getUsersQuery(userRole, userCompanyId) {
 }
 
 /**
- * ØªÙˆÙ„ÙŠØ¯ ÙƒÙˆØ¯ Ø§Ù†Ø¶Ù…Ø§Ù… - Ø¢Ù…Ù† Ù…Ø¹ crypto.getRandomValues
+ * توليد كود انضمام - آمن مع crypto.getRandomValues
  * @param {string} [prefix='']
  * @returns {string}
  */
@@ -84,24 +84,24 @@ export function isValidInviteCodeFormat(code) {
   return /^([A-Z0-9]+-)?[A-Z2-9]{4,5}-[A-Z2-9]{4,5}$/.test(c) || /^[A-Z2-9]{6,12}$/.test(c.replace(/-/g, ''));
 }
 // ============================================================
-// Ø£ÙƒÙˆØ§Ø¯ Ø§Ù„Ø¯Ø¹ÙˆØ©
+// أكواد الدعوة
 // ============================================================
-// Ù…ØµØ¯Ø± ÙˆØ§Ø­Ø¯ Ù„Ù„Ø­Ù‚ÙŠÙ‚Ø©: invite_codes/{code}  â† Signup.js Ø¨ÙŠØ­Ù‚Ù‚ Ù…Ù† Ù‡Ù†Ø§
-//                                companyId = doc id Ø¨ØªØ§Ø¹ Ø§Ù„ÙƒÙˆØ¯
-//                                list Ù…Ù‚ÙÙˆÙ„Ø© ÙÙŠ Ø§Ù„Ù€ RulesØŒ Ùˆ get Ø¨Ø§Ù„Ù€ id Ø¨Ø³.
+// مصدر واحد للحقيقة: invite_codes/{code}  ← Signup.js بيحقق من هنا
+//                                companyId = doc id بتاع الكود
+//                                list مقفولة في الـ Rules، و get بالـ id بس.
 //
-// Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶: companies/{companyId}/codes/current
-//                                doc ÙˆØ§Ø­Ø¯ ÙÙŠÙ‡ Ø§Ù„ÙƒÙˆØ¯ÙŠÙ†ØŒ get Ø¨Ø§Ù„Ù€ id (Ù…ÙÙŠØ´ list)
-//                                Ø¹Ø´Ø§Ù† ØµÙØ­Ø© "Ø´Ø±ÙƒØªÙŠ" ØªÙ‚Ø¯Ø± ØªØ¹Ø±Ø¶Ù‡Ù… Ù…Ù† ØºÙŠØ± Ù…Ø§
-//                                ØªØ­ØªØ§Ø¬ ØªØ¹Ù…Ù„ list Ø¹Ù„Ù‰ invite_codes (Ù…Ù…Ù†ÙˆØ¹).
+// نسخة العرض: companies/{companyId}/codes/current
+//                                doc واحد فيه الكودين، get بالـ id (مفيش list)
+//                                عشان صفحة "شركتي" تقدر تعرضهم من غير ما
+//                                تحتاج تعمل list على invite_codes (ممنوع).
 //
-// âš ï¸ Ø§Ù„Ø­Ù‚Ù„ÙŠÙ† Ø§Ù„Ù‚Ø¯Ø§Ù… adminInviteCode/userInviteCode Ø¹Ù„Ù‰ Ù…Ø³ØªÙ†Ø¯ Ø§Ù„Ø´Ø±ÙƒØ© Ø¨Ù‚ÙˆØ§
-//    Ø´ØºØ§Ù„ÙŠÙ† Ø¹Ù…Ù„ÙŠØ§Ù‹ Ø¨Ø³ Ø§ØªØ´Ø§Ù„ÙˆØ§ Ù…Ù† allowlist Ø§Ù„Ù€ companies update â€” Ù…ÙÙŠØ´
-//    ÙƒÙˆØ¯ Ø¨ÙŠÙƒØªØ¨Ù‡Ù… Ø¨Ù‚Ù‰.
+// ⚠️ الحقلين القدام adminInviteCode/userInviteCode على مستند الشركة بقوا
+//    شغالين عملياً بس اتشالوا من allowlist الـ companies update — مفيش
+//    كود بيكتبهم بقى.
 
 /**
- * Ù…Ø³Ø§Ø± Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶. Ø«Ø§Ø¨ØªØ± ÙˆØ§Ø­Ø¯ (codes/current) Ù„ÙƒÙ„ Ø´Ø±ÙƒØ© â€” get Ø¨Ø§Ù„Ù€ idØŒ
- * ÙÙ…ÙÙŠØ´ list Ø®Ø§Ù„Øµ Ø¹Ù„Ù‰ Ø£ÙƒÙˆØ§Ø¯ Ø§Ù„Ø¯Ø¹ÙˆØ©.
+ * مسار نسخة العرض. ثابتر واحد (codes/current) لكل شركة — get بالـ id،
+ * فمفيش list خالص على أكواد الدعوة.
  * @param {string} companyId
  */
 function codeRef(companyId) {
@@ -109,10 +109,10 @@ function codeRef(companyId) {
 }
 
 /**
- * ÙŠÙ†Ø´Ø¦ ÙƒÙˆØ¯ÙŠ Ø§Ù„Ø¯Ø¹ÙˆØ© (Ø£Ø¯Ù…Ù† + Ù…Ø³ØªØ®Ø¯Ù…) Ù„Ù„Ø´Ø±ÙƒØ© ÙÙŠ Ø§Ù„Ù…ØµØ¯Ø± Ø§Ù„Ø±Ø³Ù…ÙŠ.
- * âš ï¸ Ù…Ø§ Ø¨ÙŠÙƒØªØ¨Ø´ Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶ â€” Ø¯ÙŠ Ù…Ø­ØªØ§Ø¬Ø© isAdmin()ØŒ ÙˆÙˆÙ‚Øª Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ø´Ø±ÙƒØ©
- *    Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„Ø³Ù‡ Ù…Ø§Ù„ÙˆØ´ companyIdØŒ ÙØ¨ØªØªØ¹Ù…Ù„ Ø£ÙˆÙ„ Ù…Ø§ Ø§Ù„Ø£Ø¯Ù…Ù† ÙŠÙØªØ­
- *    ØµÙØ­Ø© "Ø´Ø±ÙƒØªÙŠ" (Ø´ÙˆÙ getCompanyInviteCodes).
+ * ينشئ كودي الدعوة (أدمن + مستخدم) للشركة في المصدر الرسمي.
+ * ⚠️ ما بيكتبش نسخة العرض — دي محتاجة isAdmin()، ووقت إنشاء الشركة
+ *    المستخدم لسه مالوش companyId، فبتتعمل أول ما الأدمن يفتح
+ *    صفحة "شركتي" (شوف getCompanyInviteCodes).
  * @param {string} companyId
  * @returns {Promise<Array<{role: 'admin'|'user', code: string}>>}
  */
@@ -135,8 +135,8 @@ export async function createCompanyInviteCodes(companyId) {
 }
 
 /**
- * Ø£ÙƒÙˆØ§Ø¯ Ø¯Ø¹ÙˆØ© Ø§Ù„Ø´Ø±ÙƒØ© Ù„Ù„Ø¹Ø±Ø¶. Ù„Ùˆ Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶ Ù†Ø§Ù‚ØµØ© (Ø´Ø±ÙƒØ© Ù‚Ø¯ÙŠÙ…Ø© Ø£Ùˆ Ø£ÙˆÙ„ ÙØªØ­)
- * Ø¨ØªÙˆÙ„Ù‘Ø¯ Ø£ÙƒÙˆØ§Ø¯ Ø¬Ø¯ÙŠØ¯Ø© ÙÙŠ Ø§Ù„Ù…ØµØ¯Ø± Ø§Ù„Ø±Ø³Ù…ÙŠ ÙˆØ¨ØªÙƒØªØ¨ Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶.
+ * أكواد دعوة الشركة للعرض. لو نسخة العرض ناقصة (شركة قديمة أو أول فتح)
+ * بتولّد أكواد جديدة في المصدر الرسمي وبتكتب نسخة العرض.
  * @param {string} companyId
  * @returns {Promise<{adminCode: string, userCode: string}>}
  */
@@ -147,7 +147,7 @@ export async function getCompanyInviteCodes(companyId) {
   if (snap.exists() && snap.data()?.adminCode && snap.data()?.userCode) {
     return { adminCode: snap.data().adminCode, userCode: snap.data().userCode };
   }
-  // Ø£ÙˆÙ„ ÙØªØ­ Ù„Ù„Ø£Ø¯Ù…Ù† Ø¹Ù„Ù‰ Ø´Ø±ÙƒØ© Ù„Ø³Ù‡ Ù…Ø§Ù„Ù‡Ø§Ø´ Ù†Ø³Ø®Ø© Ø¹Ø±Ø¶ â†’ ÙˆÙ„Ù‘Ø¯ Ø¬Ø¯ÙŠØ¯Ø©
+  // أول فتح للأدمن على شركة لسه مالهاش نسخة عرض → ولّد جديدة
   const specs = await createCompanyInviteCodes(companyId);
   const adminCode = specs.find((s) => s.role === 'admin').code;
   const userCode = specs.find((s) => s.role === 'user').code;
@@ -156,21 +156,21 @@ export async function getCompanyInviteCodes(companyId) {
 }
 
 /**
- * "ØªØ¬Ø¯ÙŠØ¯" ÙƒÙˆØ¯ = Ø¥Ø¨Ø·Ø§Ù„ Ø§Ù„Ù‚Ø¯ÙŠÙ… (Ø­Ø°ÙÙ‡) + ÙƒÙˆØ¯ Ø¬Ø¯ÙŠØ¯ + ØªØ­Ø¯ÙŠØ« Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶.
+ * "تجديد" كود = إبطال القديم (حذفه) + كود جديد + تحديث نسخة العرض.
  * @param {string} companyId
  * @param {'admin'|'user'} role
- * @returns {Promise<string>} Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ø¬Ø¯ÙŠØ¯
+ * @returns {Promise<string>} الكود الجديد
  */
 export async function regenerateCompanyInviteCode(companyId, role) {
   if (!companyId) throw new Error('regenerateCompanyInviteCode: companyId required');
 
-  // 1) Ø§Ù‚Ø±Ø£ Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶ Ø¹Ø´Ø§Ù† ØªØ¨Ø·Ù„ Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ù‚Ø¯ÙŠÙ…
+  // 1) اقرأ نسخة العرض عشان تبطل الكود القديم
   const ref = codeRef(companyId);
   const snap = await getDoc(ref);
   const current = snap.exists() ? snap.data() : null;
   const oldCode = current?.[role === 'admin' ? 'adminCode' : 'userCode'] || null;
 
-  // 2) Ø£Ù†Ø´Ø¦ Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ø¬Ø¯ÙŠØ¯ ÙÙŠ Ø§Ù„Ù…ØµØ¯Ø± Ø§Ù„Ø±Ø³Ù…ÙŠ
+  // 2) أنشئ الكود الجديد في المصدر الرسمي
   const prefix = role === 'admin' ? 'ADMIN' : 'USER';
   const newCode = generateInviteCode(prefix);
   await setDoc(doc(db, 'invite_codes', newCode), {
@@ -179,7 +179,7 @@ export async function regenerateCompanyInviteCode(companyId, role) {
     createdAt: serverTimestamp(),
   });
 
-  // 3) Ø§Ø¨Ø·Ù„ Ø§Ù„Ù‚Ø¯ÙŠÙ… (best-effort â€” Ù„Ùˆ ÙØ´Ù„ØŒ Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ù‚Ø¯ÙŠÙ… Ù„Ø³Ù‡ ØµØ§Ù„Ø­ ÙˆØ¨ÙŠØ¸Ù‡Ø± Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…)
+  // 3) ابطل القديم (best-effort — لو فشل، الكود القديم لسه صالح وبيظهر للمستخدم)
   if (oldCode && oldCode !== newCode) {
     try {
       await deleteDoc(doc(db, 'invite_codes', oldCode));
@@ -188,7 +188,7 @@ export async function regenerateCompanyInviteCode(companyId, role) {
     }
   }
 
-  // 4) Ø­Ø¯Ù‘Ø« Ù†Ø³Ø®Ø© Ø§Ù„Ø¹Ø±Ø¶
+  // 4) حدّث نسخة العرض
   const field = role === 'admin' ? 'adminCode' : 'userCode';
   await setDoc(ref, { ...(current || {}), [field]: newCode, updatedAt: serverTimestamp() });
 

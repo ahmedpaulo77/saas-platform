@@ -33,6 +33,8 @@
     "emulators": "firebase emulators:start --only firestore,auth,storage",
     "verify:icons": "node tools/verify-icons.mjs",
     "verify:scopes": "node tools/verify-scopes.mjs",
+    "verify:encoding": "node tools/verify-encoding.mjs",
+    "test:receipt": "node tools/test-receipt.mjs",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
     "deploy:storage": "firebase deploy --only storage"

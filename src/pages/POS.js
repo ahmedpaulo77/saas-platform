@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
-import { getScopedQuery } from "../utils/companyQuery";
+import { getScopedQuery, fetchUserCompany } from "../utils/companyQuery";
+import { printReceipt, receiptCode } from "../utils/receipt";
 import Sidebar from "../components/common/Sidebar";
 import { useLanguage } from "../i18n/LanguageContext";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods";
@@ -29,7 +30,7 @@ const ORDER_SOURCES = [
 ];
 
 export default function POS() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -41,6 +42,9 @@ export default function POS() {
 
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
+  // اسم الشركة بيطبع في رأس الفاتورة.|super_admin مالوش شركة واحدة، فمفيش
+  // header واحد ينفع الكل — دي الحالة الوحيدة اللي بنسيب الاسم فيها فاضي.
+  const [company, setCompany] = useState(null);
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -80,6 +84,16 @@ export default function POS() {
       setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
   }, [userRole, userCompanyId, currentUser?.uid]);
+
+  // اسم الشركة = ترويسة الفاتورة. بيتجلب مرة واحدة مش مع كل عملية بيع.
+  useEffect(() => {
+    if (!userCompanyId) { setCompany(null); return; }
+    let alive = true;
+    fetchUserCompany(userCompanyId)
+      .then((c) => { if (alive) setCompany(c); })
+      .catch(() => { if (alive) setCompany(null); });
+    return () => { alive = false; };
+  }, [userCompanyId]);
 
   const fetchCategories = useCallback(async () => {
     if (!isRestaurant) return;
@@ -496,95 +510,70 @@ export default function POS() {
   const total = round2(subtotal + (orderType === "delivery" ? deliveryFeeNum : 0));
 
   // ── طباعة حرارية ──
-  function handleThermalPrint(invoiceData) {
-    const clientName = invoiceData?.clientName || clients.find((c) => c.id === selectedClient)?.name || newClientName.trim() || "زبون";
-    const orderTypeLabel = ORDER_TYPES.find((o) => o.value === orderType)?.label || "";
-    const orderSourceLabel = ORDER_SOURCES.find((o) => o.value === orderSource)?.label || "";
+  // ── الفاتورة ──
+  // بتطبع لكل المهنة. العناوين والبيانات بتتظبط حسب الصناعة
+  // (فاتورة كشف للعيادة، فاتورة طلب للمطعم/الكافيه، فاتورة بيع للباقي)،
+  // وكل القيم المتغيّرة بتعمل HTML-escape جوه نافذة الطباعة.
+  function printSaleReceipt(invoiceData, docId) {
+    const code = receiptCode(docId);
+    const blocks = [];
 
-    const itemsRows = cart.map((item) => {
-      const selectedExtraIdxs = cartItemExtras[item.id] || [];
-      const extras = isRestaurantOnly ? (item.extras || []).filter((_, i) => selectedExtraIdxs.includes(i)) : [];
-      const extrasText = extras.length > 0 ? `<div style="font-size:10px;color:#666;padding-right:8px;">+ ${extras.map((e) => e.name).join(", ")}</div>` : "";
-      const noteText = cartItemNotes[item.id] ? `<div style="font-size:10px;color:#888;font-style:italic;padding-right:8px;">📝 ${cartItemNotes[item.id]}</div>` : "";
-      return `<tr>
-        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;vertical-align:top;">
-          ${item.name}${extrasText}${noteText}
-        </td>
-        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;vertical-align:top;">${item.quantity}</td>
-        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;vertical-align:top;">${item.price}</td>
-        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;vertical-align:top;font-weight:bold;">${getItemTotalPrice(item).toFixed(2)}</td>
-      </tr>`;
-    }).join("");
+    // حقول المطعم/الكافيه بس — ما تظهرش في فاتورة صيدلية
+    if (isRestaurant) {
+      const typeLabel = ORDER_TYPES.find((o) => o.value === orderType)?.label || "";
+      const sourceLabel = ORDER_SOURCES.find((o) => o.value === orderSource)?.label || "";
+      if (typeLabel) blocks.push({ label: "نوع الطلب", value: typeLabel });
+      if (sourceLabel) blocks.push({ label: "المصدر", value: sourceLabel });
+      if (orderType === "delivery" && deliveryAddress) {
+        blocks.push({ label: "العنوان", value: deliveryAddress });
+      }
+      if (deliveryPhone.trim()) blocks.push({ label: "الهاتف", value: deliveryPhone.trim() });
+      if (orderType === "dine_in" && tableNumber) {
+        blocks.push({ label: "الطاولة", value: tableNumber });
+      }
+      if (customerNote.trim()) blocks.push({ label: "ملاحظة", value: customerNote.trim() });
+    }
 
-    const deliveryInfo = orderType === "delivery" ? `
-      <div style="margin:6px 0;font-size:12px;">
-        <strong>📍 العنوان:</strong> ${deliveryAddress || "—"}<br/>
-        ${deliveryPhone ? `<strong>📞 هاتف:</strong> ${deliveryPhone}` : ""}
-        ${deliveryFeeNum > 0 ? `<br/><strong>🛵 رسوم التوصيل:</strong> ${deliveryFeeNum} ج.م` : ""}
-      </div>` : orderType === "dine_in" && tableNumber ? `
-      <div style="margin:6px 0;font-size:12px;">
-        <strong>🪑 رقم الطاولة:</strong> ${tableNumber}
-      </div>` : "";
+    const res = printReceipt({
+      lang,
+      industry: userIndustry,
+      storeName: company?.name || "",
+      code,
+      cashier: currentUser?.displayName || currentUser?.email || "",
+      clientName: invoiceData?.clientName || "",
+      paymentLabel: getPaymentLabel(invoiceData?.paymentMethod || paymentMethod),
+      items: (invoiceData?.items || []).map((it) => ({
+        name: it.productName,
+        quantity: it.quantity,
+        price: it.price,
+        total: it.itemTotal ?? it.amount ?? 0,
+        size: it.productSize,
+        color: it.productColor,
+        type: it.productType,
+        note: it.note,
+        extras: it.extras,
+      })),
+      subtotal: invoiceData?.subtotal ?? 0,
+      discount: invoiceData?.discount ?? 0,
+      deliveryFee: invoiceData?.deliveryFee ?? 0,
+      total: invoiceData?.total ?? 0,
+      paid: invoiceData?.paidAmount ?? null,
+      blocks,
+      barcode: true,
+    });
 
-    const printContent = `<!DOCTYPE html>
-<html dir="rtl">
-<head>
-<meta charset="UTF-8"/>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 13px; width: 80mm; padding: 8px; }
-  h2 { text-align: center; font-size: 16px; margin-bottom: 4px; }
-  .center { text-align: center; }
-  .divider { border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #f0f0f0; padding: 4px 6px; font-size: 11px; }
-  @media print {
-    body { width: 80mm; }
-    @page { size: 80mm auto; margin: 0; }
+    if (!res.ok) {
+      // المتصفح رفض الـ popup. تقولnetscape للمستخدم رقم الفاتورة يدويًا
+      // بدل ما يختفي البيع من غير أثر.
+      alert(
+        "تم البيع بنجاح، بس المتصفح منع فتح نافذة الطباعة.\n" +
+          "اسمح بالـ popups لهذا الموقع أو اطبع الفاتورة من صفحة الفواتير.\n" +
+          "رقم الفاتورة: " + code
+      );
+    }
   }
-</style>
-</head>
-<body>
-<h2>${foodIcon} فاتورة ${foodLabel}</h2>
-<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
-<div class="divider"></div>
-<div style="font-size:12px;margin-bottom:4px;">
-  <strong>الزبون:</strong> ${clientName}<br/>
-  <strong>نوع الطلب:</strong> ${orderTypeLabel}<br/>
-  <strong>المصدر:</strong> ${orderSourceLabel}
-</div>
-${deliveryInfo}
-${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>ملاحظة:</strong> ${customerNote}</div>` : ""}
-<div class="divider"></div>
-<table>
-  <thead><tr>
-    <th style="text-align:right;">الصنف</th>
-    <th>الكمية</th>
-    <th>السعر</th>
-    <th>الإجمالي</th>
-  </tr></thead>
-  <tbody>${itemsRows}</tbody>
-</table>
-<div class="divider"></div>
-<div style="text-align:left;font-size:13px;">
-  <div>المجموع: ${subtotal.toFixed(2)} ج.م</div>
-  ${orderType === "delivery" && deliveryFeeNum > 0 ? `<div>رسوم التوصيل: ${deliveryFeeNum} ج.م</div>` : ""}
-  <div style="margin-top:4px;font-size:15px;font-weight:bold;border-top:2px solid #000;padding-top:4px;">
-    الإجمالي: ${total.toFixed(2)} ج.م
-  </div>
-</div>
-<div class="divider"></div>
-<div class="center" style="font-size:11px;margin-top:6px;">شكراً لزيارتكم 🙏</div>
-</body>
-</html>`;
 
-    const win = window.open("", "_blank", "width=400,height=600");
-    if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }
-    win.document.write(printContent);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 300);
-  }
+
 
   // ── Checkout ──
   async function checkout(e) {
@@ -820,8 +809,10 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
         tx.set(invoiceRef, invDoc);
       });
 
-      // طباعة تلقائية للمطعم
-      if (isRestaurant) handleThermalPrint(invDoc);
+      // ── الفاتورة: بتطبع لكل المهن، مش للمطاعم بس ──
+      // قبل كند كان السطر ده شغال لو isRestaurant بس، فأي صيدلية/ملابس/
+      // مقاول بيبيع مبيطبعش حاجة وبيشوف alert "تم البيع" وخلاص.
+      printSaleReceipt(invDoc, invoiceRef.id);
 
       // reset
       setCart([]);
@@ -839,7 +830,8 @@ ${customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>�
       setCartItemNotes({});
       setCartItemExtras({});
       await Promise.all([fetchProducts(), fetchClients()]);
-      if (!isRestaurant) alert(t("pos.ok"));
+      // مفيش alert("تم البيع") بعد كند — الفاتورة اللي طالعة في نافذة الطباعة
+      // هي التأكيد. alert كان بيغطي على نافذة الطباعة وبيزحلقها.
     } catch (e) {
       console.error(e);
       // ⚠️ مابنشوفش "pos.fail" بس — الكاشير لازم يعرف السبب (كمية غير متوفرة،
