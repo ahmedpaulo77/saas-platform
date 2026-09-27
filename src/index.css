@@ -1,8 +1,8 @@
+/* Entry stylesheet — keeps CRA-era resets only.
+   Typography/colors live in src/styles/tokens.css + base.css (imported via App.css).
+   Do NOT set body font-family here to avoid fighting the Cairo design system. */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

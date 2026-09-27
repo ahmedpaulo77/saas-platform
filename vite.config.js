@@ -3,12 +3,17 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react({ include: /\.(jsx|js|ts|tsx)$/ })],
-  // لا تضف define: { 'process.env': process.env } هنا — ده بيعوّض process.env
-  // بسnapshot لكل متغيرات بيئة السيرفر وبي把它们 داخل الـ bundle العام.
-  // قيم Firebase بتقرأ من import.meta.env (شوف src/firebase/config.js).
+  // لا تضف define: { 'process.env': process.env } هنا — هذا يستبدل process.env
+  // بلقطة لكل متغيرات بيئة السيرفر ويدخلها داخل الـ bundle العام.
+  // قيم Firebase تقرأ من import.meta.env (انظر src/firebase/config.js).
   server: {
     port: 3000,
     open: false,
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/setupTests.js'],
   },
   build: {
     outDir: 'build',

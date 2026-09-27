@@ -505,8 +505,18 @@ function AppRoutes() {
 
 function AppFallback() {
   return (
-    <div className="loading">
-      <div className="spinner"></div> جاري التحميل...
+    <div className="app-loading" role="status" aria-live="polite">
+      <div className="spinner" aria-hidden="true"></div>
+      <div>جاري التحميل...</div>
+      <div className="skeleton-page" aria-hidden="true">
+        <div className="skeleton-line short"></div>
+        <div className="skeleton-row">
+          <div className="skeleton-card"></div>
+          <div className="skeleton-card"></div>
+          <div className="skeleton-card"></div>
+        </div>
+        <div className="skeleton-line"></div>
+      </div>
     </div>
   );
 }

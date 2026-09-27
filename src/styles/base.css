@@ -1,0 +1,31 @@
+
+/* ==================
+   Base
+   ================== */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif;
+  background: var(--gray-50);
+  direction: rtl;
+  color: var(--gray-800);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--primary-bg);
+  color: var(--primary-dark);
+}
+
+/* ==================
+   Scrollbar
+   ================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gray-100); }
+::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+

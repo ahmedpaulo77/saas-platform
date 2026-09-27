@@ -1,5 +1,5 @@
 ﻿// src/components/common/Sidebar.js - نسخة محسنة مع Messages + Badge للإشعارات
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.js";
 import { useNotifications } from "../../context/NotificationsContext.js";
@@ -30,6 +30,30 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // بحث القائمة + طي المجموعات — حالة عرض فقط، لا تمس الصلاحيات إطلاقاً
+  const [navSearch, setNavSearch] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+
+  function groupLabel(key, fallback) {
+    const v = t(key);
+    return v === key ? fallback : v;
+  }
+
+  const NAV_GROUPS = useMemo(() => ([
+    { id: "sales", label: groupLabel("nav.groups.sales", "المبيعات والفواتير") },
+    { id: "stock", label: groupLabel("nav.groups.stock", "المخزون والمشتريات") },
+    { id: "people", label: groupLabel("nav.groups.people", "العملاء والخدمات") },
+    { id: "ops", label: groupLabel("nav.groups.ops", "التشغيل والمشاريع") },
+  ]), // eslint-disable-next-line react-hooks/exhaustive-deps
+  [t]);
+
+  // نفس الـ modules بدون أي تغيير — التجميع بصري فقط
+  function moduleGroup(module) {
+    if (["pos", "store-pos", "sales", "invoices", "purchases", "expenses", "profits"].includes(module)) return "sales";
+    if (["inventory", "variant-codes", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
+    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages"].includes(module)) return "people";
+    return "ops";
+  }
 
   // ✅ تعريف القوائم جوه المكون (عشان الترجمة)
   const isRestaurant = (userIndustry === "restaurant" || userIndustry === "cafe");
@@ -305,6 +329,28 @@ label: t("nav.attendance"),
       !(item.hideRole || []).includes(userRole),
   );
 
+  // بحث + تجميع بصري فقط — لا يغير نتيجة availableModules إطلاقاً
+  const q = navSearch.trim();
+  const filteredNav = q
+    ? navItems.filter((i) => String(i.label).includes(q))
+    : navItems;
+  const groupedNav = useMemo(() => {
+    const map = {};
+    NAV_GROUPS.forEach((g) => { map[g.id] = []; });
+    filteredNav.forEach((item) => {
+      const g = moduleGroup(item.module);
+      if (!map[g]) map[g] = [];
+      map[g].push(item);
+    });
+    // احذف المجموعات الفارغة بعد فلترة الصلاحيات
+    return NAV_GROUPS.map((g) => ({ ...g, items: map[g.id] || [] }))
+      .filter((g) => g.items.length > 0);
+  }, [filteredNav, NAV_GROUPS]);
+
+  function toggleGroup(id) {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   // ✅ إغلاق القائمة عند تغيير المسار
   useEffect(() => {
     setMobileOpen(false);
@@ -374,19 +420,49 @@ label: t("nav.attendance"),
       </div>
 
       <nav>
+        <div className="nav-search-wrap">
+          <i className="fas fa-search nav-search-icon"></i>
+          <input
+            className="nav-search"
+            value={navSearch}
+            onChange={(e) => setNavSearch(e.target.value)}
+            placeholder={t("nav.search") === "nav.search" ? "ابحث في القائمة..." : t("nav.search")}
+            aria-label="Search menu"
+          />
+          {!!navSearch && (
+            <button className="nav-search-clear" onClick={() => setNavSearch("")} aria-label="Clear search">
+              <i className="fas fa-times"></i>
+            </button>
+          )}
+        </div>
         <div className="nav-label">{t("nav.main")}</div>
-        {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={isActive(item.to) ? "active" : ""}
-            onClick={closeSidebar}
-          >
-            <span className="icon">
-              <i className={item.icon}></i>
-            </span>
-            {item.label}
-          </Link>
+        {groupedNav.length === 0 && (
+          <div className="nav-empty">{t("nav.noResults") === "nav.noResults" ? "لا توجد نتائج مطابقة" : t("nav.noResults")}</div>
+        )}
+        {groupedNav.map((group) => (
+          <div key={group.id} className="nav-group">
+            <button
+              className="nav-group-header"
+              onClick={() => toggleGroup(group.id)}
+              aria-expanded={!collapsed[group.id]}
+            >
+              <span>{group.label} ({group.items.length})</span>
+              <i className={`fas fa-chevron-down nav-chev ${collapsed[group.id] ? "closed" : ""}`}></i>
+            </button>
+            {!collapsed[group.id] && group.items.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={isActive(item.to) ? "active" : ""}
+                onClick={closeSidebar}
+              >
+                <span className="icon">
+                  <i className={item.icon}></i>
+                </span>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         ))}
 
         <div className="nav-label">{t("nav.settings")}</div>

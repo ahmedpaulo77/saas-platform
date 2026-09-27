@@ -24,15 +24,24 @@ function envVal(viteKey, craKey) {
   return '';
 }
 const firebaseConfig = {
-  apiKey: envVal('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY') || "AIzaSyAcakZzub29Lp4T41TGDIMLPoFkupzd2is",
-  authDomain: envVal('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN') || "saas-platform-5d7a3.firebaseapp.com",
-  projectId: envVal('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID') || "saas-platform-5d7a3",
-  storageBucket: envVal('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET') || "saas-platform-5d7a3.firebasestorage.app",
-  messagingSenderId: envVal('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID') || "91595383960",
-  appId: envVal('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID') || "1:91595383960:web:51611912db0635d2e9dced",
+  apiKey: envVal('VITE_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_API_KEY'),
+  authDomain: envVal('VITE_FIREBASE_AUTH_DOMAIN', 'REACT_APP_FIREBASE_AUTH_DOMAIN'),
+  projectId: envVal('VITE_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_PROJECT_ID'),
+  storageBucket: envVal('VITE_FIREBASE_STORAGE_BUCKET', 'REACT_APP_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: envVal('VITE_FIREBASE_MESSAGING_SENDER_ID', 'REACT_APP_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: envVal('VITE_FIREBASE_APP_ID', 'REACT_APP_FIREBASE_APP_ID'),
 };
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("your_")) {
-  console.error("Firebase config missing apiKey", firebaseConfig);
+// لا توجد قيم افتراضية مضمنة هنا عن قصد — المفاتيح كانت تتسرب داخل الـ bundle العام.
+// كل القيم يجب أن تأتي من متغيرات البيئة (ملف .env محلي / إعدادات Vercel).
+// راجع .env.example لمعرفة أسماء المتغيرات المطلوبة.
+const missingKeys = Object.entries(firebaseConfig)
+  .filter(([, v]) => !v || String(v).includes('your_'))
+  .map(([k]) => k);
+if (missingKeys.length > 0) {
+  console.error(
+    `[Firebase] إعدادات ناقصة: ${missingKeys.join(', ')}. ` +
+    `انسخ .env.example إلى .env واملأ القيم من Firebase Console.`
+  );
 }
 
 const app = initializeApp(firebaseConfig);

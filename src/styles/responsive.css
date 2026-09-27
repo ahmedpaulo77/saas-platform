@@ -1,0 +1,839 @@
+/* ==================
+   Mobile Sidebar & Hamburger
+   ================== */
+
+/* الهامبرغر — مخفي على الديسكتوب */
+.hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 14px;
+  inset-inline-start: 16px;
+  z-index: 200;
+  width: 44px;
+  height: 44px;
+  background: var(--sidebar-bg);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition-fast);
+}
+
+.hamburger-btn:hover {
+  background: var(--primary);
+}
+
+/* زرار الإغلاق داخل الـ sidebar */
+.sidebar-close-btn {
+  display: none;
+  margin-inline-start: auto;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: rgba(255,255,255,0.6);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-close-btn:hover {
+  background: rgba(239,68,68,0.2);
+  color: #ef4444;
+}
+
+/* Overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  /* إظهار الهامبرغر */
+  .hamburger-btn {
+    display: flex;
+  }
+
+  /* إظهار زرار الإغلاق */
+  .sidebar-close-btn {
+    display: flex;
+  }
+
+  /* إظهار الـ overlay */
+  .sidebar-overlay {
+    display: block;
+  }
+
+  /* الـ sidebar مخفي بالكامل على اليمين */
+  .sidebar {
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    box-shadow: none;
+  }
+
+  /* لما يتفتح */
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: -8px 0 40px rgba(0,0,0,0.4);
+  }
+
+  /* المحتوى يبدأ من فوق */
+  .main-content {
+    margin-right: 0 !important;
+    padding: 70px 16px 24px !important;
+  }
+
+  /* تصغير الجداول */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* تصغير الـ stats */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* الـ form بيبقى column */
+  .form-container, .form-card form > div[style] {
+    flex-direction: column !important;
+  }
+    .form-container input,
+  .form-container select,
+  .form-card input,
+  .form-card select,
+  .form-card textarea {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+    .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .search-wrapper input,
+  .filter-bar .search-wrapper {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* الـ filter bar */
+  .filter-bar {
+    flex-direction: column;
+  }
+
+  .filter-bar select,
+  .filter-bar input {
+    width: 100%;
+  }
+
+  /* تصغير الـ header */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header .user-info {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  /* الـ grid - عمودين على التابلت */
+  .grid-3, .grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* الـ pricing */
+  .pricing-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* الـ modal */
+  .modal-content {
+    margin: 10px;
+    max-height: 95vh;
+  }
+
+  /* الجداول */
+  thead th, tbody td {
+    padding: 10px 8px !important;
+    font-size: 12px !important;
+  }
+
+  .table-actions {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* زر الإضافة في رأس الصفحة */
+  .page-header-right .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* كروت المميزات dashboards عمودين (مشترك مع grid-3 أعلاه) */
+  .card, .stat-card {
+    border-radius: 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 20px;
+  }
+}
+
+/* ============================================================
+   Mobile Small (phones 414px and under)
+   ============================================================ */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 64px 12px 20px !important;
+  }
+
+  /* كروت المميزات تصير عمود واحد */
+  .grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* الـ stats تصير عمود واحد للشاشات الضيقة جداً */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+
+  /* رأس الصفحة */
+  .page-header {
+    margin-bottom: 20px;
+    gap: 12px;
+  }
+
+  .page-header-left h1 {
+    font-size: 22px;
+  }
+
+  .page-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* الأزرار تمتد بالكامل */
+  .btn {
+    white-space: nowrap;
+  }
+
+  /* الجداول - تجربة لمس أفضل */
+  .table-wrapper th, .table-wrapper td {
+    padding: 8px 6px !important;
+    font-size: 11px !important;
+  }
+
+  /* الأزرار داخل الجداول */
+  .table-actions .btn {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  /* الفورم - حقول أكبر للمس */
+  .form-card input, .form-card select, .form-card textarea {
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  /* المودال ياخد مساحة أكتر */
+  .modal-content {
+    margin: 6px;
+    max-height: 96vh;
+    border-radius: 14px;
+  }
+
+  /* الـ filter bar */
+  .filter-bar {
+    gap: 8px;
+  }
+
+  /* أداء لمسي أكبر للأزرار الرئيسية */
+  .btn:not(.btn-sm) {
+    min-height: 42px;
+  }
+}
+
+/* الشاشات الصغيرة جداً (مثل iPhone SE 360px) */
+@media (max-width: 380px) {
+  .main-content {
+    padding: 60px 10px 16px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 18px;
+  }
+
+  .page-header-left h1 {
+    font-size: 20px;
+  }
+}
+
+/* ================================================
+   إخفاء أسهم حقول الأرقام (number input spinners)
+   ================================================ */
+/* ================================================
+   إخفاء أسهم حقول الأرقام (number input spinners)
+   ================================================ */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+/* ================================================
+   Pagination
+   ================================================ */
+.pagination-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.pagination-size {
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  background: white;
+  color: #334155;
+  cursor: pointer;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pagination-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled):not(.active) {
+  background: #f1f5f9;
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+}
+
+.pagination-btn.active {
+  background: var(--primary, #10b981);
+  border-color: var(--primary, #10b981);
+  color: white;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-dots {
+  color: #94a3b8;
+  padding: 0 2px;
+}
+
+@media (max-width: 480px) {
+  .pagination-controls {
+    gap: 4px;
+  }
+  .pagination-btn {
+    min-width: 34px;
+    height: 34px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+}
+/* ============================================================
+   Landing Page - Mobile Responsiveness
+   ============================================================ */
+@media (max-width: 640px) {
+  .landing-nav {
+    height: auto !important;
+    padding: 10px 4% !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .landing-nav-actions {
+    gap: 6px !important;
+  }
+
+  .landing-btn-lang,
+  .landing-btn-login-nav,
+  .landing-btn-signup-nav {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+
+  .landing-btn-signup-nav i,
+  .landing-btn-lang i {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .landing-btn-lang span {
+    display: none;
+  }
+
+  .landing-btn-login-nav,
+  .landing-btn-signup-nav {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+}
+/* تقليل التأثيرات التقيلة على المعالج في الموبايل */
+@media (max-width: 768px) {
+  .login-card,
+  nav {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+}
+
+
+/* ================================================
+   Mobile Responsive Fixes — إصلاحات الموبايل
+   ================================================ */
+
+/* ── إصلاح عام: منع overflow أفقي ── */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* ── أزرار الجدول: بتبقى icon فقط على الموبايل ── */
+  .table-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .table-actions .btn-sm {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    min-width: 32px;
+    min-height: 32px;
+    justify-content: center;
+  }
+
+  /* إخفاء النص في أزرار الجدول، إبقاء الأيقونة فقط */
+  .table-actions .btn-sm span,
+  .table-actions .btn-sm .btn-text {
+    display: none;
+  }
+
+  /* ── الـ form inputs: ضمان إنها تاخد العرض كامل ── */
+  .form-card input,
+  .form-card select,
+  .form-card textarea,
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 16px !important; /* يمنع الـ zoom على iOS */
+  }
+
+  /* ── الـ search input ── */
+  .search-wrapper input {
+    font-size: 16px !important; /* يمنع الـ zoom على iOS */
+  }
+
+  /* ── الـ filter bar ── */
+  .filter-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-bar > * {
+    width: 100% !important;
+  }
+
+  .filter-bar select {
+    width: 100% !important;
+  }
+
+  /* ── الجدول: padding أقل على الموبايل ── */
+  thead th {
+    padding: 10px 10px !important;
+    font-size: 11px !important;
+  }
+
+  tbody td {
+    padding: 10px 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* ── الـ modal: يبقى full width تقريباً ── */
+  .modal-overlay {
+    padding: 8px !important;
+    align-items: flex-end; /* يطلع من الأسفل زي sheet */
+  }
+
+  .modal-content {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 20px 20px 0 0 !important; /* bottom sheet style */
+    max-height: 92vh;
+  }
+
+  /* ── إصلاح header ── */
+  .header {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 20px !important;
+  }
+
+  /* ── stats-row: عمودين على الموبايل ── */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .stat-card {
+    padding: 16px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 22px !important;
+    letter-spacing: -0.5px;
+  }
+
+  .stat-card .stat-icon {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 16px !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* ── form-card: padding أقل ── */
+  .form-card {
+    padding: 16px !important;
+  }
+
+  /* ── table-container ── */
+  .table-container {
+    border-radius: 12px;
+  }
+
+  .table-header {
+    padding: 14px 16px !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── الـ grid ── */
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── موبايل صغير (480px وأقل) ── */
+@media (max-width: 480px) {
+  /* stats: عمود واحد لو الشاشة ضيقة جداً */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* الـ main content */
+  .main-content {
+    padding: 62px 10px 20px !important;
+  }
+
+  /* الجدول: إخفاء أعمدة أقل أهمية */
+  .table-col-hide-mobile {
+    display: none !important;
+  }
+
+  /* أزرار أكبر للمس */
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+  }
+
+  /* modal */
+  .modal-body {
+    padding: 16px !important;
+  }
+
+  .modal-header {
+    padding: 14px 16px !important;
+  }
+
+  .modal-footer {
+    padding: 12px 16px !important;
+  }
+
+  /* pagination */
+  .pagination-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+/* ── iPhone SE وأصغر (375px) ── */
+@media (max-width: 375px) {
+  .main-content {
+    padding: 58px 8px 16px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .stat-card .stat-value {
+    font-size: 18px !important;
+  }
+
+  .stat-card .stat-label {
+    font-size: 11px !important;
+  }
+
+  /* الأزرار الصغيرة */
+  .btn-sm {
+    padding: 5px 6px !important;
+    font-size: 10px !important;
+  }
+}
+
+/* ── Tablet (769px - 1024px) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    padding: 24px 20px !important;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── تحسينات اللمس للأجهزة المحمولة ── */
+@media (hover: none) and (pointer: coarse) {
+  /* touch targets أكبر */
+  nav a {
+    min-height: 44px;
+  }
+
+  .btn:not(.btn-sm) {
+    min-height: 44px;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* إزالة hover effects على الأجهزة اللمسية */
+  .stat-card:hover,
+  .card.hoverable:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* تأثير عند اللمس */
+  .btn:active {
+    transform: scale(0.96) !important;
+    opacity: 0.85;
+    transition: all 0.1s ease !important;
+  }
+}
+
+/* ================================================
+   Error Boundary
+   ================================================ */
+.eb-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f8fafc;
+}
+
+.eb-card {
+  max-width: 560px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.eb-icon {
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.eb-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.eb-hint {
+  margin: 0 0 20px;
+  color: #64748b;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.eb-msg {
+  margin: 0 0 20px;
+  padding: 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #b91c1c;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow: auto;
+  direction: ltr;
+  text-align: left;
+}
+
+.eb-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eb-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.eb-btn:hover {
+  background: #f1f5f9;
+}
+
+.eb-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.eb-btn-primary {
+  border: none;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.eb-btn-primary:hover {
+  background: #4338ca;
+}
+
+/* ================================================================
+   Keyboard focus — الوصول بالكيبورد
+   ================================================================
+   الـ inputs اللي فوق عندها box-shadow ring عند :focus (كويس).
+   بس الأزرار والروابط مفيش عندهم أي مؤشر تركيز مخصص — وإلا بيختفي مع الـ theme.  بنضيف :focus-visible واضح
+   (بيظهر مع الكيبورد بس، مش مع الماوس — وده اللي المستخدم عايزه).
+   ================================================================ */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-success:focus-visible,
+.btn-danger:focus-visible,
+.btn-sm:focus-visible,
+.modal-close:focus-visible,
+.sidebar-close-btn:focus-visible,
+.hamburger-btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+select:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* على الـ sidebar الغامق، الـ outline الداخلي لازم يكون فاتح */
+.sidebar a:focus-visible,
+.sidebar button:focus-visible,
+.sidebar-close-btn:focus-visible {
+  outline-color: #a5b4fc;
+}
+
+/* احترام تفضيل تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

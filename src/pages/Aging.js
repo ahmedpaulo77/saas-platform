@@ -285,7 +285,7 @@ export default function Aging() {
                   {t(bucket.labelKey)}
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: bucket.color }}>
-moneyShort(totals.buckets[i], locale)}
+                  {moneyShort(totals.buckets[i], locale)}
                 </div>
                 <div style={{ fontSize: 11, color: bucket.textColor, opacity: 0.7, marginTop: 2 }}>
                   {t('currency')} — {summary.totalDebt > 0

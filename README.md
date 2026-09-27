@@ -54,9 +54,11 @@
 | React | 19 | Frontend framework |
 | Firebase | 12 | Auth + Firestore database |
 | React Router | 7 | Client-side routing |
+| Vite | 6 | Build + dev server |
+| Vitest + jsdom | 2 + 24 | Unit tests (`npm test`) |
 | jsPDF + autoTable | 4 + 5 | تصدير الفواتير كـ PDF |
 | XLSX | 0.18 | تصدير التقارير لـ Excel |
-| Stripe.js | 9 | نظام الدفع والاشتراكات |
+| Recharts | 3 | الرسوم البيانية |
 | Font Awesome | 6.5 | الأيقونات |
 | Cairo Font | - | الخط العربي |
 
@@ -65,7 +67,7 @@
 ## ⚡ تشغيل المشروع محلياً
 
 ### المتطلبات
-- Node.js 18+
+- Node.js 20+
 - npm أو yarn
 - حساب Firebase
 
@@ -77,12 +79,17 @@ git clone https://github.com/yourusername/saas-platform.git
 cd saas-platform
 
 # 2. تثبيت الـ dependencies
-npm install
+npm install --legacy-peer-deps
 
-# 3. إعداد Firebase (اتبع القسم التالي)
+# 3. إعداد Firebase (انسخ .env.example إلى .env واملأ القيم)
+cp .env.example .env
 
-# 4. تشغيل المشروع
-npm start
+# 4. تشغيل المشروع (Vite على http://localhost:3000)
+npm run dev
+
+# 5. الاختبارات والفحوصات
+npm test
+npm run verify:all
 ```
 
 ---
@@ -96,32 +103,27 @@ npm start
 4. فعّل **Firestore Database**
 
 ### 2. إعداد ملف الـ Config
-الملف موجود في `src/firebase/config.js` — استبدل القيم بقيم مشروعك:
+انسخ `.env.example` إلى `.env` واملأ القيم من Firebase Console → Project Settings:
 
-```js
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+```bash
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_VAPID_KEY=...
 ```
+
+> الكود يقرأ من `import.meta.env` فقط (`src/firebase/config.js`) — لا توجد مفاتيح مضمنة في الكود. لو متغير ناقص ستظهر رسالة خطأ واضحة في الكونسول.
 
 ### 3. Firestore Rules
-افتح Firestore → Rules والصق:
-
+القواعد المحكمة موجودة في `firestore.rules` (عزل كامل حسب `companyId` + حماية مالية + أكواد دعوة). للنشر:
+```bash
+npm run deploy:rules
+npm run deploy:indexes
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
+لا تستخدم القاعدة المفتوحة `allow read, write: if request.auth != null` في الإنتاج.
 
 ### 4. إنشاء Super Admin
 شغّل السكريبت ده مرة واحدة بس:
@@ -141,13 +143,12 @@ node src/scripts/createSuperAdmin.js
 
 ---
 
-## 💳 إعداد Stripe (اختياري)
+## 💳 الاشتراكات
+نظام الاشتراكات الحالي simulation داخل التطبيق (`src/pages/Subscriptions.js`) — لا يوجد تكامل Stripe حقيقي بعد، ولا توجد `stripe-js` في `package.json`.
 
-المشروع جاهز للربط بـ Stripe — فيه simulation mode شغال بدونه.
+### لتفعيل الدفع الحقيقي (مستقبلاً):
 
-### لتفعيل الدفع الحقيقي:
-
-**1. Frontend** — في `src/pages/Subscription.js`:
+**1. Frontend** — في `src/pages/Subscriptions.js`:
 ```js
 const STRIPE_PUBLIC_KEY = 'pk_live_XXXXXXXX'; // مفتاحك الحقيقي
 ```
@@ -173,45 +174,33 @@ stripe.webhooks.constructEvent(payload, sig, webhookSecret);
 
 ---
 
-## 📁 هيكل المشروع
+## 📁 هيكل المشروع (مختصر — المشروع الفعلي ~43 صفحة)
 
 ```
 saas-platform/
 ├── public/
-│   ├── index.html          # HTML الرئيسي + Favicon
-│   ├── favicon.svg         # الأيقونة (cube gradient)
-│   └── _redirects          # Netlify SPA routing fix
 ├── src/
-│   ├── components/
-│   │   └── common/
-│   │       ├── Sidebar.js          # القائمة الجانبية
-│   │       ├── ProtectedRoute.js   # حماية الصفحات
-│   │       └── SuperAdminRoute.js  # صلاحيات الأدمن
-│   ├── context/
-│   │   └── AuthContext.js   # إدارة الـ Auth
-│   ├── firebase/
-│   │   └── config.js        # إعدادات Firebase
-│   ├── pages/
-│   │   ├── Login.js         # صفحة الدخول
-│   │   ├── Dashboard.js     # الرئيسية + إحصائيات
-│   │   ├── Companies.js     # إدارة الشركات
-│   │   ├── Clients.js       # إدارة العملاء
-│   │   ├── Invoices.js      # الفواتير + PDF export
-│   │   ├── Inventory.js     # المخزون
-│   │   ├── Tasks.js         # المهام
-│   │   ├── Reports.js       # التقارير + Excel export
-│   │   ├── Notifications.js # الإشعارات الذكية
-│   │   ├── Subscription.js  # الاشتراكات + Stripe
-│   │   ├── Profile.js       # الملف الشخصي
-│   │   ├── About.js         # حول النظام
-│   │   └── admin/
-│   │       └── SuperAdminDashboard.js
-│   ├── utils/
-│   │   └── pdfExport.js     # منطق تصدير PDF
-│   ├── App.js               # الـ Router الرئيسي
-│   └── App.css              # Design System كامل
-└── vercel.json              # إعداد Vercel
+│   ├── components/common/  # Sidebar, ProtectedRoute, SuperAdminRoute, ErrorBoundary, Pagination
+│   ├── components/invoices/# InvoiceForm, InvoiceTable, InvoiceModals
+│   ├── context/            # AuthContext, NotificationsContext
+│   ├── firebase/config.js  # يقرأ من import.meta.env فقط (لا مفاتيح مضمنة)
+│   ├── i18n/               # LanguageContext + translations (ar/en)
+│   ├── hooks/              # useInvoices, useFirestorePagination
+│   ├── utils/              # fmt, limits, seats, auditLogger, modules, icons...
+│   ├── pages/              # ~43 صفحة: Dashboard, POS, StorePOS, Invoices, Sales,
+│   │                       # Purchases, Inventory, Expenses, Profits, Reports, Aging,
+│   │                       # Clients/Sellers/Buyers, Suppliers, Kitchen, Tables,
+│   │                       # Patients/Appointments/Prescriptions, Projects/Certificates...
+│   │   └── admin/          # SuperAdminDashboard, ManageUsers
+│   ├── styles/             # tokens + layout/sidebar/tables/forms/login/skeleton
+│   ├── App.js              # Router + lazy code-splitting
+│   └── App.css             # ملف تجميعي يستورد styles/ (لا تعدله مباشرة)
+├── tools/                  # سكريبتات verify-* و test-* (npm run verify:all)
+├── firestore.rules / firestore.indexes.json / storage.rules
+└── vercel.json / firebase.json
 ```
+
+> ملاحظة: `/companies` القديم أصبح redirect إلى `/admin`، و `/batches` أصبح redirect إلى `/expiry`.
 
 ---
 

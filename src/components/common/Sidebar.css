@@ -471,6 +471,80 @@ nav a.active .icon i {
    اتجاه النص + الحدود اللي كانت على اليمين دايمًا.
    ================================================================ */
 
+/* ============================================================
+   Nav search + collapsible groups (عرض فقط — لا يمس الصلاحيات)
+   ============================================================ */
+.nav-search-wrap {
+  position: relative;
+  margin: 4px 12px 8px;
+}
+.nav-search-icon {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-size: 12px;
+  pointer-events: none;
+}
+.nav-search {
+  width: 100%;
+  padding: 9px 30px 9px 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.05);
+  color: #f1f5f9;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+}
+[dir="ltr"] .nav-search {
+  padding: 9px 32px 9px 30px;
+}
+.nav-search::placeholder { color: rgba(255,255,255,0.35); }
+.nav-search:focus {
+  outline: none;
+  border-color: rgba(99,102,241,0.6);
+  background: rgba(255,255,255,0.08);
+}
+.nav-search-clear {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+}
+.nav-group { margin-bottom: 2px; }
+.nav-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 10px 12px 4px;
+  cursor: pointer;
+}
+.nav-group-header:hover { color: #cbd5e1; }
+.nav-chev { font-size: 10px; transition: transform 0.2s ease; }
+.nav-chev.closed { transform: rotate(-90deg); }
+[dir="ltr"] .nav-chev.closed { transform: rotate(90deg); }
+.nav-empty {
+  padding: 12px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
 /* النص يطلع LTR صح */
 [dir="ltr"] .stat-label,
 [dir="ltr"] .table-container th,
