@@ -140,9 +140,11 @@ export default function Purchases() {
     setReturning(false);
   }
 
-  // ✅ وصف المقاس/اللون للمنتج (مخزون الملابس: size/color/type)
+  // ✅ وصف المقاس/اللون للمنتج — ملابس بس.
+  // الصنايع التانية ما بتخزّنش size/color أصلاً، فالفحص ده بيمنع
+  // " / " فاضية تطلع في سطر الصنف لو منتج قديم لسه فاضي.
   const variantLabel = (prod) => {
-    if (!prod) return "";
+    if (!prod || !isClothing) return "";
     return [prod.size, prod.color].filter(Boolean).join(" / ");
   };
 
@@ -288,19 +290,24 @@ export default function Purchases() {
     if (!userCompanyId) return;
     setAddingProduct(true);
     try {
+      // المقاس واللون ملابس بس. حتى لو اتكتبوا في الـ state (مفيش حقل
+      // يعرضهم للصناعات التانية، بس كده نتأكد)، مش بنحفظهم — عشان
+      //Inventory والفاتورة ما يبقاش فيه "" فاضية أو مقاس تاجر.
+      const size = isClothing ? quickProductSize.trim() : "";
+      const color = isClothing ? quickProductColor.trim() : "";
       const docRef = await addDoc(collection(db, "inventory"), {
         name: quickProductName.trim(),
         price: parseFloat(quickProductPrice) || 0,
         quantity: 0,
-        size: quickProductSize.trim() || "",
-        color: quickProductColor.trim() || "",
+        size,
+        color,
         code: quickProductCode.trim() || "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
       });
       await fetchProducts();
-      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0, size: quickProductSize.trim() || "", color: quickProductColor.trim() || "", code: quickProductCode.trim() || "" };
+      const prod = { id: docRef.id, name: quickProductName.trim(), price: parseFloat(quickProductPrice) || 0, quantity: 0, size, color, code: quickProductCode.trim() || "" };
       setProducts((prev) => [...prev, prod]);
       setQuickProductName(""); setQuickProductPrice(""); setQuickProductSize(""); setQuickProductColor(""); setQuickProductCode(""); setShowQuickProduct(false);
     } catch (e) { console.error(e); alert(t("common.errorGeneric")); }
@@ -315,6 +322,7 @@ export default function Purchases() {
       const itemNames = getPurchaseItems(p)
         .map((it) => {
           const pr = products.find((x) => x.id === it.productId);
+          if (!isClothing) return pr?.name || "";
           return [pr?.name, pr?.size, pr?.color].filter(Boolean).join(" ");
         })
         .join(" ");
@@ -697,10 +705,13 @@ export default function Purchases() {
       const prod = products.find((pr) => pr.id === it.productId) || {};
       const brand = storeName || (prod.brand || "").toString().trim() || "—";
       const model = (prod.model || prod.name || "").toString().trim() || "—";
-      const size = (prod.size ?? it.size ?? "").toString().trim();
-      const color = (prod.color ?? it.color ?? "").toString().trim();
-      const colorCode = asciiSafe(colorMap[color.toLowerCase()] ?? color, "0");
-      const sizeCode = asciiSafe(sizeMap[size.toLowerCase()] ?? size, "0");
+
+      // ⚠️ المقاس/اللون ملابس بس. قبل كند كانوا بيفتروا "0" لغير الملابس
+      // فكان الباركود بيطلع "7060-0-0" وسطر فاضي فيه 0 على الملصق.
+      const size = isClothing ? (prod.size ?? it.size ?? "").toString().trim() : "";
+      const color = isClothing ? (prod.color ?? it.color ?? "").toString().trim() : "";
+      const colorCode = size || color ? asciiSafe(colorMap[color.toLowerCase()] ?? color, "") : "";
+      const sizeCode = size || color ? asciiSafe(sizeMap[size.toLowerCase()] ?? size, "") : "";
       // سطر المقاس بالكود مش بالاسم: {sizeCode}-of {color}
       const sizeColorLine =
         size && color ? `${sizeCode}-of ${color}` : sizeCode || color || "";
@@ -712,7 +723,10 @@ export default function Purchases() {
         const base = prodCode
           ? asciiSafe(prodCode, "0000")
           : asciiSafe(String(purchase.id || prod.id || "0000").slice(0, 4), "0000");
-        barcodeValue = `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-");
+        // لاحقة المقاس/اللون ملابس بس — تاجر وصيدلية بيطبعوا الكود لوحده.
+        barcodeValue = isClothing
+          ? `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-")
+          : base;
       }
       barcodeValue = asciiSafe(barcodeValue, String(purchase.id || "0000").slice(0, 4));
       // Persist printed barcode so POS scan finds the label later
@@ -1060,24 +1074,29 @@ ${labelDivs}
                       <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
                       <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
                       <input type="text" placeholder="الكود (اختياري — مثال: 7060)" value={quickProductCode} onChange={(e) => setQuickProductCode(e.target.value)} />
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {quickSizeOptions.length > 0 ? (
-                          <select value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }}>
-                            <option value="">المقاس (اختياري)</option>
-                            {quickSizeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        ) : (
-                          <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
-                        )}
-                        {quickColorOptions.length > 0 ? (
-                          <select value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }}>
-                            <option value="">اللون (اختياري)</option>
-                            {quickColorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        ) : (
-                          <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
-                        )}
-                      </div>
+                      {/* المقاس واللون مفهوم ملابس بس — تاجر/صيدلية/مطعم
+                          مش بيستفيدوا منهم، ووجودهم بيلخبط الكاشير وبيملأ
+                          المنتج بصفر فاضي. فلashion بس. */}
+                      {isClothing && (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {quickSizeOptions.length > 0 ? (
+                            <select value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }}>
+                              <option value="">المقاس (اختياري)</option>
+                              {quickSizeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : (
+                            <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
+                          )}
+                          {quickColorOptions.length > 0 ? (
+                            <select value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }}>
+                              <option value="">اللون (اختياري)</option>
+                              {quickColorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          ) : (
+                            <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
+                          )}
+                        </div>
+                      )}
                       <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddProduct} disabled={addingProduct}>{addingProduct ? "جاري..." : "حفظ المنتج"}</button>
                     </div>
                   )}
