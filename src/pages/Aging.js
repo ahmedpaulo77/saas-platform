@@ -189,7 +189,7 @@ export default function Aging() {
     c.phone.includes(searchTerm)
   );
 
-  // ✅ لو مش Admin، يظهر رسالة "غير مصرح"
+  // الأدمن بس — نفس القاعدة في كل صفحة فيها بيانات حساسة.
   if (!isAdmin) {
     return (
       <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -197,8 +197,8 @@ export default function Aging() {
         <div className="main-content">
           <div className="card" style={{ textAlign: "center", padding: "60px 20px" }}>
             <i className="fas fa-lock" style={{ fontSize: 48, color: "#ef4444", marginBottom: 16 }}></i>
-            <h3 style={{ color: "#1e293b" }}>غير مصرح لك بالوصول</h3>
-            <p style={{ color: "#64748b" }}>هذه الصفحة متاحة للمديرين فقط</p>
+            <h3 style={{ color: "#1e293b" }}>{t("errors.noAccess")}</h3>
+            <p style={{ color: "#64748b" }}>{t("errors.adminsOnly")}</p>
           </div>
         </div>
       </div>

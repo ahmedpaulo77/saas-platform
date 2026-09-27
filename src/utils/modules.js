@@ -108,8 +108,11 @@ export const MODULE_MAP = {
     "messages",
   ],
 
-  // ✅ عقارات (بائعين ومشترين فقط - بدون عملاء وفواتير وأعمار ديون)
-  real_estate: ["sellers", "buyers", "viewings", "tasks", "projects", "messages"],
+  // عقارات (بائعين ومشترين فقط - بدون عملاء)
+  // أعمار الديون استثنائية: البائع/المشتري ناس ليهم معاملات، فالمديونية
+  // ليهم مهمة هنا أكتر من أي مجال تاني. الـ route مفتوح والصفحة بتقرا
+  // الفواتير مباشرة، فمفيش مانع تقني.
+  real_estate: ["sellers", "buyers", "viewings", "tasks", "projects", "messages", "aging"],
 
   // عام - وحدات عامة بدون sellers وbuyers وبدون رسائل (للشركات الصغيرة)
   general: [
@@ -132,6 +135,7 @@ export const MODULE_MAP = {
     "purchases",
     "barcode",
     "expiry",
+    "aging",
     "tasks",
     "messages",
     "attendance",
@@ -149,6 +153,7 @@ export const MODULE_MAP = {
     "batch",
     "batches",
     "drug_categories",
+    "aging",
     "tasks",
     "messages",
     "attendance",
@@ -165,6 +170,7 @@ export const MODULE_MAP = {
     "purchases",
     "kitchen",
     "tables",
+    "aging",
     "tasks",
     "messages",
     "attendance",
@@ -178,6 +184,7 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "tables",
+    "aging",
     "tasks",
     "messages",
     "attendance",
@@ -198,7 +205,8 @@ export const MODULE_MAP = {
   ],
 
   // طبيب / عيادة - مرضى ومواعيد وروشتات وفواتير حرة + بحث شامل
-  // (بدون مخزون: الفواتير ببنود حرة — وبدون صلاحية وبدون أعمار ديون)
+  // (بدون مخزون: الفواتير ببنود حرة — وبدون صلاحية. أعمار الديون موجودة: العيادة
+  //  بتبيع بفاتورة وبتقبض بعدين، فمفيش سبب يشيل الصفحة عنها)
   clinic: [
     "patients",
     "appointments",

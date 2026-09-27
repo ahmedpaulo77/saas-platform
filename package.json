@@ -36,7 +36,7 @@
     "verify:encoding": "node tools/verify-encoding.mjs",
     "test:receipt": "node tools/test-receipt.mjs",
     "verify:i18n": "node tools/verify-i18n.mjs",
-    "verify:all": "npm run verify:icons && npm run verify:scopes && npm run verify:encoding && npm run verify:i18n && npm run verify:no-placeholder && npm run verify:rules && npm run verify:coverage && npm run test:receipt && npm run test:labels && npm run test:limits",
+    "verify:all": "npm run verify:icons && npm run verify:scopes && npm run verify:encoding && npm run verify:i18n && npm run verify:no-placeholder && npm run verify:rules && npm run verify:coverage && npm run verify:aging && npm run test:receipt && npm run test:labels && npm run test:limits",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
     "deploy:storage": "firebase deploy --only storage",
@@ -44,7 +44,8 @@
     "verify:no-placeholder": "node tools/verify-no-image-placeholder.mjs",
     "test:limits": "node tools/test-limits.mjs",
     "verify:rules": "node tools/verify-rules.mjs",
-    "verify:coverage": "node tools/verify-coverage-scope.mjs"
+    "verify:coverage": "node tools/verify-coverage-scope.mjs",
+    "verify:aging": "node tools/verify-aging.mjs"
   },
   "eslintConfig": {
     "extends": [
