@@ -334,10 +334,13 @@ label: t("nav.attendance"),
   const filteredNav = q
     ? navItems.filter((i) => String(i.label).includes(q))
     : navItems;
+  // الداش بورد دائماً أول عنصر فوق المجموعات
+  const dashboardItem = filteredNav.find((i) => i.module === "dashboard");
+  const restNav = filteredNav.filter((i) => i.module !== "dashboard");
   const groupedNav = useMemo(() => {
     const map = {};
     NAV_GROUPS.forEach((g) => { map[g.id] = []; });
-    filteredNav.forEach((item) => {
+    restNav.forEach((item) => {
       const g = moduleGroup(item.module);
       if (!map[g]) map[g] = [];
       map[g].push(item);
@@ -345,7 +348,7 @@ label: t("nav.attendance"),
     // احذف المجموعات الفارغة بعد فلترة الصلاحيات
     return NAV_GROUPS.map((g) => ({ ...g, items: map[g.id] || [] }))
       .filter((g) => g.items.length > 0);
-  }, [filteredNav, NAV_GROUPS]);
+  }, [restNav, NAV_GROUPS]);
 
   function toggleGroup(id) {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -436,7 +439,19 @@ label: t("nav.attendance"),
           )}
         </div>
         <div className="nav-label">{t("nav.main")}</div>
-        {groupedNav.length === 0 && (
+        {dashboardItem && (
+          <Link
+            to={dashboardItem.to}
+            className={isActive(dashboardItem.to) ? "active" : ""}
+            onClick={closeSidebar}
+          >
+            <span className="icon">
+              <i className={dashboardItem.icon}></i>
+            </span>
+            {dashboardItem.label}
+          </Link>
+        )}
+        {groupedNav.length === 0 && !dashboardItem && (
           <div className="nav-empty">{t("nav.noResults") === "nav.noResults" ? "لا توجد نتائج مطابقة" : t("nav.noResults")}</div>
         )}
         {groupedNav.map((group) => (
