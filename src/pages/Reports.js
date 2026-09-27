@@ -25,7 +25,7 @@ import { useLanguage } from "../i18n/LanguageContext.js";
 import { getAvailableModules } from "../utils/modules.js";
 import { isValidatedInvoice, invoiceRevenue } from "../utils/revenue.js";
 import { round2 } from "../utils/traderUnits.js";
-import { moneyShort, fmtDate } from "../utils/fmt.js";
+import { moneyShort, fmtDate, num } from "../utils/fmt.js";
 
 const ALL_EXPORT_ITEMS = [
   { type: "companies", labelKey: "rep.file.companies", icon: "fas fa-building", color: "#6366f1", module: "companies" },
@@ -683,14 +683,14 @@ export default function Reports() {
   // ✅ كروت الإحصائيات مفلترة حسب الموديولات المتاحة للصناعة
   const ALL_STAT_CARDS = [
     { label: t('rep.companies'), value: stats.companies, icon: "fas fa-building", cls: "indigo", module: "companies" },
-    { label: t('rep.clients'), value: stats.clients, icon: "fas fa-user-friends", cls: "green", module: "clients" },
-    { label: t('sellers.title'), value: stats.sellers, icon: "fas fa-store", cls: "amber", module: "sellers" },
-    { label: t('buyers.title'), value: stats.buyers, icon: "fas fa-user-plus", cls: "pink", module: "buyers" },
-    { label: t('rep.invoices'), value: stats.invoices, icon: "fas fa-file-invoice", cls: "amber", module: "invoices" },
-    { label: t('rep.products'), value: stats.products, icon: "fas fa-boxes", cls: "purple", module: "inventory" },
-    { label: t('rep.tasks'), value: stats.tasks, icon: "fas fa-tasks", cls: "pink", module: "tasks" },
+    { label: t('rep.clients'), value: num(stats.clients, locale), icon: "fas fa-user-friends", cls: "green", module: "clients" },
+    { label: t('sellers.title'), value: num(stats.sellers, locale), icon: "fas fa-store", cls: "amber", module: "sellers" },
+    { label: t('buyers.title'), value: num(stats.buyers, locale), icon: "fas fa-user-plus", cls: "pink", module: "buyers" },
+    { label: t('rep.invoices'), value: num(stats.invoices, locale), icon: "fas fa-file-invoice", cls: "amber", module: "invoices" },
+    { label: t('rep.products'), value: num(stats.products, locale), icon: "fas fa-boxes", cls: "purple", module: "inventory" },
+    { label: t('rep.tasks'), value: num(stats.tasks, locale), icon: "fas fa-tasks", cls: "pink", module: "tasks" },
     { label: t('rep.revenue'), value: moneyShort(stats.totalRevenue, locale) + ` ${t('currency')}`, icon: "fas fa-money-bill-wave", cls: "cyan", module: "invoices" },
-    { label: t('rep.returns'), value: `${stats.returnsCount} • ${moneyShort(stats.returnsTotal, locale)} ${t('currency')}`, icon: "fas fa-undo", cls: "red", module: "invoices" },
+    { label: t('rep.returns'), value: `${num(stats.returnsCount, locale)} • ${moneyShort(stats.returnsTotal, locale)} ${t('currency')}`, icon: "fas fa-undo", cls: "red", module: "invoices" },
   ];
   const statCards = ALL_STAT_CARDS.filter((s) => availableModules.has(s.module));
 
@@ -714,10 +714,10 @@ export default function Reports() {
   const rankRow = (item, idx, color) => (
     <div key={`${item.name}-${idx}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: idx === 0 ? "#f8fafc" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: idx === 0 ? "1px solid #e2e8f0" : "1px solid transparent" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ width: 22, height: 22, borderRadius: "50%", background: idx === 0 ? color : "#e2e8f0", color: idx === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{idx + 1}</span>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", background: idx === 0 ? color : "#e2e8f0", color: idx === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{num(idx + 1, locale)}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{item.name || item.model}</span>
       </div>
-      <span style={{ fontSize: 13, fontWeight: 800, color }}>{item.quantity ?? item.qty}</span>
+      <span style={{ fontSize: 13, fontWeight: 800, color }}>{num(item.quantity ?? item.qty, locale)}</span>
     </div>
   );
 
@@ -1082,10 +1082,10 @@ export default function Reports() {
                   topProductsSold.slice(0, 5).map((it, i) => (
                     <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: "var(--gray-50)", borderRadius: 8, marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: i === 0 ? "#10b981" : "#e2e8f0", color: i === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{i + 1}</span>
+                        <span style={{ width: 22, height: 22, borderRadius: "50%", background: i === 0 ? "#10b981" : "#e2e8f0", color: i === 0 ? "white" : "#475569", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{num(i + 1, locale)}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{it.model !== it.name ? `${it.name} (${it.model})` : it.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{it.brand} • {it.type} • {it.size} • {it.color}</span></span>
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: "#10b981" }}>{it.qty}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#10b981" }}>{num(it.qty, locale)}</span>
                     </div>
                   ))}
               </div>
@@ -1136,13 +1136,13 @@ export default function Reports() {
                   <tbody>
                     {filteredSales.slice(0, 50).map((p, i) => (
                       <tr key={p.key}>
-                        <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{num(i + 1, locale)}</td>
                         <td style={{ fontWeight: 600 }}>{p.model !== p.name ? `${p.name} (${p.model})` : p.name}</td>
                         <td>{p.type}</td>
                         <td><span className="badge badge-pending">{p.size}</span></td>
                         <td>{p.color}</td>
                         <td style={{ color: "var(--gray-500)", fontSize: 12 }}>{p.brand}</td>
-                        <td style={{ fontWeight: 800, color: "#6366f1" }}>{p.qty}</td>
+                        <td style={{ fontWeight: 800, color: "#6366f1" }}>{num(p.qty, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1152,8 +1152,10 @@ export default function Reports() {
           </div>
         )}
 
-        {availableModules.has("invoices") && (topSellers.length > 0 || topClients.length > 0) && (
+        {availableModules.has("invoices") && ((userIndustry === "clothing" && topSellers.length > 0) || topClients.length > 0) && (
           <div className="grid-2" style={{ marginBottom: 24 }}>
+            {/* أكثر مندوب مبيعاً — للفاشون فقط (المقاسات/الألوان شغل محلات الملابس) */}
+            {userIndustry === "clothing" && (
             <div className="card">
               <h3 style={{ marginBottom: 14 }}>
                 <i className="fas fa-trophy" style={{ color: "#f59e0b", marginLeft: 8 }}></i>
@@ -1167,20 +1169,21 @@ export default function Reports() {
                     <BarChart data={topSellers} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
-                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => num(v, locale)} width={40} />
                       <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="revenue" name={t('rep.revenue')} fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
                   {topSellers.map((s, i) => (
                     <div key={s.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#fffbeb" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #fde68a" : "1px solid transparent" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {s.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{s.email} • {s.count} {t('rep.invoicesCount')}</span></span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{num(i + 1, locale)}. {s.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{s.email} • {num(s.count, locale)} {t('rep.invoicesCount')}</span></span>
                       <span style={{ fontSize: 13, fontWeight: 800, color: "#d97706" }}>{moneyShort(s.revenue, locale)} {t('currency')}</span>
                     </div>
                   ))}
                 </>
               )}
             </div>
+            )}
             <div className="card">
               <h3 style={{ marginBottom: 14 }}>
                 <i className="fas fa-crown" style={{ color: "#10b981", marginLeft: 8 }}></i>
@@ -1194,14 +1197,14 @@ export default function Reports() {
                     <BarChart data={topClients} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
-                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
+                      <YAxis tick={{ fontSize: 10, fill: "#64748b" }} tickFormatter={(v) => num(v, locale)} width={40} />
                       <Tooltip content={<CustomTooltip locale={locale} />} />
                       <Bar dataKey="revenue" name={t('rep.revenue')} fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
                   {topClients.map((c, i) => (
                     <div key={c.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", background: i === 0 ? "#f0fdf4" : "var(--gray-50)", borderRadius: 8, marginBottom: 6, border: i === 0 ? "1px solid #bbf7d0" : "1px solid transparent" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{i + 1}. {c.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{c.count} {t('rep.invoicesCount')}</span></span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{num(i + 1, locale)}. {c.name}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "#64748b" }}>{num(c.count, locale)} {t('rep.invoicesCount')}</span></span>
                       <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{moneyShort(c.revenue, locale)} {t('currency')}</span>
                     </div>
                   ))}
@@ -1421,13 +1424,13 @@ export default function Reports() {
                   {recentInvoices.map((inv, i) => (
                     <tr key={inv.id}>
                       <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>
-                        {i + 1}
+                        {num(i + 1, locale)}
                       </td>
                       <td style={{ fontWeight: 600 }}>
                         {clientsMap[inv.clientId] || t('common.unspecified')}
                       </td>
                       <td style={{ fontWeight: 700 }}>
-                        {(moneyShort(inv.amount || 0), locale)} {t('currency')}
+                        {moneyShort(inv.amount || 0, locale)} {t('currency')}
                       </td>
                       <td>
                         <span

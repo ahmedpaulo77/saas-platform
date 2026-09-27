@@ -489,7 +489,7 @@ export default function Expenses() {
                         </td>
                         <td style={{ fontWeight: 600 }}>{categoryLabel(exp.category)}</td>
                         <td style={{ fontWeight: 700, color: (exp.direction || "out") === "in" ? "#16a34a" : "#dc2626" }}>
-                          {(moneyShort(exp.amount || 0), locale)} {t("currency")}
+                          {moneyShort(exp.amount || 0, locale)} {t("currency")}
                         </td>
                         <td>{exp.description || "-"}</td>
                         {isContractor && (

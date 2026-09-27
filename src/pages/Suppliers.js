@@ -523,7 +523,7 @@ export default function Suppliers() {
                             <td style={{ fontWeight: 700 }}>{moneyShort(pTotal, locale)}</td>
                             <td style={{ color: "#10b981" }}>{moneyShort(pPaid, locale)}</td>
                             <td style={{ fontWeight: 700, color: pTotal - pPaid > 0 ? "#ef4444" : "#10b981" }}>
-                              {pTotal - pPaid > 0 ? (moneyShort(pTotal - pPaid), locale) : "✓"}
+                              {pTotal - pPaid > 0 ? moneyShort(pTotal - pPaid, locale) : "✓"}
                             </td>
                             <td>{p.status}</td>
                           </tr>

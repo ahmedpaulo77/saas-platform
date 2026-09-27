@@ -1273,7 +1273,7 @@ ${labelDivs}
                                   padding: "8px 4px",
                                 }}
                               >
-                                {(parseFloat(moneyShort(item.amount) || 0), locale)}{" "}
+                                {moneyShort(item.amount, locale)}{" "}
                                 {t("currency")}
                               </div>
                             </div>
@@ -1462,7 +1462,7 @@ ${labelDivs}
                           )}
                           {hasInventory && <td>{totalQty || p.quantity || 0}</td>}
                           <td style={{ fontWeight: 700, color: "var(--gray-800)" }}>
-                            {(moneyShort(p.amount || 0), locale)} {t("currency")}
+                            {moneyShort(p.amount || 0, locale)} {t("currency")}
                           </td>
                           <td style={{ color: "#10b981", fontWeight: 600 }}>
                             {paid > 0 ? `${moneyShort(paid, locale)} ${t("currency")}` : "—"}
@@ -1676,13 +1676,13 @@ ${labelDivs}
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("pur.purchaseVal")}</span>
                     <span style={{ fontWeight: 800 }}>
-                      {(moneyShort(payingPurchase.amount || 0), locale)} {t("currency")}
+                      {moneyShort(payingPurchase.amount || 0, locale)} {t("currency")}
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ color: "var(--gray-500)", fontSize: 13 }}>{t("in.prevPaid")}</span>
                     <span style={{ fontWeight: 700, color: "#10b981" }}>
-                      {(parseFloat(moneyShort(payingPurchase.paidAmount) || 0), locale)} {t("currency")}
+                      {moneyShort(payingPurchase.paidAmount, locale)} {t("currency")}
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>

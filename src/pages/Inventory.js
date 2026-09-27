@@ -1085,7 +1085,7 @@ export default function Inventory() {
                 </div>
                 <div className="stat-card amber">
                   <div className="stat-icon"><i className="fas fa-chart-line"></i></div>
-                  <div className="stat-value" style={{ fontSize: 17, color: retail - capital >= 0 ? "#16a34a" : "#dc2626" }}>{(moneyShort(retail - capital), locale)}</div>
+                  <div className="stat-value" style={{ fontSize: 17, color: retail - capital >= 0 ? "#16a34a" : "#dc2626" }}>{moneyShort(retail - capital, locale)}</div>
                   <div className="stat-label">الهامش المتوقع</div>
                 </div>
                 {noCost > 0 && (

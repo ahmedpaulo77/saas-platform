@@ -648,7 +648,7 @@ export default function StorePOS() {
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
               🟢 {t("shift.openSince", { n: shift.number, time: shift.openedAt ? new Date(shift.openedAt).toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" }) : "—" })}
             </span>
-            <span style={{ fontSize: 12, color: "#64748b" }}>{t("shift.startCash")}: {(moneyShort(shift.openingCash || 0), locale)}</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{t("shift.startCash")}: {moneyShort(shift.openingCash || 0, locale)}</span>
             <button type="button" onClick={previewClosing} className="btn-primary btn-sm" style={{ marginInlineEnd: "auto", background: NAVY }}>{t("shift.close")}</button>
             <button type="button" onClick={() => setShowHistory(!showHistory)} className="btn-secondary btn-sm">{t("shift.historyShort")}</button>
           </div>
@@ -666,14 +666,14 @@ export default function StorePOS() {
                     <td style={{ fontSize: 12 }}>{c.openedAt ? new Date(c.openedAt).toLocaleString(timeLocale) : "—"}</td>
                     <td style={{ fontSize: 12 }}>{c.closedAt ? new Date(c.closedAt).toLocaleString(timeLocale) : <span style={{ color: "#16a34a", fontWeight: 700 }}>{t("shift.openLabel")}</span>}</td>
                     <td>{c.salesCount ?? "—"}</td>
-                    <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? Number(moneyShort(c.paidTotal), locale) : "—"}</td>
+                    <td style={{ fontWeight: 700 }}>{c.paidTotal != null ? moneyShort(c.paidTotal, locale) : "—"}</td>
                     <td>{c.returnsCount ?? "—"}</td>
-                    <td style={{ color: "#b45309", fontWeight: 700 }}>{c.returnsTotal != null ? Number(moneyShort(c.returnsTotal), locale) : "—"}</td>
-                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? Number(moneyShort(c.cashIn), locale) : "—"}</td>
-                    <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? Number(moneyShort(c.cashOut), locale) : "—"}</td>
-                    <td>{c.countedCash != null ? Number(moneyShort(c.countedCash), locale) : "—"}</td>
+                    <td style={{ color: "#b45309", fontWeight: 700 }}>{c.returnsTotal != null ? moneyShort(c.returnsTotal, locale) : "—"}</td>
+                    <td style={{ color: "#16a34a", fontWeight: 700 }}>{c.cashIn != null ? moneyShort(c.cashIn, locale) : "—"}</td>
+                    <td style={{ color: "#dc2626", fontWeight: 700 }}>{c.cashOut != null ? moneyShort(c.cashOut, locale) : "—"}</td>
+                    <td>{c.countedCash != null ? moneyShort(c.countedCash, locale) : "—"}</td>
                     <td style={{ fontWeight: 800, color: (c.difference || 0) === 0 ? "#16a34a" : (c.difference || 0) > 0 ? "#2563eb" : "#dc2626" }}>
-                      {c.difference != null ? `${c.difference > 0 ? "+" : ""}${Number(moneyShort(c.difference), locale)}` : "—"}
+                      {c.difference != null ? `${c.difference > 0 ? "+" : ""}${moneyShort(c.difference, locale)}` : "—"}
                     </td>
                     <td style={{ fontSize: 12 }}>{c.receiver || "—"}</td>
                   </tr>
@@ -1055,7 +1055,7 @@ export default function StorePOS() {
                   </div>
                   <div style={{ background: "#fffbeb", borderRadius: 8, padding: 10, textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{t("shift.statReturns")} ({closePreview.returnsCount || 0})</div>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{(moneyShort(closePreview.returnsTotal || 0), locale)}</div>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: "#b45309" }}>{moneyShort(closePreview.returnsTotal || 0, locale)}</div>
                   </div>
                 </div>
                 {Object.keys(closePreview.byMethod).length > 0 && (
@@ -1069,9 +1069,9 @@ export default function StorePOS() {
                       ))}
                     </div>
                     <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
-                      {t("shift.cashSales")}: {(moneyShort(closePreview.cashSales ?? 0), locale)} {t("currency")}
+                      {t("shift.cashSales")}: {moneyShort(closePreview.cashSales ?? 0, locale)} {t("currency")}
                       {(closePreview.returnsTotal || 0) > 0 && (
-                        <span style={{ color: "#b45309" }}> — {t("shift.returnsDeduct")}: {(moneyShort(closePreview.returnsTotal || 0), locale)}</span>
+                        <span style={{ color: "#b45309" }}> — {t("shift.returnsDeduct")}: {moneyShort(closePreview.returnsTotal || 0, locale)}</span>
                       )}
                     </div>
                   </div>
@@ -1080,11 +1080,11 @@ export default function StorePOS() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <div style={{ background: "#f0fdf4", borderRadius: 8, padding: 10, textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: "#64748b" }}>داخل تلقائي ({closePreview.expInCount || 0})</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#16a34a" }}>{(moneyShort(closePreview.cashIn || 0), locale)}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#16a34a" }}>{moneyShort(closePreview.cashIn || 0, locale)}</div>
                     </div>
                     <div style={{ background: "#fef2f2", borderRadius: 8, padding: 10, textAlign: "center" }}>
                       <div style={{ fontSize: 11, color: "#64748b" }}>خارج تلقائي ({closePreview.expOutCount || 0})</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#dc2626" }}>{(moneyShort(closePreview.cashOut || 0), locale)}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#dc2626" }}>{moneyShort(closePreview.cashOut || 0, locale)}</div>
                     </div>
                   </div>
                   <div className="form-group">

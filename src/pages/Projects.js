@@ -412,7 +412,7 @@ export default function Projects() {
                     </td>
                     <td style={{ fontWeight: 700 }}>
                       {project.contractValue
-                        ? Number(moneyShort(project.contractValue), locale) + ` ${t("currency")}`
+                        ? moneyShort(project.contractValue, locale) + ` ${t("currency")}`
                         : "-"}
                     </td>
                     <td>
@@ -490,7 +490,7 @@ export default function Projects() {
                 <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-file-contract"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(certNetTotal, locale)}</div><div className="stat-label">المعتمد (صافي) {contractVal > 0 && <span>({Math.round((certNetTotal / contractVal) * 100)}%)</span>}</div></div>
                 <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(certPaidTotal, locale)}</div><div className="stat-label">المحصّل</div></div>
                 <div className="stat-card red"><div className="stat-icon"><i className="fas fa-wallet"></i></div><div className="stat-value" style={{ fontSize: 16 }}>{moneyShort(projExpTotal, locale)}</div><div className="stat-label">مصروفات المشروع</div></div>
-                <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-chart-line"></i></div><div className="stat-value" style={{ fontSize: 16, color: certNetTotal - projExpTotal >= 0 ? "#16a34a" : "#dc2626" }}>{(moneyShort(certNetTotal - projExpTotal), locale)}</div><div className="stat-label">الربح (معتمد − مصروف)</div></div>
+                <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-chart-line"></i></div><div className="stat-value" style={{ fontSize: 16, color: certNetTotal - projExpTotal >= 0 ? "#16a34a" : "#dc2626" }}>{moneyShort(certNetTotal - projExpTotal, locale)}</div><div className="stat-label">الربح (معتمد − مصروف)</div></div>
               </div>
 
               <form onSubmit={addCertificate}>
@@ -538,9 +538,9 @@ export default function Projects() {
                       {selectedCerts.map((c) => (
                         <tr key={c.id}>
                           <td style={{ fontWeight: 700 }}>مستخلص {c.number}</td>
-                          <td>{Number(moneyShort(c.amount || 0), locale)}</td>
-                          <td style={{ color: "#d97706" }}>{Number(moneyShort(c.deduction || 0), locale)}</td>
-                          <td style={{ fontWeight: 800 }}>{Number(c.net ?? ((c.amount || 0) - (moneyShort(c.deduction || 0))), locale)}</td>
+                          <td>{moneyShort(c.amount || 0, locale)}</td>
+                          <td style={{ color: "#d97706" }}>{moneyShort(c.deduction || 0, locale)}</td>
+                          <td style={{ fontWeight: 800 }}>{moneyShort(c.net ?? ((c.amount || 0) - (c.deduction || 0)), locale)}</td>
                           <td>
                             <select value={c.status} onChange={(e) => setCertStatus(c, e.target.value)}
                               style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, background: c.status === "paid" ? "#f0fdf4" : c.status === "approved" ? "#eef2ff" : "#fffbeb" }}>
