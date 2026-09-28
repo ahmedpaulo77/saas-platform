@@ -356,10 +356,11 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
           <span>${translations.subtotal}</span>
           <span>${moneyShort(amount, docLocale)} ${translations.currency}</span>
         </div>
+        ${parseFloat(invoice.taxAmount) > 0 ? `
         <div class="totals-row">
           <span>${translations.tax}${invoice.taxRate > 0 ? ` (${invoice.taxRate}%)` : ''}</span>
           <span>${moneyShort(parseFloat(invoice.taxAmount) || 0, docLocale)} ${translations.currency}</span>
-        </div>
+        </div>` : ''}
         ${paidNumber > 0 ? `
         <div class="totals-row">
           <span>${translations.paidLabel}</span>
