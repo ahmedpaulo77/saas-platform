@@ -123,6 +123,14 @@ export function AuthProvider({ children }) {
     // الـ uid اللي الـ listener الحالي متاعه — بنستخدمه عشان نستبعد
     // callbacks قديمة بتيجي بعد ما الـ user يتغيّر.
     let listeningUid = null;
+    // شبكة أمان: لو مستند الشركة اتأخر (نت معلق) منعلقش على سبينر للأبد
+    let loadTimer = null;
+    const armLoadTimer = (uid) => {
+      if (loadTimer) clearTimeout(loadTimer);
+      loadTimer = setTimeout(() => {
+        if (listeningUid === uid) setLoading(false);
+      }, 10000);
+    };
 
     const unsubscribeAllDocs = () => {
       if (unsubUserDoc) {
@@ -142,6 +150,7 @@ export function AuthProvider({ children }) {
       // بتاع الأول فوق بيانات الثاني (تسريب صلاحيات + حالة غلط).
       unsubscribeAllDocs();
       listeningUid = user?.uid || null;
+      armLoadTimer(listeningUid);
       setCurrentUser(user);
       //صفّر القيم قبل ما نقرأ البروفايل الجديد — عشان مفيش لحظة
       // تكون فيها صلاحيات قديمة نافذة على الحساب الجديد
@@ -171,8 +180,21 @@ export function AuthProvider({ children }) {
             setUserRole(userData.role || 'user');
             setUserCompanyId(userData.companyId || null);
 
+            // مفتاح الإصلاح: لا ننهي التحميل حتى يصل مجال العمل الحقيقي.
+            // قبل كده loading كانت بتبقى false فور مستند المستخدم بينما
+            // userIndustry لسه 'general' الافتراضية — فـ IndustryRoute كان
+            // بيحسب صلاحيات غلط (عيادة على /patients مثلًا) ويطرد للداش
+            // بورد مع أول ريفريش، حتى لو الحساب سليم.
+            const finish = () => {
+              if (listeningUid === user.uid) setLoading(false);
+            };
+
             // ✅ جلب مجال العمل (Industry) من الشركة + إيقاف الشركة
             if (userData.companyId) {
+              let firstCompanySnap = true;
+              const companyFirstDone = () => {
+                if (firstCompanySnap) { firstCompanySnap = false; finish(); }
+              };
               unsubCompanyDoc = onSnapshot(doc(db, "companies", userData.companyId), (companySnap) => {
                 if (listeningUid !== user.uid) return;
                 if (companySnap.exists()) {
@@ -185,12 +207,15 @@ export function AuthProvider({ children }) {
                 } else {
                   setUserIndustry('general');
                 }
+                companyFirstDone();
               }, (e) => {
                 console.warn("Error fetching company industry:", e.message);
                 setUserIndustry('general');
+                companyFirstDone();
               });
             } else {
               setUserIndustry('general');
+              finish();
             }
             
             // ✅ تهيئة Push Notifications مرة واحدة فقط
@@ -203,8 +228,8 @@ export function AuthProvider({ children }) {
             setUserRole('user');
             setUserCompanyId(null);
             setUserIndustry('general');
+            finish();
           }
-          setLoading(false);
         }, (error) => {
           console.warn("Error listening to user doc:", error.message);
           // ⚠️ قبل كده كان بيحط loading=false بس ويسيب userRole زي ما هو.
@@ -218,6 +243,7 @@ export function AuthProvider({ children }) {
         });
 
       } else {
+        if (loadTimer) clearTimeout(loadTimer);
         setUserRole(null);
         setUserCompanyId(null);
         setUserIndustry('general');
@@ -227,6 +253,7 @@ export function AuthProvider({ children }) {
     });
 
     return () => {
+      if (loadTimer) clearTimeout(loadTimer);
       unsubscribeAuth();
       unsubscribeAllDocs();
     };
