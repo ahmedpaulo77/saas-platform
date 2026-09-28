@@ -59,10 +59,88 @@ function demoData(industry, locale) {
     invoices: 180 + Math.floor(rnd() * 220),
     clients: 90 + Math.floor(rnd() * 160),
     products: 140 + Math.floor(rnd() * 300),
+    // أرقام مخصصة لكل نشاط (للكروت المخصصة)
+    ordersToday: 25 + Math.floor(rnd() * 60),
+    tablesBusy: 4 + Math.floor(rnd() * 9),
+    menuItems: 30 + Math.floor(rnd() * 50),
+    rxToday: 15 + Math.floor(rnd() * 40),
+    expiring: 3 + Math.floor(rnd() * 12),
+    itemsSold: 300 + Math.floor(rnd() * 700),
+    models: 40 + Math.floor(rnd() * 80),
+    apptsToday: 8 + Math.floor(rnd() * 20),
+    patients: 120 + Math.floor(rnd() * 250),
     momPct: 4 + Math.round(rnd() * 22 + rnd() * 10) / 10,
     days,
     top: [0.42, 0.27, 0.18, 0.13].map((f, i) => ({ i, v: Math.round(monthTotal * f) })),
   };
+}
+
+// الكروت والقوائم المخصصة لكل نشاط — نفس مصطلحات السيستم الحقيقي
+function industryContent(industry, data, t, locale) {
+  const money = (v) => <AnimatedNumber value={v} locale={locale} format={(x) => moneyShort(x, locale)} />;
+  const count = (v) => <AnimatedNumber value={v} locale={locale} />;
+  switch (industry) {
+    case "restaurant":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-receipt", cls: "amber", label: t("demo.ordersToday"), value: count(data.ordersToday) },
+          { icon: "fas fa-chair", cls: "purple", label: t("demo.tablesBusy"), value: count(data.tablesBusy) },
+          { icon: "fas fa-utensils", cls: "green", label: t("demo.menuItems"), value: count(data.menuItems) },
+        ],
+        topTitle: t("demo.topDishes"), itemLabel: t("demo.dish"),
+      };
+    case "pharmacy":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-prescription", cls: "amber", label: t("demo.rxToday"), value: count(data.rxToday) },
+          { icon: "fas fa-calendar-times", cls: "red", label: t("demo.expiring"), value: count(data.expiring) },
+          { icon: "fas fa-user-nurse", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+        ],
+        topTitle: t("demo.topDrugs"), itemLabel: t("demo.drug"),
+      };
+    case "super_market":
+      return {
+        cards: [
+          { icon: "fas fa-cash-register", cls: "cyan", label: t("demo.todaySales"), value: money(Math.round(data.revenue / 30)) },
+          { icon: "fas fa-file-invoice", cls: "amber", label: t("demo.invoices"), value: count(data.invoices) },
+          { icon: "fas fa-boxes", cls: "purple", label: t("demo.products"), value: count(data.products) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+        ],
+        topTitle: t("demo.topItems"), itemLabel: t("demo.productItem"),
+      };
+    case "clothing":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-bag-shopping", cls: "amber", label: t("demo.itemsSold"), value: count(data.itemsSold) },
+          { icon: "fas fa-shirt", cls: "purple", label: t("demo.models"), value: count(data.models) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+        ],
+        topTitle: t("demo.topModels"), itemLabel: t("demo.model"),
+      };
+    case "clinic":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-calendar-check", cls: "amber", label: t("demo.apptsToday"), value: count(data.apptsToday) },
+          { icon: "fas fa-hospital-user", cls: "green", label: t("demo.patients"), value: count(data.patients) },
+          { icon: "fas fa-prescription", cls: "purple", label: t("demo.rxToday"), value: count(data.rxToday) },
+        ],
+        topTitle: t("demo.topServices"), itemLabel: t("demo.service"),
+      };
+    default:
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-file-invoice", cls: "amber", label: t("demo.invoices"), value: count(data.invoices) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+          { icon: "fas fa-boxes", cls: "purple", label: t("demo.products"), value: count(data.products) },
+        ],
+        topTitle: t("demo.top"), itemLabel: t("demo.item"),
+      };
+  }
 }
 
 export default function Demo() {
@@ -87,12 +165,8 @@ export default function Demo() {
     });
   }, [industry]);
 
-  const cards = [
-    { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: <AnimatedNumber value={data.revenue} locale={locale} format={(v) => moneyShort(v, locale)} /> },
-    { icon: "fas fa-file-invoice", cls: "amber", label: t("demo.invoices"), value: <AnimatedNumber value={data.invoices} locale={locale} /> },
-    { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: <AnimatedNumber value={data.clients} locale={locale} /> },
-    { icon: "fas fa-boxes", cls: "purple", label: t("demo.products"), value: <AnimatedNumber value={data.products} locale={locale} /> },
-  ];
+  const content = useMemo(() => industryContent(industry, data, t, locale), [industry, data, t, locale]);
+  const { cards, topTitle, itemLabel } = content;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--gray-50)" }}>
@@ -204,9 +278,9 @@ export default function Demo() {
             </ResponsiveContainer>
           </div>
           <div className="card">
-            <h3><i className="fas fa-trophy" style={{ color: "#f59e0b", marginLeft: 8 }}></i>{t("demo.top")}</h3>
+            <h3><i className="fas fa-trophy" style={{ color: "#f59e0b", marginLeft: 8 }}></i>{topTitle}</h3>
             <ResponsiveContainer width="100%" height={130}>
-              <BarChart data={data.top.map((x) => ({ name: `${t("demo.item")} ${num(x.i + 1, locale)}`, v: x.v }))} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <BarChart data={data.top.map((x) => ({ name: `${itemLabel} ${num(x.i + 1, locale)}`, v: x.v }))} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                 <XAxis dataKey="name" tick={{ fontSize: 11, fontFamily: "Cairo", fill: "#64748b" }} interval={0} />
                 <Tooltip contentStyle={{ fontFamily: "Cairo", borderRadius: 12, direction: "rtl" }} formatter={(v) => [`${moneyShort(v, locale)} ${t("currency")}`, t("demo.revenue")]} />
                 <Bar dataKey="v" fill={active.color} radius={[8, 8, 0, 0]} barSize={34} />
@@ -214,7 +288,7 @@ export default function Demo() {
             </ResponsiveContainer>
             {data.top.map((x) => (
               <div key={x.i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "var(--gray-50)", borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
-                <span style={{ fontWeight: 700 }}>{t("demo.item")} {num(x.i + 1, locale)}</span>
+                <span style={{ fontWeight: 700 }}>{itemLabel} {num(x.i + 1, locale)}</span>
                 <span style={{ fontWeight: 800, color: active.color }}>{moneyShort(x.v, locale)} {t("currency")}</span>
               </div>
             ))}
