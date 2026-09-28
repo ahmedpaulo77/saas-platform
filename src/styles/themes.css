@@ -1,0 +1,92 @@
+/* ============================================================
+   Dark theme — الوضع الليلي (هادئ، نفس الهوية)
+   يعمل عبر data-theme="dark" على <html> (راجع ThemeContext).
+   معظم الأسطح تستخدم var() فتنقلب تلقائيًا؛ هنا إعادة تعيين
+   المتغيرات + إصلاحات موضعية للحالات المكتوبة بألوان ثابتة.
+   ============================================================ */
+
+[data-theme="dark"] {
+  /* Surfaces */
+  --white: #101a30;
+  --gray-50: #0a1224;
+  --gray-100: #131e36;
+  --gray-200: #22304f;
+  --gray-300: #354363;
+  --gray-400: #7c8cab;
+  --gray-500: #9fadc9;
+  --gray-600: #c2cde2;
+  --gray-700: #d7e0f1;
+  --gray-800: #e9effa;
+  --gray-900: #f6f9fe;
+
+  /* Brand tints on dark */
+  --primary-bg: #1b2653;
+  --primary-bg-hover: #243165;
+
+  /* Semantic (هادئة على الغامق) */
+  --success: #34d399;
+  --success-bg: #0a2e23;
+  --success-dark: #6ee7b7;
+  --danger: #f87171;
+  --danger-bg: #3a1414;
+  --danger-dark: #fca5a5;
+  --warning: #fbbf24;
+  --warning-bg: #3a2a0c;
+  --warning-dark: #fcd34d;
+  --info: #60a5fa;
+  --info-bg: #10294f;
+  --info-dark: #93c5fd;
+
+  /* Sidebar أغمق درجة */
+  --sidebar-bg: #070c1a;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow: 0 4px 16px rgba(0,0,0,0.45);
+  --shadow-md: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
+  --shadow-primary: 0 8px 24px rgba(99,102,241,0.35);
+}
+
+/* خلفية الصفحة */
+[data-theme="dark"] body {
+  background: var(--gray-50);
+  color: var(--gray-800);
+}
+
+/* شارات بنفسجية مكتوبة بألوان ثابتة */
+[data-theme="dark"] .badge-purple {
+  background: #2e1a5e;
+  color: #c4b5fd;
+}
+
+/* كروت الإحصائيات الملونة: خلفيات باستيل تظل مقروءة على الغامق */
+[data-theme="dark"] .stat-card .stat-icon {
+  filter: brightness(0.85);
+}
+
+/* صفحة الخطأ */
+[data-theme="dark"] .eb-screen { background: var(--gray-50); }
+[data-theme="dark"] .eb-card {
+  background: var(--white);
+  border-color: var(--gray-200);
+}
+[data-theme="dark"] .eb-title { color: var(--gray-800); }
+[data-theme="dark"] .eb-hint { color: var(--gray-500); }
+
+/* سكليتون على الغامق */
+[data-theme="dark"] .skeleton-line,
+[data-theme="dark"] .skeleton-card {
+  background: linear-gradient(90deg, #16213c 25%, #22304f 37%, #16213c 63%);
+  background-size: 400% 100%;
+}
+
+/* مدخلات المودال والفلاتر */
+[data-theme="dark"] .filter-bar select,
+[data-theme="dark"] .pagination-size,
+[data-theme="dark"] .pagination-btn {
+  background: var(--white);
+  border-color: var(--gray-200);
+  color: var(--gray-700);
+}

@@ -10,6 +10,8 @@ import {
   sum,
   doc,
   getDoc,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
@@ -18,7 +20,10 @@ import Sidebar from "../components/common/Sidebar.js";
 import { getAvailableModules } from "../utils/modules.js";
 import { round2 } from "../utils/traderUnits.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
-import { moneyShort } from "../utils/fmt.js";
+import { moneyShort, num } from "../utils/fmt.js";
+import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
+import RevenueChartCard from "../components/dashboard/RevenueChartCard.jsx";
+import { invoiceRevenue } from "../utils/revenue.js";
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [
@@ -264,6 +269,10 @@ export default function Dashboard() {
   // ✅ اسم الشركة اللي هيظهر جنب Welcome
   const [companyName, setCompanyName] = useState("");
 
+  // ✅ رسم الإيراد اليومي (آخر 30 يوم) + مقارنة الشهر الحالي بالسابق
+  const [dailyRevenue, setDailyRevenue] = useState([]);
+  const [mom, setMom] = useState({ cur: 0, prev: 0, pct: null });
+
   useEffect(() => {
     if (!userCompanyId) return;
     (async () => {
@@ -439,6 +448,62 @@ export default function Dashboard() {
     };
   }, [currentUser, userRole, userCompanyId, isAdmin]);
 
+  // رسم آخر 30 يوم من أحدث 400 فاتورة (بدون index مركّب جديد — الترتيب
+  // على createdAt مستخدم أصلاً في pagination). المقارنة شهر حالي/سابق
+  // من نفس العينة.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (userRole !== "super_admin" && !userCompanyId) return;
+    if (!isAdmin) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const invRef = collection(db, "invoices");
+        const base = userRole === "super_admin"
+          ? invRef
+          : query(invRef, where("companyId", "==", userCompanyId));
+        const snap = await getDocs(query(base, orderBy("createdAt", "desc"), limit(400)));
+        if (cancelled) return;
+        const byDay = {};
+        let curMonth = 0, prevMonth = 0;
+        const now = new Date();
+        const curKey = `${now.getFullYear()}-${now.getMonth()}`;
+        const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevKey = `${prev.getFullYear()}-${prev.getMonth()}`;
+        snap.docs.forEach((d) => {
+          const inv = d.data();
+          const dt = inv.date ? new Date(inv.date) : (inv.createdAt ? new Date(inv.createdAt) : null);
+          if (!dt || isNaN(dt.getTime())) return;
+          const rev = invoiceRevenue(inv, { requireValidated: true });
+          if (!(rev > 0)) return;
+          const dayKey = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+          byDay[dayKey] = (byDay[dayKey] || 0) + rev;
+          const mKey = `${dt.getFullYear()}-${dt.getMonth()}`;
+          if (mKey === curKey) curMonth += rev;
+          else if (mKey === prevKey) prevMonth += rev;
+        });
+        const series = [];
+        for (let i = 29; i >= 0; i--) {
+          const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+          const key = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+          series.push({
+            name: dt.toLocaleDateString(locale, { day: "numeric", month: "numeric" }),
+            value: Math.round((byDay[key] || 0) * 100) / 100,
+          });
+        }
+        setDailyRevenue(series);
+        setMom({
+          cur: curMonth,
+          prev: prevMonth,
+          pct: prevMonth > 0 ? Math.round(((curMonth - prevMonth) / prevMonth) * 1000) / 10 : null,
+        });
+      } catch (e) {
+        console.warn("dashboard chart:", e?.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser, userRole, userCompanyId, isAdmin, locale]);
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
@@ -506,14 +571,15 @@ export default function Dashboard() {
         )}
 
         {isAdmin ? (
-          <div className="stats-row">
+          <>
+          <div className="stats-row anim-stagger">
             {availableModules.has("companies") && (
               <div className="stat-card indigo">
                 <div className="stat-icon">
                   <i className="fas fa-building"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.companies}
+                  {loading ? "..." : <AnimatedNumber value={stats.companies} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.companies")}</div>
               </div>
@@ -524,7 +590,7 @@ export default function Dashboard() {
                   <i className="fas fa-user-friends"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.clients}
+                  {loading ? "..." : <AnimatedNumber value={stats.clients} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.clients")}</div>
               </div>
@@ -535,7 +601,7 @@ export default function Dashboard() {
                   <i className="fas fa-store"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.sellers}
+                  {loading ? "..." : <AnimatedNumber value={stats.sellers} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.sellers")}</div>
               </div>
@@ -546,7 +612,7 @@ export default function Dashboard() {
                   <i className="fas fa-user-plus"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.buyers}
+                  {loading ? "..." : <AnimatedNumber value={stats.buyers} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.buyers")}</div>
               </div>
@@ -557,7 +623,7 @@ export default function Dashboard() {
                   <i className="fas fa-file-invoice"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.invoices}
+                  {loading ? "..." : <AnimatedNumber value={stats.invoices} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.invoices")}</div>
               </div>
@@ -568,7 +634,7 @@ export default function Dashboard() {
                   <i className="fas fa-tasks"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.tasks}
+                  {loading ? "..." : <AnimatedNumber value={stats.tasks} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.tasks")}</div>
               </div>
@@ -579,7 +645,7 @@ export default function Dashboard() {
                   <i className="fas fa-project-diagram"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.projects}
+                  {loading ? "..." : <AnimatedNumber value={stats.projects} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.projects")}</div>
               </div>
@@ -590,7 +656,7 @@ export default function Dashboard() {
                   <i className="fas fa-users"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.users}
+                  {loading ? "..." : <AnimatedNumber value={stats.users} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.users")}</div>
               </div>
@@ -601,7 +667,7 @@ export default function Dashboard() {
                   <i className="fas fa-truck"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.suppliers}
+                  {loading ? "..." : <AnimatedNumber value={stats.suppliers} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("nav.suppliers")}</div>
               </div>
@@ -612,7 +678,7 @@ export default function Dashboard() {
                   <i className="fas fa-cart-arrow-down"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.purchases}
+                  {loading ? "..." : <AnimatedNumber value={stats.purchases} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("dash.purchases")}</div>{" "}
               </div>
@@ -623,7 +689,7 @@ export default function Dashboard() {
                   <i className="fas fa-calendar-alt"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.appointments}
+                  {loading ? "..." : <AnimatedNumber value={stats.appointments} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("modules.appointments")}</div>
               </div>
@@ -634,7 +700,7 @@ export default function Dashboard() {
                   <i className="fas fa-hospital-user"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.patients}
+                  {loading ? "..." : <AnimatedNumber value={stats.patients} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("modules.patients")}</div>
               </div>
@@ -645,7 +711,7 @@ export default function Dashboard() {
                   <i className="fas fa-prescription"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.prescriptions}
+                  {loading ? "..." : <AnimatedNumber value={stats.prescriptions} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("modules.prescriptions")}</div>
               </div>
@@ -656,7 +722,7 @@ export default function Dashboard() {
                   <i className="fas fa-envelope"></i>
                 </div>
                 <div className="stat-value">
-                  {loading ? "..." : stats.messages}
+                  {loading ? "..." : <AnimatedNumber value={stats.messages} locale={locale} />}
                 </div>
                 <div className="stat-label">{t("modules.messages")}</div>
               </div>
@@ -673,6 +739,11 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {availableModules.has("invoices") && (
+            <RevenueChartCard t={t} locale={locale} loading={loading} dailyRevenue={dailyRevenue} mom={mom} currencyLabel={t("currency")} />
+          )}
+          </>
         ) : (
           // ✅ لو مش Admin، يظهر رسالة
           <div
@@ -701,7 +772,7 @@ export default function Dashboard() {
             <i className="fas fa-th-large"></i> {t("dash.modules")}
           </div>
         </div>
-        <div className="grid-3">
+        <div className="grid-3 anim-stagger">
           {featureCards.map((card) => (
             <div key={card.to} className="card hoverable feature-card">
               <div

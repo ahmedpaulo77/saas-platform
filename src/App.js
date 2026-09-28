@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/common/ProtectedRoute.js";
 import SuperAdminRoute from "./components/common/SuperAdminRoute.js";
 import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
 import { LanguageProvider } from "./i18n/LanguageContext.js";
+import { ThemeProvider } from "./context/ThemeContext.js";
 import { getAvailableModules } from "./utils/modules.js";
 import "./App.css";
 
@@ -64,6 +65,7 @@ const Viewings = lazy(() => import("./pages/Viewings"));
 const VariantCodes = lazy(() => import("./pages/VariantCodes"));
 const Tables = lazy(() => import("./pages/Tables"));
 const StorePOS = lazy(() => import("./pages/StorePOS"));
+const Demo = lazy(() => import("./pages/Demo"));
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
@@ -91,6 +93,7 @@ function AppRoutes() {
     <Routes>
       {/* Public */}
       <Route path="/" element={<Landing />} />
+      <Route path="/demo" element={<Demo />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/setup" element={<Setup />} />
@@ -523,6 +526,7 @@ function AppFallback() {
 function App() {
   return (
     <LanguageProvider>
+      <ThemeProvider>
       <Router>
         <AuthProvider>
           {/* ✅ NotificationsProvider لازم يكون جوه AuthProvider عشان ياخد
@@ -539,6 +543,7 @@ function App() {
           </NotificationsProvider>
         </AuthProvider>
       </Router>
+      </ThemeProvider>
     </LanguageProvider>
   );
 }

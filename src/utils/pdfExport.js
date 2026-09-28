@@ -3,7 +3,7 @@
 // سكربت) بتقول ERR_MODULE_NOT_FOUND.
 import { moneyShort } from "./fmt.js";
 // src/utils/pdfExport.js - يدعم العربية والإنجليزية
-export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice", locale) {
+export function exportInvoicePDF(invoice, clientName, productName, docType = "invoice", locale, opts = {}) {
   // كشف اللغة بناءً على اسم العميل أو المنتج
   const isArabic = /[\u0600-\u06FF]/.test(clientName) || /[\u0600-\u06FF]/.test(productName);
   const isQuotation = docType === "quotation";
@@ -38,6 +38,10 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
 
   const amount = parseFloat(invoice.amount ?? invoice.total) ||
     lines.reduce((s, l) => s + l.amount, 0);
+  // المدفوع والمتبقي — يظهران في صندوق الإجماليات عند وجود دفعة
+  const paidNumber = parseFloat(invoice.paidAmount) || 0;
+  const remainingNumber = Math.max(0, Math.round((amount - paidNumber) * 100) / 100);
+  const printedAtStr = new Date().toLocaleString(docLocale);
   const totalQty = lines.reduce((s, l) => s + l.qty, 0);
   const unitPrice = totalQty > 0 ? (amount / totalQty).toFixed(2) : amount.toFixed(2);
 
@@ -60,10 +64,13 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
     subtotal: 'المجموع الفرعي',
     tax: 'الضريبة (0%)',
     notes: 'ملاحظات',
-    thanks: 'شكراً لتعاملكم معنا',
-    print: '🖨️ طباعة / حفظ PDF',
+    thanks: 'شكراً لتعاملكم معنا. نتطلع لخدمتكم دائماً',
+    print: 'اطبع / احفظ PDF',
     close: 'إغلاق',
     currency: 'ج.م',
+    paidLabel: 'المدفوع',
+    remaining: 'المتبقي',
+    printedAt: 'تاريخ الطباعة',
   } : {
     brand: 'Business Management Platform',
     invoice: isQuotation ? 'QUOTATION' : 'INVOICE',
@@ -83,9 +90,12 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
     tax: 'Tax (0%)',
     notes: 'Notes',
     thanks: 'Thank you for your business',
-    print: '🖨️ Print / Save PDF',
+    print: 'Print / Save PDF',
     close: 'Close',
     currency: 'EGP',
+    paidLabel: 'Paid',
+    remaining: 'Remaining',
+    printedAt: 'Printed at',
   };
 
   const statusMap   = { paid: translations.paid, pending: translations.pending, overdue: translations.overdue };
@@ -289,8 +299,8 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
     </div>
     <div style="text-align:${isArabic ? 'left' : 'right'};">
       <div class="bill-label">${translations.from}</div>
-      <div class="bill-name">SaaS PRO</div>
-      <div class="bill-sub">support@saaspro.com</div>
+      <div class="bill-name">${opts.companyName || 'SaaS PRO'}</div>
+      <div class="bill-sub">${opts.companyPhone || opts.companyAddress || 'support@saaspro.com'}</div>
     </div>
   </div>
 
@@ -350,6 +360,15 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
           <span>${translations.tax}</span>
           <span>0.00 ${translations.currency}</span>
         </div>
+        ${paidNumber > 0 ? `
+        <div class="totals-row">
+          <span>${translations.paidLabel}</span>
+          <span style="color:#059669">${moneyShort(paidNumber, docLocale)} ${translations.currency}</span>
+        </div>
+        <div class="totals-row">
+          <span>${translations.remaining}</span>
+          <span style="color:${remainingNumber > 0 ? '#dc2626' : '#059669'}">${moneyShort(remainingNumber, docLocale)} ${translations.currency}</span>
+        </div>` : ''}
         <div class="totals-row">
           <span>${translations.total}</span>
           <span>${moneyShort(amount, docLocale)} ${translations.currency}</span>
@@ -367,6 +386,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
   <!-- Footer -->
   <div class="footer">
     ${translations.thanks} &nbsp;•&nbsp; support@saaspro.com &nbsp;•&nbsp; www.saaspro.com
+    <div style="margin-top:4px;font-size:10px;color:rgba(255,255,255,0.6)">${translations.printedAt}: ${printedAtStr}</div>
   </div>
 
 </div>

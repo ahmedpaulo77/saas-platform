@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext.js";
+import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
+
+function CountUp({ to, suffix = "", decimals = 0 }) {
+  return <AnimatedNumber value={to} decimals={decimals} suffix={suffix} duration={1400} />;
+}
 
 const features = [
   {
@@ -70,10 +75,25 @@ const features = [
 ];
 
 const stats = [
-  { value: "500+", labelKey: "landing.stat.companies" },
-  { value: "50K+", labelKey: "landing.stat.invoices" },
-  { value: "99.9%", labelKey: "landing.stat.uptime" },
-  { value: "24/7", labelKey: "landing.stat.support" },
+  { to: 500, suffix: "+", labelKey: "landing.stat.companies" },
+  { to: 50, suffix: "K+", labelKey: "landing.stat.invoices" },
+  { to: 99.9, suffix: "%", decimals: 1, labelKey: "landing.stat.uptime" },
+  { to: 24, suffix: "/7", labelKey: "landing.stat.support" },
+];
+
+const industries = [
+  { id: "restaurant", icon: "fas fa-utensils", color: "#f59e0b", bg: "#fef3c7" },
+  { id: "pharmacy", icon: "fas fa-pills", color: "#0891b2", bg: "#cffafe" },
+  { id: "super_market", icon: "fas fa-store", color: "#10b981", bg: "#d1fae5" },
+  { id: "clothing", icon: "fas fa-shirt", color: "#8b5cf6", bg: "#f3e8ff" },
+  { id: "clinic", icon: "fas fa-stethoscope", color: "#ec4899", bg: "#fdf2f8" },
+  { id: "contractor", icon: "fas fa-helmet-safety", color: "#f43f5e", bg: "#ffe4e6" },
+];
+
+const testimonials = [
+  { nameKey: "landing.t1.name", roleKey: "landing.t1.role", textKey: "landing.t1.text", color: "#6366f1", bg: "#eef2ff", initial: "م" },
+  { nameKey: "landing.t2.name", roleKey: "landing.t2.role", textKey: "landing.t2.text", color: "#10b981", bg: "#d1fae5", initial: "س" },
+  { nameKey: "landing.t3.name", roleKey: "landing.t3.role", textKey: "landing.t3.text", color: "#f59e0b", bg: "#fef3c7", initial: "أ" },
 ];
 
 export default function Landing() {
@@ -186,6 +206,28 @@ export default function Landing() {
           >
             <i className="fas fa-globe" style={{ fontSize: 14 }}></i>
             <span>{nextLang}</span>
+          </button>
+          {/* ✅ زرار العرض التجريبي */}
+          <button
+            className="landing-btn-login-nav"
+            onClick={() => navigate("/demo")}
+            style={{
+              padding: "8px 20px",
+              borderRadius: 8,
+              border: scrolled
+                ? "1px solid #e2e8f0"
+                : "1px solid rgba(255,255,255,0.3)",
+              background: "transparent",
+              cursor: "pointer",
+              fontFamily: "Cairo",
+              fontWeight: 600,
+              fontSize: 14,
+              color: scrolled ? "#334155" : "white",
+              transition: "all 0.2s",
+            }}
+          >
+            <i className="fas fa-play" style={{ marginLeft: 6, fontSize: 12 }}></i>
+            {t("landing.ctaDemo")}
           </button>
           {/* ✅ زرار Login */}
           <button
@@ -412,6 +454,91 @@ export default function Landing() {
             ></i>
             {t("landing.trialNote")}
           </p>
+
+          {/* زر العرض التجريبي */}
+          <button
+            onClick={() => navigate("/demo")}
+            style={{
+              marginTop: 18,
+              padding: "12px 32px",
+              borderRadius: 60,
+              border: "1px solid rgba(251,191,36,0.5)",
+              background: "rgba(251,191,36,0.1)",
+              color: "#fcd34d",
+              fontFamily: "Cairo",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = "rgba(251,191,36,0.2)"; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = "rgba(251,191,36,0.1)"; }}
+          >
+            <i className="fas fa-play" style={{ marginLeft: 8 }}></i>
+            {t("landing.ctaDemoLong")}
+          </button>
+        </div>
+      </section>
+
+      {/* ── Dashboard preview (موك CSS) ── */}
+      <section style={{ background: "#0f172a", padding: "80px 5%", overflow: "hidden" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", textAlign: "center" }}>
+          <span style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "4px 16px", borderRadius: 60, fontSize: 13, fontWeight: 700, display: "inline-block", marginBottom: 16 }}>
+            {t("landing.previewBadge")}
+          </span>
+          <h2 style={{ fontSize: "clamp(26px,4vw,40px)", fontWeight: 900, color: "white", marginBottom: 14 }}>
+            {t("landing.previewTitle")}
+          </h2>
+          <p style={{ fontSize: 16, color: "rgba(255,255,255,0.55)", maxWidth: 520, margin: "0 auto 40px" }}>
+            {t("landing.previewDesc")}
+          </p>
+          {/* نافذة متصفح */}
+          <div style={{ background: "#1e293b", borderRadius: "16px 16px 0 0", border: "1px solid rgba(255,255,255,0.08)", borderBottom: "none", overflow: "hidden", textAlign: "start" }}>
+            <div style={{ display: "flex", gap: 6, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              {["#ef4444", "#f59e0b", "#10b981"].map((c) => (
+                <span key={c} style={{ width: 11, height: 11, borderRadius: "50%", background: c, opacity: 0.8 }}></span>
+              ))}
+            </div>
+            <div style={{ display: "flex", minHeight: 300 }}>
+              {/* سايدبار مصغر */}
+              <div style={{ width: 150, background: "#0b1220", padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                {["th-large|#6366f1", "file-invoice|#475569", "boxes|#475569", "users|#475569", "chart-pie|#475569"].map((x) => {
+                  const [ic, col] = x.split("|");
+                  return <div key={ic} style={{ height: 30, borderRadius: 8, background: col === "#6366f1" ? "rgba(99,102,241,0.2)" : "transparent", display: "flex", alignItems: "center", padding: "0 10px", color: col, fontSize: 12 }}><i className={`fas fa-${ic}`}></i></div>;
+                })}
+              </div>
+              {/* محتوى مصغر */}
+              <div style={{ flex: 1, padding: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
+                  {[["#6366f1", "78%"], ["#10b981", "55%"], ["#f59e0b", "92%"], ["#8b5cf6", "40%"]].map(([c, h], i) => (
+                    <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 10 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 7, background: `${c}22`, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, marginBottom: 8 }}>
+                        <i className="fas fa-chart-bar"></i>
+                      </div>
+                      <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.12)", width: "70%", marginBottom: 6 }}></div>
+                      <div style={{ height: 40, display: "flex", alignItems: "flex-end", gap: 3 }}>
+                        {[0.4, 0.7, 0.5, 0.9, 0.65, 1].map((v, j) => (
+                          <div key={j} style={{ flex: 1, height: `${v * 100}%`, borderRadius: 2, background: c, opacity: 0.35 + v * 0.5 }}></div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 14, height: 130, display: "flex", alignItems: "flex-end", gap: 6 }}>
+                  {[35, 55, 42, 70, 58, 85, 66, 92, 74, 60, 80, 95, 72, 88].map((v, i) => (
+                    <div key={i} style={{ flex: 1, height: `${v}%`, borderRadius: "4px 4px 0 0", background: "linear-gradient(to top,#6366f1,#8b5cf6)", opacity: 0.55 + (v / 100) * 0.45 }}></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/demo")}
+            style={{ marginTop: 32, padding: "14px 40px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", fontFamily: "Cairo", fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: "0 8px 32px rgba(99,102,241,0.45)" }}
+          >
+            <i className="fas fa-play" style={{ marginLeft: 10 }}></i>
+            {t("landing.ctaDemoLong")}
+          </button>
         </div>
       </section>
 
@@ -442,7 +569,7 @@ export default function Landing() {
                   letterSpacing: -1,
                 }}
               >
-                {s.value}
+                <CountUp to={s.to} suffix={s.suffix} decimals={s.decimals || 0} />
               </div>
               <div
                 style={{
@@ -555,6 +682,71 @@ export default function Landing() {
                 <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>
                   {t(f.descKey)}
                 </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Industries ── */}
+      <section style={{ padding: "96px 5%", background: "white" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <span style={{ background: "#f3e8ff", color: "#7c3aed", padding: "4px 16px", borderRadius: 60, fontSize: 13, fontWeight: 700, display: "inline-block", marginBottom: 16 }}>
+              {t("landing.indBadge")}
+            </span>
+            <h2 style={{ fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: "#0f172a", marginBottom: 14 }}>
+              {t("landing.indTitle")}
+            </h2>
+            <p style={{ fontSize: 17, color: "#64748b", maxWidth: 520, margin: "0 auto" }}>
+              {t("landing.indDesc")}
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 16 }}>
+            {industries.map((x) => (
+              <button
+                key={x.id}
+                onClick={() => navigate(`/demo?ind=${x.id}`)}
+                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: "24px 12px", cursor: "pointer", transition: "all 0.25s", fontFamily: "Cairo" }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = "#6366f1"; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+              >
+                <div style={{ width: 52, height: 52, background: x.bg, color: x.color, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 12px" }}>
+                  <i className={x.icon}></i>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t(`landing.ind.${x.id}`)}</div>
+                <div style={{ fontSize: 12, color: "#6366f1", fontWeight: 700 }}><i className="fas fa-play" style={{ marginLeft: 4, fontSize: 10 }}></i>{t("landing.ctaDemo")}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section style={{ padding: "96px 5%", background: "#f8fafc" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <span style={{ background: "#d1fae5", color: "#047857", padding: "4px 16px", borderRadius: 60, fontSize: 13, fontWeight: 700, display: "inline-block", marginBottom: 16 }}>
+              {t("landing.testiBadge")}
+            </span>
+            <h2 style={{ fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: "#0f172a", marginBottom: 14 }}>
+              {t("landing.testiTitle")}
+            </h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
+            {testimonials.map((x) => (
+              <div key={x.nameKey} style={{ background: "white", borderRadius: 16, padding: "26px 22px", border: "1px solid #e2e8f0" }}>
+                <div style={{ color: "#fbbf24", fontSize: 13, marginBottom: 12, letterSpacing: 2 }}>
+                  <i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i>
+                </div>
+                <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.9, marginBottom: 18 }}>"{t(x.textKey)}"</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: "50%", background: x.bg, color: x.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 17 }}>{x.initial}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a" }}>{t(x.nameKey)}</div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>{t(x.roleKey)}</div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

@@ -19,11 +19,13 @@ import {
   SUPPLIERS_ICON,
 } from "../../utils/icons.js";
 import LanguageToggle from "./LanguageToggle.js";
+import { useTheme } from "../../context/ThemeContext.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import "./Sidebar.css";
 
 export default function Sidebar() {
   const { t } = useLanguage();
+  const { theme, toggleTheme, isDark } = useTheme();
   const { userRole, currentUser, userIndustry, logout } = useAuth();
   // ✅ عدد التنبيهات غير المقروءة - جاي من الـ Context المشترك
   const { unreadCount } = useNotifications();
@@ -418,8 +420,19 @@ label: t("nav.attendance"),
         </button>
       </div>
 
-      <div style={{ margin: "12px 12px 4px" }}>
-        <LanguageToggle variant="sidebar" />
+      <div style={{ margin: "12px 12px 4px", display: "flex", gap: 8 }}>
+        <div style={{ flex: 1 }}>
+          <LanguageToggle variant="sidebar" />
+        </div>
+        <button
+          onClick={toggleTheme}
+          className="lang-toggle-sidebar"
+          style={{ width: 46, flexShrink: 0, padding: "10px 0" }}
+          title={isDark ? t("theme.light") : t("theme.dark")}
+          aria-label={isDark ? t("theme.light") : t("theme.dark")}
+        >
+          <i className={isDark ? "fas fa-sun" : "fas fa-moon"}></i>
+        </button>
       </div>
 
       <nav>
