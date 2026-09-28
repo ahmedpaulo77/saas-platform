@@ -35,7 +35,7 @@ export function stockLineId(line) {
 
 /**
  * قراءة مستندات المخزون داخل transaction المتصل.
- * @returns { refs, snaps, byId: Map(id -> snap) }
+ * @returns كائن فيه refs و snaps و byId (خريطة id إلى snap)
  */
 export async function readStockTx(tx, target, ids) {
   const uniq = [...new Set((ids || []).filter(Boolean))];
@@ -124,7 +124,7 @@ export function recipeOf(stockSnap) {
  * تحويل سطور أطباق إلى سطور خامات عبر الوصفات.
  * dishLines: [{ productId (طبق), quantity }]
  * dishById: Map(id -> snap)
- * @returns { materialLines: [{ productId: materialId, quantity, unit }], skipped: [names] }
+ * @returns كائن فيه materialLines (سطور الخامات) و skipped (أطباق بلا وصفة)
  */
 export function expandRecipeLines(dishLines, dishById) {
   const totals = new Map();

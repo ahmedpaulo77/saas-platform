@@ -43,7 +43,7 @@ export default function Invoices() {
   /**
    * استهلاك خامات طلب مطعم عبر وصفات الأطباق (ذرّي).
    * الأطباق بلا وصفة تُتخطى (تحذير فقط) حتى لا تتعطل المطاعم القديمة.
-   * @returns { skipped: [names] }
+   * @returns كائن فيه skipped (أسماء الأطباق بلا وصفة) و blocked عند نقص الخامات
    */
   async function consumeRestaurantStock(dishLines) {
     const dishIds = [...new Set((dishLines || []).map((l) => l.productId).filter(Boolean))];
