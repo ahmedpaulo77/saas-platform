@@ -83,8 +83,7 @@ export const INDUSTRY_LABELS = {
 export const MODULE_MAP = {
   // الوحدات الأساسية المتاحة للجميع
   // (المصروفات ليست أساسية: محلات الأكل والصيدليات والعيادات والأزياء فقط)
-  // السندات أساسية للجميع (قبض/صرف) — حتى العيادة تحصل من المرضى
-  _base: ["dashboard", "inventory", "reports", "profits", "vouchers"],
+  _base: ["dashboard", "inventory", "reports", "profits"],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
   trader: [
@@ -120,6 +119,7 @@ export const MODULE_MAP = {
   general: [
     "clients",
     "invoices",
+    "vouchers",
     "tasks",
     "projects",
     "certificates",
