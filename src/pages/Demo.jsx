@@ -7,6 +7,7 @@ import { useLanguage } from "../i18n/LanguageContext.js";
 import { useTheme } from "../context/ThemeContext.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
 import { moneyShort, num } from "../utils/fmt.js";
+import { getAvailableModules, MODULE_MAP, MODULE_LABEL_KEYS } from "../utils/modules.js";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -73,6 +74,19 @@ export default function Demo() {
   const data = useMemo(() => demoData(industry, locale), [industry, locale]);
   const active = INDUSTRIES.find((x) => x.id === industry) || INDUSTRIES[0];
 
+  // وحدات النشاط المختار — نفس مصدر الصلاحيات الحقيقي، بدون الوحدات الخدمية
+  const industryModules = useMemo(() => {
+    const avail = getAvailableModules(industry, "admin");
+    const ordered = [...MODULE_MAP._base, ...(MODULE_MAP[industry] || [])];
+    const seen = new Set();
+    const hidden = new Set(["dashboard", "notifications", "profile", "about", "my-company"]);
+    return ordered.filter((m) => {
+      if (seen.has(m) || hidden.has(m) || !avail.has(m)) return false;
+      seen.add(m);
+      return true;
+    });
+  }, [industry]);
+
   const cards = [
     { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: <AnimatedNumber value={data.revenue} locale={locale} format={(v) => moneyShort(v, locale)} /> },
     { icon: "fas fa-file-invoice", cls: "amber", label: t("demo.invoices"), value: <AnimatedNumber value={data.invoices} locale={locale} /> },
@@ -131,6 +145,31 @@ export default function Demo() {
           <span className="badge badge-paid" style={{ fontSize: 12 }}>
             <i className="fas fa-arrow-trend-up"></i> +{num(data.momPct, locale)}٪ {t("dash.momVsPrev")}
           </span>
+        </div>
+
+        {/* لوحة: هيبقى عندك إيه في النشاط ده */}
+        <div className="card" style={{ marginBottom: 20, background: "linear-gradient(135deg,#0f172a,#1e1b4b)", border: "none" }}>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ width: 54, height: 54, background: active.bg, color: active.color, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+              <i className={active.icon}></i>
+            </div>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <h3 style={{ color: "white", fontSize: 19, marginBottom: 4 }}>
+                {t("landing.indYouGet", { name: t(`demo.ind.${industry}`) })}
+              </h3>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 13, marginBottom: 12 }}>
+                {t("landing.indYouGetDesc")}
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {industryModules.map((m) => (
+                  <span key={m} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "white", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 60 }}>
+                    <i className="fas fa-check" style={{ color: "#34d399", marginLeft: 6, fontSize: 10 }}></i>
+                    {t(MODULE_LABEL_KEYS[m] || m)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* كروت */}

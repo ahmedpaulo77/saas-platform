@@ -1,9 +1,8 @@
 // src/pages/Landing.js - مع زر Login و Sign Up
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
-import { getAvailableModules, MODULE_MAP, MODULE_LABEL_KEYS } from "../utils/modules.js";
 
 function CountUp({ to, suffix = "", decimals = 0 }) {
   return <AnimatedNumber value={to} decimals={decimals} suffix={suffix} duration={1400} />;
@@ -82,44 +81,10 @@ const stats = [
   { to: 24, suffix: "/7", labelKey: "landing.stat.support" },
 ];
 
-const industries = [
-  { id: "restaurant", icon: "fas fa-utensils", color: "#f59e0b", bg: "#fef3c7" },
-  { id: "pharmacy", icon: "fas fa-pills", color: "#0891b2", bg: "#cffafe" },
-  { id: "super_market", icon: "fas fa-store", color: "#10b981", bg: "#d1fae5" },
-  { id: "clothing", icon: "fas fa-shirt", color: "#8b5cf6", bg: "#f3e8ff" },
-  { id: "clinic", icon: "fas fa-stethoscope", color: "#ec4899", bg: "#fdf2f8" },
-  { id: "contractor", icon: "fas fa-helmet-safety", color: "#f43f5e", bg: "#ffe4e6" },
-];
-
-// وحدات العرض التسويقي — نخفي الخدمية (لوحة تحكم/إشعارات/بروفايل...) ونعرض التشغيلية
-const HIDDEN_DEMO_MODULES = new Set(["dashboard", "notifications", "profile", "about", "my-company"]);
-
 export default function Landing() {
   const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  // النشاط المختار لعرض وصفه (كلام فقط — بدون انتقال لأي صفحة)
-  const [selectedIndustry, setSelectedIndustry] = useState("restaurant");
-  const industryDetailRef = useRef(null);
-
-  function pickIndustry(id) {
-    setSelectedIndustry(id);
-    setTimeout(() => {
-      industryDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
-  }
-
-  // وحدات النشاط المختار بترتيب منطقي (الأساسية ثم الخاصة بالنشاط)
-  function industryModules(id) {
-    const avail = getAvailableModules(id, "admin");
-    const ordered = [...MODULE_MAP._base, ...(MODULE_MAP[id] || [])];
-    const seen = new Set();
-    return ordered.filter((m) => {
-      if (seen.has(m) || HIDDEN_DEMO_MODULES.has(m) || !avail.has(m)) return false;
-      seen.add(m);
-      return true;
-    });
-  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -705,72 +670,6 @@ export default function Landing() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Industries ── */}
-      <section style={{ padding: "96px 5%", background: "white" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <span style={{ background: "#f3e8ff", color: "#7c3aed", padding: "4px 16px", borderRadius: 60, fontSize: 13, fontWeight: 700, display: "inline-block", marginBottom: 16 }}>
-              {t("landing.indBadge")}
-            </span>
-            <h2 style={{ fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: "#0f172a", marginBottom: 14 }}>
-              {t("landing.indTitle")}
-            </h2>
-            <p style={{ fontSize: 17, color: "#64748b", maxWidth: 520, margin: "0 auto" }}>
-              {t("landing.indDesc")}
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 16 }}>
-            {industries.map((x) => {
-              const active = selectedIndustry === x.id;
-              return (
-              <button
-                key={x.id}
-                onClick={() => pickIndustry(x.id)}
-                style={{ background: active ? "#eef2ff" : "#f8fafc", border: active ? "2px solid #6366f1" : "1px solid #e2e8f0", borderRadius: 16, padding: "24px 12px", cursor: "pointer", transition: "all 0.25s", fontFamily: "Cairo" }}
-                onMouseOver={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,0.08)"; }}
-                onMouseOut={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-              >
-                <div style={{ width: 52, height: 52, background: x.bg, color: x.color, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 12px" }}>
-                  <i className={x.icon}></i>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t(`landing.ind.${x.id}`)}</div>
-                <div style={{ fontSize: 12, color: active ? "#4f46e5" : "#94a3b8", fontWeight: 700 }}>{active ? `● ${t("landing.indSelected")}` : t("landing.indShow")}</div>
-              </button>
-              );
-            })}
-          </div>
-
-          {/* لوحة وصف النشاط المختار */}
-          {(() => {
-            const sel = industries.find((x) => x.id === selectedIndustry) || industries[0];
-            const mods = industryModules(sel.id);
-            return (
-              <div ref={industryDetailRef} style={{ marginTop: 24, background: "#0f172a", borderRadius: 20, padding: "32px 28px", display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap", scrollMarginTop: 90 }}>
-                <div style={{ width: 64, height: 64, background: sel.bg, color: sel.color, borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>
-                  <i className={sel.icon}></i>
-                </div>
-                <div style={{ flex: 1, minWidth: 260 }}>
-                  <h3 style={{ color: "white", fontSize: 22, fontWeight: 900, marginBottom: 6 }}>
-                    {t("landing.indYouGet", { name: t(`landing.ind.${sel.id}`) })}
-                  </h3>
-                  <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 16 }}>
-                    {t("landing.indYouGetDesc")}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {mods.map((m) => (
-                      <span key={m} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "white", fontSize: 13, fontWeight: 600, padding: "7px 14px", borderRadius: 60 }}>
-                        <i className="fas fa-check" style={{ color: "#34d399", marginLeft: 6, fontSize: 11 }}></i>
-                        {t(MODULE_LABEL_KEYS[m] || m)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
         </div>
       </section>
 
