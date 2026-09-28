@@ -11,6 +11,7 @@ import { NotificationsProvider } from "./context/NotificationsContext.js";
 import ProtectedRoute from "./components/common/ProtectedRoute.js";
 import SuperAdminRoute from "./components/common/SuperAdminRoute.js";
 import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
+import OfflineBanner from "./components/common/OfflineBanner.jsx";
 import { LanguageProvider } from "./i18n/LanguageContext.js";
 import { ThemeProvider } from "./context/ThemeContext.js";
 import { getAvailableModules } from "./utils/modules.js";
@@ -544,6 +545,8 @@ function App() {
               userCompanyId و userRole، وبرا AppRoutes عشان Sidebar (اللي
               بيتعرض جوه أي صفحة) يقدر يقرا unreadCount في أي وقت */}
           <NotificationsProvider>
+            {/* بانر عدم الاتصال — فوق كل الصفحات (عامة وخاصة) */}
+            <OfflineBanner />
             {/* ✅ ErrorBoundary لازم يكون فوق الـ Routes: أي throw في الرندر
                 كان بيبوّض التطبيق كله وميطلعش أي رسالة. */}
             <ErrorBoundary>

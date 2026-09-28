@@ -6,7 +6,7 @@ import {
   sendPasswordResetEmail,
   signOut as signOutAuth,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
@@ -55,7 +55,22 @@ try {
 
 export const auth = getAuth(app);
 export const secondaryAuth = getAuth(secondaryApp);
-export const db = getFirestore(app);
+// التخزين المحلي الدائم: القراءة والكتابة تشتغلان بدون نت، والمزامنة
+// تتم تلقائيًا عند عودته (وضع تحمّل انقطاع الإنترنت).
+// multi-tab: أكثر من تبويب مفتوح يتشاركون نفس الكاش بأمان.
+let _db;
+try {
+  _db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch (e) {
+  // متصفح لا يدعم IndexedDB (وضع خاص قديم...) — نكمل بذاكرة مؤقتة
+  console.warn("[Firebase] persistent cache unavailable, using memory:", e?.message);
+  _db = getFirestore(app);
+}
+export const db = _db;
 export const storage = getStorage(app);
 
 /**
@@ -161,10 +176,17 @@ export async function initializePushNotifications(userId, companyId) {
   if (!messaging || !userId) return null;
   
   try {
-    // 1. تسجيل Service Worker
-    if ('serviceWorker' in navigator) {
-      await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      console.log('Service Worker registered for push notifications');
+    // Service Worker الموحد (sw.js) مسجل من index.js ويتضمن FCM —
+    // لا نسجل firebase-messaging-sw.js منفصلًا حتى لا ينتزع التحكم
+    // في الـ fetch ويكسر وضع الأوفلاين (ملف بلا fetch handler).
+    // (إنتاج فقط — في التطوير الـ SW بيكسر الـ HMR)
+    const isProd = import.meta.env?.PROD;
+    if (isProd && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      if (!reg) {
+        await navigator.serviceWorker.register('/sw.js');
+      }
+      console.log('Service Worker ready for push notifications');
     }
     
     // 2. طلب الإذن والحصول على التوكن

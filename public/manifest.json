@@ -1,6 +1,14 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "name": "SaaS PRO - منصة إدارة الأعمال",
+  "short_name": "SaaS PRO",
+  "description": "منصة إدارة الأعمال المتكاملة: فواتير ومخزون ونقاط بيع — تعمل حتى مع انقطاع الإنترنت",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#6366f1",
+  "background_color": "#0f172a",
   "icons": [
     {
       "src": "favicon.ico",
@@ -17,9 +25,5 @@
       "type": "image/png",
       "sizes": "512x512"
     }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  ]
 }
