@@ -1637,6 +1637,7 @@
     "pur.payOver": "❌ المبلغ المدفوع ({paid}) أكبر من قيمة الفاتورة ({total})",
     "pur.payFull": "✅ تم سداد فاتورة الشراء بالكامل",
     "pur.payOk": "✅ تم تسجيل الدفعة",
+    "pur.variantExists": "الصنف بنفس المقاس واللون موجود بالفعل — تم اختياره في الفاتورة بدل التكرار",
    
     "modules.expenses": "المصروفات والإدخالات",
     "modules.profits": "الأرباح",
@@ -3432,6 +3433,7 @@
     "pur.payOver": "❌ Paid amount ({paid}) exceeds invoice total ({total})",
     "pur.payFull": "✅ Purchase invoice fully paid",
     "pur.payOk": "✅ Payment recorded",
+    "pur.variantExists": "Same size and color already exists — selected in the invoice instead of duplicating",
     "pur.payFail": "❌ Something went wrong while recording payment",
     "nav.expenses": "Expenses & Income",
     "nav.profits": "Profits",

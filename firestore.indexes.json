@@ -1,4 +1,4 @@
-﻿{
+{
   "//": "═══════════════════════════════════════════════════════════════════════",
   "//1": "Firestore composite indexes — SaaS PRO",
   "//2": "",
@@ -6,7 +6,7 @@
   "//4": "   orderBy(...) محتاج **composite index**. من غيره Firestore بيرجع",
   "//5": "   FAILED_PRECONDITION: The query requires an index.",
   "//6": "   قبل الملف ده كانت الفهارس متصانة يدوي في الكونسول ومش شايفة في",
-  "//5": "   الـ git — يعني أي بيئة جديدة ممكن تقع في أخطاء صامتة.",
+  "//6b": "   الـ git — يعني أي بيئة جديدة ممكن تقع في أخطاء صامتة.",
   "//7": "",
   "//8": "📦 النشر: firebase deploy --only firestore:indexes",
   "//9": "   (محتاج firebase.json — موجود في نفس الـ commit)",
@@ -248,6 +248,16 @@
       "fields": [
         { "fieldPath": "companyId", "order": "ASCENDING" },
         { "fieldPath": "email", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "الفواتير: البحث برقم التليفون في الـ POS (companyId + deliveryPhone + createdAt DESC)",
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "deliveryPhone", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {

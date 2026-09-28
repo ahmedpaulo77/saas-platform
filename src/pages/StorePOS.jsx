@@ -585,7 +585,15 @@ export default function StorePOS() {
       setNewClientPhone("");
       setDiscount("");
       setPaymentMethod("cash");
-      await Promise.all([fetchProducts(), fetchClients(), fetchShift()]);
+      // تحديث المخزون محليًا من نتيجة البيع نفسها بدل إعادة سحب كل
+      // الأصناف بالصور من السيرفر بعد كل فاتورة (توفير قراءات + نقل بيانات).
+      // الحساب مطابق للسيرفر (نفس round2)، وأي فرق ناتج عن جهاز آخر
+      // بيتظبط مع أول تحميل كامل للصفحة.
+      const soldMap = new Map(cartSnapshot.map((it) => [it.id, parseFloat(it.quantity) || 0]));
+      setProducts((prev) => prev.map((p) => soldMap.has(p.id)
+        ? { ...p, quantity: round2(Math.max(0, (parseFloat(p.quantity) || 0) - soldMap.get(p.id))) }
+        : p));
+      await Promise.all([fetchClients(), fetchShift()]);
       handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, cashierName.trim() || "—");
     } catch (err) {
       console.error(err);

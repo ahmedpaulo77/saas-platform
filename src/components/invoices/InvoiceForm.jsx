@@ -20,6 +20,8 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
   const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
   const isClinic = userIndustry === "clinic";
+  const isClothing = userIndustry === "clothing";
+  // الملابس: اسم الصنف لوحده لا يكفي — المقاس/اللون يظهران جنبه (زي المشتريات)
   const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
 
   // وضع المبلغ الحر: العيادة بس (كشف حر، مش بيع أصناف).
@@ -105,7 +107,10 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
               <label>{isRestaurant ? "🍽️ أصناف الطلب *" : productLabel}</label>
               <AutocompleteInput
                 key={`inv-add-${newInvoice.products.length}`}
-                items={products.map((p) => ({ id: p.id, label: p.name, sublabel: `${t("currency")} ${p.price || 0} — متاح: ${p.quantity || 0}` }))}
+                items={products.map((p) => {
+                  const variant = isClothing ? [p.size, p.color].filter(Boolean).join(" / ") : "";
+                  return { id: p.id, label: variant ? `${p.name} (${variant})` : p.name, sublabel: `${t("currency")} ${p.price || 0} — متاح: ${p.quantity || 0}` };
+                })}
                 value=""
                 onChange={(productId) => {
                   if (!productId) return;
@@ -127,7 +132,8 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
               <div style={{ maxHeight: "150px", overflowY: "auto" }}>
                 {newInvoice.products.map((item, idx) => {
                   const product = products.find((p) => p.id === item.productId);
-                  const productName = product ? product.name : "—";
+                  const variantName = isClothing && product ? [product.size, product.color].filter(Boolean).join(" / ") : "";
+                  const productName = product ? (variantName ? `${product.name} (${variantName})` : product.name) : "—";
                   const showWeight = isTrader && isKgUnit(item.unit || getProductUnit(product));
                   const recalc = (qty, weight) => calculateProductAmount(item.productId, qty, weight).toString();
                   return (

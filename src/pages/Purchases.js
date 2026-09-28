@@ -304,6 +304,37 @@ export default function Purchases() {
       //Inventory والفاتورة ما يبقاش فيه "" فاضية أو مقاس تاجر.
       const size = isClothing ? quickProductSize.trim() : "";
       const color = isClothing ? quickProductColor.trim() : "";
+      // ملابس: نفس الاسم + المقاس + اللون = نفس الصنف. الإضافة المكررة
+      // كانت بتعمل مستند جديد برقم مختلف فالمخزون يتفتت على كذا سطر
+      // لنفس المقاس (كمية كل سطر لوحده والبيع بيخصم من واحد بس).
+      // الصح: نختار الموجود وننبه المستخدم بدل التكرار.
+      if (isClothing) {
+        const nameNorm = quickProductName.trim().toLowerCase();
+        const dup = products.find((p) =>
+          (p.name || "").trim().toLowerCase() === nameNorm &&
+          (p.size || "") === size && (p.color || "") === color
+        );
+        if (dup) {
+          const already = (newPurchase.items || []).some((it) => it.productId === dup.id);
+          if (!already) {
+            const unit = getProductUnit(dup);
+            const defaultCost = parseFloat(dup.lastUnitCost) > 0 ? parseFloat(dup.lastUnitCost)
+              : parseFloat(dup.avgCost) > 0 ? parseFloat(dup.avgCost) : 0;
+            const newItem = {
+              productId: dup.id, quantity: "1", weight: "", unit,
+              unitCost: defaultCost > 0 ? String(defaultCost) : "",
+              amount: calculateItemAmount(unit, defaultCost, 1, "").toString(),
+            };
+            const items = [...(newPurchase.items || []), newItem];
+            const total = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+            setNewPurchase({ ...newPurchase, items, amount: total > 0 ? total.toString() : newPurchase.amount });
+          }
+          alert(t("pur.variantExists"));
+          setQuickProductName(""); setQuickProductPrice(""); setQuickProductSize(""); setQuickProductColor(""); setQuickProductCode(""); setShowQuickProduct(false);
+          setAddingProduct(false);
+          return;
+        }
+      }
       // مطعم: الصنف الجديد خامة (raw_materials) بتكلفة الوحدة، غيره: منتج مخزون
       const docRef = isRestaurant
         ? await addDoc(collection(db, "raw_materials"), {

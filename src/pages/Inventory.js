@@ -102,7 +102,10 @@ export default function Inventory() {
     setEditImagePreview(file ? URL.createObjectURL(file) : "");
   }
   // ضغط الصورة وتحويلها base64 (بدون Storage — تعمل على الخطة المجانية)
-  function fileToBase64(file, maxSize = 800, quality = 0.8) {
+  // ضغط صور المنتجات قبل الحفظ (base64 داخل المستند — كل كيلوبايت زيادة
+  // بيتدفع تمنه في نقل البيانات مع كل تحميل لقائمة الأصناف).
+  // 400px بجودة 70% كافية تمامًا لعرض الكروت (~30KB بدل ~100KB).
+  function fileToBase64(file, maxSize = 400, quality = 0.7) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
