@@ -758,8 +758,11 @@ export default function Purchases() {
       return;
     }
 
-    const MAX_PER_ITEM = 50;
-    let capped = false;
+    // مفتوح بلا سقف (طلب العميل): توليد الملصقات عرض فقط ولا يكتب
+    // أي حاجة في قاعدة البيانات، فمفيش ضرر على السيستم مهما كان العدد.
+    // الحماية الوحيدة المتبقية: تأكيد قبل الأعداد الكبيرة، عشان غلطة
+    // كتابة في الكمية (10000 بدل 100) ما تهنجش المتصفح وتهدر بكرة ورق.
+    const CONFIRM_OVER = 200;
     const labels = [];
     const barcodePersist = [];
     items.forEach((it) => {
@@ -801,9 +804,7 @@ export default function Purchases() {
 
       const rawQty = Math.floor(parseFloat(it.quantity) || 1);
       const qty = Math.max(1, rawQty);
-      const printQty = Math.min(qty, MAX_PER_ITEM);
-      if (qty > MAX_PER_ITEM) capped = true;
-      for (let k = 0; k < printQty; k++) {
+      for (let k = 0; k < qty; k++) {
         labels.push({ brand, model, sizeColorLine, barcodeValue, priceLine });
       }
     });
@@ -812,14 +813,14 @@ export default function Purchases() {
       alert("لا توجد أصناف قابلة للطباعة");
       return;
     }
+    if (labels.length > CONFIRM_OVER && !window.confirm(`هتطبع ${labels.length} ملصق — متأكد من العدد؟`)) {
+      return;
+    }
     if (barcodePersist.length > 0) {
       try {
         await Promise.all(barcodePersist);
         await fetchProducts();
       } catch (e) { console.warn("barcode persist batch:", e?.message); }
-    }
-    if (capped) {
-      alert(`تنبيه: تم تحديد الحد الأقصى ${MAX_PER_ITEM} ملصق لكل صنف لتفادي طباعة مئات الملصقات`);
     }
 
     const labelDivs = labels
@@ -859,14 +860,12 @@ export default function Purchases() {
   .l-price { font-size: 8px; font-weight: 800; line-height: 1.2; }
   @page { size: 38mm 25mm; margin: 0; }
   @media print {
-    .cap-note { display: none; }
     .label { page-break-after: always; break-after: page; }
     .label:last-child { page-break-after: auto; break-after: auto; }
   }
 </style>
 </head>
 <body>
-${capped ? `<div class="cap-note">تم تحديد الحد الأقصى ${MAX_PER_ITEM} ملصق لكل صنف</div>` : ""}
 ${labelDivs}
 <script>
   function renderAll() {
