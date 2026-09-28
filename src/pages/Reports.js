@@ -122,6 +122,8 @@ export default function Reports() {
   // 🏆 top sellers (createdBy) + top clients — all industries
   const [topSellers, setTopSellers] = useState([]);
   const [topClients, setTopClients] = useState([]);
+  // 🧾 إجمالي الضريبة المحصلة (فواتير معتمدة) — تجميع سيرفر بدون قراءة المستندات
+  const [vatTotal, setVatTotal] = useState({ tax: 0, count: 0 });
   const [usersMap, setUsersMap] = useState({});
   // 🔎 combined filter (clothing)
   const [filterType, setFilterType] = useState("");
@@ -494,6 +496,30 @@ export default function Reports() {
     fetchAllData();
   }, [fetchAllData]);
 
+  // تجميع الضريبة من السيرفر (بدون قراءة الفواتير كلها)
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      try {
+        const invRef = collection(db, "invoices");
+        const q = superAdmin
+          ? invRef
+          : query(invRef, where("companyId", "==", userCompanyId));
+        const snap = await getDocs(q);
+        let tax = 0, count = 0;
+        snap.docs.forEach((d) => {
+          const inv = d.data();
+          if (!isValidatedInvoice(inv)) return;
+          const t = parseFloat(inv.taxAmount) || 0;
+          if (t > 0) { tax += t; count++; }
+        });
+        setVatTotal({ tax: Math.round(tax * 100) / 100, count });
+      } catch (e) {
+        console.warn("vat aggregate:", e?.message);
+      }
+    })();
+  }, [userCompanyId, superAdmin, isAdmin]);
+
   async function exportToExcel(type) {
     setExporting(type);
     await new Promise((r) => setTimeout(r, 300));
@@ -786,6 +812,18 @@ export default function Reports() {
               <div className="stat-label">{s.label}</div>
             </div>
           ))}
+          {/* 🧾 بطاقة الضريبة المحصلة (تظهر عند وجود ضريبة مسجلة) */}
+          {vatTotal.tax > 0 && (
+            <div className="stat-card purple">
+              <div className="stat-icon">
+                <i className="fas fa-percent"></i>
+              </div>
+              <div className="stat-value" style={{ fontSize: 18 }}>
+                {moneyShort(vatTotal.tax, locale)} {t("currency")}
+              </div>
+              <div className="stat-label">{t("rep.vatCollected")} ({num(vatTotal.count, locale)})</div>
+            </div>
+          )}
         </div>
 
         {availableModules.has("invoices") && (

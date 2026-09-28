@@ -83,7 +83,8 @@ export const INDUSTRY_LABELS = {
 export const MODULE_MAP = {
   // الوحدات الأساسية المتاحة للجميع
   // (المصروفات ليست أساسية: محلات الأكل والصيدليات والعيادات والأزياء فقط)
-  _base: ["dashboard", "inventory", "reports", "profits"],
+  // السندات أساسية للجميع (قبض/صرف) — حتى العيادة تحصل من المرضى
+  _base: ["dashboard", "inventory", "reports", "profits", "vouchers"],
 
   // تاجر / استيراد وتصدير (من غير Sellers و Buyers)
   trader: [
@@ -322,6 +323,7 @@ export const ROUTE_MODULE_MAP = {
   "/about": "about",
   "/pos": "pos",
   "/store-pos": "store-pos",
+  "/vouchers": "vouchers",
   "/suppliers": "suppliers",
   "/purchases": "purchases",
   "/expiry": "expiry",
@@ -379,6 +381,7 @@ export const MODULE_LABEL_KEYS = {
   "daily-prices": "modules.daily_prices",
   expenses: "modules.expenses",
   profits: "modules.profits",
+  vouchers: "modules.vouchers",
   reports: "modules.reports",
   clients: "modules.clients",
   invoices: "modules.invoices",

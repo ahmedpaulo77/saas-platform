@@ -357,8 +357,8 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
           <span>${moneyShort(amount, docLocale)} ${translations.currency}</span>
         </div>
         <div class="totals-row">
-          <span>${translations.tax}</span>
-          <span>0.00 ${translations.currency}</span>
+          <span>${translations.tax}${invoice.taxRate > 0 ? ` (${invoice.taxRate}%)` : ''}</span>
+          <span>${moneyShort(parseFloat(invoice.taxAmount) || 0, docLocale)} ${translations.currency}</span>
         </div>
         ${paidNumber > 0 ? `
         <div class="totals-row">

@@ -119,6 +119,15 @@ export default function Invoices() {
   const [returnReason, setReturnReason] = useState("");
   const [returning, setReturning] = useState(false);
 
+  // نسبة ضريبة الشركة (من شركتي) — 0 تعني بدون ضريبة
+  const [taxRate, setTaxRate] = useState(0);
+  useEffect(() => {
+    if (!userCompanyId) return;
+    getDoc(doc(db, "companies", userCompanyId))
+      .then((s) => { if (s.exists()) setTaxRate(parseFloat(s.data().taxRate) || 0); })
+      .catch((e) => console.warn("company tax:", e?.message));
+  }, [userCompanyId]);
+
   const calculateProductAmount = (productId, quantity, weight = "") => {
     const product = products.find((p) => p.id === productId);
     if (!product) return 0;
@@ -152,7 +161,10 @@ export default function Invoices() {
     setSubmitting(true);
     try {
       // NOTE: stock is NOT deducted here — deduction happens on confirmation (validateInvoice).
-      const totalAmount = manualAmountMode ? manualAmount : getTotalAmount;
+      const subtotalAmount = manualAmountMode ? manualAmount : getTotalAmount;
+      // الضريبة على البضاعة (بدون التوصيل) — تُختم على المستند للتقارير والـ PDF
+      const taxAmount = taxRate > 0 ? round2(subtotalAmount * taxRate / 100) : 0;
+      const totalAmount = round2(subtotalAmount + taxAmount);
       const invoiceData = {
         clientId: newInvoice.clientId,
         products: newInvoice.products.map((item) => ({ productId: item.productId, quantity: item.quantity, amount: item.amount, paidAmount: item.paidAmount || 0, weight: item.weight || "", unit: item.unit || "" })),
@@ -165,7 +177,7 @@ export default function Invoices() {
             productId: "",
             productName: newInvoice.description || t("in.manualLine"),
             quantity: 1,
-            amount: totalAmount,
+            amount: subtotalAmount,
             paidAmount: 0,
             isManual: true,
           }],
@@ -181,12 +193,15 @@ export default function Invoices() {
         tableNumber: isRestaurant && newInvoice.orderType === "dine_in" ? newInvoice.tableNumber || "" : "",
         customerNote: isRestaurant ? newInvoice.customerNote || "" : "",
         paymentMethod: newInvoice.paymentMethod || "cash",
-        companyId: userCompanyId, createdBy: currentUser?.uid, amount: totalAmount,
-        // ⚠️ total = المبلغ المحصّل فعلاً (شامل رسوم التوصيل).
+        companyId: userCompanyId, createdBy: currentUser?.uid, amount: subtotalAmount,
+        // الضريبة مختومة للتقارير والـ PDF — amount يبقى قيمة البضاعة فقط
+        taxRate: taxRate > 0 ? taxRate : 0,
+        taxAmount,
+        // ⚠️ total = المبلغ المحصّل فعلاً (بضاعة + ضريبة + رسوم التوصيل).
         // من غيره الـ InvoiceTable والـ revenue.js بيرجعوا للـ amount.
         total: isRestaurant && newInvoice.orderType === "delivery"
-          ? round2(totalAmount + (parseFloat(newInvoice.deliveryFee) || 0))
-          : totalAmount,
+          ? round2(subtotalAmount + taxAmount + (parseFloat(newInvoice.deliveryFee) || 0))
+          : round2(subtotalAmount + taxAmount),
         // ⚠️ paidAmount: 0 — الطلب بيتسجل كـ "pending" ويتحقق بعد الاعتماد.
         paidAmount: 0,
         // ⚠️ type: "pos" — بدونه الطلب **مش بيوصل شاشة الكليحة خالص**:
@@ -268,7 +283,7 @@ export default function Invoices() {
       const curPaid = parseFloat(invoice.paidAmount) || 0;
       const curTotal = parseFloat(invoice.total) > 0
         ? parseFloat(invoice.total)
-        : (parseFloat(invoice.amount) || 0) + (parseFloat(invoice.deliveryFee) || 0);
+        : (parseFloat(invoice.amount) || 0) + (parseFloat(invoice.deliveryFee) || 0) + (parseFloat(invoice.taxAmount) || 0);
       if (curPaid <= 0 && curTotal > 0) {
         patch.paidAmount = round2(curTotal);
         patch.status = "paid";
@@ -530,7 +545,7 @@ export default function Invoices() {
           </div>
         ) : (<div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}><i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i><p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("in.statsAdminOnly")}</p></div>)}
 
-        <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} />
+        <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} taxRate={taxRate} />
 
        {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة
 

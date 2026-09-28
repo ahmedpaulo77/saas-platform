@@ -65,6 +65,7 @@ const Viewings = lazy(() => import("./pages/Viewings"));
 const VariantCodes = lazy(() => import("./pages/VariantCodes"));
 const Tables = lazy(() => import("./pages/Tables"));
 const StorePOS = lazy(() => import("./pages/StorePOS"));
+const Vouchers = lazy(() => import("./pages/Vouchers"));
 const Demo = lazy(() => import("./pages/Demo"));
 
 // مكون لحماية المسارات حسب مجال العمل
@@ -392,6 +393,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="expenses">
               <Expenses />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vouchers"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="vouchers">
+              <Vouchers />
             </IndustryRoute>
           </ProtectedRoute>
         }

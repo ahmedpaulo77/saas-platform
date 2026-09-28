@@ -11,7 +11,7 @@ import { getProductUnit, lineAmount, isKgUnit } from "../../utils/traderUnits.js
 import { getAvailableModules } from "../../utils/modules.js";
 import { moneyShort } from "../../utils/fmt.js";
 
-export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients }) {
+export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients, taxRate = 0 }) {
   const { t, locale } = useLanguage();
   const { userCompanyId, currentUser, userIndustry, userRole } = useAuth();
   const isCafe = userIndustry === "cafe";
@@ -138,7 +138,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                           <input type="number" min="0" step="0.01" title={t("trader.weight")} placeholder={t("trader.weight")} value={item.weight || ""} onChange={(e) => { const weight = e.target.value; setNewInvoice({ ...newInvoice, products: newInvoice.products.map((p, i) => i === idx ? { ...p, weight, amount: recalc(p.quantity, weight) } : p) }); }} style={{ width: 80, padding: "4px 6px", fontSize: 12, borderRadius: 6, border: "1px solid #f59e0b", textAlign: "center", background: "#fffbeb" }} />
                         )}
                         <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => { const qty = e.target.value; const numQty = parseFloat(qty); const amount = !isNaN(numQty) && numQty > 0 ? recalc(numQty, item.weight) : ""; setNewInvoice({ ...newInvoice, products: newInvoice.products.map((p, i) => i === idx ? { ...p, quantity: qty, amount } : p) }); }} style={{ width: 60, padding: "4px 6px", fontSize: 12, borderRadius: 6, border: "1px solid #cbd5e1", textAlign: "center" }} />
-                        <span style={{ fontSize: 12, color: "#6366f1", minWidth: 60 }}>{(parseFloat(moneyShort(item.amount) || 0), locale)} {t("currency")}</span>
+                        <span style={{ fontSize: 12, color: "#6366f1", minWidth: 60 }}>{moneyShort(item.amount, locale)} {t("currency")}</span>
                         <button type="button" onClick={() => setNewInvoice({ ...newInvoice, products: newInvoice.products.filter((_, i) => i !== idx) })} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>✕</button>
                       </div>
                     </div>
@@ -146,6 +146,12 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
                 })}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, color: "#1e293b" }}><span>الإجمالي:</span><span>{moneyShort(getTotalAmount, locale)} {t("currency")}</span></div>
+              {taxRate > 0 && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 13, color: "#64748b" }}><span>{t("in.tax")} ({taxRate}٪):</span><span>{moneyShort(getTotalAmount * taxRate / 100, locale)} {t("currency")}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontWeight: 800, color: "#4f46e5" }}><span>{t("in.grandTotal")}:</span><span>{moneyShort(getTotalAmount * (1 + taxRate / 100), locale)} {t("currency")}</span></div>
+                </>
+              )}
             </div>
           )}
 

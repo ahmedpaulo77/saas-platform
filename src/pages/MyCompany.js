@@ -1,6 +1,6 @@
 // src/pages/MyCompany.js - مع دعم الترجمة وكودين
 import React, { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
 import { useAuth } from '../context/AuthContext.js';
 import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery.js';
@@ -16,6 +16,9 @@ export default function MyCompany() {
   const [copied, setCopied] = useState({ admin: false, user: false });
   const [regenerating, setRegenerating] = useState({ admin: false, user: false });
   const [error, setError] = useState('');
+  // إعدادات الضريبة (أدمن فقط)
+  const [taxRate, setTaxRate] = useState('');
+  const [savingTax, setSavingTax] = useState(false);
 
   // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
@@ -33,6 +36,7 @@ export default function MyCompany() {
         return;
       }
       setCompany({ id: snap.id, ...snap.data() });
+      setTaxRate(snap.data().taxRate != null ? String(snap.data().taxRate) : '');
 
       // الأكواد في السبل-كولكشن companies/{id}/codes/current
       // (المصدر الرسمي للتحقق هو invite_codes — انظر utils/companyQuery.js)
@@ -94,6 +98,27 @@ export default function MyCompany() {
     }
   }
 
+
+  async function handleSaveTax(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    const rate = parseFloat(taxRate);
+    if (taxRate !== '' && !(rate >= 0 && rate <= 100)) { setError(t('mc.taxInvalid')); return; }
+    setSavingTax(true);
+    setError('');
+    try {
+      await updateDoc(doc(db, 'companies', userCompanyId), {
+        taxRate: taxRate === '' ? 0 : rate,
+        updatedAt: new Date().toISOString(),
+      });
+      setCompany((c) => ({ ...c, taxRate: taxRate === '' ? 0 : rate }));
+      alert(t('mc.taxSaved'));
+    } catch (err) {
+      console.error('Error saving tax:', err);
+      setError(t('mc.taxErr'));
+    }
+    setSavingTax(false);
+  }
 
   return (
     <div className="app-layout">
@@ -168,7 +193,29 @@ export default function MyCompany() {
             {/* ✅ دعوة - يظهر فقط للأدمن */}
             {isAdmin && (
               <>
-                {/* Admin Code */}
+                {/* Tax settings (admin) — نسبة الضريبة على الفواتير + تقرير الضريبة */}
+            {isAdmin && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-percent" style={{ color: '#6366f1', marginLeft: 8 }}></i>
+                  {t('mc.taxTitle')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  {t('mc.taxDesc')}
+                </p>
+                <form onSubmit={handleSaveTax} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 180 }}>
+                    <label>{t('mc.taxRate')}</label>
+                    <input type="number" min="0" max="100" step="0.01" placeholder={t('mc.taxRatePh')} value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+                  </div>
+                  <button type="submit" className="btn-primary btn-sm" disabled={savingTax}>
+                    {savingTax ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Admin Code */}
                 <div className="card" style={{
                   padding: '24px 28px',
                   border: '2px solid rgba(245,158,11,0.3)',

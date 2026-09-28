@@ -33,6 +33,7 @@ export default function Statements() {
   const [invoices, setInvoices] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [returns, setReturns] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [entityId, setEntityId] = useState("");
@@ -44,18 +45,20 @@ export default function Statements() {
     setLoading(true);
     try {
       const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
-      const [cSnap, sSnap, iSnap, pSnap, rSnap] = await Promise.all([
+      const [cSnap, sSnap, iSnap, pSnap, rSnap, vSnap] = await Promise.all([
         getDocs(q(entityCollection)),
         getDocs(q("suppliers")),
         getDocs(q("invoices")),
         getDocs(q("purchases")),
         getDocs(q("returns")),
+        getDocs(q("vouchers")).catch(() => ({ docs: [] })),
       ]);
       setClients(cSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setSuppliers(sSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setInvoices(iSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setPurchases(pSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setReturns(rSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setVouchers(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
     }
@@ -71,6 +74,7 @@ export default function Statements() {
   }, [tab, hasClientsTab, hasSuppliersTab]);
 
   const entities = tab === "clients" ? clients : suppliers;
+  const entityName = entities.find((e) => e.id === entityId)?.name || "";
 
   const movements = useMemo(() => {
     if (!entityId) return [];
@@ -93,6 +97,10 @@ export default function Statements() {
       returns.filter((r) => r.kind === "sale" && r.entityId === entityId && inRange(r)).forEach((r) => {
         rows.push({ date: r.date || r.createdAt, type: t("st.returnSale"), ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
       });
+      // سندات القبض = تحصيل ينقص المديونية (دائن)
+      vouchers.filter((v) => v.type === "receipt" && (v.partyId === entityId || (!v.partyId && v.partyName === entityName)) && inRange(v)).forEach((v) => {
+        rows.push({ date: v.date || v.createdAt, type: t("st.voucherReceipt"), ref: String(v.id || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(v.amount) || 0, paid: 0, remaining: 0 });
+      });
     } else {
       purchases.filter((p) => p.supplierId === entityId && inRange(p)).forEach((p) => {
         const amount = parseFloat(p.amount) || 0;
@@ -102,10 +110,14 @@ export default function Statements() {
       returns.filter((r) => r.kind === "purchase" && r.entityId === entityId && inRange(r)).forEach((r) => {
         rows.push({ date: r.date || r.createdAt, type: t("st.returnPurchase"), ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });
       });
+      // سندات الصرف = سداد للمورد ينقص المستحق (دائن)
+      vouchers.filter((v) => v.type === "payment" && (v.partyId === entityId || (!v.partyId && v.partyName === entityName)) && inRange(v)).forEach((v) => {
+        rows.push({ date: v.date || v.createdAt, type: t("st.voucherPayment"), ref: String(v.id || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(v.amount) || 0, paid: 0, remaining: 0 });
+      });
     }
     rows.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
     return rows;
-  }, [tab, entityId, invoices, purchases, returns, fromDate, toDateStr]);
+  }, [tab, entityId, invoices, purchases, returns, vouchers, entityName, fromDate, toDateStr]);
 
   const totals = useMemo(() => {
     const debit = movements.reduce((s, m) => s + (m.debit || 0), 0);
@@ -113,8 +125,6 @@ export default function Statements() {
     const paid = movements.reduce((s, m) => s + (m.paid || 0), 0);
     return { debit, credit, paid, balance: debit - paid - credit };
   }, [movements]);
-
-  const entityName = entities.find((e) => e.id === entityId)?.name || "";
 
   function handlePrint() {
     const rowsHtml = movements.map((m, i) => `

@@ -438,7 +438,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
           (
           isSuperAdmin() ||
           (
@@ -568,6 +568,15 @@
       }
 
       match /expenses/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateFinancialDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // سندات القبض والصرف — مالية: الإنشاء لأي فرد، التعديل/الحذف للأدمن
+      match /vouchers/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
         allow create: if canCreateForCompany();
