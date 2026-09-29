@@ -24,6 +24,7 @@ import AutocompleteInput from "../components/common/AutocompleteInput.js";
 import Pagination from "../components/common/PaginationV2.js";
 import { useFirestorePagination } from "../hooks/useFirestorePagination.js";
 import JsBarcode from "jsbarcode";
+import PurchasesFilterBar from "./PurchasesFilterBar.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
@@ -1411,23 +1412,13 @@ ${labelDivs}
           </form>
         </div>
 
-        <div className="filter-bar">
-          <div className="search-wrapper" style={{ flex: 1 }}>
-            <i className="fas fa-search search-icon"></i>
-            <input
-              type="text"
-              placeholder={t("pur.search")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">{t("in.allStatus")}</option>
-            <option value="paid">{t("in.statusPaid")}</option>
-            <option value="pending">{t("in.statusWait")}</option>
-            <option value="overdue">{t("in.statusOver")}</option>
-          </select>
-        </div>
+        <PurchasesFilterBar
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          t={t}
+        />
 
         <div className="table-container">
           <div className="table-header">
