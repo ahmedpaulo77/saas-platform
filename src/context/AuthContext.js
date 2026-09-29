@@ -167,6 +167,13 @@ export function AuthProvider({ children }) {
             unsubCompanyDoc = null;
           }
 
+          // ⚠️ معرّفة هنا (نطاق الـ callback كله) — كانت جوّه فرع الـ if
+          // ففرع الـ else كان بيرمي ReferenceError: finish is not defined
+          // عند أول دخول لحساب فشل إنشاء مستنده.
+          const finish = () => {
+            if (listeningUid === user.uid) setLoading(false);
+          };
+
           if (docSnap.exists()) {
             const userData = docSnap.data();
 
@@ -185,10 +192,7 @@ export function AuthProvider({ children }) {
             // userIndustry لسه 'general' الافتراضية — فـ IndustryRoute كان
             // بيحسب صلاحيات غلط (عيادة على /patients مثلًا) ويطرد للداش
             // بورد مع أول ريفريش، حتى لو الحساب سليم.
-            const finish = () => {
-              if (listeningUid === user.uid) setLoading(false);
-            };
-
+            // (دالة finish معرّفة فوق على نطاق الـ callback كله)
             // ✅ جلب مجال العمل (Industry) من الشركة + إيقاف الشركة
             if (userData.companyId) {
               let firstCompanySnap = true;
