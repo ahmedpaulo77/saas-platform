@@ -1562,6 +1562,7 @@ ${labelDivs}
                               >
                                 <i className="fas fa-print"></i>
                               </button>
+                              {isClothing && (
                               <button
                                 onClick={() => handlePrintBarcodes(p)}
                                 className="btn-secondary btn-sm"
@@ -1570,6 +1571,7 @@ ${labelDivs}
                               >
                                 <i className="fas fa-barcode"></i>
                               </button>
+                            )}
                               {p.status !== "paid" && (
                                 <button
                                   onClick={() => {

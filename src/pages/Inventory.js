@@ -143,26 +143,7 @@ export default function Inventory() {
   const [genQty, setGenQty] = useState("");
   const [generating, setGenerating] = useState(false);
 
-  // الراكد: آخر بيع لكل صنف من الفواتير
-  const [lastSaleByProduct, setLastSaleByProduct] = useState({});
-  const [deadDays, setDeadDays] = useState(30);
-
-  const fetchLastSales = useCallback(async () => {
-    if (!isFashion || !userCompanyId) return;
-    try {
-      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
-      const map = {};
-      snap.docs.forEach((d) => {
-        const inv = d.data();
-        const dt = new Date(inv.date || inv.createdAt || 0).getTime();
-        (inv.products || inv.items || []).forEach((it) => {
-          if (!it.productId) return;
-          if (!map[it.productId] || dt > map[it.productId]) map[it.productId] = dt;
-        });
-      });
-      setLastSaleByProduct(map);
-    } catch (err) { console.error(err); }
-  }, [isFashion, userRole, userCompanyId, currentUser?.uid]);
+  
 
   async function generateVariants(e) {
     e.preventDefault();
@@ -290,7 +271,6 @@ export default function Inventory() {
   useEffect(() => {
     fetchProducts();
     fetchMenuCategories();
-    fetchLastSales();
     fetchVariantCodes();
     // الخامات للوصفات — مطعم فقط
     if (userIndustry === "restaurant" && userCompanyId) {
@@ -300,7 +280,7 @@ export default function Inventory() {
     } else {
       setRawMaterials([]);
     }
-  }, [fetchProducts, fetchMenuCategories, fetchLastSales, fetchVariantCodes]);
+  }, [fetchProducts, fetchMenuCategories, fetchVariantCodes]);
 
   // ── helpers للإضافات ──
   function addTempExtra() {
@@ -973,44 +953,7 @@ export default function Inventory() {
           </div>
         )}
 
-        {/* ── الراكد (أزياء) ── */}
-        {isFashion && (
-          (() => {
-            const cutoff = Date.now() - deadDays * 24 * 60 * 60 * 1000;
-            const dead = products.filter((p) => {
-              if ((parseFloat(p.quantity) || 0) <= 0) return false;
-              const last = lastSaleByProduct[p.id];
-              return !last || last < cutoff;
-            });
-            if (dead.length === 0) return null;
-            return (
-              <div className="form-card" style={{ border: "2px solid #f59e0b55", marginTop: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <h3 style={{ margin: 0 }}><i className="fas fa-box-open" style={{ color: "#d97706" }}></i> 📦 الراكد ({dead.length})</h3>
-                  <select value={deadDays} onChange={(e) => setDeadDays(parseInt(e.target.value))}
-                    style={{ marginInlineEnd: "auto", padding: "4px 8px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
-                    <option value={14}>بدون بيع 14 يوم</option>
-                    <option value={30}>بدون بيع 30 يوم</option>
-                    <option value={60}>بدون بيع 60 يوم</option>
-                    <option value={90}>بدون بيع 90 يوم</option>
-                  </select>
-                </div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>أصناف برصيد ومتباعتش في الفترة — رشحها لخصم أو تصفية.</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {dead.slice(0, 24).map((p) => {
-                    const last = lastSaleByProduct[p.id];
-                    return (
-                      <span key={p.id} title={last ? `آخر بيع: ${fmtDate(new Date(last), locale)}` : "متباعش خالص"} style={{ background: "#fffbeb", color: "#92400e", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                        {p.model || p.name} {p.size ? `(${p.size}${p.color ? "/" + p.color : ""})` : ""} ×{p.quantity}
-                      </span>
-                    );
-                  })}
-                  {dead.length > 24 && <span style={{ fontSize: 12, color: "#94a3b8" }}>+{dead.length - 24}</span>}
-                </div>
-              </div>
-            );
-          })()
-        )}
+        
 
         {/* ── الجرد ── */}
         {isMarket && (
