@@ -26,6 +26,7 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router-dom'],
           charts: ['recharts'],
           export: ['jspdf', 'jspdf-autotable', 'xlsx', 'html2canvas'],
+          vendor: ['web-vitals', 'jsbarcode'],
         },
       },
     },
