@@ -1,5 +1,5 @@
 ﻿// src/pages/Dashboard.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import {
   collection,
   query,
@@ -22,8 +22,10 @@ import { round2 } from "../utils/traderUnits.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { moneyShort, num } from "../utils/fmt.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
-import RevenueChartCard from "../components/dashboard/RevenueChartCard.jsx";
 import { invoiceRevenue } from "../utils/revenue.js";
+
+// Lazy load chart component (contains recharts ~430kB)
+const RevenueChartCard = lazy(() => import("../components/dashboard/RevenueChartCard.jsx"));
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [
@@ -741,7 +743,9 @@ export default function Dashboard() {
           </div>
 
           {availableModules.has("invoices") && (
-            <RevenueChartCard t={t} locale={locale} loading={loading} dailyRevenue={dailyRevenue} mom={mom} currencyLabel={t("currency")} />
+            <Suspense fallback={<div className="card" style={{padding: "40px 20px", textAlign: "center"}}><div className="spinner" aria-hidden="true"></div><div>جاري تحميل الرسم البياني...</div></div>}>
+              <RevenueChartCard t={t} locale={locale} loading={loading} dailyRevenue={dailyRevenue} mom={mom} currencyLabel={t("currency")} />
+            </Suspense>
           )}
           </>
         ) : (
