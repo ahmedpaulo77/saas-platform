@@ -25,6 +25,7 @@ import Pagination from "../components/common/PaginationV2.js";
 import { useFirestorePagination } from "../hooks/useFirestorePagination.js";
 import JsBarcode from "jsbarcode";
 import PurchasesFilterBar from "./PurchasesFilterBar.jsx";
+import PurchasesStatsCards from "./PurchasesStatsCards.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
@@ -976,59 +977,13 @@ ${labelDivs}
           </div>
         )}
 
-        {isAdmin ? (
-          <div
-            className="stats-row"
-            style={{ gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))" }}
-          >
-            <div className="stat-card cyan">
-              <div className="stat-icon">
-                <i className="fas fa-cart-arrow-down"></i>
-              </div>
-              <div className="stat-value">{filteredPurchases.length}</div>
-              <div className="stat-label">{t("pur.statTotal")}</div>
-            </div>
-            <div className="stat-card green">
-              <div className="stat-icon">
-                <i className="fas fa-check-circle"></i>
-              </div>
-              <div className="stat-value">{paidCount}</div>
-              <div className="stat-label">{t("pur.statPaid")}</div>
-            </div>
-            <div className="stat-card indigo">
-              <div className="stat-icon">
-                <i className="fas fa-clock"></i>
-              </div>
-              <div className="stat-value">{pendingCount}</div>
-              <div className="stat-label">{t("pur.statPending")}</div>
-            </div>
-            <div className="stat-card amber">
-              <div className="stat-icon">
-                <i className="fas fa-money-bill-wave"></i>
-              </div>
-              <div className="stat-value" style={{ fontSize: 20 }}>
-                {moneyShort(totalSpent, locale)}
-              </div>
-              <div className="stat-label">{t("pur.statSpent")}</div>
-            </div>
-            <div className="stat-card red">
-              <div className="stat-icon">
-                <i className="fas fa-exclamation-triangle"></i>
-              </div>
-              <div className="stat-value" style={{ fontSize: 20 }}>
-                {moneyShort(totalOwed, locale)}
-              </div>
-              <div className="stat-label">{t("pur.statOwed")}</div>
-            </div>
-          </div>
-        ) : (
-          <div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}>
-            <i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i>
-            <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
-              {t("pur.statsAdminOnly")}
-            </p>
-          </div>
-        )}
+        <PurchasesStatsCards
+          filteredPurchases={filteredPurchases}
+          isAdmin={isAdmin}
+          t={t}
+          locale={locale}
+          moneyShort={moneyShort}
+        />
 
         <div className="form-card">
           <h3>
