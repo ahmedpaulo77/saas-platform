@@ -7,7 +7,7 @@ import { logActivity } from '../../utils/auditLogger.js';
 import Sidebar from '../../components/common/Sidebar.js';
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../../components/common/PasswordStrengthMeter.js';
 import { useLanguage } from '../../i18n/LanguageContext.js';
-import { createUserSeated } from '../../utils/seats.js';
+import { createUserSeated, moveUserSeat } from '../../utils/seats.js';
 import { limitFor, countFor, isCappedRole, isAdminRole } from '../../utils/limits.js';
 
 export default function ManageUsers() {
@@ -141,6 +141,19 @@ export default function ManageUsers() {
 
   async function handleUpdateCompany(userId, companyId) {
     try {
+      const target = users.find((u) => u.id === userId);
+      // نقل المقعد بين الشركتين (تحرير من القديمة + حجز في الجديدة مع فحص السقف)
+      await moveUserSeat({
+        fromCompanyId: target?.companyId || null,
+        fromRole: target?.role,
+        toCompanyId: companyId || null,
+        toRole: target?.role,
+      }).catch((seatErr) => {
+        if (seatErr?.code === "limits/seat-exceeded") {
+          throw Object.assign(new Error(t("users.seatFull")), { __seatFull: true });
+        }
+        throw seatErr;
+      });
       await updateDoc(doc(db, 'users', userId), { companyId });
       await logActivity({
         actionType: 'UPDATE',
@@ -152,12 +165,24 @@ export default function ManageUsers() {
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert(t('mu.updErr'));
+      alert(e?.__seatFull ? e.message : t('mu.updErr'));
     }
   }
 
   async function handleUpdateRole(userId, role) {
     try {
+      const target = users.find((u) => u.id === userId);
+      await moveUserSeat({
+        fromCompanyId: target?.companyId || null,
+        fromRole: target?.role,
+        toCompanyId: target?.companyId || null,
+        toRole: role,
+      }).catch((seatErr) => {
+        if (seatErr?.code === "limits/seat-exceeded") {
+          throw Object.assign(new Error(t("users.seatFull")), { __seatFull: true });
+        }
+        throw seatErr;
+      });
       await updateDoc(doc(db, 'users', userId), { role });
       await logActivity({
         actionType: 'UPDATE',
@@ -169,7 +194,7 @@ export default function ManageUsers() {
       await fetchData();
     } catch (e) {
       console.error(e);
-      alert(t('mu.updErr'));
+      alert(e?.__seatFull ? e.message : t('mu.updErr'));
     }
   }
 
@@ -184,6 +209,13 @@ export default function ManageUsers() {
       // ⚠️ soft delete مش deleteDoc — نفس السبب في Users.js:
       //    (أ) حذف الدوك مش بيمسح حساب Auth، (ب) الـ uid بلا doc بيعتبر
       //    "نشط" في Rules فالحساب المسروق هيفتح تاني.
+      // + تحرير مقعده من عدّاد الشركة (قبل كده الحذف مكنش بيحرر المقعد).
+      await moveUserSeat({
+        fromCompanyId: userDoc?.companyId || null,
+        fromRole: userDoc?.role,
+        toCompanyId: null,
+        toRole: null,
+      }).catch((e) => console.warn("seat release on delete:", e?.message));
       await updateDoc(doc(db, 'users', userId), {
         isActive: false,
         deletedAt: new Date().toISOString(),

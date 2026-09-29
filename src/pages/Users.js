@@ -18,7 +18,7 @@ import { logActivity } from "../utils/auditLogger.js";
 import Sidebar from "../components/common/Sidebar.js";
 import Pagination from "../components/common/Pagination.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
-import { createUserSeated } from "../utils/seats.js";
+import { createUserSeated, moveUserSeat } from "../utils/seats.js";
 import { limitFor, isAdminRole } from "../utils/limits.js";
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter.js";
 import { fmtDate } from "../utils/fmt.js";
@@ -219,6 +219,19 @@ export default function Users() {
 
     try {
       const userRef = doc(db, "users", userId);
+      // نقل المقعد بين حوض الدور القديم والجديد (ذرّيًا مع فحص السقف).
+      // قبل كده تغيير الدور مكنش بيحرّك العدّادات فكانت تنحرف بصمت.
+      await moveUserSeat({
+        fromCompanyId: userCompanyId,
+        fromRole: targetUser?.role,
+        toCompanyId: userCompanyId,
+        toRole: newRole,
+      }).catch((seatErr) => {
+        if (seatErr?.code === "limits/seat-exceeded") {
+          throw Object.assign(new Error(t("users.seatFull")), { __seatFull: true });
+        }
+        throw seatErr;
+      });
       await updateDoc(userRef, { role: newRole });
       
       await logActivity({
@@ -233,7 +246,7 @@ export default function Users() {
       alert(t("success.roleUpdated"));
     } catch (error) {
       console.error("Error updating user role:", error);
-      alert(t("errors.updateUser"));
+      alert(error?.__seatFull ? error.message : t("errors.updateUser"));
     }
   }
 
@@ -249,6 +262,31 @@ export default function Users() {
 
     try {
       const userRef = doc(db, "users", userId);
+      // الإيقاف يحرر المقعد، والتفعيل يحجزه من جديد (قد يفشل لو السقف امتلأ).
+      // قبل كده العدّاد مكنش بيتأثر فالمقاعد اتملت بأشباح.
+      if (!newStatus) {
+        await moveUserSeat({
+          fromCompanyId: userCompanyId,
+          fromRole: targetUser?.role,
+          toCompanyId: null,
+          toRole: null,
+        });
+      } else {
+        try {
+          await moveUserSeat({
+            fromCompanyId: null,
+            fromRole: null,
+            toCompanyId: userCompanyId,
+            toRole: targetUser?.role,
+          });
+        } catch (seatErr) {
+          if (seatErr?.code === "limits/seat-exceeded") {
+            alert(t("users.seatFull"));
+            return;
+          }
+          throw seatErr;
+        }
+      }
       await updateDoc(userRef, { isActive: newStatus });
       
       await logActivity({
@@ -291,6 +329,14 @@ export default function Users() {
       //
       // الحل الصح: نوقف المستند (isActive: false) → الـ Rules بتمنع كل وصول
       // فورًا — + reset email يبطّل الباسورد القديم. والمستند بيتسابه عن قصد.
+      // + تحرير مقعده من عدّاد الشركة (قبل كده الحذف مكنش بيحرر المقعد
+      // فالسقف كان يتملي بأشباح ويمنع تسجيلات صحيحة).
+      await moveUserSeat({
+        fromCompanyId: targetUser?.companyId || userCompanyId,
+        fromRole: targetUser?.role,
+        toCompanyId: null,
+        toRole: null,
+      }).catch((e) => console.warn("seat release on delete:", e?.message));
       await updateDoc(doc(db, "users", userId), {
         isActive: false,
         deletedAt: new Date().toISOString(),

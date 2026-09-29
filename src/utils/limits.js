@@ -73,6 +73,7 @@ export function counterFieldFor(role) {
 /**
  * Recount a company's seats from its user documents.
  * This is the truth; the stored counters are just a rules-readable cache.
+ * Inactive (soft-deleted/disabled) users hold no seat — they cannot log in.
  */
 export function tallyCompany(companyId, users) {
   let admins = 0;
@@ -80,6 +81,7 @@ export function tallyCompany(companyId, users) {
   for (const u of users) {
     if (u.companyId !== companyId) continue;
     if (u.role === "super_admin") continue;
+    if (u.isActive === false) continue;
     if (isAdminRole(u.role)) admins++;
     else people++;
   }

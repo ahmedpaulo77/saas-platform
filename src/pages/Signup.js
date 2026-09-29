@@ -108,7 +108,38 @@ export default function Signup() {
       navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
-      setError(error.message);
+      // تشخيص رفض إنشاء مستند المستخدم: الغالب سقف مقاعد ممتلئ (أو عدّاد
+      // قديم) — نقرأ الشركة (مسموح لأي مسجل) ونعرض الأرقام بدل رسالة مبهمة.
+      // ملاحظة: قراءة invite_codes هنا للتشخيص فقط؛ التحقق الحقيقي في Rules.
+      if (error?.code === 'permission-denied' && companyId && usedJoinCode) {
+        try {
+          const [coSnap, codeSnap] = await Promise.all([
+            getDoc(doc(db, 'companies', companyId)),
+            getDoc(doc(db, 'invite_codes', usedJoinCode)),
+          ]);
+          const co = coSnap.exists() ? coSnap.data() : null;
+          const codeOk = codeSnap.exists()
+            && codeSnap.data()?.companyId === companyId
+            && codeSnap.data()?.role === role;
+          const maxU = parseInt(co?.maxUsers, 10) || 0;
+          const usedU = parseInt(co?.usersCount, 10) || 0;
+          const maxA = parseInt(co?.maxAdmins, 10) || 0;
+          const usedA = parseInt(co?.adminsCount, 10) || 0;
+          const cap = role === 'admin' ? maxA : maxU;
+          const used = role === 'admin' ? usedA : usedU;
+          if (!codeOk) {
+            setError(t('signup.codeInvalidNow'));
+          } else if (cap > 0 && used >= cap) {
+            setError(t('signup.seatFullNow', { used, cap }));
+          } else {
+            setError(t('signup.rulesStale'));
+          }
+        } catch {
+          setError(error.message);
+        }
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
