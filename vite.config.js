@@ -25,7 +25,7 @@ export default defineConfig({
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/messaging'],
           react: ['react', 'react-dom', 'react-router-dom'],
           charts: ['recharts'],
-          export: ['jspdf', 'jspdf-autotable', 'xlsx', 'html2canvas'],
+          export: ['xlsx'],
           vendor: ['web-vitals', 'jsbarcode'],
         },
       },
