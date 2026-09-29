@@ -29,6 +29,7 @@ import PurchasesStatsCards from "./PurchasesStatsCards.jsx";
 import PurchasePayModal from "./PurchasePayModal.jsx";
 import PurchaseReturnModal from "./PurchaseReturnModal.jsx";
 import PurchaseEditModal from "./PurchaseEditModal.jsx";
+import PurchasesQuickSupplier from "./PurchasesQuickSupplier.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
@@ -929,13 +930,17 @@ ${labelDivs}
                 <button type="button" onClick={() => setShowQuickSupplier(!showQuickSupplier)} style={{ marginTop: 6, background: "none", border: "none", color: "#0891b2", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
                   {showQuickSupplier ? "✕ إلغاء" : "+ مورد جديد"}
                 </button>
-                {showQuickSupplier && (
-                  <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input type="text" placeholder="اسم المورد *" value={quickSupplierName} onChange={(e) => setQuickSupplierName(e.target.value)} />
-                    <input type="text" placeholder="الهاتف (اختياري)" value={quickSupplierPhone} onChange={(e) => setQuickSupplierPhone(e.target.value)} />
-                    <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddSupplier} disabled={addingSupplier}>{addingSupplier ? "جاري..." : "حفظ المورد"}</button>
-                  </div>
-                )}
+                <PurchasesQuickSupplier
+                  showQuickSupplier={showQuickSupplier}
+                  setShowQuickSupplier={setShowQuickSupplier}
+                  quickSupplierName={quickSupplierName}
+                  setQuickSupplierName={setQuickSupplierName}
+                  quickSupplierPhone={quickSupplierPhone}
+                  setQuickSupplierPhone={setQuickSupplierPhone}
+                  addingSupplier={addingSupplier}
+                  onAddSupplier={handleQuickAddSupplier}
+                  t={t}
+                />
               </div>
               {hasInventory && (
                 <div className="form-group" style={{ marginBottom: 0 }}>
