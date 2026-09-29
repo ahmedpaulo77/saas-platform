@@ -30,6 +30,7 @@ import PurchasePayModal from "./PurchasePayModal.jsx";
 import PurchaseReturnModal from "./PurchaseReturnModal.jsx";
 import PurchaseEditModal from "./PurchaseEditModal.jsx";
 import PurchasesQuickSupplier from "./PurchasesQuickSupplier.jsx";
+import PurchasesQuickProduct from "./PurchasesQuickProduct.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
@@ -1009,37 +1010,26 @@ ${labelDivs}
                   <button type="button" onClick={() => setShowQuickProduct(!showQuickProduct)} style={{ background: "none", border: "none", color: "#0891b2", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: 0 }}>
                     {showQuickProduct ? "✕ إلغاء" : "+ منتج جديد"}
                   </button>
-                  {showQuickProduct && (
-                    <div style={{ marginTop: 8, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                      <input type="text" placeholder="اسم المنتج *" value={quickProductName} onChange={(e) => setQuickProductName(e.target.value)} />
-                      <input type="number" placeholder="سعر الشراء (اختياري)" value={quickProductPrice} onChange={(e) => setQuickProductPrice(e.target.value)} />
-                      <input type="text" placeholder="الكود (اختياري — مثال: 7060)" value={quickProductCode} onChange={(e) => setQuickProductCode(e.target.value)} />
-                      {/* المقاس واللون مفهوم ملابس بس — تاجر/صيدلية/مطعم
-                          مش بيستفيدوا منهم، ووجودهم بيلخبط الكاشير وبيملأ
-                          المنتج بصفر فاضي. فلashion بس. */}
-                      {isClothing && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {quickSizeOptions.length > 0 ? (
-                            <select value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }}>
-                              <option value="">المقاس (اختياري)</option>
-                              {quickSizeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          ) : (
-                            <input type="text" placeholder="المقاس (اختياري)" value={quickProductSize} onChange={(e) => setQuickProductSize(e.target.value)} style={{ flex: 1 }} />
-                          )}
-                          {quickColorOptions.length > 0 ? (
-                            <select value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }}>
-                              <option value="">اللون (اختياري)</option>
-                              {quickColorOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                          ) : (
-                            <input type="text" placeholder="اللون (اختياري)" value={quickProductColor} onChange={(e) => setQuickProductColor(e.target.value)} style={{ flex: 1 }} />
-                          )}
-                        </div>
-                      )}
-                      <button type="button" className="btn-primary btn-sm" onClick={handleQuickAddProduct} disabled={addingProduct}>{addingProduct ? "جاري..." : "حفظ المنتج"}</button>
-                    </div>
-                  )}
+                  <PurchasesQuickProduct
+                    showQuickProduct={showQuickProduct}
+                    setShowQuickProduct={setShowQuickProduct}
+                    quickProductName={quickProductName}
+                    setQuickProductName={setQuickProductName}
+                    quickProductPrice={quickProductPrice}
+                    setQuickProductPrice={setQuickProductPrice}
+                    quickProductSize={quickProductSize}
+                    setQuickProductSize={setQuickProductSize}
+                    quickProductColor={quickProductColor}
+                    setQuickProductColor={setQuickProductColor}
+                    quickProductCode={quickProductCode}
+                    setQuickProductCode={setQuickProductCode}
+                    addingProduct={addingProduct}
+                    onAddProduct={handleQuickAddProduct}
+                    isClothing={isClothing}
+                    quickSizeOptions={quickSizeOptions}
+                    quickColorOptions={quickColorOptions}
+                    t={t}
+                  />
                 </div>
               )}
               {hasInventory && (newPurchase.items || []).length > 0 && (
