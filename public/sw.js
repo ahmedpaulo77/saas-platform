@@ -89,11 +89,13 @@ self.addEventListener("fetch", (event) => {
       caches.match(request).then(
         (hit) =>
           hit ||
-          fetch(request).then((res) => {
-            const copy = res.clone();
-            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
-            return res;
-          })
+          fetch(request)
+            .then((res) => {
+              const copy = res.clone();
+              caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+              return res;
+            })
+            .catch(() => caches.match("/index.html"))
       )
     );
   }
