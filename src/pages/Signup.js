@@ -44,6 +44,12 @@ export default function Signup() {
 
     setLoading(true);
 
+    // معرّفة هنا (نطاق الدالة) لأن catch التشخيصي يحتاجها بعد فشل الإنشاء
+    let companyId = null;
+    let role = 'admin';
+    let joinCompanyName = '';
+    let usedJoinCode = null;
+
     try {
       // ============================================================
       // ✅ خطوة 1: إنشاء حساب Auth أولاً — لازم قبل أي عملية Firestore
@@ -56,11 +62,6 @@ export default function Signup() {
       // ✅ خطوة 2: دلوقتي المستخدم مسجل دخول فعلياً — نقدر نبحث
       // عن الشركة بالكود أو ننشئ شركة جديدة من غير ما الـ Rules ترفض
       // ============================================================
-      let companyId = null;
-      let role = 'admin';
-      let joinCompanyName = '';
-      let usedJoinCode = null; // ← هيتبعت لـ createUserDoc عشان الـ Rule تتحقق منه
-
       if (formData.inviteCode.trim()) {
         // ✅ الانضمام بكود — get مباشر على invite_codes/{code}، مفيش list خالص
         const code = formData.inviteCode.trim().toUpperCase();
