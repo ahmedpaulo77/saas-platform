@@ -118,6 +118,7 @@ export default function Inventory() {
 
   // مولّد الـ variants (أزياء): موديل + مقاسات × ألوان
   // نفس حقول فورم الإضافة العلوية (للأزياء) — عشان العميل يسجّل المنتج كاملاً من هنا
+  const [genProductName, setGenProductName] = useState("");
   const [genModel, setGenModel] = useState("");
   const [genSizes, setGenSizes] = useState([]);
   const [genColors, setGenColors] = useState([]);
@@ -125,13 +126,9 @@ export default function Inventory() {
   const [genBrand, setGenBrand] = useState("");
   const [genCode, setGenCode] = useState("");
   const [genPrice, setGenPrice] = useState("");
-  const [genQty, setGenQty] = useState("");
-  const [genPurchasePrice, setGenPurchasePrice] = useState("");
-  const [genBarcode, setGenBarcode] = useState("");
   const [genDescription, setGenDescription] = useState("");
   const [genImageFile, setGenImageFile] = useState(null);
   const [genImagePreview, setGenImagePreview] = useState("");
-  const [genCodeMode, setGenCodeMode] = useState("auto");
   const [generating, setGenerating] = useState(false);
 
   function handleGenImageChange(e) {
@@ -144,7 +141,7 @@ export default function Inventory() {
 
   async function generateVariants(e) {
     e.preventDefault();
-    if (!genModel.trim() || genSizes.length === 0 || genColors.length === 0 || !genPrice) {
+    if (!genProductName.trim() || !genModel.trim() || genSizes.length === 0 || genColors.length === 0 || !genPrice) {
       alert(t("common.fillRequired"));
       return;
     }
@@ -163,29 +160,20 @@ export default function Inventory() {
           );
           if (exists) { skipped++; continue; }
 
-          // توليد الباركود
-          let barcodeValue = genBarcode.trim();
-          if (!barcodeValue && genCodeMode === "auto") {
-            const modelPart = genModel.trim().substring(0, 4).toUpperCase();
-            const sizePart = size.substring(0, 2).toUpperCase();
-            const colorPart = color.substring(0, 2).toUpperCase();
-            barcodeValue = `${modelPart}-${sizePart}-${colorPart}`;
-          }
-
           await addDoc(collection(db, "inventory"), {
-            name: `${genModel.trim()} - ${size} - ${color}`,
+            name: `${genProductName.trim()} - ${size} - ${color}`,
             model: genModel.trim(),
             code: genCodeValue,
             category: "",
-            quantity: parseInt(genQty) || 0,
+            quantity: 0,
             price: parseFloat(genPrice) || 0,
-            purchasePrice: parseFloat(genPurchasePrice) || 0,
+            purchasePrice: 0,
             description: genDescription || "",
             type: genType || "",
             size, color,
             brand: genBrand || "",
             expiryDate: "",
-            barcode: barcodeValue,
+            barcode: "",
             imageUrl: genImageUrl,
             companyId: userCompanyId,
             createdBy: currentUser?.uid,
@@ -199,7 +187,7 @@ export default function Inventory() {
         details: `Generated ${created} variants for model: ${genModel} (skipped ${skipped})`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenCode(""); setGenPrice(""); setGenQty(""); setGenPurchasePrice(""); setGenBarcode(""); setGenDescription(""); setGenImageFile(null); setGenImagePreview(""); setGenCodeMode("auto");
+      setGenProductName(""); setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenCode(""); setGenPrice(""); setGenDescription(""); setGenImageFile(null); setGenImagePreview("");
       await fetchProducts();
       alert(`تم إنشاء ${created} صنف${skipped ? ` (تخطي ${skipped} موجود)` : ""}`);
     } catch (err) {
@@ -489,11 +477,12 @@ export default function Inventory() {
       const matchModel = filterModel === "all" || (product.model || "") === filterModel;
       return matchSearch && matchModel;
     })
-    // ترتيب: الاسم (أو الموديل للأصناف المتولدة) ثم المقاس من الأصغر للأكبر ثم اللون
+    // ترتيب: الاسم (أو الموديل للأصناف المتولدة) ثم اللون (كل لون تحت بعضه)
+    // ثم المقاس من الأصغر للأكبر جوّه كل لون — عشان المنتجات متدخلش في بعض
     .sort((a, b) =>
       (String(a.model || a.name || "").localeCompare(String(b.model || b.name || ""), "ar")) ||
-      compareSizes(a.size, b.size) ||
-      (String(a.color || "").localeCompare(String(b.color || ""), "ar"))
+      (String(a.color || "").localeCompare(String(b.color || ""), "ar")) ||
+      compareSizes(a.size, b.size)
     );
 
   // ── الجرد: تسوية الكمية الفعلية ──
@@ -864,14 +853,22 @@ export default function Inventory() {
               👔 توليد موديل — مقاسات × ألوان بضغطة واحدة
             </h3>
             <form onSubmit={generateVariants}>
+              <div style={{ marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>اسم المنتج *</label>
+                  <input type="text" placeholder="مثال: تيشرت قطن كلاسيك"
+                    value={genProductName} onChange={(e) => setGenProductName(e.target.value)} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>اسم الموديل *</label>
-                  <input type="text" placeholder="مثال: تيشرت قطن كلاسيك"
+                  <input type="text" placeholder="مثال: TS-2026"
                     value={genModel} onChange={(e) => setGenModel(e.target.value)} required
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
                     <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>النوع</label>
                     <select value={genType} onChange={(e) => setGenType(e.target.value)}
@@ -885,27 +882,6 @@ export default function Inventory() {
                     <input type="number" min="0" placeholder="0" value={genPrice} onChange={(e) => setGenPrice(e.target.value)} required
                       style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                   </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>رصيد مبدئي</label>
-                    <input type="number" min="0" step="1" placeholder="0" value={genQty} onChange={(e) => setGenQty(e.target.value)}
-                      style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* حقول إضافية للموديل */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>سعر الشراء (اختياري)</label>
-                  <input type="number" min="0" step="0.01" placeholder="0"
-                    value={genPurchasePrice} onChange={(e) => setGenPurchasePrice(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الباركود (اختياري — يولد تلقائياً)</label>
-                  <input type="text" placeholder="كود الباركود"
-                    value={genBarcode} onChange={(e) => setGenBarcode(e.target.value)}
-                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
               </div>
 
@@ -965,7 +941,7 @@ export default function Inventory() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الماركة (اختياري)</label>
                   <input type="text" placeholder="الماركة" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
@@ -975,14 +951,6 @@ export default function Inventory() {
                   <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكود (اختياري — كود الموديل)</label>
                   <input type="text" placeholder="كود الموديل" value={genCode} onChange={(e) => setGenCode(e.target.value)}
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكود التلقائي</label>
-                  <select value={genCodeMode} onChange={(e) => setGenCodeMode(e.target.value)}
-                    style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white" }}>
-                    <option value="auto">تلقائي (موديل-مقاس-لون)</option>
-                    <option value="manual">يدوي</option>
-                  </select>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
