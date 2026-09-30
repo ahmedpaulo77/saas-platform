@@ -111,9 +111,9 @@ export default function Messages() {
 
       // ✅ تغيير عنوان التبويب
       if (count > 0) {
-        document.title = `📩 (${count}) ${t("messages.title")} - SaaS PRO`;
+        document.title = `📩 (${count}) ${t("messages.title")} - ${t("brand.name")}`;
       } else {
-        document.title = 'SaaS PRO';
+        document.title = t("brand.name");
       }
 
       // ✅ إشعار للرسالة الأحدث (إذا كانت جديدة)

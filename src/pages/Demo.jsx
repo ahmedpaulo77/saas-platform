@@ -176,7 +176,7 @@ export default function Demo() {
           <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
             <i className="fas fa-cube"></i>
           </div>
-          <span style={{ color: "white", fontWeight: 800, fontSize: 18 }}>SaaS PRO</span>
+          <span style={{ color: "white", fontWeight: 800, fontSize: 18 }}>{t("brand.name")}</span>
           <span className="badge badge-purple" style={{ marginInlineStart: 6 }}>{t("demo.badge")}</span>
         </div>
         <div style={{ marginInlineStart: "auto", display: "flex", gap: 8 }}>

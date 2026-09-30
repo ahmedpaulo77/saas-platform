@@ -149,7 +149,7 @@ export default function Landing() {
               color: scrolled ? "#0f172a" : "white",
             }}
           >
-            SaaS <span style={{ color: "#6366f1" }}>PRO</span>
+            {t("brand.name")}
           </span>
         </div>
 
@@ -763,7 +763,7 @@ export default function Landing() {
           >
             <i className="fas fa-cube"></i>
           </div>
-          <span style={{ color: "white", fontWeight: 700 }}>SaaS PRO</span>
+          <span style={{ color: "white", fontWeight: 700 }}>{t("brand.name")}</span>
         </div>
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
           {t("landing.rights")}

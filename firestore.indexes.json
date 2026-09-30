@@ -1,6 +1,6 @@
 {
   "//": "═══════════════════════════════════════════════════════════════════════",
-  "//1": "Firestore composite indexes — SaaS PRO",
+  "//1": "Firestore composite indexes — AamalyPro",
   "//2": "",
   "//3": "⚠️ ليه الملف ده مهم: أي استعلام فيه where('companyId','==',x) +",
   "//4": "   orderBy(...) محتاج **composite index**. من غيره Firestore بيرجع",

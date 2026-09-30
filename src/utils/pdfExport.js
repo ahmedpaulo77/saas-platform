@@ -265,7 +265,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
   <!-- Header -->
   <div class="header">
     <div>
-      <div class="brand-name">SaaS PRO</div>
+      <div class="brand-name">${isArabic ? 'اعمالى PRO' : 'AamalyPro'}</div>
       <div class="brand-sub">${translations.brand}</div>
     </div>
     <div>
@@ -299,8 +299,8 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
     </div>
     <div style="text-align:${isArabic ? 'left' : 'right'};">
       <div class="bill-label">${translations.from}</div>
-      <div class="bill-name">${opts.companyName || 'SaaS PRO'}</div>
-      <div class="bill-sub">${opts.companyPhone || opts.companyAddress || 'support@saaspro.com'}</div>
+      <div class="bill-name">${opts.companyName || (isArabic ? 'اعمالى PRO' : 'AamalyPro')}</div>
+      <div class="bill-sub">${opts.companyPhone || opts.companyAddress || 'support@aamalypro.com'}</div>
     </div>
   </div>
 
@@ -386,7 +386,7 @@ export function exportInvoicePDF(invoice, clientName, productName, docType = "in
 
   <!-- Footer -->
   <div class="footer">
-    ${translations.thanks} &nbsp;•&nbsp; support@saaspro.com &nbsp;•&nbsp; www.saaspro.com
+    ${translations.thanks} &nbsp;•&nbsp; support@aamalypro.com &nbsp;•&nbsp; www.aamalypro.com
     <div style="margin-top:4px;font-size:10px;color:rgba(255,255,255,0.6)">${translations.printedAt}: ${printedAtStr}</div>
   </div>
 

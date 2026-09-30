@@ -414,7 +414,7 @@ label: t("nav.attendance"),
           <i className="fas fa-cube"></i>
         </div>
         <div className="logo-text">
-          <span className="logo-name">SaaS PRO</span>
+          <span className="logo-name">{t("brand.name")}</span>
           <span className="logo-badge">Business Platform</span>
         </div>
         <button

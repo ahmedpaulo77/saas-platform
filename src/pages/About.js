@@ -141,7 +141,7 @@ export default function About() {
                 letterSpacing: -1,
               }}
             >
-              SaaS PRO
+              {t("brand.name")}
             </h1>
             <p
               style={{

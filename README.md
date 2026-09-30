@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 SaaS PRO
+# 🚀 AamalyPro
 ### منصة إدارة الأعمال المتكاملة
 
 [![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev)

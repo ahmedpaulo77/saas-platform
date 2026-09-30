@@ -90,7 +90,7 @@ export default function Login() {
           <div className="logo-icon">
             <i className="fas fa-cube"></i>
           </div>
-          <h1>SaaS PRO</h1>
+          <h1>{t('brand.name')}</h1>
           <p>{t('login.tagline')}</p>
         </div>
 

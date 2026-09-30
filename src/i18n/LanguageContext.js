@@ -5,7 +5,8 @@ const LanguageContext = createContext(null);
 
 export { LanguageContext };
 
-const STORAGE_KEY = 'saas-pro-lang';
+const STORAGE_KEY = 'aamalypro-lang';
+const LEGACY_STORAGE_KEY = 'saas-pro-lang';
 
 function interpolate(str, vars) {
   if (!vars) return str;
@@ -15,7 +16,8 @@ function interpolate(str, vars) {
 export function LanguageProvider({ children }) {
   const [lang, setLangState] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'en' ? 'en' : 'ar';
+      const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+      return saved === 'en' ? 'en' : 'ar';
     } catch {
       return 'ar';
     }

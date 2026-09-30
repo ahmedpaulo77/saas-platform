@@ -1,11 +1,11 @@
-/* SaaS PRO unified Service Worker:
+/* AamalyPro unified Service Worker:
  *  1) Offline shell — يشغّل التطبيق من الكاش عند انقطاع النت
  *     (الداتا نفسها من persistent cache بتاع Firestore).
  *  2) FCM background messages — مدمج هنا عمدًا: تسجيل SW منفصل
  *     لـ FCM كان سينتزع scope '/' ويعطّل الـ fetch handler.
  */
 
-const SHELL_CACHE = "saas-pro-shell-v1";
+const SHELL_CACHE = "aamalypro-shell-v1";
 const APP_SHELL = ["/", "/index.html", "/manifest.json"];
 
 // FCM (compat) — للرسائل في الخلفية فقط
