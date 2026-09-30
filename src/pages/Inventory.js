@@ -59,15 +59,15 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
 
-  // نموذج الإضافة الجديد
+// نموذج الإضافة الجديد
   const [newProduct, setNewProduct] = useState({
     name: "",
     category: "",
-    quantity: "",
+    quantity: 0,
     price: "",
     description: "",
         // تاجر
-     // أزياء
+      // أزياء
     type: "", size: "", color: "", brand: "", model: "", code: "",
     expiryDate: "",
     barcode: "", // سوبر ماركت / صيدلية
@@ -310,23 +310,18 @@ export default function Inventory() {
   // ── Add ──
   async function addProduct(e) {
     e.preventDefault();
-    // الملابس: الكمية اختيارية (بتيجي من المشتريات) — باقي الصناعات: الكمية مطلوبة
     if (!newProduct.name || newProduct.price === "" || newProduct.price == null) {
-      alert(t("common.fillRequired")); return;
-    }
-    if (!isClothing && (newProduct.quantity === "" || newProduct.quantity == null)) {
       alert(t("common.fillRequired")); return;
     }
     setUploading(true);
     try {
       let imageUrl = "";
       if (newImageFile) imageUrl = await uploadProductImage(newImageFile);
-      const qtyEmpty = newProduct.quantity === "" || newProduct.quantity == null;
       const docRef = await addDoc(collection(db, "inventory"), {
         ...newProduct,
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
-        quantity: qtyEmpty ? 0 : (isTrader ? parseFloat(newProduct.quantity) : parseInt(newProduct.quantity)),
+        quantity: 0,
         price: parseFloat(newProduct.price),
                  unit: isTrader ? newProduct.unit || "piece" : "",
         type: isClothing ? newProduct.type || "" : "",
@@ -368,22 +363,17 @@ export default function Inventory() {
   // ── Update ──
   async function updateProduct(e) {
     e.preventDefault();
-    // التعديل: الكمية قابلة للتحرير (للتصحيح) — الملابس تسمح بالصفر/الفارغ، باقي الصناعات مطلوبة
     if (!editingProduct.name || editingProduct.price === "" || editingProduct.price == null) {
-      alert(t("common.fillRequired")); return;
-    }
-    if (!isClothing && (editingProduct.quantity === "" || editingProduct.quantity == null)) {
       alert(t("common.fillRequired")); return;
     }
     setUploading(true);
     try {
       let imageUrl = editingProduct.imageUrl || "";
       if (editImageFile) imageUrl = await uploadProductImage(editImageFile);
-      const editQtyEmpty = editingProduct.quantity === "" || editingProduct.quantity == null;
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
         category: editingProduct.category || "",
-        quantity: editQtyEmpty ? 0 : (isTrader ? parseFloat(editingProduct.quantity) : parseInt(editingProduct.quantity)),
+        quantity: 0,
         price: parseFloat(editingProduct.price),
         unit: isTrader ? (editingProduct.unit || "kg") : "",
         description: editingProduct.description || "",
@@ -752,20 +742,6 @@ export default function Inventory() {
 
             <input
               type="number"
-              min="0"
-              step={isTrader ? "0.001" : "1"}
-              placeholder={isClothing ? "الكمية (اختياري — بييجي من المشتريات)" : (isRealEstate ? "عدد الوحدات" : isRestaurant ? "الكمية المتاحة" : t("inv.phQty"))}
-              value={newProduct.quantity}
-              onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })}
-              required={!isClothing}
-            />
-            {isClothing && (
-              <small style={{ color: "#64748b", fontSize: 11, marginTop: -10 }}>
-                العدد بييجي من المشتريات — سيبه صفر
-              </small>
-            )}
-            <input
-              type="number"
               placeholder={isRestaurant ? "سعر الصنف (ج.م)" : t("inv.phPrice")}
               value={newProduct.price}
               onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
@@ -823,26 +799,20 @@ export default function Inventory() {
             {/* حقول الملابس */}
             {isClothing && (
               <>
-                <input type="text" placeholder="اسم الموديل (مثال: تيشرت قطن كلاسيك)" value={newProduct.model || ""}
+                <input type="text" placeholder={t("inv.phModel")} value={newProduct.model || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
-                <input type="text" placeholder="الكود (مثال: 7060)" value={newProduct.code || ""}
+                <input type="text" placeholder={t("inv.phCode")} value={newProduct.code || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, code: e.target.value })} />
                 <select value={newProduct.type} onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value })}
                   style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
-                  <option value="">النوع</option>
+                  <option value="">{t("inv.phType")}</option>
                   {types.map((tp) => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
                 </select>
-                <select value={newProduct.size} onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
-                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
-                  <option value="">المقاس</option>
-                  {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : s.category === "clothing" ? "(ملابس)" : ""}</option>)}
-                </select>
-                <select value={newProduct.color} onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })}
-                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
-                  <option value="">اللون</option>
-                  {colors.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-                <input type="text" placeholder="الماركة (اختياري)" value={newProduct.brand}
+                <input type="text" placeholder={t("inv.phSize")} value={newProduct.size || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })} />
+                <input type="text" placeholder={t("inv.phColor")} value={newProduct.color || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })} />
+                <input type="text" placeholder={t("inv.phBrand")} value={newProduct.brand}
                   onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} />
               </>
             )}
@@ -1433,23 +1403,17 @@ export default function Inventory() {
                       </select>
                     </div>
                     <div style={styles.formGroup}>
-                      <label>المقاس</label>
-                      <select value={editingProduct.size || ""} style={styles.input}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}>
-                        <option value="">اختر المقاس</option>
-                        {sizeOptions.map((s) => <option key={s.value} value={s.value}>{s.label} {s.category === "shoes" ? "(حذاء)" : s.category === "clothing" ? "(ملابس)" : ""}</option>)}
-                      </select>
+                      <label>{t("inv.phSize")}</label>
+                      <input type="text" value={editingProduct.size || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })} />
                     </div>
                     <div style={styles.formGroup}>
-                      <label>اللون</label>
-                      <select value={editingProduct.color || ""} style={styles.input}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, color: e.target.value })}>
-                        <option value="">اختر اللون</option>
-                        {colors.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
+                      <label>{t("inv.phColor")}</label>
+                      <input type="text" value={editingProduct.color || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, color: e.target.value })} />
                     </div>
                     <div style={styles.formGroup}>
-                      <label>الماركة</label>
+                      <label>{t("inv.phBrand")}</label>
                       <input type="text" value={editingProduct.brand || ""} style={styles.input}
                         onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })} />
                     </div>
@@ -1482,14 +1446,18 @@ export default function Inventory() {
                     onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                 </div>
 
-                {isMarket && (
+{isMarket && (
                   <div style={styles.formGroup}>
                     <label>تاريخ الصلاحية (اختياري)</label>
                     <input type="date" value={editingProduct.expiryDate || ""} style={styles.input}
                       onChange={(e) => setEditingProduct({ ...editingProduct, expiryDate: e.target.value })} />
                   </div>
                 )}
-
+                <div style={styles.formGroup}>
+                  <label>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</label>
+                  <input type="number" min="0" step={isTrader ? "0.001" : "1"} value={editingProduct.quantity} style={styles.input}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, quantity: e.target.value })} />
+                </div>
                 {/* إضافات المطعم في التعديل */}
                 {isRestaurantOnly && (
                   <div style={styles.formGroup}>

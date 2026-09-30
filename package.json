@@ -36,7 +36,7 @@
     "deploy:rules": "firebase deploy --only firestore:rules",
     "deploy:indexes": "firebase deploy --only firestore:indexes",
     "deploy:storage": "firebase deploy --only storage",
-    "test:labels": "node tools/test-labels.mjs",
+     "test:labels": "node tools/test-labels.mjs",
     "verify:no-placeholder": "node tools/verify-no-image-placeholder.mjs",
     "test:limits": "node tools/test-limits.mjs",
     "verify:rules": "node tools/verify-rules.mjs",
