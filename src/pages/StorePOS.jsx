@@ -14,10 +14,10 @@ import { moneyShort } from "../utils/fmt.js";
 
 const NAVY = "#1e3a8a";
 
-const TYPE_LABELS = { men: "رجالي", women: "حريمي", kids: "أطفال", unisex: "يونيسكس" };
-
 export default function StorePOS() {
   const { t, lang, locale } = useLanguage();
+
+  const TYPE_LABELS = { men: t("inv.typeMen"), women: t("inv.typeWomen"), boys: t("inv.typeBoys"), girls: t("inv.typeGirls"), unisex: t("inv.typeUnisex") };
   const timeLocale = locale;
   const { userRole, userCompanyId, currentUser } = useAuth();
 

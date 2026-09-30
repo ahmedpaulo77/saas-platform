@@ -202,10 +202,11 @@ export default function Inventory() {
 
   // ── خيارات ملابس ──
   const types = [
-    { value: "men", label: "رجالي" },
-    { value: "women", label: "حريمي" },
-    { value: "kids", label: "أطفال" },
-    { value: "unisex", label: "يونيسكس" },
+    { value: "men", label: t("inv.typeMen") },
+    { value: "women", label: t("inv.typeWomen") },
+    { value: "boys", label: t("inv.typeBoys") },
+    { value: "girls", label: t("inv.typeGirls") },
+    { value: "unisex", label: t("inv.typeUnisex") },
   ];
   // القيم الافتراضية — تُستخدم فقط لو الشركة معملتش أكوادها الخاصة في صفحة الأكواد
   const DEFAULT_SIZES = [
@@ -1187,7 +1188,7 @@ export default function Inventory() {
                       <>
                         <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
                         <td style={{ fontWeight: 700, fontFamily: "monospace", direction: "ltr" }}>{product.code || "—"}</td>
-                        <td>{product.type === "men" ? "رجالي" : product.type === "women" ? "حريمي" : product.type === "kids" ? "أطفال" : product.type === "unisex" ? "يونيسكس" : "—"}</td>
+                        <td>{product.type === "men" ? t("inv.typeMen") : product.type === "women" ? t("inv.typeWomen") : product.type === "boys" ? t("inv.typeBoys") : product.type === "girls" ? t("inv.typeGirls") : product.type === "unisex" ? t("inv.typeUnisex") : "—"}</td>
                         <td style={{ fontWeight: 600 }}>{product.size || "—"}</td>
                         <td>{product.color || "—"}</td>
                         <td>{product.brand || "—"}</td>
@@ -1424,10 +1425,10 @@ export default function Inventory() {
                         onChange={(e) => setEditingProduct({ ...editingProduct, code: e.target.value })} />
                     </div>
                     <div style={styles.formGroup}>
-                      <label>النوع</label>
+                      <label>{t("inv.type")}</label>
                       <select value={editingProduct.type || ""} style={styles.input}
                         onChange={(e) => setEditingProduct({ ...editingProduct, type: e.target.value })}>
-                        <option value="">اختر النوع</option>
+                        <option value="">{t("common.select")}</option>
                         {types.map((tp) => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
                       </select>
                     </div>

@@ -452,7 +452,7 @@ export default function POS() {
     if (isRestaurant) return product.description || "";
     const details = [];
     if (product.type) {
-      const typeMap = { men: "رجالي", women: "حريمي", kids: "أطفال", unisex: "يونيسكس" };
+      const typeMap = { men: t("inv.typeMen"), women: t("inv.typeWomen"), boys: t("inv.typeBoys"), girls: t("inv.typeGirls"), unisex: t("inv.typeUnisex") };
       details.push(typeMap[product.type] || product.type);
     }
     if (product.size) details.push(product.size);
