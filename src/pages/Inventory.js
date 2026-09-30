@@ -141,6 +141,10 @@ export default function Inventory() {
   const [genBrand, setGenBrand] = useState("");
   const [genPrice, setGenPrice] = useState("");
   const [genQty, setGenQty] = useState("");
+  const [genPurchasePrice, setGenPurchasePrice] = useState("");
+  const [genBarcode, setGenBarcode] = useState("");
+  const [genDescription, setGenDescription] = useState("");
+  const [genCodeMode, setGenCodeMode] = useState("auto");
   const [generating, setGenerating] = useState(false);
 
   
@@ -161,18 +165,29 @@ export default function Inventory() {
             (p) => (p.model || "") === genModel.trim() && p.size === size && p.color === color
           );
           if (exists) { skipped++; continue; }
+          
+          // توليد الباركود
+          let barcodeValue = genBarcode.trim();
+          if (!barcodeValue && genCodeMode === "auto") {
+            const modelPart = genModel.trim().substring(0, 4).toUpperCase();
+            const sizePart = size.substring(0, 2).toUpperCase();
+            const colorPart = color.substring(0, 2).toUpperCase();
+            barcodeValue = `${modelPart}-${sizePart}-${colorPart}`;
+          }
+          
           await addDoc(collection(db, "inventory"), {
             name: `${genModel.trim()} - ${size} - ${color}`,
             model: genModel.trim(),
             category: "",
             quantity: parseInt(genQty) || 0,
             price: parseFloat(genPrice) || 0,
-            description: "",
+            purchasePrice: parseFloat(genPurchasePrice) || 0,
+            description: genDescription || "",
             type: genType || "",
             size, color,
             brand: genBrand || "",
             expiryDate: "",
-            barcode: "",
+            barcode: barcodeValue,
             companyId: userCompanyId,
             createdBy: currentUser?.uid,
             createdAt: now,
@@ -185,7 +200,7 @@ export default function Inventory() {
         details: `Generated ${created} variants for model: ${genModel} (skipped ${skipped})`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenPrice(""); setGenQty("");
+      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenPrice(""); setGenQty(""); setGenPurchasePrice(""); setGenBarcode(""); setGenDescription(""); setGenCodeMode("auto");
       await fetchProducts();
       alert(`تم إنشاء ${created} صنف${skipped ? ` (تخطي ${skipped} موجود)` : ""}`);
     } catch (err) {
@@ -885,9 +900,37 @@ export default function Inventory() {
                   </div>
                 </div>
               </div>
+
+              {/* حقول إضافية للموديل */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>سعر الشراء (اختياري)</label>
+                  <input type="number" min="0" step="0.01" placeholder="0"
+                    value={genPurchasePrice} onChange={(e) => setGenPurchasePrice(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الباركود (اختياري — يولد تلقائياً)</label>
+                  <input type="text" placeholder="كود الباركود"
+                    value={genBarcode} onChange={(e) => setGenBarcode(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الوصف / ملاحظة التحضير (اختياري)</label>
+                <textarea rows="2" placeholder="وصف الموديل أو ملاحظة تحضير"
+                  value={genDescription} onChange={(e) => setGenDescription(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", resize: "vertical" }} />
+              </div>
+
               <div style={{ marginBottom: 8 }}>
                 <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>المقاسات * ({genSizes.length})</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                  <button type="button" onClick={() => setGenSizes(genSizes.length === sizeOptions.length ? [] : sizeOptions.map(s => s.value))}
+                    style={{ padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: "1px solid #1e3a8a", background: "#eff6ff", color: "#1e3a8a" }}>
+                    {genSizes.length === sizeOptions.length ? "إلغاء الكل" : "تحديد الكل"}
+                  </button>
                   {sizeOptions.map((s) => {
                     const on = genSizes.includes(s.value);
                     return (
@@ -902,7 +945,11 @@ export default function Inventory() {
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الألوان * ({genColors.length})</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                  <button type="button" onClick={() => setGenColors(genColors.length === colors.length ? [] : colors.map(c => c.value))}
+                    style={{ padding: "4px 12px", fontSize: 11, fontWeight: 700, borderRadius: 20, cursor: "pointer", border: "1px solid #1e3a8a", background: "#eff6ff", color: "#1e3a8a" }}>
+                    {genColors.length === colors.length ? "إلغاء الكل" : "تحديد الكل"}
+                  </button>
                   {colors.map((c) => {
                     const on = genColors.includes(c.value);
                     return (
@@ -915,14 +962,27 @@ export default function Inventory() {
                   })}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="text" placeholder="الماركة (اختياري)" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
-                  style={{ flex: 1, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الماركة (اختياري)</label>
+                  <input type="text" placeholder="الماركة" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكود التلقائي</label>
+                  <select value={genCodeMode} onChange={(e) => setGenCodeMode(e.target.value)}
+                    style={{ width: "100%", padding: "10px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, background: "white" }}>
+                    <option value="auto">تلقائي (موديل-مقاس-لون)</option>
+                    <option value="manual">يدوي</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                 <button
                   type="submit"
                   className="btn-primary"
                   disabled={generating}
-                  title={t("inv.generateVariants")}
+                  style={{ flex: 1 }}
                 >
                   <i className="fas fa-magic" aria-hidden="true"></i>{" "}
                   {generating ? t("common.saving") : t("inv.generateVariants")}
@@ -1440,11 +1500,6 @@ export default function Inventory() {
                   </div>
                 </div>
 
-                <div style={styles.formGroup}>
-                  <label>{isRealEstate ? "عدد الوحدات" : t("common.quantity")}</label>
-                  <input type="number" min="0" step={isTrader ? "0.001" : "1"} value={editingProduct.quantity} required style={styles.input}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, quantity: e.target.value })} />
-                </div>
                 <div style={styles.formGroup}>
                   <label>{t("inv.price")}</label>
                   <input type="number" value={editingProduct.price} required style={styles.input}
