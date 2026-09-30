@@ -1,6 +1,6 @@
 // src/pages/Invoices.js - thin orchestrator after split (was 2564 lines)
 import React, { useState, useMemo, useEffect } from "react";
-import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, where, runTransaction } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, where, runTransaction, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
@@ -9,7 +9,8 @@ import { exportInvoicePDF } from "../utils/pdfExport.js";
 import { logActivity } from "../utils/auditLogger.js";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { createReturn } from "../utils/returns.js";
-import { stockTargetFor, readStockTx, planStockOut, planStockIn, expandRecipeLines } from "../utils/stock.js";
+import { stockTargetFor, readStockTx, readStockCache, planStockOut, planStockIn, expandRecipeLines } from "../utils/stock.js";
+import { isOffline, handleOfflineError } from "../utils/offline.js";
 import { canDelete } from "../utils/companyQuery.js";
 import { useInvoices } from "../hooks/useInvoices.js";
 import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
@@ -57,12 +58,21 @@ export default function Invoices() {
       console.warn("restaurant dishes without recipe (stock not consumed):", skipped);
     }
     if (materialLines.length === 0) return { skipped };
+    // أوفلاين: batch على الكاش (ليس ذرّيًا عبر الأجهزة — مقبول في الانقطاع)
+    const applyOut = (snaps, refs) => {
+      const entries = snaps.map((snap, idx) => ({ ref: refs[idx], snap, line: materialLines[idx] }));
+      return planStockOut(entries, { isTrader: false });
+    };
     try {
+      if (isOffline()) {
+        const { refs, snaps } = await readStockCache("raw_materials", materialLines.map((l) => l.productId));
+        const batch = writeBatch(db);
+        applyOut(snaps, refs).forEach(({ ref, updates }) => batch.update(ref, updates));
+        await batch.commit();
+      } else
       await runTransaction(db, async (tx) => {
         const { refs, snaps } = await readStockTx(tx, "raw_materials", materialLines.map((l) => l.productId));
-        const entries = snaps.map((snap, idx) => ({ ref: refs[idx], snap, line: materialLines[idx] }));
-        const writes = planStockOut(entries, { isTrader: false });
-        writes.forEach(({ ref, updates }) => tx.update(ref, updates));
+        applyOut(snaps, refs).forEach(({ ref, updates }) => tx.update(ref, updates));
       });
     } catch (txErr) {
       if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return { skipped, blocked: true }; }
@@ -246,26 +256,33 @@ export default function Invoices() {
         if (blocked) return;
         var recipeSkippedNames = skipped;
       } else if (hasInventory && invLines.length > 0) {
+        // نفس الفحص والخصم — tx أونلاين (ذرّي)، batch أوفلاين (queued).
+        // w.update متطابقة التواقيع في الاثنين.
+        const deductLines = invLines.filter((item) => item.productId);
+        const applyDeduct = (w, snaps, refs) => {
+          snaps.forEach((snap, i) => {
+            if (!snap.exists()) return;
+            const item = deductLines[i];
+            const delta = isTrader
+              ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight)
+              : parseFloat(item.quantity) || 0;
+            const curQty = parseFloat(snap.data().quantity) || 0;
+            if (!(delta > 0)) return;
+            if (curQty - delta < 0) throw new Error("INSUFFICIENT_STOCK");
+            w.update(refs[i], { quantity: curQty - delta });
+          });
+        };
         try {
+          if (isOffline()) {
+            const { refs, snaps } = await readStockCache("inventory", deductLines.map((l) => l.productId));
+            if (snaps.some((s) => !s || !s.exists())) throw new Error(t("offline.noData"));
+            const batch = writeBatch(db);
+            applyDeduct(batch, snaps, refs);
+            await batch.commit();
+          } else
           await runTransaction(db, async (tx) => {
-            const reads = [];
-            for (const item of invLines) {
-              const ref = doc(db, "inventory", item.productId);
-              const snap = await tx.get(ref);
-              reads.push({ item, ref, snap });
-            }
-            for (const { item, snap } of reads) {
-              if (!snap.exists()) continue;
-              const curQty = snap.data().quantity || 0;
-              const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-              if (delta > 0 && curQty - delta < 0) throw new Error("INSUFFICIENT_STOCK");
-            }
-            for (const { item, ref, snap } of reads) {
-              if (!snap.exists()) continue;
-              const curQty = snap.data().quantity || 0;
-              const delta = isTrader ? stockDelta(item.unit || getProductUnit(snap.data()), item.quantity, item.weight) : parseFloat(item.quantity) || 0;
-              if (delta > 0) tx.update(ref, { quantity: curQty - delta });
-            }
+            const { refs, snaps } = await readStockTx(tx, "inventory", deductLines.map((l) => l.productId));
+            applyDeduct(tx, snaps, refs);
           });
         } catch (txErr) {
           if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return; }
@@ -292,7 +309,10 @@ export default function Invoices() {
       await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: invoice.id, details: `Invoice validated (${cur}→validated), stock deducted`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await Promise.all([resetPagination(), fetchProducts()]);
       alert(t("in.validatedOk") + (typeof recipeSkippedNames !== "undefined" && recipeSkippedNames.length > 0 ? "\n" + t("in.recipeSkipped", { names: recipeSkippedNames.join("، ") }) : ""));
-    } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
+    } catch (err) {
+      console.error(err);
+      if (!handleOfflineError(err, t, (m) => alert(m))) alert(t("common.errorGeneric"));
+    }
   }
 
   async function updateInvoice(e) {
@@ -346,12 +366,21 @@ export default function Invoices() {
           else if (d < -0.0001) netIn.push({ productId: id, quantity: -d });
         });
         if (netOut.length > 0 || netIn.length > 0) {
+          const applyNet = (w, refs, snaps) => {
+            const at = (l) => { const i = refs.findIndex((r) => r.id === l.productId); return { ref: refs[i], snap: snaps[i], line: l }; };
+            planStockOut(netOut.map(at), { isTrader: false }).forEach(({ ref, updates }) => w.update(ref, updates));
+            planStockIn(netIn.map(at), { isTrader: false }).forEach(({ ref, updates }) => w.update(ref, updates));
+          };
           try {
+            if (isOffline()) {
+              const { refs, snaps } = await readStockCache("raw_materials", allIds);
+              const batch = writeBatch(db);
+              applyNet(batch, refs, snaps);
+              await batch.commit();
+            } else
             await runTransaction(db, async (tx) => {
               const { refs, snaps } = await readStockTx(tx, "raw_materials", allIds);
-              const at = (l) => { const i = refs.findIndex((r) => r.id === l.productId); return { ref: refs[i], snap: snaps[i], line: l }; };
-              planStockOut(netOut.map(at), { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
-              planStockIn(netIn.map(at), { isTrader: false }).forEach(({ ref, updates }) => tx.update(ref, updates));
+              applyNet(tx, refs, snaps);
             });
           } catch (txErr) {
             if (txErr?.message === "INSUFFICIENT_STOCK") { alert(t("in.qtyOver")); return; }
@@ -359,11 +388,8 @@ export default function Invoices() {
           }
         }
       } else if (wasValidated && hasInventory && stockDeltas.length > 0) {
-        // نرجّع القديم ونخصم الجديد ذرّيًا
-        const refs = stockDeltas.map((d) => doc(db, "inventory", d.productId));
-        await runTransaction(db, async (tx) => {
-          const snaps = [];
-          for (const r of refs) snaps.push(await tx.get(r));
+        // نرجّع القديم ونخصم الجديد — tx أونلاين، batch أوفلاين
+        const applyDiff = (w, snaps, refs) => {
           snaps.forEach((snap, i) => {
             if (!snap.exists()) return;
             const cur = parseFloat(snap.data().quantity) || 0;
@@ -371,8 +397,20 @@ export default function Invoices() {
             if (next < 0) {
               throw new Error(t("in.qtyOver"));
             }
-            tx.update(refs[i], { quantity: roundQty(next, getProductUnit(snap.data())) });
+            w.update(refs[i], { quantity: roundQty(next, getProductUnit(snap.data())) });
           });
+        };
+        const refs = stockDeltas.map((d) => doc(db, "inventory", d.productId));
+        if (isOffline()) {
+          const { snaps } = await readStockCache("inventory", stockDeltas.map((d) => d.productId));
+          const batch = writeBatch(db);
+          applyDiff(batch, snaps, refs);
+          await batch.commit();
+        } else
+        await runTransaction(db, async (tx) => {
+          const snaps = [];
+          for (const r of refs) snaps.push(await tx.get(r));
+          applyDiff(tx, snaps, refs);
         });
       }
 
@@ -387,7 +425,10 @@ export default function Invoices() {
       });
       await logActivity({ actionType: "UPDATE", collectionName: "invoices", itemId: editingInvoice.id, details: `Updated invoice, status: ${editingInvoice.status}, orderStatus: ${editingInvoice.orderStatus}${wasValidated ? ", stock adjusted" : ""}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await Promise.all([resetPagination(), fetchProducts()]); setShowEditModal(false);
-    } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }
+    } catch (err) {
+      console.error(err);
+      if (!handleOfflineError(err, t, (m) => alert(m))) alert(err?.message || t("common.errorGeneric"));
+    }
   }
 
   async function deleteInvoice(id, invoice) {
@@ -404,6 +445,13 @@ export default function Invoices() {
         const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
         const { materialLines } = expandRecipeLines(lines, dishById);
         if (materialLines.length > 0) {
+          if (isOffline()) {
+            const { refs, snaps } = await readStockCache("raw_materials", materialLines.map((l) => l.productId));
+            const entries = snaps.map((snap, i) => ({ ref: refs[i], snap, line: materialLines[i] }));
+            const batch = writeBatch(db);
+            planStockIn(entries, { isTrader: false }).forEach(({ ref, updates }) => batch.update(ref, updates));
+            await batch.commit();
+          } else
           await runTransaction(db, async (tx) => {
             const { refs, snaps } = await readStockTx(tx, "raw_materials", materialLines.map((l) => l.productId));
             const entries = snaps.map((snap, i) => ({ ref: refs[i], snap, line: materialLines[i] }));
@@ -412,28 +460,41 @@ export default function Invoices() {
         }
       } else if (wasValidated && hasInventory && lines.length > 0) {
         const refs = lines.filter((l) => l.productId).map((l) => doc(db, "inventory", l.productId));
+        const flines = lines.filter((x) => x.productId);
+        const applyBack = (w, snaps) => {
+          snaps.forEach((snap, i) => {
+            if (!snap.exists()) return;
+            const cur = parseFloat(snap.data().quantity) || 0;
+            const l = flines[i];
+            const back = isTrader
+              ? stockDelta(l.unit || "piece", l.quantity, l.weight)
+              : parseFloat(l.quantity) || 0;
+            if (back > 0) {
+              w.update(refs[i], { quantity: roundQty(cur + back, getProductUnit(snap.data())) });
+            }
+          });
+        };
         if (refs.length) {
+          if (isOffline()) {
+            const { snaps } = await readStockCache("inventory", flines.map((l) => l.productId));
+            const batch = writeBatch(db);
+            applyBack(batch, snaps);
+            await batch.commit();
+          } else
           await runTransaction(db, async (tx) => {
             const snaps = [];
             for (const r of refs) snaps.push(await tx.get(r));
-            snaps.forEach((snap, i) => {
-              if (!snap.exists()) return;
-              const cur = parseFloat(snap.data().quantity) || 0;
-              const l = lines.filter((x) => x.productId)[i];
-              const back = isTrader
-                ? stockDelta(l.unit || "piece", l.quantity, l.weight)
-                : parseFloat(l.quantity) || 0;
-              if (back > 0) {
-                tx.update(refs[i], { quantity: roundQty(cur + back, getProductUnit(snap.data())) });
-              }
-            });
+            applyBack(tx, snaps);
           });
         }
       }
       await deleteDoc(doc(db, "invoices", id));
       await logActivity({ actionType: "DELETE", collectionName: "invoices", itemId: id, details: `Deleted invoice${wasValidated ? ", stock restored" : ""}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await Promise.all([resetPagination(), fetchProducts()]);
-    } catch (err) { console.error(err); alert(err?.message || t("common.errorGeneric")); }
+    } catch (err) {
+      console.error(err);
+      if (!handleOfflineError(err, t, (m) => alert(m))) alert(err?.message || t("common.errorGeneric"));
+    }
   }
 
   async function recordPayment(e) {

@@ -11,6 +11,7 @@ import {
   query,
   where,
   runTransaction,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
@@ -32,7 +33,8 @@ import PurchaseEditModal from "./PurchaseEditModal.jsx";
 import PurchasesQuickSupplier from "./PurchasesQuickSupplier.jsx";
 import PurchasesQuickProduct from "./PurchasesQuickProduct.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
-import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, planStockIn, planStockOut } from "../utils/stock.js";
+import { stockTargetFor, stockCostKeyFor, stockLineId, readStockTx, readStockCache, planStockIn, planStockOut } from "../utils/stock.js";
+import { isOffline, handleOfflineError } from "../utils/offline.js";
 import { moneyShort, fmtDate } from "../utils/fmt.js";
 import { printPurchaseThermal } from "../utils/printPurchaseThermal.js";
 const PAGE_SIZE = 25;
@@ -426,6 +428,56 @@ export default function Purchases() {
       // الأصناف المخزنية فقط (مطعم = خامات، غيره = منتجات) — عبر محرك المخزون
       const stockItems = items.filter((it) => hasInventory && stockLineId(it));
 
+      const purchaseDoc = {
+        supplierId: newPurchase.supplierId,
+        supplierName: suppName,
+        // ✅ أصناف متعددة بالوزن
+        items: items.map((it) => ({
+          productId: it.productId,
+          productName: it.productName || "",
+          quantity: parseFloat(it.quantity) || 0,
+          weight: it.weight || "",
+          unit: it.unit || "",
+          unitCost: parseFloat(it.unitCost) || 0,
+          amount: parseFloat(it.amount) || 0,
+        })),
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid,
+        amount,
+        unitCost: 0,
+        quantity: hasInventory ? totalQty : 0,
+        // هدف المخزون وقت الإنشاء — الحذف/المرتجع يعكس من نفس المكان
+        // (فواتير المطعم القديمة راحت inventory، الجديدة raw_materials)
+        stockTarget: hasInventory ? stockTarget : null,
+        date: new Date().toISOString(),
+        dueDate: newPurchase.dueDate || null,
+        status: newPurchase.status,
+        description: newPurchase.description || "",
+        createdAt: new Date().toISOString(),
+      };
+
+      const planIn = (snaps, refs) => planStockIn(
+        snaps.map((snap, idx) => ({ ref: refs[idx], snap, line: stockItems[idx] })),
+        {
+          isTrader,
+          costKey: stockCostKey,
+          meta: { supplierId: newPurchase.supplierId || "", supplierName: suppName },
+        }
+      );
+
+      if (isOffline()) {
+        // أوفلاين: قراءة الكاش + batch تُحفظ محليًا. أصناف لم تُفتح من قبل
+        // تُتخطى من حركة المخزون (تُسجل في الفاتورة فقط) مع تحذير.
+        const { refs: lineRefs, snaps } = await readStockCache(
+          stockTarget, stockItems.map((it) => stockLineId(it))
+        );
+        const missing = snaps.filter((s) => !s || !s.exists()).length;
+        if (missing > 0) console.warn(`offline purchase: ${missing} items not cached, stock skipped for them`);
+        const batch = writeBatch(db);
+        planIn(snaps, lineRefs).forEach(({ ref, updates }) => batch.update(ref, updates));
+        batch.set(purchaseRef, purchaseDoc);
+        await batch.commit();
+      } else
       await runTransaction(db, async (tx) => {
         // 1) كل القراءات أولاً
         const { refs: lineRefs, snaps } = await readStockTx(
@@ -433,45 +485,12 @@ export default function Purchases() {
         );
 
         // 2) تخطيط الإدخال (كمية + متوسط تكلفة) — نفس منطق المحرك لكل الأنشطة
-        const entries = snaps.map((snap, idx) => ({
-          ref: lineRefs[idx], snap, line: stockItems[idx],
-        }));
-        const stockWrites = planStockIn(entries, {
-          isTrader,
-          costKey: stockCostKey,
-          meta: { supplierId: newPurchase.supplierId || "", supplierName: suppName },
-        });
+        const stockWrites = planIn(snaps, lineRefs);
 
         // 3) كل الكتابات بعد ما كل القراءات خلصت
         stockWrites.forEach(({ ref, updates }) => tx.update(ref, updates));
 
-        tx.set(purchaseRef, {
-          supplierId: newPurchase.supplierId,
-          supplierName: suppName,
-          // ✅ أصناف متعددة بالوزن
-          items: items.map((it) => ({
-            productId: it.productId,
-            productName: it.productName || "",
-            quantity: parseFloat(it.quantity) || 0,
-            weight: it.weight || "",
-            unit: it.unit || "",
-            unitCost: parseFloat(it.unitCost) || 0,
-            amount: parseFloat(it.amount) || 0,
-          })),
-          companyId: userCompanyId,
-          createdBy: currentUser?.uid,
-          amount,
-          unitCost: 0,
-          quantity: hasInventory ? totalQty : 0,
-          // هدف المخزون وقت الإنشاء — الحذف/المرتجع يعكس من نفس المكان
-          // (فواتير المطعم القديمة راحت inventory، الجديدة raw_materials)
-          stockTarget: hasInventory ? stockTarget : null,
-          date: new Date().toISOString(),
-          dueDate: newPurchase.dueDate || null,
-          status: newPurchase.status,
-          description: newPurchase.description || "",
-          createdAt: new Date().toISOString(),
-        });
+        tx.set(purchaseRef, purchaseDoc);
       });
 
       const docRef = purchaseRef;
@@ -495,7 +514,8 @@ export default function Purchases() {
       await Promise.all([resetPagination(), fetchProducts()]);
     } catch (e) {
       console.error(e);
-      alert(t("common.errorGeneric"));
+      if (e?.code === "unavailable" && isOffline()) alert(t("offline.noData"));
+      else alert(t("common.errorGeneric"));
     }
     setSubmitting(false);
   }
@@ -540,6 +560,19 @@ export default function Purchases() {
       const stockItems = getPurchaseItems(purchase).filter((it) => stockLineId(it));
       if (hasInventory && stockItems.length > 0) {
         try {
+          if (isOffline()) {
+            const { refs, snaps } = await readStockCache(
+              target, stockItems.map((it) => stockLineId(it))
+            );
+            const entries = snaps.map((snap, idx) => ({
+              ref: refs[idx], snap, line: stockItems[idx],
+            }));
+            const writes = planStockOut(entries, { isTrader });
+            const batch = writeBatch(db);
+            writes.forEach(({ ref, updates }) => batch.update(ref, updates));
+            batch.delete(doc(db, "purchases", purchase.id));
+            await batch.commit();
+          } else
           await runTransaction(db, async (tx) => {
             const { refs, snaps } = await readStockTx(
               tx, target, stockItems.map((it) => stockLineId(it))
@@ -574,6 +607,7 @@ export default function Purchases() {
       await resetPagination();
     } catch (e) {
       console.error(e);
+      if (e?.code === "unavailable" && isOffline()) alert(t("offline.noData"));
     }
   }
 

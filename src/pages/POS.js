@@ -1,6 +1,8 @@
 ﻿// src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction, writeBatch } from "firebase/firestore";
+import { isOffline } from "../utils/offline.js";
+import { readStockCache } from "../utils/stock.js";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, fetchUserCompany } from "../utils/companyQuery.js";
@@ -800,6 +802,48 @@ export default function POS() {
 
       const invoiceRef = doc(collection(db, "invoices"));
 
+      // أوفلاين: نفس الفحوصات على الكاش + batch تُحفظ محليًا وتتزامن لاحقًا.
+      // (ليست ذرّية عبر الأجهزة — مقبول في وضع الانقطاع، والسيرفر هو المرجع عند التزامن)
+      if (isOffline()) {
+        const { refs: matRefs, snaps: matSnaps } = recipeMats.length
+          ? await readStockCache("raw_materials", recipeMats.map((m) => m.line.productId))
+          : { refs: [], snaps: [] };
+        const matById = new Map(matRefs.map((r, i) => [r.id, matSnaps[i]]));
+        if (isRestaurantStock && recipeMats.length) {
+          try {
+            const entries = recipeMats.map((m) => ({ ref: m.ref, snap: matById.get(m.line.productId) || null, line: m.line }));
+            if (entries.some((e) => !e.snap || !e.snap.exists())) throw new Error(t("offline.noData"));
+            planStockOut(entries, { isTrader: false });
+          } catch (txErr) {
+            if (txErr?.message === "INSUFFICIENT_STOCK") throw new Error("الكمية غير متوفرة في الخامات — قلل الكمية أو سجّل فاتورة شراء أولاً");
+            throw txErr;
+          }
+        }
+        const batch = writeBatch(db);
+        if (!isRestaurantStock) {
+          stockSnaps.forEach((snap, i) => {
+            const item = cart[i];
+            if (!snap.exists()) throw new Error(t("offline.noData"));
+            const currentQty = parseFloat(snap.data().quantity) || 0;
+            if (currentQty < item.quantity) {
+              throw new Error(`الكمية غير متوفرة: "${item.name}" — المتاح ${currentQty} والمطلوب ${item.quantity}`);
+            }
+            batch.update(stockRefs[i], { quantity: round2(currentQty - item.quantity) });
+          });
+        } else if (recipeMats.length) {
+          const entries = recipeMats.map((m) => ({ ref: m.ref, snap: matById.get(m.line.productId), line: m.line }));
+          planStockOut(entries, { isTrader: false }).forEach(({ ref, updates }) => batch.update(ref, updates));
+        }
+        const batchById = new Map((batchSnap?.docs || []).map((d) => [d.id, d]));
+        batchWriteRefs.forEach((ref) => {
+          const snap = batchById.get(ref.id);
+          const currentQty = parseFloat(snap?.data()?.quantity) || 0;
+          const take = fefoTakes.get(ref.path) || 0;
+          batch.update(ref, { quantity: round2(currentQty - take) });
+        });
+        batch.set(invoiceRef, invDoc);
+        await batch.commit();
+      } else
       await runTransaction(db, async (tx) => {
         // كل القراءات الأول — Firestore بيرفض أي كتابة قبل آخر قراءة
         const freshSnaps = await Promise.all(stockRefs.map((r) => tx.get(r)));
@@ -872,11 +916,25 @@ export default function POS() {
       setPhoneHint("");
       setCartItemNotes({});
       setCartItemExtras({});
-      await Promise.all([fetchProducts(), fetchClients()]);
+      // reset — تحديث المخزون محليًا بدل سحب كل الأصناف بالصور من جديد
+      // (نفس حساب السيرفر؛ أي فرق من جهاز آخر يتظبط مع أول تحميل كامل)
+      if (!isRestaurantStock) {
+        const soldMap = new Map(cart.map((item) => [item.id, item.quantity]));
+        setProducts((prev) => prev.map((p) => soldMap.has(p.id)
+          ? { ...p, quantity: round2(Math.max(0, (parseFloat(p.quantity) || 0) - soldMap.get(p.id))) }
+          : p));
+      }
+      await Promise.all([fetchClients()]);
       // مفيش alert("تم البيع") بعد كند — الفاتورة اللي طالعة في نافذة الطباعة
       // هي التأكيد. alert كان بيغطي على نافذة الطباعة وبيزحلقها.
     } catch (e) {
       console.error(e);
+      // أوفلاين وبيانات غير مخزنة: رسالة مفهومة بدل خطأ تقني إنجليزي
+      if (e?.code === "unavailable" && isOffline()) {
+        alert(t("offline.noData"));
+        setSubmitting(false);
+        return;
+      }
       // ⚠️ مابنشوفش "pos.fail" بس — الكاشير لازم يعرف السبب (كمية غير متوفرة،
       // دوا منتهي، صلاحية مقفولة...) عشان يقرر يسكوب الطلب ولا يعدّل الكمية.
       const reason = typeof e?.message === "string" ? e.message : "";

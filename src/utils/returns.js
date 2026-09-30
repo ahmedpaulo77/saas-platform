@@ -1,8 +1,10 @@
 // src/utils/returns.js - المرتجعات (بيع/شراء) مع رد المخزون
-import { collection, doc, runTransaction } from "firebase/firestore";
+import { collection, doc, runTransaction, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { logActivity } from "./auditLogger.js";
 import { stockDelta, getProductUnit, roundQty } from "./traderUnits.js";
+import { isOffline } from "./offline.js";
+import { readStockCache } from "./stock.js";
 
 /**
  * إنشاء مرتجع ورد المخزون — ذرّي.
@@ -60,28 +62,23 @@ export async function createReturn({
   const returnRef = doc(collection(db, "returns"));
   const inventoryRefs = adjustments.map((a) => doc(db, target, a.line.productId));
 
-  await runTransaction(db, async (tx) => {
-    // 1) كل القراءات أولاً
-    const snaps = [];
-    for (const ref of inventoryRefs) {
-      snaps.push(await tx.get(ref));
-    }
-
-    // 2) كل الكتابات
+  // نفس الكتابات على tx (أونلاين/ذرّي) أو batch (أوفلاين/queued) —
+  // التواقيع متطابقة: update(ref, data) و set(ref, data, opts).
+  const applyWrites = (w, snaps) => {
     snaps.forEach((snap, idx) => {
-      if (!snap.exists()) return;
+      if (!snap || !snap.exists()) return;
       const { line, unit, delta } = adjustments[idx];
       const data = snap.data();
       const current = parseFloat(data.quantity) || 0;
       const effectiveUnit = unit || getProductUnit(data);
 
       if (kind === "sale") {
-        tx.update(inventoryRefs[idx], { quantity: roundQty(current + delta, effectiveUnit) });
+        w.update(inventoryRefs[idx], { quantity: roundQty(current + delta, effectiveUnit) });
       } else {
         // مرتجع شراء: ما ننزلش تحت الصفر أبدًا
         const deduct = Math.min(delta, current);
         if (deduct > 0) {
-          tx.update(inventoryRefs[idx], { quantity: roundQty(current - deduct, effectiveUnit) });
+          w.update(inventoryRefs[idx], { quantity: roundQty(current - deduct, effectiveUnit) });
         } else {
           console.warn(
             `purchase return skipped restock (no stock left) for product ${line.productId}`
@@ -90,7 +87,7 @@ export async function createReturn({
       }
     });
 
-    tx.set(returnRef, {
+    w.set(returnRef, {
       kind,
       refId: refId || null,
       entityId: entityId || null,
@@ -105,15 +102,36 @@ export async function createReturn({
       createdAt: new Date().toISOString(),
     });
 
-    // ختم المستند المصدر (نفس الـ transaction = مفيش عدم اتساق)
+    // ختم المستند المصدر
     if (refId) {
-      tx.set(
+      w.set(
         doc(db, kind === "sale" ? "invoices" : "purchases", refId),
         { hasReturn: true },
         { merge: true }
       );
     }
-  });
+  };
+
+  if (isOffline()) {
+    // أوفلاين: قراءة الكاش + batch تُحفظ محليًا وتتزامن لاحقًا.
+    // ملاحظة أمانة: ليست ذرّية عبر الأجهزة — جهازان أوفلاين قد
+    // يتجاوزا الكمية، وتُحل عند التزامن (آخر كتابة تكسب).
+    const { refs, snaps } = await readStockCache(target, adjustments.map((a) => a.line.productId));
+    const byId = new Map(refs.map((r, i) => [r.id, snaps[i]]));
+    const batch = writeBatch(db);
+    applyWrites(batch, adjustments.map((a) => byId.get(a.line.productId) || null));
+    await batch.commit();
+  } else {
+    await runTransaction(db, async (tx) => {
+      // 1) كل القراءات أولاً
+      const snaps = [];
+      for (const ref of inventoryRefs) {
+        snaps.push(await tx.get(ref));
+      }
+      // 2) كل الكتابات
+      applyWrites(tx, snaps);
+    });
+  }
 
   await logActivity({
     actionType: "CREATE",

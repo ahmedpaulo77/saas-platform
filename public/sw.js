@@ -60,12 +60,31 @@ self.addEventListener("fetch", (event) => {
 
   // طلبات Firebase/API: دائمًا للشبكة (الأوفلاين تديره Firestore SDK نفسها)
   if (
-    url.hostname.includes("googleapis.com") ||
-    url.hostname.includes("gstatic.com") ||
     url.hostname.includes("firebaseio.com") ||
-    url.hostname.includes("cloudflare.com") ||
-    url.hostname.includes("jsdelivr.net")
+    (url.hostname.includes("googleapis.com") && !url.hostname.startsWith("fonts."))
   ) {
+    return;
+  }
+
+  // مكتبات CDN المثبتة الإصدار (أيقونات/خطوط/jsbarcode): الكاش أولاً —
+  // روابطها لا تتغير، فآمنة تمامًا، وبدونها الأيقونات تختفي أوفلاين
+  if (
+    url.hostname.includes("cdnjs.cloudflare.com") ||
+    url.hostname.includes("cdn.jsdelivr.net") ||
+    url.hostname.includes("fonts.gstatic.com") ||
+    url.hostname.startsWith("fonts.googleapis.com")
+  ) {
+    event.respondWith(
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((res) => {
+            const copy = res.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+            return res;
+          })
+      )
+    );
     return;
   }
 

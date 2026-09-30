@@ -1,6 +1,8 @@
 ﻿// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction, writeBatch } from "firebase/firestore";
+import { isOffline, handleOfflineError } from "../utils/offline.js";
+import { readStockCache } from "../utils/stock.js";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";
@@ -512,6 +514,53 @@ export default function StorePOS() {
       //
       // كمان: الخصم مكانش بيتحفظ خالص (invDoc كان فيه amount: total بس)،
       // فأي تعديل على الفاتورة بعدين كان بيرجّع السعر قبل الخصم.
+      // أوفلاين: نفس المنطق على الكاش + batch (تُحفظ محليًا وتتزامن لاحقًا)
+      if (isOffline()) {
+        const { refs, snaps } = await readStockCache("inventory", cart.map((item) => item.id));
+        const byId = new Map(refs.map((r, i) => [r.id, snaps[i]]));
+        cart.forEach((item) => {
+          const snap = byId.get(item.id);
+          if (!snap || !snap.exists()) throw new Error(t("offline.noData"));
+          const currentQty = parseFloat(snap.data().quantity) || 0;
+          if (currentQty < item.quantity) {
+            throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
+          }
+        });
+        const batch = writeBatch(db);
+        cart.forEach((item) => {
+          const snap = byId.get(item.id);
+          const currentQty = parseFloat(snap.data().quantity) || 0;
+          batch.update(doc(db, "inventory", item.id), { quantity: round2(currentQty - item.quantity) });
+        });
+        batch.set(invoiceRef, {
+          companyId: userCompanyId,
+          createdBy: currentUser?.uid || null,
+          createdByEmail: currentUser?.email || "",
+          clientId: selectedClient || null,
+          products: cart.map((item) => ({
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            amount: round2((parseFloat(item.price) || 0) * item.quantity),
+            price: parseFloat(item.price) || 0,
+            size: item.size || "",
+            color: item.color || "",
+          })),
+          subtotal,
+          discount: discountNum,
+          amount: total,
+          paidAmount: total,
+          status: "paid",
+          approval: "validated",
+          validatedBy: currentUser?.uid || null,
+          validatedAt: now,
+          paymentMethod: paymentMethod || "cash",
+          date: now,
+          createdAt: now,
+          type: "store-pos",
+        });
+        await batch.commit();
+      } else
       await runTransaction(db, async (tx) => {
         // كل القراءات أولاً
         const reads = [];
@@ -597,7 +646,7 @@ export default function StorePOS() {
       handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, cashierName.trim() || "—");
     } catch (err) {
       console.error(err);
-      alert(err.message || t("pos.fail"));
+      if (!handleOfflineError(err, t, (m) => alert(m))) alert(err.message || t("pos.fail"));
     }
     setSubmitting(false);
   }

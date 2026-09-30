@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { query, orderBy, limit, startAfter, getDocs, where, getCountFromServer } from 'firebase/firestore';
 import { getScopedQuery } from '../utils/companyQuery.js';
+import { getDocsResilient, countResilient } from '../utils/offline.js';
 
 export function useFirestorePagination(collectionName, userRole, userCompanyId, userId, options = {}) {
   const {
@@ -166,8 +167,9 @@ export function useTotalCount(collectionName, userRole, userCompanyId, userId, f
           baseQuery = query(baseQuery, where(field, op, value));
         });
         // ✅ getCountFromServer بدل getDocs().size — توفير 100x قراءات
-        const snap = await getCountFromServer(baseQuery);
-        if (active) setCount(snap.data().count);
+        // أوفلاين: العدّادات تفشل دائمًا — نعدّ الكاش بدلاً منها
+        const count = await countResilient(baseQuery);
+        if (active) setCount(count);
       } catch (e) {
         console.error('Count error:', e);
         // fallback: حاول getDocs لو index ناقص

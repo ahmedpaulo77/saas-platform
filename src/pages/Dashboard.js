@@ -21,6 +21,7 @@ import { getAvailableModules } from "../utils/modules.js";
 import { round2 } from "../utils/traderUnits.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { moneyShort, num } from "../utils/fmt.js";
+import { getDocsResilient, getDocResilient } from "../utils/offline.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
 import { invoiceRevenue } from "../utils/revenue.js";
 
@@ -353,24 +354,43 @@ export default function Dashboard() {
         // وبيتحمّل نفس رولز الـ query العادي (اتأكدنا من التوثيق الرسمي:
         // aggregation queries تتقيّم بنفس رولز list العادية بالظبط).
         // للإيرادات: sum() بدل ما نقرا كل فاتورة ونجمع يدويًا في الفرونت.
-        const [
-          compExists,
-          cliCount,
-          sellerCount,
-          buyerCount,
-          taskCount,
-          projCount,
-          usersCount,
-          suppCount,
-          purchCount,
-          apptCount,
-          rxCount,
-          msgCount,
-          patCount,
-          invCount,
-          validatedSum,
-          legacySum,
-        ] = await Promise.all([
+        // أوفلاين: العدّادات والمجاميع تفشل دائمًا — نحسب نفس الأرقام
+        // من الكاش المحلي (أبطأ لكن شغالة، وبلا أي تكلفة).
+        let compExists = 0,
+          cliCount = 0,
+          sellerCount = 0,
+          buyerCount = 0,
+          taskCount = 0,
+          projCount = 0,
+          usersCount = 0,
+          suppCount = 0,
+          purchCount = 0,
+          apptCount = 0,
+          rxCount = 0,
+          msgCount = 0,
+          patCount = 0,
+          invCount = 0,
+          validatedSum = 0,
+          legacySum = 0;
+        try {
+          [
+            compExists,
+            cliCount,
+            sellerCount,
+            buyerCount,
+            taskCount,
+            projCount,
+            usersCount,
+            suppCount,
+            purchCount,
+            apptCount,
+            rxCount,
+            msgCount,
+            patCount,
+            invCount,
+            validatedSum,
+            legacySum,
+          ] = await Promise.all([
           isSuper
             ? getCountFromServer(compRef).then((s) => s.data().count)
             : getDoc(doc(db, "companies", userCompanyId)).then((s) =>
@@ -396,13 +416,36 @@ export default function Dashboard() {
             total: sum("paidAmount"),
           }).then((s) => s.data().total || 0),
         ]);
+        } catch (se) {
+          if (se?.code !== "unavailable") throw se;
+          // أوفلاين fallback: نفس الأرقام محسوبة من الكاش المحلي
+          const cacheQs = [mk(cliRef), mk(sellerRef), mk(buyerRef), mk(taskRef), mk(projRef), mk(usersRef), mk(suppRef), mk(purchRef), mk(apptRef), mk(rxRef), mk(msgRef), mk(patRef), mk(invRef)];
+          const cacheSnaps = await Promise.all(cacheQs.map((q) => getDocsResilient(q)));
+          [
+            cliCount, sellerCount, buyerCount, taskCount, projCount, usersCount,
+            suppCount, purchCount, apptCount, rxCount, msgCount, patCount, invCount,
+          ] = cacheSnaps.map((s) => s.size);
+          validatedSum = 0;
+          legacySum = 0;
+          cacheSnaps[cacheSnaps.length - 1].docs.forEach((d) => {
+            const inv = d.data();
+            const paid = parseFloat(inv.paidAmount) || 0;
+            if (inv.approval === "validated") validatedSum += paid;
+            else if (inv.approval == null) legacySum += paid;
+          });
+          if (isSuper) {
+            compExists = (await getDocsResilient(compRef)).size;
+          } else {
+            compExists = (await getDocResilient(doc(db, "companies", userCompanyId))).exists() ? 1 : 0;
+          }
+        }
 
         // Subtract sale returns (client-side sum — avoids new composite index)
         let returnsTotal = 0;
         try {
           const retRef = collection(db, "returns");
           const retQ = isSuper ? retRef : query(retRef, where("companyId", "==", userCompanyId));
-          const retSnap = await getDocs(retQ);
+          const retSnap = await getDocsResilient(retQ);
           retSnap.docs.forEach((d) => {
             const r = d.data();
             if (r.kind && r.kind !== "sale") return;

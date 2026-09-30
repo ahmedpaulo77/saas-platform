@@ -11,7 +11,7 @@
 // كل الدوال تعمل داخل transaction يملكه المتصل (قراءات أولاً ثم كتابات).
 // لا يوجد أي كتابة Firestore هنا مباشرة — فقط tx.get/tx.update عبر المتصل.
 
-import { doc } from "firebase/firestore";
+import { doc, getDocFromCache } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { stockDelta, getProductUnit, roundQty } from "./traderUnits.js";
 
@@ -35,13 +35,25 @@ export function stockLineId(line) {
 
 /**
  * قراءة مستندات المخزون داخل transaction المتصل.
- * @returns كائن فيه refs و snaps و byId (خريطة id إلى snap)
+ * @returns { refs, snaps, byId: Map(id -> snap) }
  */
 export async function readStockTx(tx, target, ids) {
   const uniq = [...new Set((ids || []).filter(Boolean))];
   const refs = uniq.map((id) => doc(db, target, id));
   const snaps = await Promise.all(refs.map((r) => tx.get(r)));
   return { refs, snaps, byId: new Map(refs.map((r, i) => [r.id, snaps[i]])) };
+}
+
+/**
+ * قراءة مستندات المخزون من الكاش المحلي (مسار الأوفلاين).
+ * المستند الغائب يُرجع null ولا يرمي — المتصل يقرر (تخطي/منع).
+ * @returns { refs, snaps } بنفس ترتيب ids الفريدة
+ */
+export async function readStockCache(target, ids) {
+  const uniq = [...new Set((ids || []).filter(Boolean))];
+  const refs = uniq.map((id) => doc(db, target, id));
+  const snaps = await Promise.all(refs.map((r) => getDocFromCache(r).catch(() => null)));
+  return { refs, snaps };
 }
 
 /** دلتا السطر (تاجر: وزن/عدد، غيره: كمية) */
