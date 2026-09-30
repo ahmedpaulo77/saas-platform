@@ -670,7 +670,7 @@ export default function Inventory() {
                 {/* ملاحظة تحضير */}
                 <input
                   type="text"
-                  placeholder="ملاحظة التحضير (مثال: يُقدَّم ساخناً مع صلصة)"
+                  placeholder="مثال: يُقدَّم ساخناً مع صلصة"
                   value={newProduct.preparationNote || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, preparationNote: e.target.value })}
                 />
@@ -886,8 +886,8 @@ export default function Inventory() {
               </div>
 
               <div style={{ marginBottom: 8 }}>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الوصف / ملاحظة التحضير (اختياري)</label>
-                <textarea rows="2" placeholder="وصف الموديل أو ملاحظة تحضير"
+                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الوصف (اختياري)</label>
+                <textarea rows="2" placeholder="وصف الموديل"
                   value={genDescription} onChange={(e) => setGenDescription(e.target.value)}
                   style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", resize: "vertical" }} />
               </div>
