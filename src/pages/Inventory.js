@@ -809,9 +809,17 @@ export default function Inventory() {
                   {types.map((tp) => <option key={tp.value} value={tp.value}>{tp.label}</option>)}
                 </select>
                 <input type="text" placeholder={t("inv.phSize")} value={newProduct.size || ""}
-                  onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })} />
+                  onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
+                  list="size-suggestions" />
                 <input type="text" placeholder={t("inv.phColor")} value={newProduct.color || ""}
-                  onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })} />
+                  onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })}
+                  list="color-suggestions" />
+                <datalist id="size-suggestions">
+                  {sizeOptions.map((s) => <option key={s.value} value={s.value} />)}
+                </datalist>
+                <datalist id="color-suggestions">
+                  {colors.map((c) => <option key={c.value} value={c.value} />)}
+                </datalist>
                 <input type="text" placeholder={t("inv.phBrand")} value={newProduct.brand}
                   onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} />
               </>
@@ -1405,12 +1413,14 @@ export default function Inventory() {
                     <div style={styles.formGroup}>
                       <label>{t("inv.phSize")}</label>
                       <input type="text" value={editingProduct.size || ""} style={styles.input}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })} />
+                        onChange={(e) => setEditingProduct({ ...editingProduct, size: e.target.value })}
+                        list="size-suggestions" />
                     </div>
                     <div style={styles.formGroup}>
                       <label>{t("inv.phColor")}</label>
                       <input type="text" value={editingProduct.color || ""} style={styles.input}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, color: e.target.value })} />
+                        onChange={(e) => setEditingProduct({ ...editingProduct, color: e.target.value })}
+                        list="color-suggestions" />
                     </div>
                     <div style={styles.formGroup}>
                       <label>{t("inv.phBrand")}</label>
