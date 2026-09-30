@@ -36,33 +36,16 @@ export default function Inventory() {
   const isPharmacy = userIndustry === "pharmacy";
   const isFashion = isClothing; // أزياء: ملابس/أحذية/إكسسوارات
 
-  // ── أقسام المنيو من Firestore (للمطاعم فقط) ──
-  const [menuCategories, setMenuCategories] = useState([]);
   // خامات المطعم — للوصفات (مطعم فقط): الطبق = كميات من الخامات
   const [rawMaterials, setRawMaterials] = useState([]);
-  const fetchMenuCategories = useCallback(async () => {
-    if (!isRestaurant || !userCompanyId) return;
-    try {
-      const snap = await getDocs(
-        getScopedQuery("menu_categories", userRole, userCompanyId, currentUser?.uid)
-      );
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      data.sort((a, b) => (a.order || 0) - (b.order || 0));
-      setMenuCategories(data);
-    } catch (err) {
-      console.error("Error fetching menu categories:", err);
-    }
-  }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
 
   // ── State ──
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState("all");
 
 // نموذج الإضافة الجديد
   const [newProduct, setNewProduct] = useState({
     name: "",
-    category: "",
     quantity: 0,
     price: "",
     description: "",
@@ -134,18 +117,28 @@ export default function Inventory() {
   }
 
   // مولّد الـ variants (أزياء): موديل + مقاسات × ألوان
+  // نفس حقول فورم الإضافة العلوية (للأزياء) — عشان العميل يسجّل المنتج كاملاً من هنا
   const [genModel, setGenModel] = useState("");
   const [genSizes, setGenSizes] = useState([]);
   const [genColors, setGenColors] = useState([]);
   const [genType, setGenType] = useState("");
   const [genBrand, setGenBrand] = useState("");
+  const [genCode, setGenCode] = useState("");
   const [genPrice, setGenPrice] = useState("");
   const [genQty, setGenQty] = useState("");
   const [genPurchasePrice, setGenPurchasePrice] = useState("");
   const [genBarcode, setGenBarcode] = useState("");
   const [genDescription, setGenDescription] = useState("");
+  const [genImageFile, setGenImageFile] = useState(null);
+  const [genImagePreview, setGenImagePreview] = useState("");
   const [genCodeMode, setGenCodeMode] = useState("auto");
   const [generating, setGenerating] = useState(false);
+
+  function handleGenImageChange(e) {
+    const file = e.target.files?.[0];
+    setGenImageFile(file || null);
+    setGenImagePreview(file ? URL.createObjectURL(file) : "");
+  }
 
   
 
@@ -158,6 +151,10 @@ export default function Inventory() {
     setGenerating(true);
     try {
       const now = new Date().toISOString();
+      // صورة واحدة للموديل كله — تُرفع مرة واحدة وتتحط على كل المقاسات والألوان
+      let genImageUrl = "";
+      if (genImageFile) genImageUrl = await uploadProductImage(genImageFile);
+      const genCodeValue = genCode.trim();
       let created = 0, skipped = 0;
       for (const size of genSizes) {
         for (const color of genColors) {
@@ -165,7 +162,7 @@ export default function Inventory() {
             (p) => (p.model || "") === genModel.trim() && p.size === size && p.color === color
           );
           if (exists) { skipped++; continue; }
-          
+
           // توليد الباركود
           let barcodeValue = genBarcode.trim();
           if (!barcodeValue && genCodeMode === "auto") {
@@ -174,10 +171,11 @@ export default function Inventory() {
             const colorPart = color.substring(0, 2).toUpperCase();
             barcodeValue = `${modelPart}-${sizePart}-${colorPart}`;
           }
-          
+
           await addDoc(collection(db, "inventory"), {
             name: `${genModel.trim()} - ${size} - ${color}`,
             model: genModel.trim(),
+            code: genCodeValue,
             category: "",
             quantity: parseInt(genQty) || 0,
             price: parseFloat(genPrice) || 0,
@@ -188,6 +186,7 @@ export default function Inventory() {
             brand: genBrand || "",
             expiryDate: "",
             barcode: barcodeValue,
+            imageUrl: genImageUrl,
             companyId: userCompanyId,
             createdBy: currentUser?.uid,
             createdAt: now,
@@ -200,7 +199,7 @@ export default function Inventory() {
         details: `Generated ${created} variants for model: ${genModel} (skipped ${skipped})`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenPrice(""); setGenQty(""); setGenPurchasePrice(""); setGenBarcode(""); setGenDescription(""); setGenCodeMode("auto");
+      setGenModel(""); setGenSizes([]); setGenColors([]); setGenType(""); setGenBrand(""); setGenCode(""); setGenPrice(""); setGenQty(""); setGenPurchasePrice(""); setGenBarcode(""); setGenDescription(""); setGenImageFile(null); setGenImagePreview(""); setGenCodeMode("auto");
       await fetchProducts();
       alert(`تم إنشاء ${created} صنف${skipped ? ` (تخطي ${skipped} موجود)` : ""}`);
     } catch (err) {
@@ -286,7 +285,6 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchProducts();
-    fetchMenuCategories();
     fetchVariantCodes();
     // الخامات للوصفات — مطعم فقط
     if (userIndustry === "restaurant" && userCompanyId) {
@@ -296,7 +294,7 @@ export default function Inventory() {
     } else {
       setRawMaterials([]);
     }
-  }, [fetchProducts, fetchMenuCategories, fetchVariantCodes]);
+  }, [fetchProducts, fetchVariantCodes]);
 
   // ── helpers للإضافات ──
   function addTempExtra() {
@@ -334,6 +332,7 @@ export default function Inventory() {
       if (newImageFile) imageUrl = await uploadProductImage(newImageFile);
       const docRef = await addDoc(collection(db, "inventory"), {
         ...newProduct,
+        category: "",
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         quantity: 0,
@@ -361,7 +360,7 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", category: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
+      setNewProduct({ name: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
       setTempExtra({ name: "", price: "" });
       setNewImageFile(null);
       setNewImagePreview("");
@@ -387,7 +386,7 @@ export default function Inventory() {
       if (editImageFile) imageUrl = await uploadProductImage(editImageFile);
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
-        category: editingProduct.category || "",
+        category: "",
         quantity: 0,
         price: parseFloat(editingProduct.price),
         unit: isTrader ? (editingProduct.unit || "kg") : "",
@@ -453,25 +452,49 @@ export default function Inventory() {
     }
   }
 
-  // ── Filter ──
+  // ── Filter + Sort ──
   const [filterModel, setFilterModel] = useState("all");
   const modelOptions = [...new Set(products.map((p) => (p.model || "").trim()).filter(Boolean))].sort();
-  const filteredProducts = products.filter((product) => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch =
-      (product.name || "").toLowerCase().includes(term) ||
-      (product.category && product.category.toLowerCase().includes(term)) ||
-      (product.type && product.type.toLowerCase().includes(term)) ||
-      (product.brand && product.brand.toLowerCase().includes(term)) ||
-      (product.size && product.size.toLowerCase().includes(term)) ||
-      (product.model && product.model.toLowerCase().includes(term)) ||
-      (product.barcode && product.barcode.toLowerCase().includes(term)) ||
-      (product.code && String(product.code).toLowerCase().includes(term)) ||
-      (product.activeIngredient && product.activeIngredient.toLowerCase().includes(term));
-    const matchCat = filterCategory === "all" || product.category === filterCategory;
-    const matchModel = filterModel === "all" || (product.model || "") === filterModel;
-    return matchSearch && matchCat && matchModel;
-  });
+  // توحيد الأرقام العربية/الفارسية مع اللاتينية + trim — عشان السيرش بأي رقم يلقط أي منتج
+  function normalizeSearch(v) {
+    return String(v ?? "")
+      .toLowerCase()
+      .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+      .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+      .trim();
+  }
+  // ترتيب المقاسات من الأصغر للأكبر: حروف (XS..XXXL) ثم أرقام ثم أي قيمة غريبة أبجدياً
+  const SIZE_RANK = { XXS: -2, XS: -1, S: 0, M: 1, L: 2, XL: 3, "2XL": 4, XXL: 4, "3XL": 5, XXXL: 5, XXXXL: 6 };
+  function sizeRankValue(size) {
+    const s = String(size || "").trim().toUpperCase();
+    if (!s) return Number.MAX_SAFE_INTEGER;
+    if (SIZE_RANK[s] != null) return SIZE_RANK[s];
+    const num = parseFloat(s);
+    if (!isNaN(num)) return 1000 + num;
+    return 5000;
+  }
+  function compareSizes(a, b) {
+    const ra = sizeRankValue(a), rb = sizeRankValue(b);
+    if (ra !== rb) return ra - rb;
+    return String(a || "").localeCompare(String(b || ""), "ar");
+  }
+  const filteredProducts = products
+    .filter((product) => {
+      const term = normalizeSearch(searchTerm);
+      const matchSearch = !term || [
+        product.name, product.type, product.brand, product.size, product.model,
+        product.barcode, product.code, product.activeIngredient, product.description,
+        product.price, product.purchasePrice, product.quantity, product.minQuantity,
+      ].some((v) => normalizeSearch(v).includes(term));
+      const matchModel = filterModel === "all" || (product.model || "") === filterModel;
+      return matchSearch && matchModel;
+    })
+    // ترتيب: الاسم (أو الموديل للأصناف المتولدة) ثم المقاس من الأصغر للأكبر ثم اللون
+    .sort((a, b) =>
+      (String(a.model || a.name || "").localeCompare(String(b.model || b.name || ""), "ar")) ||
+      compareSizes(a.size, b.size) ||
+      (String(a.color || "").localeCompare(String(b.color || ""), "ar"))
+    );
 
   // ── الجرد: تسوية الكمية الفعلية ──
   const [countCode, setCountCode] = useState("");
@@ -510,12 +533,6 @@ export default function Inventory() {
     }
     setCounting(false);
   }
-
-  const getCategoryLabel = (catValue) => {
-    const found = menuCategories.find((c) => c.id === catValue || c.name === catValue);
-    if (found) return `${found.icon || ""} ${found.name}`;
-    return catValue || "—";
-  };
 
   // ── فتح بحث DrugEye (دليل الأدوية) مع نسخ الاسم للحصق ──
   async function openDrugEye(productName) {
@@ -659,23 +676,8 @@ export default function Inventory() {
               required
             />
 
-            {/* أقسام وحقول المطعم */}
+            {/* حقول المطعم */}
             {isRestaurant && (              <>
-                {/* أقسام المنيو */}
-                <select
-                  value={newProduct.category || ""}
-                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
-                >
-                  <option value="">{isCafe ? "— اختر قسم منيو الكافيه —" : "— اختر قسم منيو المطعم —"}</option>
-                  {menuCategories.length === 0 && (
-                    <option disabled>{isCafe ? "لا توجد أقسام — أضفها من صفحة أقسام منيو الكافيه" : "لا توجد أقسام — أضفها من صفحة أقسام منيو المطعم"}</option>
-                  )}
-                  {menuCategories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                  ))}
-                </select>
-
                 {/* ملاحظة تحضير */}
                 <input
                   type="text"
@@ -731,16 +733,6 @@ export default function Inventory() {
                 </div>
                 </>)}
               </>
-            )}
-
-            {/* فئة للصناعات غير المطعم */}
-            {!isRestaurant && (
-              <input
-                type="text"
-                placeholder={isRealEstate ? "نوع العقار (شقة / فيلا / محل...)" : t("inv.phCat")}
-                value={newProduct.category}
-                onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-              />
             )}
 
             {isTrader && (
@@ -962,10 +954,26 @@ export default function Inventory() {
                   })}
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              {/* صورة الموديل — نفس صورة فورم الإضافة، وتتحط على كل المقاسات والألوان */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>📷 صورة الموديل (اختياري)</label>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {genImagePreview && (
+                    <img src={genImagePreview} alt="preview" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 10, border: "2px solid #e2e8f0" }} />
+                  )}
+                  <input type="file" accept="image/*" onChange={handleGenImageChange} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الماركة (اختياري)</label>
                   <input type="text" placeholder="الماركة" value={genBrand} onChange={(e) => setGenBrand(e.target.value)}
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الكود (اختياري — كود الموديل)</label>
+                  <input type="text" placeholder="كود الموديل" value={genCode} onChange={(e) => setGenCode(e.target.value)}
                     style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
                 </div>
                 <div>
@@ -1110,16 +1118,6 @@ export default function Inventory() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ flex: 1, minWidth: 200, padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "15px", outline: "none" }}
           />
-          {isRestaurant && menuCategories.length > 0 && (
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              style={{ padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
-            >
-              <option value="all">كل الأقسام</option>
-              {menuCategories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-            </select>
-          )}
           {isFashion && modelOptions.length > 0 && (
             <select
               value={filterModel}
@@ -1158,13 +1156,13 @@ export default function Inventory() {
           </div>
           {filteredProducts.length === 0 ? (
             <p style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-              {searchTerm || filterCategory !== "all" ? t("common.noResults") : isRealEstate ? "لا توجد عقارات" : isRestaurant ? (isCafe ? "لا توجد أصناف في منيو الكافيه بعد" : "لا توجد أصناف في منيو المطعم بعد") : t("inv.empty")}
+              {searchTerm || filterModel !== "all" ? t("common.noResults") : isRealEstate ? "لا توجد عقارات" : isRestaurant ? (isCafe ? "لا توجد أصناف في منيو الكافيه بعد" : "لا توجد أصناف في منيو المطعم بعد") : t("inv.empty")}
             </p>
           ) : (
             <Pagination
               data={filteredProducts}
               pageSize={20}
-              resetKey={`${searchTerm}-${filterCategory}-${filterModel}`}
+              resetKey={`${searchTerm}-${filterModel}`}
               empty={<p style={{ textAlign: "center", padding: "20px", color: "#999" }}>{t("common.noResults")}</p>}
               render={(pageItems, total, start) => (
             <table>
@@ -1172,7 +1170,6 @@ export default function Inventory() {
                 <tr>
                   <th>#</th>
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
-                  <th>{isRealEstate ? "نوع العقار" : isRestaurant ? "القسم" : t("inv.category")}</th>
                   {isClothing && <><th>الموديل</th><th>الكود</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurantOnly && <th>الإضافات</th>}
                   {isPharmacy && <th>التصنيف</th>}
@@ -1221,7 +1218,6 @@ export default function Inventory() {
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{product.description}</div>
                       )}
                     </td>
-                    <td>{isRestaurant ? getCategoryLabel(product.category) : (product.category || "—")}</td>
                     {isClothing && (
                       <>
                         <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
@@ -1336,21 +1332,6 @@ export default function Inventory() {
                   <label>{isRealEstate ? "اسم العقار" : isRestaurant ? "اسم الصنف" : t("inv.name")}</label>
                   <input type="text" value={editingProduct.name} required style={styles.input}
                     onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
-                </div>
-
-                {/* القسم / الفئة */}
-                <div style={styles.formGroup}>
-                  <label>{isRestaurant ? (isCafe ? "قسم منيو الكافيه" : "قسم منيو المطعم") : isRealEstate ? "نوع العقار" : t("inv.category")}</label>
-                  {isRestaurant ? (
-                    <select value={editingProduct.category || ""} style={styles.input}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}>
-                      <option value="">— اختر القسم —</option>
-                      {menuCategories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" value={editingProduct.category || ""} style={styles.input}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })} />
-                  )}
                 </div>
 
                 {/* ملاحظة التحضير للمطعم */}
