@@ -6,7 +6,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase/config.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
-const AUTH_BLOCK_KEY = 'saas-auth-block';
+const AUTH_BLOCK_KEY = 'aamalypro-auth-block';
 
 export default function Login() {
   const { t } = useLanguage();

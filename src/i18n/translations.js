@@ -460,7 +460,7 @@
     "landing.hero1": "أدر أعمالك بذكاء",
     "landing.hero2": "من مكان واحد",
     "landing.heroDesc":
-      "منصة SaaS متكاملة لإدارة الشركات والعملاء والفواتير والمخزون والمهام — مع تقارير بيانية وتصدير PDF بضغطة واحدة.",
+      "منصة اعمالى PRO متكاملة لإدارة الشركات والعملاء والفواتير والمخزون والمهام — مع تقارير بيانية وتصدير PDF بضغطة واحدة.",
     "landing.ctaStart": "ابدأ الآن مجاناً",
     "landing.ctaLogin": "تسجيل الدخول",
     "landing.trialNote": "تجربة مجانية 14 يوم — بدون بطاقة ائتمان",
@@ -2501,7 +2501,7 @@
     "landing.hero1": "Run your business smarter",
     "landing.hero2": "from one place",
     "landing.heroDesc":
-      "An all-in-one SaaS platform for companies, clients, invoices, inventory and tasks — with visual reports and one-click PDF export.",
+      "An all-in-one AamalyPro platform for companies, clients, invoices, inventory and tasks — with visual reports and one-click PDF export.",
     "landing.ctaStart": "Start free now",
     "landing.ctaLogin": "Log in",
     "landing.trialNote": "14-day free trial — no credit card required",

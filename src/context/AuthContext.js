@@ -10,7 +10,7 @@ import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db, initializePushNotifications } from '../firebase/config.js';
 import { createUserSeated } from '../utils/seats.js';
 
-const AUTH_BLOCK_KEY = 'saas-auth-block';
+const AUTH_BLOCK_KEY = 'aamalypro-auth-block';
 
 const AuthContext = createContext();
 
