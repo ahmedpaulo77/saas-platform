@@ -324,7 +324,7 @@
         // مش ضابط أمني — لو الكويري اتغيّر أو حد فتح الكونسول، التسريب بيرجع.
         allow list: if fullyActive() && (
           isSuperAdmin() ||
-          (isAdmin() && userCompanyId() != null)
+          (isAdmin() && userCompanyId() != null && resource.data.companyId == userCompanyId())
         );
 
         // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)

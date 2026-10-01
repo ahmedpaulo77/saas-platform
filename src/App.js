@@ -298,7 +298,7 @@ function AppRoutes() {
         path="/statements"
         element={
           <ProtectedRoute>
-            <IndustryRoute moduleKey="reports">
+            <IndustryRoute moduleKey="statements">
               <Statements />
             </IndustryRoute>
           </ProtectedRoute>

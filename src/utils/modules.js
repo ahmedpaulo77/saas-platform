@@ -283,9 +283,10 @@ export function getAvailableModules(industry, userRole) {
   modules.add("about");
   modules.add("my-company");
 
-  // مدير الشركة يدير موظفين شركته
+  // مدير الشركة يدير موظفين شركته + كشف الحساب
   if (userRole === "admin") {
     modules.add("users");
+    modules.add("statements");
   }
 
   return modules;
