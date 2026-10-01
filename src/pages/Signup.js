@@ -8,6 +8,7 @@ import { createCompanyInviteCodes } from '../utils/companyQuery.js';
 import { INDUSTRIES } from '../utils/modules.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from '../components/common/PasswordStrengthMeter.js';
+import Logo from '../components/common/Logo.jsx';
 
 export default function Signup() {
   const { t } = useLanguage();
@@ -168,21 +169,14 @@ export default function Signup() {
           aria-label={t('brand.name')}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}
         >
-          <div style={{
-            width: 38, height: 38,
-            background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-            borderRadius: 10, display: "flex", alignItems: "center",
-            justifyContent: "center", color: "white", fontSize: 17,
-          }}>
-            <i className="fas fa-cube"></i>
-          </div>
+          <Logo size={38} />
           <span style={{ fontSize: 19, fontWeight: 800, color: "white" }}>
             {t('brand.name')}
           </span>
         </div>
         <div className="login-logo">
-          <div className="logo-icon">
-            <i className="fas fa-cube"></i>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+            <Logo size={60} />
           </div>
           <h1>{t('signup.title')}</h1>
           <p>{t('signup.subtitle')}</p>

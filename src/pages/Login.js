@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase/config.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
+import Logo from '../components/common/Logo.jsx';
 
 const AUTH_BLOCK_KEY = 'aamalypro-auth-block';
 
@@ -99,8 +100,8 @@ export default function Login() {
           aria-label={t('brand.name')}
           style={{ cursor: "pointer" }}
         >
-          <div className="logo-icon">
-            <i className="fas fa-cube"></i>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+            <Logo size={60} />
           </div>
           <h1>{t('brand.name')}</h1>
           <p>{t('login.tagline')}</p>

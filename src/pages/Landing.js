@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
+import Logo from "../components/common/Logo.jsx";
 
 function CountUp({ to, suffix = "", decimals = 0 }) {
   return <AnimatedNumber value={to} decimals={decimals} suffix={suffix} duration={1400} />;
@@ -127,21 +128,7 @@ export default function Landing() {
           className="landing-nav-brand"
           style={{ display: "flex", alignItems: "center", gap: 10 }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-              borderRadius: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontSize: 18,
-            }}
-          >
-            <i className="fas fa-cube"></i>
-          </div>
+          <Logo size={40} />
           <span
             style={{
               fontSize: 20,
@@ -748,21 +735,7 @@ export default function Landing() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontSize: 15,
-            }}
-          >
-            <i className="fas fa-cube"></i>
-          </div>
+          <Logo size={34} />
           <span style={{ color: "white", fontWeight: 700 }}>{t("brand.name")}</span>
         </div>
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>

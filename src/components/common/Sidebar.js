@@ -19,6 +19,7 @@ import {
   SUPPLIERS_ICON,
 } from "../../utils/icons.js";
 import LanguageToggle from "./LanguageToggle.js";
+import Logo from "./Logo.jsx";
 import { useTheme } from "../../context/ThemeContext.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import "./Sidebar.css";
@@ -410,9 +411,7 @@ label: t("nav.attendance"),
           closeSidebar();
         }}
       >
-        <div className="logo-icon">
-          <i className="fas fa-cube"></i>
-        </div>
+        <Logo size={40} />
         <div className="logo-text">
           <span className="logo-name">{t("brand.name")}</span>
           <span className="logo-badge">Business Platform</span>

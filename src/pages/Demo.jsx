@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { useTheme } from "../context/ThemeContext.js";
 import AnimatedNumber from "../components/common/AnimatedNumber.jsx";
+import Logo from "../components/common/Logo.jsx";
 import { moneyShort, num } from "../utils/fmt.js";
 import { getAvailableModules, MODULE_MAP, MODULE_LABEL_KEYS } from "../utils/modules.js";
 import {
@@ -173,9 +174,7 @@ export default function Demo() {
       {/* شريط علوي */}
       <div style={{ background: "var(--sidebar-bg)", padding: "14px 4%", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => navigate("/")}>
-          <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
-            <i className="fas fa-cube"></i>
-          </div>
+          <Logo size={38} />
           <span style={{ color: "white", fontWeight: 800, fontSize: 18 }}>{t("brand.name")}</span>
           <span className="badge badge-purple" style={{ marginInlineStart: 6 }}>{t("demo.badge")}</span>
         </div>

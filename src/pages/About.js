@@ -1,6 +1,7 @@
 // src/pages/About.js - بيانات التواصل قابلة للتخصيص من سجل الشركة
 import React from "react";
 import Sidebar from "../components/common/Sidebar.js";
+import Logo from "../components/common/Logo.jsx";
 import { useLanguage } from "../i18n/LanguageContext.js";
 
 const featuresKeys = [
@@ -116,22 +117,8 @@ export default function About() {
             }}
           ></div>
           <div style={{ position: "relative", zIndex: 1 }}>
-            <div
-              style={{
-                width: 64,
-                height: 64,
-                background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-                borderRadius: 16,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 28,
-                color: "white",
-                marginBottom: 20,
-                boxShadow: "0 8px 32px rgba(99,102,241,0.4)",
-              }}
-            >
-              <i className="fas fa-cube"></i>
+            <div style={{ marginBottom: 20 }}>
+              <Logo size={64} style={{ boxShadow: "0 8px 32px rgba(99,102,241,0.4)" }} />
             </div>
             <h1
               style={{
