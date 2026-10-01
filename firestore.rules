@@ -328,13 +328,18 @@
         );
 
         // 🔴 إصلاح ثغرة (1) + 🟡 allowlist للحقول: منع أي حقل غريب (زي permissions أو isSuperAdmin مخبأة)
+        // 🆕 حقل status ('pending'/'approved'): اللي بيعمل شركة جديدة حسابه
+        //    بيتعمل pending لحد قبول السوبر أدمن — ومحدش يقدر يفعّل نفسه.
         allow create: if
-          request.resource.data.keys().hasOnly(['email', 'role', 'companyId', 'createdAt', 'isActive', '_joinCode']) &&
+          request.resource.data.keys().hasOnly(['email', 'role', 'companyId', 'createdAt', 'isActive', 'status', '_joinCode']) &&
           (
             // أ) هو نفسه اللي أنشأ الشركة دي لتوه (مقارنة creatorUid على مستند الشركة)
+            //    ⏳ لازم يتعمل pending مجمّد — ممنوع ينشئ نفسه نشطًا
             isLoggedIn() && request.auth.uid == userId &&
             request.resource.data.role == 'admin' &&
             request.resource.data.companyId != null &&
+            request.resource.data.isActive == false &&
+            request.resource.data.status == 'pending' &&
             exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
             get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
           ) || (
@@ -344,8 +349,11 @@
             //    🔴 وكمان بيتشيك على السقف: ما ينفعش كود دعوة يتخطى حد
             //    الـ users/admins بتاع الشركة (كان واصل لـ 100 يوزر وأنا
             //    فاضي السقف، فأي حد عنده الكود يقدر يزيد).
+            //    ✅ اللي معاه كود دعوة بيدخل نشط على طول (مدير شركته دعاه)
             isLoggedIn() && request.auth.uid == userId &&
             request.resource.data.role != 'super_admin' &&
+            request.resource.data.isActive == true &&
+            !('status' in request.resource.data) &&
             '_joinCode' in request.resource.data &&
             exists(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)) &&
             get(/databases/$(database)/documents/invite_codes/$(request.resource.data._joinCode)).data.companyId == request.resource.data.companyId &&
@@ -353,8 +361,10 @@
             seatAvailable(request.resource.data.companyId, request.resource.data.role) &&
             seatClaimed(request.resource.data.companyId, request.resource.data.role)
           ) || (
-            // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا
-            canCreateTargetUser(request.resource.data)
+            // ج) مدير (سوبر/شركة) بيضيف مستخدم يدويًا — دايمًا نشط، مفيش pending
+            canCreateTargetUser(request.resource.data) &&
+            request.resource.data.isActive == true &&
+            !('status' in request.resource.data)
           );
 
         // 🟡 allowlist: امنع أي حقل مش من القائمة دي يتغير أو يتضاف
@@ -367,8 +377,9 @@
         //    نمسحه: isActive=false يمنع كل وصول فورًا + reset email.
         allow update: if fullyActive() &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode', 'deletedAt']) &&
+            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode', 'deletedAt', 'status']) &&
           (
+          // السوبر أدمن: هو الوحيد اللي يقدر يقبل (approved) أو يغيّر status عمومًا
           isSuperAdmin() ||
           (
             isAdmin() &&
@@ -380,6 +391,9 @@
             // نفس الحماية موجودة في canUpdateCompanyDoc — هنا كانت ناقصة.
             (!('companyId' in request.resource.data) ||
              request.resource.data.companyId == resource.data.companyId) &&
+            // ⏳ أدمن الشركة ميقدرش يغيّر status (القبول للسوبر أدمن بس)
+            (!('status' in request.resource.data) ||
+             request.resource.data.status == resource.data.status) &&
             request.resource.data.role != 'super_admin' &&
             request.auth.uid != userId
           ) ||
@@ -387,6 +401,9 @@
             isLoggedIn() && request.auth.uid == userId &&
             request.resource.data.role == resource.data.role &&
             request.resource.data.companyId == resource.data.companyId &&
+            // ⏳ المستخدم ميقدرش يفعّل نفسه — status تتغيّر للسوبر أدمن بس
+            (!('status' in request.resource.data) ||
+             request.resource.data.status == resource.data.status) &&
             (
               !('isActive' in request.resource.data) ||
               request.resource.data.isActive == resource.data.isActive ||
@@ -396,10 +413,13 @@
           (
             // 🆕 حالة Setup.js: مستخدم بلا شركة (companyId:null) بيكمل التسجيل
             // بإنشاء أول شركة ليه ويبقى أدمنها — نفس منطق فرع "أ" في create بالظبط
+            // ⏳ ولازم يتعمل pending مجمّد زي Signup بالظبط
             isLoggedIn() && request.auth.uid == userId &&
             resource.data.companyId == null &&
             request.resource.data.role == 'admin' &&
             request.resource.data.companyId != null &&
+            request.resource.data.isActive == false &&
+            request.resource.data.status == 'pending' &&
             exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId)) &&
             get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.creatorUid == request.auth.uid
           )

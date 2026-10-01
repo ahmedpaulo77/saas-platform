@@ -21,7 +21,7 @@ export default function Signup() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signupAuth, createUserDoc } = useAuth();
+  const { signupAuth, createUserDoc, logout } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -99,14 +99,23 @@ export default function Signup() {
 
       // ============================================================
       // ✅ خطوة 3: كتابة مستند المستخدم — usedJoinCode بيتبعت بس لو
-      // كانت حالة انضمام بكود (مش إنشاء شركة جديدة)
+      // كانت حالة انضمام بكود (مش إنشاء شركة جديدة).
+      // ⏳ اللي بيعمل شركة جديدة من الصفر حسابه بيتعمل pending (مجمّد)
+      // لحد ما السوبر أدمن يقبله — اللي داخل بكود دعوة بيدخل نشط على طول.
       // ============================================================
-      await createUserDoc(user.uid, user.email, role, companyId, usedJoinCode);
+      const isNewCompany = !usedJoinCode;
+      await createUserDoc(user.uid, user.email, role, companyId, usedJoinCode, isNewCompany ? 'pending' : null);
 
-      alert(role === 'admin'
-        ? t('signup.okCreate')
-        : t('signup.okJoin', { name: joinCompanyName }));
-      navigate('/dashboard');
+      if (isNewCompany) {
+        await logout();
+        alert(t('signup.pendingOk'));
+        navigate('/login');
+      } else {
+        alert(role === 'admin'
+          ? t('signup.okCreate')
+          : t('signup.okJoin', { name: joinCompanyName }));
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Signup error:', error);
       // تشخيص رفض إنشاء مستند المستخدم: الغالب سقف مقاعد ممتلئ (أو عدّاد

@@ -73,6 +73,76 @@ export default function SuperAdminDashboard() {
   const usersOf = (companyId) =>
     users.filter((u) => u.companyId === companyId && u.role !== "super_admin");
 
+  // ⏳ طلبات الانضمام المعلقة: حسابات عملت شركة جديدة ولسه متوافقش عليها
+  // الأحدث أولاً — عشان الجديد يبان فوق
+  const pendingUsers = users
+    .filter((u) => u.status === "pending")
+    .slice()
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+  const companyNameOf = (companyId) =>
+    companies.find((c) => c.id === companyId)?.name || t("common.unspecified");
+
+  // ✅ قبول: تفعيل الحساب — الإيميل "يتعمل" ويقدر يدخل
+  async function approveUser(u) {
+    if (!window.confirm(t("sa.confirmApprove", { email: u.email }))) return;
+    const key = u.id + ":approve";
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      await updateDoc(doc(db, "users", u.id), {
+        isActive: true,
+        status: "approved",
+      });
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "users",
+        itemId: u.id,
+        details: `Approved pending signup: ${u.email}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole },
+      });
+      await fetchCompanies();
+      alert(t("sa.approvedOk"));
+    } catch (e) {
+      console.error("approve failed:", e);
+      alert(t("sa.approveFail") + ": " + (e?.message || "permission denied"));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  }
+
+  // ❌ رفض: مسح نهائي للحساب + مسح شركته لو مفيهاش حد غيره
+  // (حساب Firebase Auth نفسه مش بيتمسح من الـ client — بس من غير مستند
+  // المستخدم الحساب ميت: لا دخول ولا بيانات، ولو حاول يسجل تاني هيرجع pending)
+  async function rejectUser(u) {
+    if (!window.confirm(t("sa.confirmReject", { email: u.email }))) return;
+    const key = u.id + ":reject";
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      const others = users.filter(
+        (x) => x.id !== u.id && x.companyId === u.companyId && x.role !== "super_admin"
+      );
+      await deleteDoc(doc(db, "users", u.id));
+      // الشركة دي اتعملت مع الحساب المرفوض ومفيهاش حد تاني → امسحها هي كمان
+      if (u.companyId && others.length === 0) {
+        await deleteDoc(doc(db, "companies", u.companyId));
+      }
+      await logActivity({
+        actionType: "DELETE",
+        collectionName: "users",
+        itemId: u.id,
+        details: `Rejected pending signup: ${u.email}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole },
+      });
+      await fetchCompanies();
+      alert(t("sa.rejectedOk"));
+    } catch (e) {
+      console.error("reject failed:", e);
+      alert(t("sa.rejectFail") + ": " + (e?.message || "permission denied"));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  }
+
   /**
    * حفظ سقف واحد.
    * غيّرنا العدّاد المخزّن كمان في نفس الكتابة (batch) — الـ rules بتطلب
@@ -280,6 +350,69 @@ export default function SuperAdminDashboard() {
             </div>
             <div className="stat-value">{stats.inactive}</div>
             <div className="stat-label">{t("sa.inactive")}</div>
+          </div>
+        </div>
+
+        {/* ⏳ طلبات الانضمام المعلقة — حسابات جديدة مستنية قبولك */}
+        <div className="table-container" style={{ border: pendingUsers.length > 0 ? "2px solid #f59e0b" : undefined, marginBottom: 28 }}>
+          <div className="table-header">
+            <h3>
+              <i className="fas fa-user-clock" style={{ color: "#f59e0b" }}></i>{" "}
+              {t("sa.pendingTitle")}
+            </h3>
+            <span className="table-count">
+              {pendingUsers.length} {t("sa.pendingCount")}
+            </span>
+          </div>
+          <div className="table-wrapper">
+            {pendingUsers.length === 0 ? (
+              <div className="table-empty">
+                <i className="fas fa-check-circle"></i>
+                <p>{t("sa.noPending")}</p>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{t("sa.email")}</th>
+                    <th>{t("sa.name")}</th>
+                    <th>{t("sa.createdAt")}</th>
+                    <th>{t("sa.actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingUsers.map((u, i) => (
+                    <tr key={u.id}>
+                      <td style={{ color: "var(--gray-400)", fontWeight: 600 }}>{i + 1}</td>
+                      <td style={{ fontWeight: 700 }}>{u.email}</td>
+                      <td style={{ color: "var(--gray-500)" }}>{companyNameOf(u.companyId)}</td>
+                      <td style={{ color: "var(--gray-500)", fontSize: 13, whiteSpace: "nowrap" }}>
+                        {u.createdAt ? fmtDate(u.createdAt, locale) : t("common.unspecified")}
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <button
+                            onClick={() => approveUser(u)}
+                            disabled={!!saving[u.id + ":approve"] || !!saving[u.id + ":reject"]}
+                            className="btn-primary btn-sm"
+                          >
+                            <i className="fas fa-check"></i> {t("sa.approve")}
+                          </button>
+                          <button
+                            onClick={() => rejectUser(u)}
+                            disabled={!!saving[u.id + ":approve"] || !!saving[u.id + ":reject"]}
+                            className="btn-danger btn-sm"
+                          >
+                            <i className="fas fa-times"></i> {t("sa.reject")}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

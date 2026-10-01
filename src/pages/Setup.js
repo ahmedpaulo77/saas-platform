@@ -41,12 +41,17 @@ export default function Setup() {
       // أكواد الدعوة في السبل-كولكشن — نفس المصدر اللي بيقراه Signup.js
       await createCompanyInviteCodes(companyRef.id);
 
+      // ⏳ أول شركة للمستخدم = حساب جديد من الصفر → pending لحد قبول السوبر أدمن
       await updateDoc(doc(db, 'users', currentUser.uid), {
         companyId: companyRef.id,
         role: 'admin',
+        isActive: false,
+        status: 'pending',
       });
 
-      navigate('/dashboard');
+      await logout();
+      alert(t('setup.pendingOk'));
+      navigate('/login');
     } catch (e) {
       console.error(e);
       setError(t('setup.error'));

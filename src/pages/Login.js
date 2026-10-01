@@ -29,6 +29,8 @@ export default function Login() {
       const reason = sessionStorage.getItem(AUTH_BLOCK_KEY);
       if (reason === 'account-disabled') {
         setBannerMsg(t('login.accountDisabledBanner'));
+      } else if (reason === 'account-pending') {
+        setBannerMsg(t('login.pendingBanner'));
       } else if (reason === 'company-disabled') {
         setBannerMsg(t('login.companyDisabledBanner'));
       }
@@ -41,6 +43,7 @@ export default function Login() {
   function mapLoginError(err) {
     const code = err && err.code;
     if (code === 'auth/account-disabled') return t('login.accountDisabled');
+    if (code === 'auth/account-pending') return t('login.pending');
     if (code === 'auth/company-disabled') return t('login.companyDisabled');
     if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
       return t('login.error');

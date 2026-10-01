@@ -54,8 +54,11 @@ export function AuthProvider({ children }) {
    *    جوا مستند الإنشاء عشان الـ Rule تتحقق منه في invite_codes ({_joinCode}).
    *    من غير الحقل ده، الـ create هيترفض (rule فرع "ب" محتاجه).
    *    لحالة "إنشاء شركة جديدة" سيبه فاضي (undefined).
+   * ✅ إضافة: status='pending' — اللي بيعمل شركة جديدة من الصفر حسابه
+   *    بيتعمل مجمّد (isActive:false) لحد ما السوبر أدمن يقبله. اللي بينضم
+   *    بكود دعوة بيدخل نشط على طول (مدير شركته هو اللي دعاه).
    */
-  async function createUserDoc(uid, email, role = 'user', companyId = null, joinCode = null) {
+  async function createUserDoc(uid, email, role = 'user', companyId = null, joinCode = null, status = null) {
     const payload = {
       email,
       role,
@@ -65,6 +68,10 @@ export function AuthProvider({ children }) {
     };
     if (joinCode) {
       payload._joinCode = joinCode;
+    }
+    if (status === 'pending') {
+      payload.isActive = false;
+      payload.status = 'pending';
     }
     // ⚠️ مش setDoc عادي: لو الشركة عندها سقف users/admins، الكتابة لازم
     // تكون جوه transaction مع العدّاد بتاعها. غير كده حد ممكن يعمل 101
@@ -84,13 +91,18 @@ export function AuthProvider({ children }) {
 
   async function assertAccountAllowed(uid) {
     const userSnap = await getDoc(doc(db, "users", uid));
-    if (userSnap.exists() && !isMarkedActive(userSnap.data())) {
+    const userData = userSnap.exists() ? userSnap.data() : {};
+    // ⏳ حساب جديد لسه متوافقش عليه من السوبر أدمن — رسالة مخصصة بدل "موقوف"
+    if (userSnap.exists() && userData.isActive === false && userData.status === 'pending') {
+      const err = new Error("account-pending");
+      err.code = "auth/account-pending";
+      throw err;
+    }
+    if (userSnap.exists() && !isMarkedActive(userData)) {
       const err = new Error("account-disabled");
       err.code = "auth/account-disabled";
       throw err;
     }
-
-    const userData = userSnap.exists() ? userSnap.data() : {};
     if (userData.role !== "super_admin" && userData.companyId) {
       const companySnap = await getDoc(doc(db, "companies", userData.companyId));
       if (companySnap.exists() && !isMarkedActive(companySnap.data())) {
@@ -178,7 +190,7 @@ export function AuthProvider({ children }) {
             const userData = docSnap.data();
 
             if (!isMarkedActive(userData)) {
-              rememberAuthBlock("account-disabled");
+              rememberAuthBlock(userData.status === 'pending' ? "account-pending" : "account-disabled");
               setLoading(false);
               await signOut(auth);
               return;
