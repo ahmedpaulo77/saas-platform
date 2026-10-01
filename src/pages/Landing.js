@@ -86,6 +86,9 @@ export default function Landing() {
   const { t, lang, toggleLang } = useLanguage();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+  // قايمة الموبايل (همبرجر) — الديسكتوب بيعرض الأزرار مباشرة
+  const [menuOpen, setMenuOpen] = useState(false);
+  const go = (path) => { setMenuOpen(false); navigate(path); };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -141,7 +144,7 @@ export default function Landing() {
         </div>
 
         <div
-          className="landing-nav-actions"
+          className={`landing-nav-actions${menuOpen ? " open" : ""}`}
           style={{ display: "flex", gap: 12, alignItems: "center" }}
         >
           {/* زر تبديل اللغة */} {/* زر تبديل اللغة */}
@@ -182,7 +185,7 @@ export default function Landing() {
           {/* ✅ زرار العرض التجريبي */}
           <button
             className="landing-btn-login-nav"
-            onClick={() => navigate("/demo")}
+            onClick={() => go("/demo")}
             style={{
               padding: "8px 20px",
               borderRadius: 8,
@@ -204,7 +207,7 @@ export default function Landing() {
           {/* ✅ زرار Login */}
           <button
             className="landing-btn-login-nav"
-            onClick={() => navigate("/login")}
+            onClick={() => go("/login")}
             style={{
               padding: "8px 20px",
               borderRadius: 8,
@@ -224,9 +227,9 @@ export default function Landing() {
           </button>
           {/* ✅ ✅ ✅ زرار Sign Up */}
                    {/* ✅ ✅ ✅ زرار Sign Up */}
-          <button 
+          <button
             className="landing-btn-signup-nav"
-            onClick={() => navigate('/signup')} 
+            onClick={() => go('/signup')}
             style={{
               padding: '8px 22px',
               borderRadius: 8,
@@ -247,6 +250,27 @@ export default function Landing() {
             {t("signup.title")}
           </button>
         </div>
+        {/* زرار الهمبرجر — يظهر في الموبايل بس (الديسكتوب مخفي بالـ CSS) */}
+        <button
+          className="landing-hamburger"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="Menu"
+          style={{
+            display: "none",
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            border: scrolled
+              ? "1px solid #e2e8f0"
+              : "1px solid rgba(255,255,255,0.3)",
+            background: scrolled ? "white" : "rgba(255,255,255,0.08)",
+            color: scrolled ? "#334155" : "white",
+            cursor: "pointer",
+            fontSize: 17,
+          }}
+        >
+          <i className={`fas ${menuOpen ? "fa-times" : "fa-bars"}`}></i>
+        </button>
       </nav>
 
       {/* ── Hero ── */}
