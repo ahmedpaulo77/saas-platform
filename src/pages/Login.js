@@ -88,8 +88,17 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        {/* Logo */}
-        <div className="login-logo">
+        {/* Logo — زرار زي اللاندنج: دوسة ترجع لصفحة البداية */}
+        <div
+          className="login-logo"
+          onClick={() => navigate("/")}
+          onKeyDown={(e) => { if (e.key === "Enter") navigate("/"); }}
+          role="button"
+          tabIndex={0}
+          title={t('brand.name')}
+          aria-label={t('brand.name')}
+          style={{ cursor: "pointer" }}
+        >
           <div className="logo-icon">
             <i className="fas fa-cube"></i>
           </div>

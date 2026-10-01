@@ -158,6 +158,28 @@ export default function Signup() {
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: '480px' }}>
+        {/* زرار البراند زي اللاندنج: دوسة ترجع لصفحة البداية */}
+        <div
+          onClick={() => navigate("/")}
+          onKeyDown={(e) => { if (e.key === "Enter") navigate("/"); }}
+          role="button"
+          tabIndex={0}
+          title={t('brand.name')}
+          aria-label={t('brand.name')}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}
+        >
+          <div style={{
+            width: 38, height: 38,
+            background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+            borderRadius: 10, display: "flex", alignItems: "center",
+            justifyContent: "center", color: "white", fontSize: 17,
+          }}>
+            <i className="fas fa-cube"></i>
+          </div>
+          <span style={{ fontSize: 19, fontWeight: 800, color: "white" }}>
+            {t('brand.name')}
+          </span>
+        </div>
         <div className="login-logo">
           <div className="logo-icon">
             <i className="fas fa-cube"></i>
