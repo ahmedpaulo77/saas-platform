@@ -1,3 +1,23 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Allow: /demo
+Allow: /login
+Allow: /signup
+
+# منع فهرسة الصفحات الداخلية المحمية
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /profile
+Disallow: /setup
+Disallow: /invoices
+Disallow: /inventory
+Disallow: /clients
+Disallow: /users
+Disallow: /reports
+Disallow: /pos
+Disallow: /store-pos
+Disallow: /purchases
+Disallow: /expenses
+Disallow: /suppliers
+
+Sitemap: https://aamalypro.com/sitemap.xml

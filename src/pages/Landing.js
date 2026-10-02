@@ -90,6 +90,27 @@ export default function Landing() {
   const [menuOpen, setMenuOpen] = useState(false);
   const go = (path) => { setMenuOpen(false); navigate(path); };
 
+  // SEO: dynamic title + description حسب اللغة
+  useEffect(() => {
+    if (lang === "ar") {
+      document.title = "عمالى برو | برنامج محاسبة سحابي للشركات والمتاجر";
+      document.querySelector('meta[name="description"]')?.setAttribute(
+        "content",
+        "عمالى برو — برنامج محاسبة سحابي متكامل: فواتير، مخزون، نقطة بيع، مشتريات، تقارير أرباح. جرّب مجاناً."
+      );
+    } else {
+      document.title = "AamalyPro | Cloud Accounting Software for Businesses";
+      document.querySelector('meta[name="description"]')?.setAttribute(
+        "content",
+        "AamalyPro — Cloud accounting software: invoices, inventory, POS, purchases, profit reports. Try for free."
+      );
+    }
+    // إعادة الـ title الافتراضي لما تتنقل من الصفحة
+    return () => {
+      document.title = "عمالى برو | برنامج محاسبة سحابي للشركات والمتاجر";
+    };
+  }, [lang]);
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll);
