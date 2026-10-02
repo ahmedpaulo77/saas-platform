@@ -28,6 +28,10 @@ const INDUSTRIES = [
   { id: "clothing", icon: "fas fa-shirt", color: "#8b5cf6", bg: "#f3e8ff" },
   { id: "clinic", icon: "fas fa-stethoscope", color: "#ec4899", bg: "#fdf2f8" },
   { id: "general", icon: "fas fa-briefcase", color: "#6366f1", bg: "#eef2ff" },
+  { id: "trader", icon: "fas fa-truck", color: "#0d9488", bg: "#ccfbf1" },
+  { id: "contractor", icon: "fas fa-helmet-safety", color: "#c2410c", bg: "#ffedd5" },
+  { id: "real_estate", icon: "fas fa-house", color: "#0284c7", bg: "#e0f2fe" },
+  { id: "cafe", icon: "fas fa-mug-hot", color: "#92400e", bg: "#f5ebe0" },
 ];
 
 // مولد بيانات ثابت لكل نشاط (نفس الشكل كل مرة — deterministic)
@@ -43,7 +47,7 @@ function mulberry(seed) {
 function demoData(industry, locale) {
   const seed = [...industry].reduce((s, c) => s + c.charCodeAt(0), 7);
   const rnd = mulberry(seed);
-  const base = { restaurant: 4200, pharmacy: 6800, super_market: 9500, clothing: 7300, clinic: 3100, general: 5400 }[industry] || 5000;
+  const base = { restaurant: 4200, pharmacy: 6800, super_market: 9500, clothing: 7300, clinic: 3100, general: 5400, trader: 6200, contractor: 8800, real_estate: 12000, cafe: 3900 }[industry] || 5000;
   const days = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date();
@@ -70,6 +74,10 @@ function demoData(industry, locale) {
     models: 40 + Math.floor(rnd() * 80),
     apptsToday: 8 + Math.floor(rnd() * 20),
     patients: 120 + Math.floor(rnd() * 250),
+    projectsActive: 3 + Math.floor(rnd() * 9),
+    certificates: 5 + Math.floor(rnd() * 18),
+    units: 12 + Math.floor(rnd() * 40),
+    viewings: 6 + Math.floor(rnd() * 25),
     momPct: 4 + Math.round(rnd() * 22 + rnd() * 10) / 10,
     days,
     top: [0.42, 0.27, 0.18, 0.13].map((f, i) => ({ i, v: Math.round(monthTotal * f) })),
@@ -130,6 +138,46 @@ function industryContent(industry, data, t, locale) {
           { icon: "fas fa-prescription", cls: "purple", label: t("demo.rxToday"), value: count(data.rxToday) },
         ],
         topTitle: t("demo.topServices"), itemLabel: t("demo.service"),
+      };
+    case "trader":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-file-invoice", cls: "amber", label: t("demo.invoices"), value: count(data.invoices) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+          { icon: "fas fa-boxes", cls: "purple", label: t("demo.products"), value: count(data.products) },
+        ],
+        topTitle: t("demo.topClients"), itemLabel: t("demo.client"),
+      };
+    case "contractor":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-trowel", cls: "amber", label: t("demo.projectsActive"), value: count(data.projectsActive) },
+          { icon: "fas fa-file-contract", cls: "purple", label: t("demo.certificates"), value: count(data.certificates) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+        ],
+        topTitle: t("demo.topProjects"), itemLabel: t("demo.project"),
+      };
+    case "real_estate":
+      return {
+        cards: [
+          { icon: "fas fa-money-bill-wave", cls: "cyan", label: t("demo.revenue"), value: money(data.revenue) },
+          { icon: "fas fa-building", cls: "amber", label: t("demo.units"), value: count(data.units) },
+          { icon: "fas fa-eye", cls: "purple", label: t("demo.viewings"), value: count(data.viewings) },
+          { icon: "fas fa-user-friends", cls: "green", label: t("demo.clients"), value: count(data.clients) },
+        ],
+        topTitle: t("demo.topUnits"), itemLabel: t("demo.unit"),
+      };
+    case "cafe":
+      return {
+        cards: [
+          { icon: "fas fa-cash-register", cls: "cyan", label: t("demo.todaySales"), value: money(Math.round(data.revenue / 30)) },
+          { icon: "fas fa-receipt", cls: "amber", label: t("demo.ordersToday"), value: count(data.ordersToday) },
+          { icon: "fas fa-chair", cls: "purple", label: t("demo.tablesBusy"), value: count(data.tablesBusy) },
+          { icon: "fas fa-mug-hot", cls: "green", label: t("demo.menuItems"), value: count(data.menuItems) },
+        ],
+        topTitle: t("demo.topDrinks"), itemLabel: t("demo.drink"),
       };
     default:
       return {
