@@ -852,11 +852,11 @@ export default function Purchases() {
     page-break-after: always; break-after: page;
   }
   .label:last-child { page-break-after: auto; break-after: auto; }
-  .l-brand  { font-size: 10px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
-  .l-model  { font-size: 10px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
-  .l-variant{ font-size: 9px;  font-weight: 700; line-height: 1.2; }
-  svg.bc { width: 35mm; height: 10mm; display: block; }
-  .l-price  { font-size: 11px; font-weight: 900; line-height: 1.2; font-family: Arial, Helvetica, sans-serif; direction: ltr; letter-spacing: 0.5px; }
+  .l-brand  { font-size: 9px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
+  .l-model  { font-size: 9px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
+  .l-variant{ font-size: 8px;  font-weight: 700; line-height: 1.2; }
+  svg.bc { width: 35mm; height: 11mm; display: block; }
+  .l-price  { font-size: 10px; font-weight: 900; line-height: 1.2; font-family: Arial, Helvetica, sans-serif; direction: ltr; letter-spacing: 0.5px; }
   @page { size: 38mm 25mm; margin: 0; }
   @media print {
     .label { page-break-after: always; break-after: page; }
@@ -871,8 +871,12 @@ ${labelDivs}
     try {
       document.querySelectorAll('svg.bc').forEach(function(svg) {
         var val = svg.getAttribute('data-value') || '';
+        // الأكواد الطويلة ثابتة (نظام المحل) — كل ما القيمة تطول بنرفّع الأعمدة
+        // لحد أدنى آمن (0.7) مع هامش أمان حوالينها عشان تدخل كلها من غير قص
+        var len = val.length;
+        var w = len > 22 ? 0.7 : len > 16 ? 0.9 : len > 12 ? 1.2 : 1.6;
         try {
-          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 12, height: 30, width: 1.6, margin: 0 });
+          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 9, height: 30, width: w, margin: 6 });
         } catch (e) {
           var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           t.setAttribute('x', '50%'); t.setAttribute('y', '50%');

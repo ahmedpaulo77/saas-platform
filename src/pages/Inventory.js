@@ -210,7 +210,6 @@ export default function Inventory() {
 
   // معاينة جافة (dry-run): نحسب المقترحات ونعرضها أولاً — الكتابة بزرار التأكيد فقط
   const [barcodePreview, setBarcodePreview] = useState(null);
-
   function buildBarcodeProposals() {
     const targets = products.filter((p) => !(p.barcode || "").trim());
     const colorMap = {}, sizeMap = {};
@@ -685,10 +684,10 @@ export default function Inventory() {
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Cairo, Arial, sans-serif; display: flex; flex-wrap: wrap; gap: 10px; padding: 16px; background: #fff; }
   .label { border: 1px dashed #999; border-radius: 6px; padding: 8px; text-align: center; width: 180px; }
-  .l-name { font-weight: bold; font-size: 12px; }
-  .l-variant { font-size: 11px; color: #475569; margin-top: 2px; }
+  .l-name { font-weight: bold; font-size: 11px; }
+  .l-variant { font-size: 10px; color: #475569; margin-top: 2px; }
   svg.bc { width: 150px; height: 44px; display: block; margin: 6px auto 0; }
-  .l-price { font-weight: bold; font-size: 13px; margin-top: 4px; }
+  .l-price { font-weight: bold; font-size: 12px; margin-top: 4px; }
   @media print { body { padding: 0; } }
 </style></head><body>${labels}
 <script>
@@ -696,8 +695,11 @@ export default function Inventory() {
     try {
       document.querySelectorAll('svg.bc').forEach(function(svg) {
         var val = svg.getAttribute('data-value') || '';
+        // نفس قاعدة المشتريات: القيمة الطويلة أعمدة أرفع (لحد أدنى آمن 0.7) + هامش أمان
+        var len = val.length;
+        var w = len > 22 ? 0.7 : len > 16 ? 0.9 : len > 12 ? 1.2 : 1.6;
         try {
-          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 12, height: 34, width: 1.8, margin: 0 });
+          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 9, height: 30, width: w, margin: 6 });
         } catch (e) {
           var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           t.setAttribute('x', '50%'); t.setAttribute('y', '50%');
