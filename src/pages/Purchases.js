@@ -587,7 +587,19 @@ export default function Purchases() {
           });
         } catch (txErr) {
           if (txErr?.message === "INSUFFICIENT_STOCK") {
-            alert(t("pur.deleteBlockedStock"));
+            // حذف إجباري بطلب صريح من المستخدم: يمسح المستند ويصفّر الأرصدة
+            // الناقصة بدل السالب. البضاعة المباعة فعلاً مش بترجع — لازم جرد بعدها
+            if (!window.confirm(t("pur.forceDeleteConfirm"))) return;
+            await forceDeletePurchase(purchase, stockItems, target);
+            await logActivity({
+              actionType: "DELETE",
+              collectionName: "purchases",
+              itemId: purchase.id,
+              details: `Force-deleted purchase (short stock zeroed, not negative) from ${target}`,
+              user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+            });
+            await resetPagination();
+            alert(t("pur.forceDeleted"));
             return;
           }
           throw txErr;
@@ -608,6 +620,40 @@ export default function Purchases() {
     } catch (e) {
       console.error(e);
       if (e?.code === "unavailable" && isOffline()) alert(t("offline.noData"));
+    }
+  }
+
+  // حذف إجباري: مسح المستند + تصفير الأرصدة الناقصة (مستحيل سالب)
+  // نفس نمط مرتجع الشراء في returns.js: deduct = min(delta, current)
+  async function forceDeletePurchase(purchase, stockItems, target) {
+    const writeForce = (w, snaps) => {
+      snaps.forEach((snap, idx) => {
+        const line = stockItems[idx];
+        if (!snap || !snap.exists() || !line) return;
+        const data = snap.data();
+        const current = parseFloat(data.quantity) || 0;
+        const unit = isTrader ? (line.unit || "piece") : "piece";
+        const delta = isTrader
+          ? stockDelta(unit, line.quantity, line.weight)
+          : (parseFloat(line.quantity) || 0);
+        if (!(delta > 0)) return;
+        const effectiveUnit = unit || getProductUnit(data);
+        w.update(doc(db, target, stockLineId(line)), {
+          quantity: roundQty(Math.max(0, current - delta), effectiveUnit),
+        });
+      });
+      w.delete(doc(db, "purchases", purchase.id));
+    };
+    if (isOffline()) {
+      const { snaps } = await readStockCache(target, stockItems.map((it) => stockLineId(it)));
+      const batch = writeBatch(db);
+      writeForce(batch, snaps);
+      await batch.commit();
+    } else {
+      await runTransaction(db, async (tx) => {
+        const { snaps } = await readStockTx(tx, target, stockItems.map((it) => stockLineId(it)));
+        writeForce(tx, snaps);
+      });
     }
   }
 
@@ -1177,7 +1223,7 @@ ${labelDivs}
                               flexWrap: "wrap",
                             }}
                           >
-                            <div style={{ flex: 1, minWidth: 80 }}>
+                            <div style={{ flex: 2, minWidth: 110 }}>
                               <label style={{ fontSize: 11, color: "#64748b" }}>
                                 {t("pur.qty")}
                               </label>
@@ -1211,7 +1257,7 @@ ${labelDivs}
                                 />
                               </div>
                             )}
-                            <div style={{ flex: 1, minWidth: 90 }}>
+                            <div style={{ flex: 2, minWidth: 140 }}>
                               <label style={{ fontSize: 11, color: "#64748b" }}>
                                 {t("pur.unitCost")}
                               </label>
@@ -1223,22 +1269,8 @@ ${labelDivs}
                                 onChange={(e) =>
                                   updateItem({ unitCost: e.target.value })
                                 }
+                                style={{ fontSize: 15, fontWeight: 700 }}
                               />
-                            </div>
-                            <div style={{ flex: 1, minWidth: 90 }}>
-                              <label style={{ fontSize: 11, color: "#64748b" }}>
-                                {t("common.amount")}
-                              </label>
-                              <div
-                                style={{
-                                  fontWeight: 800,
-                                  color: "#0891b2",
-                                  padding: "8px 4px",
-                                }}
-                              >
-                                {moneyShort(item.amount, locale)}{" "}
-                                {t("currency")}
-                              </div>
                             </div>
                           </div>
                         </div>
