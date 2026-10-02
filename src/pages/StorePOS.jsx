@@ -65,6 +65,10 @@ export default function StorePOS() {
   const [closing, setClosing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
+  // ── بحث فاتورة بالباركود (للمرتجع / الاستبدال) ──
+  const [foundInvoice, setFoundInvoice] = useState(null);
+  const [searchingInvoice, setSearchingInvoice] = useState(false);
+
   useEffect(() => {
     if (!userCompanyId) return;
     (async () => {
@@ -301,7 +305,26 @@ export default function StorePOS() {
     return matchSearch && matchType && matchSize && matchColor;
   });
 
+  // ── البحث عن فاتورة بـ ID (باركود الفاتورة الحرارية) ──
+  async function lookupInvoice(invoiceId) {
+    if (!invoiceId || !userCompanyId) return;
+    setSearchingInvoice(true);
+    try {
+      const snap = await getDoc(doc(db, "invoices", invoiceId));
+      if (snap.exists() && snap.data().companyId === userCompanyId) {
+        setFoundInvoice({ id: snap.id, ...snap.data() });
+      } else {
+        alert("❌ الفاتورة مش موجودة أو مش تابعة لشركتك");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("حصل خطأ أثناء البحث عن الفاتورة");
+    }
+    setSearchingInvoice(false);
+  }
+
   // السكانر: Enter على باركود مطابق تماماً يضيف للسلة فوراً
+  // لو مش موجود في المخزون → يدور على فاتورة بنفس الـ ID
   function handleSearchKeyDown(e) {
     if (e.key !== "Enter") return;
     const term = searchTerm.trim().toLowerCase();
@@ -310,6 +333,11 @@ export default function StorePOS() {
     if (exact) {
       e.preventDefault();
       addToCart(exact);
+      setSearchTerm("");
+    } else {
+      // مش منتج → جرّب كـ ID فاتورة
+      e.preventDefault();
+      lookupInvoice(searchTerm.trim());
       setSearchTerm("");
     }
   }
@@ -427,48 +455,82 @@ export default function StorePOS() {
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 13px; width: 80mm; padding: 8px; }
-  h2 { text-align: center; font-size: 17px; margin-bottom: 2px; }
+  body { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
+  .store-name { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
+  .inv-title  { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 2px; }
   .center { text-align: center; }
-  .divider { border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #f0f0f0; padding: 4px 6px; font-size: 11px; }
-  .total-row { font-weight: bold; font-size: 15px; }
-  svg.bc { width: 60mm; height: 12mm; display: block; margin: 4px auto 0; }
+  .divider { border-top: 2px dashed #000; margin: 6px 0; }
+  .divider-thin { border-top: 1px dashed #000; margin: 5px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-weight: 700; }
+  th { background: #000; color: #fff; padding: 5px 6px; font-size: 12px; font-weight: 900; }
+  td { padding: 4px 6px; border-bottom: 1px dashed #aaa; font-weight: 700; }
+  .variant-line { font-size: 11px; font-weight: 700; color: #333; }
+  .total-row  { font-weight: 900; font-size: 17px; border-top: 3px solid #000; padding-top: 5px; margin-top: 4px; }
+  .lbl        { font-weight: 900; }
+  svg.bc { width: 62mm; height: 13mm; display: block; margin: 4px auto 0; }
+  .policy { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.7; margin-top: 2px; }
+  .policy-title { font-size: 12px; font-weight: 900; text-align: center; margin-bottom: 2px; }
   @media print { body { width: 80mm; } @page { size: 80mm auto; margin: 0; } }
 </style>
 </head>
 <body>
-<h2>فاتورة بيع</h2>
-<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div>
-<div class="center" style="font-size:12px;margin-top:2px;"><strong>الكاشير:</strong> ${escHtml(cashierName || "—")}</div>
+
+<!-- اسم المحل فوق خالص -->
+<div class="store-name">${escHtml(storeName || "المحل")}</div>
 <div class="divider"></div>
-<div style="font-size:12px;margin-bottom:4px;">
-  <strong>العميل:</strong> ${escHtml(clientName || "زبون نقدي")}<br/>
-  <strong>الدفع:</strong> ${escHtml(getPaymentLabel(inv.paymentMethod))}
+
+<!-- عنوان الفاتورة -->
+<div class="inv-title">🧾 فاتورة بيع</div>
+<div class="center" style="font-size:12px;font-weight:700;">${new Date().toLocaleString("ar-EG")}</div>
+<div class="divider-thin"></div>
+
+<!-- بيانات العملية -->
+<div style="font-size:13px;font-weight:700;line-height:2;">
+  <span class="lbl">الكاشير:</span> ${escHtml(cashierName || "—")}<br/>
+  <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}<br/>
+  <span class="lbl">الدفع:</span> ${escHtml(getPaymentLabel(inv.paymentMethod))}
 </div>
 <div class="divider"></div>
+
+<!-- جدول الأصناف -->
 <table>
   <thead><tr>
     <th style="text-align:right;">الصنف</th>
-    <th>الكمية</th>
-    <th>السعر</th>
-    <th>الإجمالي</th>
+    <th style="text-align:center;">الكمية</th>
+    <th style="text-align:center;">السعر</th>
+    <th style="text-align:center;">الإجمالي</th>
   </tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <div class="divider"></div>
-<div style="text-align:left;font-size:13px;">
-  <div>المجموع: ${subtotal.toFixed(2)} ج.م</div>
-  ${discountNum > 0 ? `<div>الخصم: ${discountNum.toFixed(2)} ج.م</div>` : ""}
-  <div class="total-row" style="margin-top:4px;border-top:2px solid #000;padding-top:4px;">
-    الإجمالي: ${total.toFixed(2)} ج.م
+
+<!-- المجاميع -->
+<div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
+  <div><span class="lbl">المجموع:</span> ${subtotal.toFixed(2)} ج.م</div>
+  ${discountNum > 0 ? `<div><span class="lbl">الخصم:</span> ${discountNum.toFixed(2)} ج.م</div>` : ""}
+  <div class="total-row">
+    <span class="lbl">✅ الإجمالي:</span> ${total.toFixed(2)} ج.م
   </div>
 </div>
 <div class="divider"></div>
+
+<!-- باركود الفاتورة -->
 <svg class="bc" id="invbc"></svg>
-<div class="center" style="font-size:12px;margin-top:8px;font-weight:bold;">نورتونا — شكراً لتسوقكم معنا ❤</div>
-<div class="center" style="font-size:15px;margin-top:4px;font-weight:800;">${escHtml(storeName || "")}</div>
+<div class="divider"></div>
+
+<!-- سياسة الاستبدال والاسترجاع -->
+<div class="policy-title">📋 سياسة الاستبدال والاسترجاع</div>
+<div class="policy">
+  يُقبل الاستبدال والاسترجاع خلال <strong>14 يوم</strong> من تاريخ الشراء<br/>
+  بشرط سلامة المنتج وإحضار الفاتورة<br/>
+  <strong>⚠️ غير شامل ألعاب الأطفال</strong>
+</div>
+<div class="divider"></div>
+
+<!-- اسم المحل تحت خالص -->
+<div class="center" style="font-size:13px;font-weight:900;margin-bottom:2px;">شكراً لتسوقكم معنا ❤</div>
+<div class="store-name" style="font-size:18px;">${escHtml(storeName || "")}</div>
+
 <script>
   try {
     if (window.JsBarcode) JsBarcode("#invbc", "${invCode}", { format: "CODE128", displayValue: true, fontSize: 11, height: 40, width: 1.5, margin: 0 });
@@ -675,6 +737,7 @@ export default function StorePOS() {
   };
 
   return (
+    <>
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content" style={{ fontFamily: "Cairo, sans-serif" }}>
@@ -1175,7 +1238,105 @@ export default function StorePOS() {
             </div>
           </div>
         )}
+
+    {/* ── مودال الفاتورة المبحوث عنها (مرتجع / استبدال) ── */}
+    {foundInvoice && (
+      <div
+        onClick={() => setFoundInvoice(null)}
+        style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+          zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: "white", borderRadius: 16, padding: 24,
+            width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          }}
+        >
+          {/* header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ fontWeight: 900, color: NAVY, fontSize: 18 }}>
+              <i className="fas fa-file-invoice" style={{ marginLeft: 8 }}></i>
+              تفاصيل الفاتورة
+            </h3>
+            <button onClick={() => setFoundInvoice(null)}
+              style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#64748b" }}>×</button>
+          </div>
+
+          {/* بيانات الفاتورة */}
+          <div style={{ background: "#f8fafc", borderRadius: 10, padding: 14, marginBottom: 14, fontSize: 13, lineHeight: 2 }}>
+            <div><strong>رقم الفاتورة:</strong> <span style={{ fontFamily: "monospace", fontSize: 12 }}>{foundInvoice.id}</span></div>
+            <div><strong>التاريخ:</strong> {foundInvoice.createdAt ? new Date(foundInvoice.createdAt).toLocaleString("ar-EG") : "—"}</div>
+            <div><strong>العميل:</strong> {foundInvoice.clientName || "زبون نقدي"}</div>
+            <div><strong>طريقة الدفع:</strong> {getPaymentLabel(foundInvoice.paymentMethod)}</div>
+            <div><strong>الحالة:</strong> {foundInvoice.status === "paid" ? "✅ مدفوعة" : "⏳ معلقة"}</div>
+          </div>
+
+          {/* أصناف الفاتورة */}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 14 }}>
+            <thead>
+              <tr style={{ background: NAVY, color: "white" }}>
+                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 900 }}>الصنف</th>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>الكمية</th>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>السعر</th>
+                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>الإجمالي</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(foundInvoice.products || []).map((item, i) => {
+                const variant = [item.size, item.color].filter(Boolean).join(" / ");
+                const line = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1);
+                return (
+                  <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    <td style={{ padding: "8px 10px", fontWeight: 700 }}>
+                      {item.productName || item.name || "—"}
+                      {variant ? <div style={{ fontSize: 11, color: "#64748b" }}>{variant}</div> : null}
+                    </td>
+                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700 }}>{item.quantity}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700 }}>{parseFloat(item.price || 0).toFixed(2)}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900, color: NAVY }}>{line.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* الإجمالي */}
+          <div style={{ background: NAVY, color: "white", borderRadius: 10, padding: "12px 16px", textAlign: "center", fontSize: 16, fontWeight: 900 }}>
+            الإجمالي: {parseFloat(foundInvoice.total || foundInvoice.amount || 0).toFixed(2)} ج.م
+          </div>
+
+          {/* تعليمات */}
+          <div style={{ marginTop: 14, padding: "10px 14px", background: "#fef3c7", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#92400e" }}>
+            <i className="fas fa-info-circle" style={{ marginLeft: 6 }}></i>
+            لإتمام المرتجع أو الاستبدال، اذهب لصفحة الفواتير وافتح هذه الفاتورة.
+          </div>
+
+          <button
+            onClick={() => setFoundInvoice(null)}
+            style={{ marginTop: 14, width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "#e2e8f0", fontFamily: "Cairo", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+          >
+            إغلاق
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* مؤشر البحث */}
+    {searchingInvoice && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ background: "white", borderRadius: 12, padding: "24px 32px", fontWeight: 700, fontSize: 16, display: "flex", gap: 12, alignItems: "center" }}>
+          <i className="fas fa-spinner fa-spin" style={{ color: NAVY }}></i>
+          جاري البحث عن الفاتورة...
+        </div>
+      </div>
+    )}
       </div>
     </div>
+    </>
   );
 }
