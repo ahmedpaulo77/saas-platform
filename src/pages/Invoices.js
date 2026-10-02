@@ -156,6 +156,28 @@ export default function Invoices() {
     setScanning(false);
   }
 
+  // تسليم من نقطة البيع: مسح باركود فاتورة هناك → نفتح شاشة المرتجع هنا مباشرة
+  // (من غير منطق فلوس/مخزون جديد — نفس المودال ونفس submitSaleReturn المجرب)
+  useEffect(() => {
+    let handoff = null;
+    try { handoff = sessionStorage.getItem("aamalypro-return-invoice"); } catch { /* ignore */ }
+    if (!handoff) return;
+    (async () => {
+      let inv = (invoices || []).find((x) => x.id === handoff);
+      if (!inv) {
+        try {
+          const snap = await getDoc(doc(db, "invoices", handoff));
+          if (snap.exists() && snap.data().companyId === userCompanyId) {
+            inv = { id: snap.id, ...snap.data() };
+          }
+        } catch { /* ignore — المستخدم يقدر يدور يدوياً */ }
+      }
+      if (!inv) return;
+      try { sessionStorage.removeItem("aamalypro-return-invoice"); } catch { /* ignore */ }
+      setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+    })();
+  }, [invoices]);
+
   const [submitting, setSubmitting] = useState(false);
   const emptyInvoice = {
     clientId: "", products: [], status: isRestaurant ? "new" : "pending",

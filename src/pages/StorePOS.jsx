@@ -1,5 +1,6 @@
 ﻿// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction, writeBatch } from "firebase/firestore";
 import { isOffline, handleOfflineError } from "../utils/offline.js";
 import { readStockCache } from "../utils/stock.js";
@@ -16,6 +17,7 @@ const NAVY = "#1e3a8a";
 
 export default function StorePOS() {
   const { t, lang, locale } = useLanguage();
+  const navigate = useNavigate();
 
   const TYPE_LABELS = { men: t("inv.typeMen"), women: t("inv.typeWomen"), boys: t("inv.typeBoys"), girls: t("inv.typeGirls"), unisex: t("inv.typeUnisex") };
   const timeLocale = locale;
@@ -65,8 +67,7 @@ export default function StorePOS() {
   const [closing, setClosing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // ── بحث فاتورة بالباركود (للمرتجع / الاستبدال) ──
-  const [foundInvoice, setFoundInvoice] = useState(null);
+  // ── بحث فاتورة بالباركود (تسليم لصفحة الفواتير للمرتجع) ──
   const [searchingInvoice, setSearchingInvoice] = useState(false);
 
   useEffect(() => {
@@ -317,22 +318,21 @@ export default function StorePOS() {
   });
 
   // ── البحث عن فاتورة بـ ID (باركود الفاتورة الحرارية) ──
-  // بترجع true لو لقت فاتورة، وfalse لو مفيش (من غير رسائل — اللي بيناديها بيكمل)
+  // بترجع id الفاتورة لو لقاها، وnull لو مفيش (من غير رسائل — اللي بيناديها بيكمل)
   async function lookupInvoice(invoiceId) {
-    if (!invoiceId || !userCompanyId) return false;
+    if (!invoiceId || !userCompanyId) return null;
     setSearchingInvoice(true);
     try {
       const snap = await getDoc(doc(db, "invoices", invoiceId));
       if (snap.exists() && snap.data().companyId === userCompanyId) {
-        setFoundInvoice({ id: snap.id, ...snap.data() });
-        return true;
+        return snap.id;
       }
     } catch (e) {
       console.error(e);
     } finally {
       setSearchingInvoice(false);
     }
-    return false;
+    return null;
   }
 
   // باركود غير مسجل في أي حتة → بنعرض لوحة تسجيله على صنف بدل ما المسح يموت في صمت
@@ -383,10 +383,13 @@ export default function StorePOS() {
       setUnknownBarcode(null);
       return;
     }
-    // 2) ID فاتورة (باركود الريسيت المطبوع) → مودال تفاصيل الفاتورة
-    if (await lookupInvoice(raw)) {
+    // 2) ID فاتورة (باركود الريسيت المطبوع) → تسليم لصفحة الفواتير تفتح المرتجع مباشرة
+    const foundInvoiceId = await lookupInvoice(raw);
+    if (foundInvoiceId) {
       setSearchTerm("");
       setUnknownBarcode(null);
+      try { sessionStorage.setItem("aamalypro-return-invoice", foundInvoiceId); } catch { /* ignore */ }
+      navigate("/invoices");
       return;
     }
     // 3) كود صنف → لو صنف واحد ضيفه، لو كذا صنف ضيّق القايمة عشان يختار المقاس/اللون
@@ -1336,93 +1339,6 @@ export default function StorePOS() {
             </div>
           </div>
         )}
-
-    {/* ── مودال الفاتورة المبحوث عنها (مرتجع / استبدال) ── */}
-    {foundInvoice && (
-      <div
-        onClick={() => setFoundInvoice(null)}
-        style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-          zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
-          padding: 16,
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: "white", borderRadius: 16, padding: 24,
-            width: "100%", maxWidth: 520, maxHeight: "85vh", overflowY: "auto",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-          }}
-        >
-          {/* header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ fontWeight: 900, color: NAVY, fontSize: 18 }}>
-              <i className="fas fa-file-invoice" style={{ marginLeft: 8 }}></i>
-              تفاصيل الفاتورة
-            </h3>
-            <button onClick={() => setFoundInvoice(null)}
-              style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#64748b" }}>×</button>
-          </div>
-
-          {/* بيانات الفاتورة */}
-          <div style={{ background: "#f8fafc", borderRadius: 10, padding: 14, marginBottom: 14, fontSize: 13, lineHeight: 2 }}>
-            <div><strong>رقم الفاتورة:</strong> <span style={{ fontFamily: "monospace", fontSize: 12 }}>{foundInvoice.id}</span></div>
-            <div><strong>التاريخ:</strong> {foundInvoice.createdAt ? new Date(foundInvoice.createdAt).toLocaleString("ar-EG") : "—"}</div>
-            <div><strong>العميل:</strong> {foundInvoice.clientName || "زبون نقدي"}</div>
-            <div><strong>طريقة الدفع:</strong> {getPaymentLabel(foundInvoice.paymentMethod)}</div>
-            <div><strong>الحالة:</strong> {foundInvoice.status === "paid" ? "✅ مدفوعة" : "⏳ معلقة"}</div>
-          </div>
-
-          {/* أصناف الفاتورة */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 14 }}>
-            <thead>
-              <tr style={{ background: NAVY, color: "white" }}>
-                <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: 900 }}>الصنف</th>
-                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>الكمية</th>
-                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>السعر</th>
-                <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900 }}>الإجمالي</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(foundInvoice.products || []).map((item, i) => {
-                const variant = [item.size, item.color].filter(Boolean).join(" / ");
-                const line = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1);
-                return (
-                  <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "8px 10px", fontWeight: 700 }}>
-                      {item.productName || item.name || "—"}
-                      {variant ? <div style={{ fontSize: 11, color: "#64748b" }}>{variant}</div> : null}
-                    </td>
-                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700 }}>{item.quantity}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700 }}>{parseFloat(item.price || 0).toFixed(2)}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 900, color: NAVY }}>{line.toFixed(2)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* الإجمالي */}
-          <div style={{ background: NAVY, color: "white", borderRadius: 10, padding: "12px 16px", textAlign: "center", fontSize: 16, fontWeight: 900 }}>
-            الإجمالي: {parseFloat(foundInvoice.total || foundInvoice.amount || 0).toFixed(2)} ج.م
-          </div>
-
-          {/* تعليمات */}
-          <div style={{ marginTop: 14, padding: "10px 14px", background: "#fef3c7", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#92400e" }}>
-            <i className="fas fa-info-circle" style={{ marginLeft: 6 }}></i>
-            لإتمام المرتجع أو الاستبدال، اذهب لصفحة الفواتير وافتح هذه الفاتورة.
-          </div>
-
-          <button
-            onClick={() => setFoundInvoice(null)}
-            style={{ marginTop: 14, width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "#e2e8f0", fontFamily: "Cairo", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-          >
-            إغلاق
-          </button>
-        </div>
-      </div>
-    )}
 
     {/* مؤشر البحث */}
     {searchingInvoice && (

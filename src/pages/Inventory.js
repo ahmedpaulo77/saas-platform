@@ -208,40 +208,51 @@ export default function Inventory() {
     return v || fb || "0";
   }
 
-  async function fillMissingBarcodes() {
+  // معاينة جافة (dry-run): نحسب المقترحات ونعرضها أولاً — الكتابة بزرار التأكيد فقط
+  const [barcodePreview, setBarcodePreview] = useState(null);
+
+  function buildBarcodeProposals() {
     const targets = products.filter((p) => !(p.barcode || "").trim());
-    if (targets.length === 0) return;
-    if (!window.confirm(`توليد باركود لـ ${targets.length} صنف ناقص؟`)) return;
+    const colorMap = {}, sizeMap = {};
+    customColors.forEach((c) => { if (c.code) colorMap[String(c.value).toLowerCase()] = c.code; });
+    customSizes.forEach((s) => { if (s.code) sizeMap[String(s.value).toLowerCase()] = s.code; });
+    // الموجود أصلاً + اللي اتولد في نفس الدفعة — مفيش قيمتين متكررتين أبداً
+    const used = new Set(products.map((p) => (p.barcode || "").trim()).filter(Boolean));
+    return targets.map((p) => {
+      const size = (p.size || "").trim(), color = (p.color || "").trim();
+      const colorCode = size || color ? asciiSafeGen(colorMap[color.toLowerCase()] ?? color, "") : "";
+      const sizeCode = size || color ? asciiSafeGen(sizeMap[size.toLowerCase()] ?? size, "") : "";
+      const prodCode = (p.code || "").trim();
+      const base = prodCode ? asciiSafeGen(prodCode, "0000") : asciiSafeGen(String(p.id).slice(0, 4), "0000");
+      let code = (size || color)
+        ? `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-")
+        : base;
+      code = asciiSafeGen(code, String(p.id).slice(0, 4));
+      if (used.has(code)) {
+        let n = 2;
+        while (used.has(`${code}-${n}`)) n++;
+        code = `${code}-${n}`;
+      }
+      used.add(code);
+      return { id: p.id, name: p.name || "—", size, color, code };
+    });
+  }
+
+  function previewMissingBarcodes() {
+    setBarcodePreview(buildBarcodeProposals());
+  }
+
+  async function confirmFillBarcodes() {
+    if (!barcodePreview || barcodePreview.length === 0) return;
     setFillingBarcodes(true);
     try {
-      const colorMap = {}, sizeMap = {};
-      customColors.forEach((c) => { if (c.code) colorMap[String(c.value).toLowerCase()] = c.code; });
-      customSizes.forEach((s) => { if (s.code) sizeMap[String(s.value).toLowerCase()] = s.code; });
-      const used = new Set(products.map((p) => (p.barcode || "").trim()).filter(Boolean));
-      const jobs = [];
-      for (const p of targets) {
-        const size = (p.size || "").trim(), color = (p.color || "").trim();
-        const colorCode = size || color ? asciiSafeGen(colorMap[color.toLowerCase()] ?? color, "") : "";
-        const sizeCode = size || color ? asciiSafeGen(sizeMap[size.toLowerCase()] ?? size, "") : "";
-        const prodCode = (p.code || "").trim();
-        const base = prodCode ? asciiSafeGen(prodCode, "0000") : asciiSafeGen(String(p.id).slice(0, 4), "0000");
-        let code = (size || color)
-          ? `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-")
-          : base;
-        code = asciiSafeGen(code, String(p.id).slice(0, 4));
-        if (used.has(code)) {
-          let n = 2;
-          while (used.has(`${code}-${n}`)) n++;
-          code = `${code}-${n}`;
-        }
-        used.add(code);
-        jobs.push({ ref: doc(db, "inventory", p.id), code });
-      }
+      const jobs = barcodePreview.map(({ id, code }) => ({ ref: doc(db, "inventory", id), code }));
       for (let i = 0; i < jobs.length; i += 450) {
         const batch = writeBatch(db);
         jobs.slice(i, i + 450).forEach(({ ref, code }) => batch.update(ref, { barcode: code }));
         await batch.commit();
       }
+      setBarcodePreview(null);
       await fetchProducts();
       alert(`تم توليد باركود لـ ${jobs.length} صنف ✅ — اطبع الملصقات والزقها على القطع`);
     } catch (err) {
@@ -651,22 +662,66 @@ export default function Inventory() {
     }
     setImporting(false);
   }
+  // طباعة ملصقات باركود حقيقي Code128 (كان نص بين نجمتين ** لا يقرأه السكانر)
+  // عرض فقط — لا فلوس ولا مخزون. نفس نمط الرسم المستخدم في المشتريات
   function handlePrintLabels() {
-    const withCode = filteredProducts.filter((p) => p.barcode);
+    const withCode = filteredProducts.filter((p) => (p.barcode || "").trim());
     if (withCode.length === 0) { alert("مفيش أصناف ليها باركود في العرض الحالي"); return; }
-    const labels = withCode.map((p) => `
-      <div style="border:1px dashed #999;border-radius:6px;padding:8px;text-align:center;width:180px;">
-        <div style="font-weight:bold;font-size:12px;">${p.name}</div>
-        <div style="font-family:monospace;font-size:14px;letter-spacing:2px;margin:6px 0;">*${p.barcode}*</div>
-        <div style="font-size:11px;">${p.barcode}</div>
-        <div style="font-weight:bold;font-size:13px;margin-top:4px;">${p.price} ج.م</div>
+    const escHtml = (s) =>
+      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const escAttr = (s) => escHtml(s).replace(/"/g, "&quot;");
+    const labels = withCode.map((p, idx) => `
+      <div class="label">
+        <div class="l-name">${escHtml(p.name || "")}</div>
+        ${p.size || p.color ? `<div class="l-variant">${escHtml([p.size, p.color].filter(Boolean).join(" / "))}</div>` : ""}
+        <svg class="bc" data-idx="${idx}" data-value="${escAttr((p.barcode || "").trim())}"></svg>
+        <div class="l-price">${escHtml(p.price ?? "")} ج.م</div>
       </div>`).join("");
     const win = window.open("", "_blank", "width=800,height=600");
     if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }
-    win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>body{font-family:Cairo,Arial;display:flex;flex-wrap:wrap;gap:10px;padding:16px;}@media print{body{padding:0;}}</style></head><body>${labels}</body></html>`);
+    win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Cairo, Arial, sans-serif; display: flex; flex-wrap: wrap; gap: 10px; padding: 16px; background: #fff; }
+  .label { border: 1px dashed #999; border-radius: 6px; padding: 8px; text-align: center; width: 180px; }
+  .l-name { font-weight: bold; font-size: 12px; }
+  .l-variant { font-size: 11px; color: #475569; margin-top: 2px; }
+  svg.bc { width: 150px; height: 44px; display: block; margin: 6px auto 0; }
+  .l-price { font-weight: bold; font-size: 13px; margin-top: 4px; }
+  @media print { body { padding: 0; } }
+</style></head><body>${labels}
+<script>
+  function renderAll() {
+    try {
+      document.querySelectorAll('svg.bc').forEach(function(svg) {
+        var val = svg.getAttribute('data-value') || '';
+        try {
+          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 12, height: 34, width: 1.8, margin: 0 });
+        } catch (e) {
+          var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.setAttribute('x', '50%'); t.setAttribute('y', '50%');
+          t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '10');
+          t.textContent = val;
+          svg.appendChild(t);
+        }
+      });
+    } catch (e) { console.error(e); }
+  }
+  function waitJsBarcode(tries, done) {
+    if (typeof JsBarcode !== 'undefined') return done();
+    if (tries <= 0) return done();
+    setTimeout(function() { waitJsBarcode(tries - 1, done); }, 200);
+  }
+  window.onload = function() {
+    waitJsBarcode(15, function() {
+      renderAll();
+      setTimeout(function() { window.focus(); window.print(); window.close(); }, 400);
+    });
+  };
+<\/script></body></html>`);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 300);
   }
 
   const userCanDelete = canDelete(userRole);
@@ -1018,19 +1073,66 @@ export default function Inventory() {
                   {generating ? t("common.saving") : t("inv.generateVariants")}
                 </button>
               </div>
-              {/* تعبئة الباركود الناقص للأصناف القديمة — نفس معادلة الملصقات */}
-              {missingBarcodeCount > 0 && (
+              {/* تعبئة الباركود الناقص — معاينة أولاً ثم تأكيد الكتابة (ملابس فقط) */}
+              {missingBarcodeCount > 0 && !barcodePreview && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                   <button
                     type="button"
                     className="btn-secondary"
-                    disabled={fillingBarcodes}
-                    onClick={fillMissingBarcodes}
+                    onClick={previewMissingBarcodes}
                     style={{ flex: 1 }}
                   >
                     <i className="fas fa-barcode" aria-hidden="true"></i>{" "}
-                    {fillingBarcodes ? "جاري التوليد..." : `🎫 توليد باركود للأصناف الناقصة (${missingBarcodeCount})`}
+                    {`🎫 مراجعة باركود الأصناف الناقصة (${missingBarcodeCount})`}
                   </button>
+                </div>
+              )}
+              {barcodePreview && (
+                <div style={{ marginTop: 8, border: "2px solid #1e3a8a", borderRadius: 10, padding: 10, background: "#f8fafc" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1e3a8a", marginBottom: 6 }}>
+                    👀 معاينة ({barcodePreview.length} صنف) — مفيش حاجة اتكتبت لسه
+                  </div>
+                  <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 8 }}>
+                    <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#e2e8f0" }}>
+                          <th style={{ padding: "6px 8px", textAlign: "right" }}>الصنف</th>
+                          <th style={{ padding: "6px 8px", textAlign: "center" }}>مقاس/لون</th>
+                          <th style={{ padding: "6px 8px", textAlign: "left", fontFamily: "monospace", direction: "ltr" }}>الباركود المقترح</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {barcodePreview.map((row) => (
+                          <tr key={row.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <td style={{ padding: "6px 8px", fontWeight: 700 }}>{row.name}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "center" }}>{[row.size, row.color].filter(Boolean).join(" / ") || "—"}</td>
+                            <td style={{ padding: "6px 8px", textAlign: "left", fontFamily: "monospace", direction: "ltr", fontWeight: 700, color: "#1e3a8a" }}>{row.code}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={fillingBarcodes}
+                      onClick={confirmFillBarcodes}
+                      style={{ flex: 1 }}
+                    >
+                      <i className="fas fa-check" aria-hidden="true"></i>{" "}
+                      {fillingBarcodes ? "جاري الكتابة..." : "تأكيد الكتابة"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={fillingBarcodes}
+                      onClick={() => setBarcodePreview(null)}
+                      style={{ flex: 1 }}
+                    >
+                      إلغاء
+                    </button>
+                  </div>
                 </div>
               )}
             </form>
@@ -1173,7 +1275,7 @@ export default function Inventory() {
             <h3>{isRealEstate ? "قائمة العقارات" : isRestaurant ? (isCafe ? "أصناف منيو الكافيه" : "أصناف منيو المطعم") : t("inv.list")}</h3>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span>{filteredProducts.length} {isRealEstate ? "عقار" : isRestaurant ? "صنف" : t("inv.products")}</span>
-              {isMarket && (
+              {(isMarket || isClothing) && (
                 <button type="button" onClick={handlePrintLabels} className="btn-secondary btn-sm">
                   <i className="fas fa-print"></i> طباعة ملصقات
                 </button>
