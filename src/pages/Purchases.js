@@ -752,8 +752,8 @@ export default function Purchases() {
         barcodePersist.push(updateDoc(doc(db, "inventory", it.productId), { barcode: barcodeValue }).catch((e) => console.warn("barcode persist:", e?.message)));
       }
 
-      const priceNum = parseFloat(it.unitCost) || parseFloat(prod.price) || 0;
-      const priceLine = `${moneyShort(priceNum, locale)} EGP`;
+      const priceNum = parseFloat(prod.price) || parseFloat(it.unitCost) || 0;
+      const priceLine = `${moneyShort(priceNum, 'en-US')} EGP`;
 
       const rawQty = Math.floor(parseFloat(it.quantity) || 1);
       const qty = Math.max(1, rawQty);
@@ -802,15 +802,15 @@ export default function Purchases() {
   .label {
     width: 38mm; height: 25mm;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; overflow: hidden; padding: 1mm 1.5mm;
+    text-align: center; overflow: hidden; padding: 1mm 1mm;
     page-break-after: always; break-after: page;
   }
   .label:last-child { page-break-after: auto; break-after: auto; }
-  .l-brand { font-size: 8px; font-weight: 700; line-height: 1.15; }
-  .l-model { font-size: 8px; font-weight: 700; line-height: 1.15; }
-  .l-variant { font-size: 7px; line-height: 1.2; }
-  svg.bc { width: 34mm; height: 9mm; display: block; }
-  .l-price { font-size: 8px; font-weight: 800; line-height: 1.2; }
+  .l-brand  { font-size: 10px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
+  .l-model  { font-size: 10px; font-weight: 900; line-height: 1.2; letter-spacing: 0.3px; }
+  .l-variant{ font-size: 9px;  font-weight: 700; line-height: 1.2; }
+  svg.bc { width: 35mm; height: 10mm; display: block; }
+  .l-price  { font-size: 11px; font-weight: 900; line-height: 1.2; font-family: Arial, Helvetica, sans-serif; direction: ltr; letter-spacing: 0.5px; }
   @page { size: 38mm 25mm; margin: 0; }
   @media print {
     .label { page-break-after: always; break-after: page; }
@@ -826,7 +826,7 @@ ${labelDivs}
       document.querySelectorAll('svg.bc').forEach(function(svg) {
         var val = svg.getAttribute('data-value') || '';
         try {
-          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 10, height: 28, width: 1.2, margin: 0 });
+          JsBarcode(svg, val, { format: 'CODE128', displayValue: true, fontSize: 12, height: 30, width: 1.6, margin: 0 });
         } catch (e) {
           var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           t.setAttribute('x', '50%'); t.setAttribute('y', '50%');
