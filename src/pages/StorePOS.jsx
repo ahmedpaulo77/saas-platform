@@ -292,13 +292,24 @@ export default function StorePOS() {
   ).sort();
   const typeOptions = [...new Set(products.map((p) => (p.type || "").trim()).filter(Boolean))];
 
+  // السكانر بيكتب كأنه كيبورد — ولو لغة الجهاز عربي الأرقام بتطلع عربية (٠١٢٣)
+  // فبنوحّد الأرقام قبل المقارنة عشان المسح يلقط دايماً
+  function normalizeScan(v) {
+    return String(v ?? "")
+      .toLowerCase()
+      .replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+      .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+      .trim();
+  }
+
   const filteredProducts = products.filter((p) => {
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeScan(searchTerm);
     const matchSearch =
       !term ||
-      (p.name || "").toLowerCase().includes(term) ||
-      (p.barcode || "").toLowerCase().includes(term) ||
-      (p.model || "").toLowerCase().includes(term);
+      normalizeScan(p.name).includes(term) ||
+      normalizeScan(p.barcode).includes(term) ||
+      normalizeScan(p.code).includes(term) ||
+      normalizeScan(p.model).includes(term);
     const matchType = filterType === "all" || (p.type || "") === filterType;
     const matchSize = filterSize === "all" || (p.size || "") === filterSize;
     const matchColor = filterColor === "all" || (p.color || "") === filterColor;
@@ -306,40 +317,96 @@ export default function StorePOS() {
   });
 
   // ── البحث عن فاتورة بـ ID (باركود الفاتورة الحرارية) ──
+  // بترجع true لو لقت فاتورة، وfalse لو مفيش (من غير رسائل — اللي بيناديها بيكمل)
   async function lookupInvoice(invoiceId) {
-    if (!invoiceId || !userCompanyId) return;
+    if (!invoiceId || !userCompanyId) return false;
     setSearchingInvoice(true);
     try {
       const snap = await getDoc(doc(db, "invoices", invoiceId));
       if (snap.exists() && snap.data().companyId === userCompanyId) {
         setFoundInvoice({ id: snap.id, ...snap.data() });
-      } else {
-        alert("❌ الفاتورة مش موجودة أو مش تابعة لشركتك");
+        return true;
       }
     } catch (e) {
       console.error(e);
-      alert("حصل خطأ أثناء البحث عن الفاتورة");
+    } finally {
+      setSearchingInvoice(false);
     }
-    setSearchingInvoice(false);
+    return false;
   }
 
-  // السكانر: Enter على باركود مطابق تماماً يضيف للسلة فوراً
-  // لو مش موجود في المخزون → يدور على فاتورة بنفس الـ ID
-  function handleSearchKeyDown(e) {
+  // باركود غير مسجل في أي حتة → بنعرض لوحة تسجيله على صنف بدل ما المسح يموت في صمت
+  const [unknownBarcode, setUnknownBarcode] = useState(null);
+  const [assignSearch, setAssignSearch] = useState("");
+
+  // حفظ باركود ممسوح على صنف موجود + إضافته للسلة فوراً
+  async function assignBarcodeToProduct(product) {
+    if (!product || !unknownBarcode) return;
+    try {
+      await updateDoc(doc(db, "inventory", product.id), { barcode: unknownBarcode });
+      const updated = { ...product, barcode: unknownBarcode };
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+      setUnknownBarcode(null);
+      setAssignSearch("");
+      setSearchTerm("");
+      addToCart(updated);
+    } catch (e) {
+      console.error(e);
+      alert(t("common.errorGeneric"));
+    }
+  }
+
+  const assignCandidates = (products || [])
+    .filter((p) => {
+      const q = assignSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (p.name || "").toLowerCase().includes(q) ||
+        (p.model || "").toLowerCase().includes(q) ||
+        (p.size || "").toLowerCase().includes(q) ||
+        (p.color || "").toLowerCase().includes(q);
+    })
+    .slice(0, 6);
+
+  // السكانر: أي باركود لازم يعمل حاجة —
+  // منتج → سلة | فاتورة → تفاصيلها | كود صنف → تضييق القايمة للاختيار | مجهول → لوحة تسجيل
+  async function handleSearchKeyDown(e) {
     if (e.key !== "Enter") return;
-    const term = searchTerm.trim().toLowerCase();
+    const term = normalizeScan(searchTerm);
     if (!term) return;
-    const exact = products.find((p) => (p.barcode || "").toLowerCase() === term);
+    e.preventDefault();
+    const raw = searchTerm.trim();
+    // 1) باركود منتج مطابق تماماً → السلة فوراً
+    const exact = products.find((p) => normalizeScan(p.barcode) === term);
     if (exact) {
-      e.preventDefault();
       addToCart(exact);
       setSearchTerm("");
-    } else {
-      // مش منتج → جرّب كـ ID فاتورة
-      e.preventDefault();
-      lookupInvoice(searchTerm.trim());
-      setSearchTerm("");
+      setUnknownBarcode(null);
+      return;
     }
+    // 2) ID فاتورة (باركود الريسيت المطبوع) → مودال تفاصيل الفاتورة
+    if (await lookupInvoice(raw)) {
+      setSearchTerm("");
+      setUnknownBarcode(null);
+      return;
+    }
+    // 3) كود صنف → لو صنف واحد ضيفه، لو كذا صنف ضيّق القايمة عشان يختار المقاس/اللون
+    const codeHits = products.filter((p) => normalizeScan(p.code) && normalizeScan(p.code) === term);
+    if (codeHits.length === 1) {
+      addToCart(codeHits[0]);
+      setSearchTerm("");
+      setUnknownBarcode(null);
+      return;
+    }
+    if (codeHits.length > 1) {
+      setUnknownBarcode(null);
+      setSearchTerm(raw);
+      alert(`الكود ده على ${codeHits.length} أصناف — اختار المقاس واللون من القايمة`);
+      return;
+    }
+    // 4) مجهول تماماً → لوحة تسجيل الباركود على صنف (بدل الصمت)
+    setSearchTerm("");
+    setAssignSearch("");
+    setUnknownBarcode(raw);
   }
 
   // ── السلة ──
@@ -844,6 +911,37 @@ export default function StorePOS() {
                 ))}
               </select>
             </div>
+
+            {/* باركود مجهول: تسجيله على صنف عشان المسح الجاي يشتغل */}
+            {unknownBarcode && (
+              <div style={{ background: "#fffbeb", border: "2px solid #f59e0b", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#92400e", marginBottom: 4 }}>
+                  ⚠️ باركود غير مسجل: <span dir="ltr" style={{ fontFamily: "monospace" }}>{unknownBarcode}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#b45309", marginBottom: 8 }}>
+                  دوّر على الصنف وسجّل الباركود عليه — وهيتضاف للسلة فوراً، والمسح الجاي هيشتغل على طول
+                </div>
+                <input
+                  type="text"
+                  placeholder="دوّر باسم الصنف / الموديل / المقاس / اللون..."
+                  value={assignSearch}
+                  onChange={(e) => setAssignSearch(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 13, marginBottom: 8, fontFamily: "Cairo" }}
+                />
+                {assignCandidates.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "white", borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
+                    <span style={{ fontWeight: 700, flex: 1 }}>{p.name}{p.size || p.color ? ` (${[p.size, p.color].filter(Boolean).join(" / ")})` : ""}</span>
+                    <span style={{ color: "#16a34a", fontWeight: 800, fontSize: 12 }}>مخزون: {p.quantity ?? 0}</span>
+                    <button type="button" className="btn-primary btn-sm" onClick={() => assignBarcodeToProduct(p)}>
+                      تسجيل + بيع
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="btn-secondary btn-sm" onClick={() => { setUnknownBarcode(null); setAssignSearch(""); }}>
+                  إلغاء
+                </button>
+              </div>
+            )}
 
             {/* Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>

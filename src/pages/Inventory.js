@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db, storage } from "../firebase/config.js";
 
@@ -130,6 +131,7 @@ export default function Inventory() {
   const [genImageFile, setGenImageFile] = useState(null);
   const [genImagePreview, setGenImagePreview] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [fillingBarcodes, setFillingBarcodes] = useState(false);
 
   function handleGenImageChange(e) {
     const file = e.target.files?.[0];
@@ -195,6 +197,58 @@ export default function Inventory() {
       alert(t("inv.addFail"));
     }
     setGenerating(false);
+  }
+
+  // 🎫 توليد باركود للأصناف اللي باركودها فاضي — بنفس معادلة طباعة الملصقات
+  // (كود-لون-مقاس) عشان اللي يتطبع من المشتريات يطابق المحفوظ هنا
+  const missingBarcodeCount = products.filter((p) => !(p.barcode || "").trim()).length;
+
+  function asciiSafeGen(s, fb) {
+    const v = String(s ?? "").replace(/[^\x20-\x7E]/g, "").trim();
+    return v || fb || "0";
+  }
+
+  async function fillMissingBarcodes() {
+    const targets = products.filter((p) => !(p.barcode || "").trim());
+    if (targets.length === 0) return;
+    if (!window.confirm(`توليد باركود لـ ${targets.length} صنف ناقص؟`)) return;
+    setFillingBarcodes(true);
+    try {
+      const colorMap = {}, sizeMap = {};
+      customColors.forEach((c) => { if (c.code) colorMap[String(c.value).toLowerCase()] = c.code; });
+      customSizes.forEach((s) => { if (s.code) sizeMap[String(s.value).toLowerCase()] = s.code; });
+      const used = new Set(products.map((p) => (p.barcode || "").trim()).filter(Boolean));
+      const jobs = [];
+      for (const p of targets) {
+        const size = (p.size || "").trim(), color = (p.color || "").trim();
+        const colorCode = size || color ? asciiSafeGen(colorMap[color.toLowerCase()] ?? color, "") : "";
+        const sizeCode = size || color ? asciiSafeGen(sizeMap[size.toLowerCase()] ?? size, "") : "";
+        const prodCode = (p.code || "").trim();
+        const base = prodCode ? asciiSafeGen(prodCode, "0000") : asciiSafeGen(String(p.id).slice(0, 4), "0000");
+        let code = (size || color)
+          ? `${base}-${colorCode}-${sizeCode}`.replace(/-{2,}/g, "-")
+          : base;
+        code = asciiSafeGen(code, String(p.id).slice(0, 4));
+        if (used.has(code)) {
+          let n = 2;
+          while (used.has(`${code}-${n}`)) n++;
+          code = `${code}-${n}`;
+        }
+        used.add(code);
+        jobs.push({ ref: doc(db, "inventory", p.id), code });
+      }
+      for (let i = 0; i < jobs.length; i += 450) {
+        const batch = writeBatch(db);
+        jobs.slice(i, i + 450).forEach(({ ref, code }) => batch.update(ref, { barcode: code }));
+        await batch.commit();
+      }
+      await fetchProducts();
+      alert(`تم توليد باركود لـ ${jobs.length} صنف ✅ — اطبع الملصقات والزقها على القطع`);
+    } catch (err) {
+      console.error(err);
+      alert(t("inv.updFail"));
+    }
+    setFillingBarcodes(false);
   }
 
   const [loading, setLoading] = useState(true);
@@ -964,6 +1018,21 @@ export default function Inventory() {
                   {generating ? t("common.saving") : t("inv.generateVariants")}
                 </button>
               </div>
+              {/* تعبئة الباركود الناقص للأصناف القديمة — نفس معادلة الملصقات */}
+              {missingBarcodeCount > 0 && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={fillingBarcodes}
+                    onClick={fillMissingBarcodes}
+                    style={{ flex: 1 }}
+                  >
+                    <i className="fas fa-barcode" aria-hidden="true"></i>{" "}
+                    {fillingBarcodes ? "جاري التوليد..." : `🎫 توليد باركود للأصناف الناقصة (${missingBarcodeCount})`}
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         )}
@@ -1348,8 +1417,8 @@ export default function Inventory() {
                     )}
                   </div>
                 )}
-                {/* الباركود */}
-                {isMarket && (
+                {/* الباركود — ماركت/صيدلية + ملابس (للباركود المطبوع على القطع) */}
+                {(isMarket || isClothing) && (
                   <div style={styles.formGroup}>
                     <label>الباركود</label>
                     <input type="text" value={editingProduct.barcode || ""} style={{ ...styles.input, fontFamily: "monospace", direction: "ltr" }}
