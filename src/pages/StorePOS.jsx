@@ -577,7 +577,7 @@ export default function StorePOS() {
 
 <div style="font-size:13px;font-weight:700;line-height:2;">
   <span class="lbl">الكاشير:</span> ${escHtml(cashierName || "—")}<br/>
-  <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}${clientPhone ? `<br/><span class="lbl">التليفون:</span> ${escHtml(clientPhone)}` : ""}<br/>
+  <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}${clientPhone ? `<br/><span class="lbl">الرقم:</span> ${escHtml(clientPhone)}` : ""}<br/>
   ${paymentLines}
 </div>
 <div class="divider"></div>

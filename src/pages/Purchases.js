@@ -100,6 +100,8 @@ export default function Purchases() {
   async function submitPurchaseReturn(e) {
     e.preventDefault();
     if (!returningPurchase) return;
+    // المرتجع للأدمن فقط — حماية إضافية لو المودال اتفتح بأي طريق (واجهة بس)
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
     // Prevent double returns: sum prior returned qty per productId for this purchase
     let priorMap = {};
     try {
@@ -1524,19 +1526,22 @@ ${labelDivs}
                               >
                                 <i className="fas fa-edit"></i>
                               </button>
-                              <button
-                                onClick={() => {
-                                  setReturningPurchase(p);
-                                  setReturnQtys({});
-                                  setReturnReason("");
-                                  setShowReturnModal(true);
-                                }}
-                                className="btn-secondary btn-sm"
-                                title="مرتجع شراء"
-                                style={{ borderColor: "#f59e0b", color: "#d97706" }}
-                              >
-                                <i className="fas fa-undo"></i>
-                              </button>
+                              {/* المرتجع للأدمن فقط — نفس قاعدة مرتجع البيع (واجهة بس) */}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    setReturningPurchase(p);
+                                    setReturnQtys({});
+                                    setReturnReason("");
+                                    setShowReturnModal(true);
+                                  }}
+                                  className="btn-secondary btn-sm"
+                                  title="مرتجع شراء"
+                                  style={{ borderColor: "#f59e0b", color: "#d97706" }}
+                                >
+                                  <i className="fas fa-undo"></i>
+                                </button>
+                              )}
                               {userCanDelete && (
                                 <button
                                   onClick={() => deletePurchase(p)}
