@@ -15,6 +15,10 @@ export default function InvoiceModals({
   payingInvoice, showPayModal, setShowPayModal, payAmount, setPayAmount, onRecordPayment, paying,
   // return
   returningInvoice, showReturnModal, setShowReturnModal, returnQtys, setReturnQtys, returnReason, setReturnReason, onSubmitReturn, returning,
+  // exchange
+  exchangingInvoice, showExchangeModal, setShowExchangeModal, exchangeReturnQtys, setExchangeReturnQtys, exchangePriorMap,
+  exchangeReason, setExchangeReason, exchangeSearch, setExchangeSearch, exchangePicks, setExchangePicks,
+  exchangeSummary, onSubmitExchange, exchanging,
   clients, products,
 }) {
   const { t, locale } = useLanguage();
@@ -165,6 +169,27 @@ export default function InvoiceModals({
         </div>
       )}
 
+      {showExchangeModal && exchangingInvoice && (
+        <ExchangeModal
+          exchangingInvoice={exchangingInvoice}
+          setShowExchangeModal={setShowExchangeModal}
+          exchangeReturnQtys={exchangeReturnQtys}
+          setExchangeReturnQtys={setExchangeReturnQtys}
+          exchangePriorMap={exchangePriorMap}
+          exchangeReason={exchangeReason}
+          setExchangeReason={setExchangeReason}
+          exchangeSearch={exchangeSearch}
+          setExchangeSearch={setExchangeSearch}
+          exchangePicks={exchangePicks}
+          setExchangePicks={setExchangePicks}
+          exchangeSummary={exchangeSummary}
+          onSubmitExchange={onSubmitExchange}
+          exchanging={exchanging}
+          clients={clients}
+          products={products}
+        />
+      )}
+
       {showReturnModal && returningInvoice && (
         <div className="modal-overlay" onClick={() => setShowReturnModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -196,5 +221,136 @@ export default function InvoiceModals({
         </div>
       )}
     </>
+  );
+}
+
+// مودال الاستبدال: مرتجع من الفاتورة الأصلية + اختيار بديل + ملخص الفرق النقدي
+// العرض فقط — التنفيذ كله في onSubmitExchange (الأب)
+export function ExchangeModal({
+  exchangingInvoice, setShowExchangeModal,
+  exchangeReturnQtys, setExchangeReturnQtys, exchangePriorMap,
+  exchangeReason, setExchangeReason,
+  exchangeSearch, setExchangeSearch, exchangePicks, setExchangePicks,
+  exchangeSummary, onSubmitExchange, exchanging,
+  clients, products,
+}) {
+  const { t, locale } = useLanguage();
+  const sourceLines = exchangingInvoice?.products || exchangingInvoice?.items || [];
+
+  const q = (exchangeSearch || "").trim().toLowerCase();
+  const candidates = (products || [])
+    .filter((p) => {
+      if (!q) return true;
+      return (p.name || "").toLowerCase().includes(q) ||
+        (p.model || "").toLowerCase().includes(q) ||
+        (p.size || "").toLowerCase().includes(q) ||
+        (p.color || "").toLowerCase().includes(q) ||
+        (p.barcode || "").toLowerCase().includes(q);
+    })
+    .slice(0, 6);
+
+  const addPick = (productId) => {
+    setExchangePicks((prev) => {
+      const found = (prev || []).find((x) => x.productId === productId);
+      if (found) return prev.map((x) => (x.productId === productId ? { ...x, qty: (parseFloat(x.qty) || 0) + 1 } : x));
+      return [...(prev || []), { productId, qty: 1 }];
+    });
+  };
+  const setPickQty = (productId, qty) => {
+    setExchangePicks((prev) => (prev || []).map((x) => (x.productId === productId ? { ...x, qty } : x)).filter((x) => parseFloat(x.qty) > 0));
+  };
+  const removePick = (productId) => {
+    setExchangePicks((prev) => (prev || []).filter((x) => x.productId !== productId));
+  };
+
+  const { refundTotal = 0, newTotal = 0, diff = 0 } = exchangeSummary || {};
+  const diffLabel = diff > 0 ? t("ex.payExtra") : diff < 0 ? t("ex.refundDue") : t("ex.even");
+
+  return (
+    <div className="modal-overlay" onClick={() => setShowExchangeModal(false)}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+        <div className="modal-header">
+          <h3><i className="fas fa-right-left" style={{ color: "#1e3a8a" }}></i> {t("ex.title")}</h3>
+          <button className="modal-close" onClick={() => setShowExchangeModal(false)}>×</button>
+        </div>
+        <form onSubmit={onSubmitExchange}>
+          <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+            {/* 1) المرتجع من الفاتورة الأصلية */}
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1e3a8a", marginBottom: 6 }}>{t("ex.returnPart")}</div>
+            {sourceLines.map((p, idx) => {
+              const already = parseFloat(exchangePriorMap?.[p.productId]) || 0;
+              const remaining = Math.max(0, (parseFloat(p.quantity) || 0) - already);
+              return (
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                    {p.productName || p.name || "صنف"} <span style={{ color: "#94a3b8" }}>(مباع: {p.quantity}{already > 0 ? ` — مرتجع سابق: ${already}` : ""})</span>
+                  </span>
+                  <input type="number" min="0" max={remaining} step="0.001" placeholder="مرتجع" value={exchangeReturnQtys[idx] || ""} onChange={(e) => setExchangeReturnQtys({ ...exchangeReturnQtys, [idx]: e.target.value })} style={{ width: 90, padding: "6px 8px", border: "1px solid #cbd5e1", borderRadius: 8, textAlign: "center" }} />
+                </div>
+              );
+            })}
+            <div className="form-group" style={{ marginTop: 10 }}>
+              <label>{t("ex.reason")}</label>
+              <input type="text" placeholder={t("ex.reasonPh")} value={exchangeReason} onChange={(e) => setExchangeReason(e.target.value)} />
+            </div>
+
+            {/* 2) البديل */}
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1e3a8a", margin: "12px 0 6px" }}>{t("ex.newPart")}</div>
+            <input
+              type="text"
+              placeholder={t("ex.searchProduct")}
+              value={exchangeSearch}
+              onChange={(e) => setExchangeSearch(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+            />
+            {candidates.map((p) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f8fafc", borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
+                <span style={{ fontWeight: 700, flex: 1 }}>
+                  {p.name}{p.size || p.color ? ` (${[p.size, p.color].filter(Boolean).join(" / ")})` : ""}
+                </span>
+                <span style={{ color: "#64748b", fontSize: 12 }}>{moneyShort(p.price || 0, locale)} {t("currency")} • مخزون: {p.quantity ?? 0}</span>
+                <button type="button" className="btn-primary btn-sm" onClick={() => addPick(p.id)}>{t("ex.addItem")}</button>
+              </div>
+            ))}
+            {(exchangePicks || []).map((pick) => {
+              const prod = (products || []).find((x) => x.id === pick.productId);
+              return (
+                <div key={pick.productId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
+                  <span style={{ fontWeight: 700, flex: 1 }}>{prod?.name || pick.productId}</span>
+                  <button type="button" onClick={() => setPickQty(pick.productId, (parseFloat(pick.qty) || 0) - 1)} style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #cbd5e1", background: "white", cursor: "pointer", fontWeight: 800 }}>−</button>
+                  <span style={{ minWidth: 24, textAlign: "center", fontWeight: 800 }}>{pick.qty}</span>
+                  <button type="button" onClick={() => setPickQty(pick.productId, (parseFloat(pick.qty) || 0) + 1)} style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #cbd5e1", background: "white", cursor: "pointer", fontWeight: 800 }}>+</button>
+                  <button type="button" onClick={() => removePick(pick.productId)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer" }}>✕</button>
+                </div>
+              );
+            })}
+
+            {/* 3) ملخص الفرق النقدي */}
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px", marginTop: 12, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: "#64748b" }}>{t("ex.refundValue")}</span>
+                <span style={{ fontWeight: 800, color: "#dc2626" }}>{moneyShort(refundTotal, locale)} {t("currency")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: "#64748b" }}>{t("ex.newValue")}</span>
+                <span style={{ fontWeight: 800, color: "#059669" }}>{moneyShort(newTotal, locale)} {t("currency")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #e2e8f0", paddingTop: 6 }}>
+                <span style={{ fontWeight: 800 }}>{t("ex.difference")} — {diffLabel}</span>
+                <span style={{ fontWeight: 900, color: diff > 0 ? "#059669" : diff < 0 ? "#dc2626" : "#64748b" }}>
+                  {diff > 0 ? "+" : ""}{moneyShort(diff, locale)} {t("currency")}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn-secondary" onClick={() => setShowExchangeModal(false)}>{t("common.cancel")}</button>
+            <button type="submit" className="btn-primary" disabled={exchanging}>
+              <i className="fas fa-right-left"></i> {exchanging ? t("common.saving") : t("ex.confirm")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

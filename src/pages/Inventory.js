@@ -1083,6 +1083,8 @@ export default function Inventory() {
                     className="btn-secondary"
                     onClick={previewMissingBarcodes}
                     style={{ flex: 1 }}
+                    title="مراجعة باركود الأصناف الناقصة"
+                    aria-label="مراجعة باركود الأصناف الناقصة"
                   >
                     <i className="fas fa-barcode" aria-hidden="true"></i>{" "}
                     {`🎫 مراجعة باركود الأصناف الناقصة (${missingBarcodeCount})`}
@@ -1098,7 +1100,7 @@ export default function Inventory() {
                     <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
                       <thead>
                         <tr style={{ background: "#e2e8f0" }}>
-                          <th style={{ padding: "6px 8px", textAlign: "right" }}>الصنف</th>
+                          <th style={{ padding: "6px 8px", textAlign: "start" }}>الصنف</th>
                           <th style={{ padding: "6px 8px", textAlign: "center" }}>مقاس/لون</th>
                           <th style={{ padding: "6px 8px", textAlign: "left", fontFamily: "monospace", direction: "ltr" }}>الباركود المقترح</th>
                         </tr>
@@ -1121,6 +1123,8 @@ export default function Inventory() {
                       disabled={fillingBarcodes}
                       onClick={confirmFillBarcodes}
                       style={{ flex: 1 }}
+                      title="تأكيد كتابة الباركود"
+                      aria-label="تأكيد كتابة الباركود"
                     >
                       <i className="fas fa-check" aria-hidden="true"></i>{" "}
                       {fillingBarcodes ? "جاري الكتابة..." : "تأكيد الكتابة"}

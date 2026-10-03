@@ -32,6 +32,7 @@ export default function InvoiceTable({
   onEdit,
   onPay,
   onReturn,
+  onExchange = null,
   onDelete,
   onThermalPrint,
   onExportPDF,
@@ -194,6 +195,7 @@ export default function InvoiceTable({
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}
                             <button onClick={() => onEdit(inv)} className="btn-secondary btn-sm" title={t("common.edit")}><i className="fas fa-edit"></i></button>
                             {onReturn && <button onClick={() => onReturn(inv)} className="btn-secondary btn-sm" title="مرتجع" style={{ borderColor: "#f59e0b", color: "#d97706" }}><i className="fas fa-undo"></i></button>}
+                            {onExchange && <button onClick={() => onExchange(inv)} className="btn-secondary btn-sm" title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}><i className="fas fa-right-left"></i></button>}
                             {userCanDelete && <button onClick={() => onDelete(inv.id, inv)} className="btn-danger btn-sm" title={t("common.delete")}><i className="fas fa-trash"></i></button>}
                           </div>
                         </td>

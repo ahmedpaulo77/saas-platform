@@ -16,6 +16,7 @@ import { useInvoices } from "../hooks/useInvoices.js";
 import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
 import InvoiceTable from "../components/invoices/InvoiceTable.jsx";
 import InvoiceModals from "../components/invoices/InvoiceModals.jsx";
+import { EXCHANGE_WINDOW_DAYS, isWithinExchangeWindow, discountRatioOf, buildExchangeReturnLines, buildExchangeSaleLines, computeExchangeSummary } from "../utils/exchange.js";
 import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers.js";
 import { moneyShort } from "../utils/fmt.js";
 
@@ -208,6 +209,170 @@ export default function Invoices() {
   const [returnQtys, setReturnQtys] = useState({});
   const [returnReason, setReturnReason] = useState("");
   const [returning, setReturning] = useState(false);
+
+  // ── الاستبدال: مرتجع + بيعة مربوطين (للأدمن فقط) ──
+  const [exchangingInvoice, setExchangingInvoice] = useState(null);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [exchangeReturnQtys, setExchangeReturnQtys] = useState({});
+  const [exchangePriorMap, setExchangePriorMap] = useState({});
+  const [exchangeReason, setExchangeReason] = useState("");
+  const [exchangeSearch, setExchangeSearch] = useState("");
+  const [exchangePicks, setExchangePicks] = useState([]);
+  const [exchanging, setExchanging] = useState(false);
+
+  function resetExchangeStates() {
+    setExchangingInvoice(null); setShowExchangeModal(false);
+    setExchangeReturnQtys({}); setExchangePriorMap({});
+    setExchangeReason(""); setExchangeSearch(""); setExchangePicks([]);
+  }
+
+  async function openExchange(inv) {
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
+    if (!inv) return;
+    // سياسة المدة: تُفحص عند الفتح وعند التأكيد
+    if (!isWithinExchangeWindow(inv.date || inv.createdAt)) {
+      alert(t("ex.windowReject", { days: EXCHANGE_WINDOW_DAYS }));
+      return;
+    }
+    // المرتجع سابقًا لنفس الفاتورة — عشان الملخص والحد الأقصى لحظيًا
+    let priorMap = {};
+    try {
+      const rq = query(collection(db, "returns"), where("refId", "==", inv.id), where("companyId", "==", userCompanyId));
+      const priorSnap = await getDocs(rq);
+      priorSnap.docs.forEach((d) => {
+        const rd = d.data();
+        (rd.items || rd.lines || []).forEach((l) => {
+          if (!l.productId) return;
+          priorMap[l.productId] = (priorMap[l.productId] || 0) + (parseFloat(l.quantity) || 0);
+        });
+      });
+    } catch (err) { console.warn("exchange prior fetch:", err?.message); }
+    resetExchangeStates();
+    setExchangingInvoice(inv);
+    setExchangePriorMap(priorMap);
+    setShowExchangeModal(true);
+  }
+
+  const exchangeSummary = useMemo(() => {
+    if (!exchangingInvoice) return { refundTotal: 0, newTotal: 0, diff: 0 };
+    const src = exchangingInvoice.products || exchangingInvoice.items || [];
+    const rl = buildExchangeReturnLines(src, exchangeReturnQtys, exchangePriorMap, discountRatioOf(exchangingInvoice));
+    const sl = buildExchangeSaleLines(exchangePicks, products);
+    return computeExchangeSummary(rl, sl);
+  }, [exchangingInvoice, exchangeReturnQtys, exchangePriorMap, exchangePicks, products]);
+
+  async function submitExchange(e) {
+    e.preventDefault();
+    if (!exchangingInvoice) return;
+    // للأدمن فقط + أونلاين فقط (عملية مركبة: مرتجع ثم بيعة — الأوفلاين قد يجزّئها)
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
+    if (isOffline()) { alert(t("ex.offline")); return; }
+    if (!isWithinExchangeWindow(exchangingInvoice.date || exchangingInvoice.createdAt)) {
+      alert(t("ex.windowReject", { days: EXCHANGE_WINDOW_DAYS }));
+      return;
+    }
+    const inv = exchangingInvoice;
+    const src = inv.products || inv.items || [];
+    const returnLines = buildExchangeReturnLines(src, exchangeReturnQtys, exchangePriorMap, discountRatioOf(inv));
+    if (returnLines.length === 0) { alert(t("ex.needReturn")); return; }
+    const saleLines = buildExchangeSaleLines(exchangePicks, products);
+    if (saleLines.length === 0) { alert(t("ex.needNew")); return; }
+    setExchanging(true);
+    try {
+      // فحص مخزون البديل أولاً (قبل أي كتابة)
+      const needIds = [...new Set(saleLines.map((l) => l.productId))];
+      const needSnaps = await Promise.all(needIds.map((id) => getDoc(doc(db, "inventory", id))));
+      const needQty = {};
+      saleLines.forEach((l) => { needQty[l.productId] = (needQty[l.productId] || 0) + (parseFloat(l.quantity) || 0); });
+      for (let i = 0; i < needIds.length; i++) {
+        const snap = needSnaps[i];
+        const avail = snap.exists() ? (parseFloat(snap.data().quantity) || 0) : 0;
+        if (avail < (needQty[needIds[i]] || 0)) {
+          const nm = products.find((p) => p.id === needIds[i])?.name || needIds[i];
+          alert(t("ex.noStock", { name: nm, qty: avail }));
+          setExchanging(false);
+          return;
+        }
+      }
+      const clientName = clients.find((c) => c.id === inv.clientId)?.name || "";
+      const now = new Date().toISOString();
+      const summary = computeExchangeSummary(returnLines, saleLines);
+      // 1) المرتجع أولاً (يسجل خروج الفلوس ويرد المخزون) — got returnId للربط
+      const returnId = await createReturn({
+        kind: "sale", refId: inv.id, entityId: inv.clientId, entityName: clientName,
+        lines: returnLines, reason: `استبدال: ${exchangeReason || ""}`.trim() || "استبدال",
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader,
+      });
+      // 2) فاتورة البديل مربوطة (دخول الفلوس + خصم المخزون) — نفس شكل StorePOS
+      try {
+        const invoiceRef = doc(collection(db, "invoices"));
+        await runTransaction(db, async (tx) => {
+          for (const l of saleLines) {
+            const pref = doc(db, "inventory", l.productId);
+            const psnap = await tx.get(pref);
+            if (!psnap.exists()) throw new Error(`الصنف غير موجود`);
+            const cur = parseFloat(psnap.data().quantity) || 0;
+            if (cur < parseFloat(l.quantity)) {
+              const nm = products.find((p) => p.id === l.productId)?.name || l.productId;
+              throw new Error(t("ex.noStock", { name: nm, qty: cur }));
+            }
+          }
+          for (const l of saleLines) {
+            const pref = doc(db, "inventory", l.productId);
+            const psnap = await tx.get(pref);
+            const cur = parseFloat(psnap.data().quantity) || 0;
+            tx.update(pref, { quantity: round2(cur - parseFloat(l.quantity)) });
+          }
+          tx.set(invoiceRef, {
+            companyId: userCompanyId,
+            createdBy: currentUser?.uid || null,
+            createdByEmail: currentUser?.email || "",
+            clientId: inv.clientId || null,
+            products: saleLines,
+            subtotal: summary.newTotal,
+            discount: 0,
+            amount: summary.newTotal,
+            paidAmount: summary.newTotal,
+            status: "paid",
+            approval: "validated",
+            validatedBy: currentUser?.uid || null,
+            validatedAt: now,
+            paymentMethod: inv.paymentMethod || "cash",
+            date: now,
+            createdAt: now,
+            type: "exchange",
+            exchangeOf: inv.id,
+            exchangeReturnRef: returnId,
+          });
+        });
+        await logActivity({
+          actionType: "CREATE", collectionName: "invoices", itemId: invoiceRef.id,
+          details: `Exchange sale for ${inv.id} (return ${returnId}): ${saleLines.length} items, total ${summary.newTotal}`,
+          user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        });
+      } catch (saleErr) {
+        // المرتجع اتسجل والبيعة فشلت — حالة حرجة موثقة للإكمال اليدوي (لا صمت)
+        console.error("exchange sale failed after return:", saleErr);
+        await resetPagination(); await fetchProducts(); await fetchReturnsMap();
+        resetExchangeStates();
+        alert(`${t("ex.criticalFail")} (مرتجع: ${returnId})`);
+        setExchanging(false);
+        return;
+      }
+      await logActivity({
+        actionType: "CREATE", collectionName: "returns", itemId: returnId,
+        details: `Exchange return for ${inv.id}: refund ${summary.refundTotal}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      resetExchangeStates();
+      await Promise.all([resetPagination(), fetchProducts(), fetchReturnsMap()]);
+      alert(`${t("ex.success")} — ${summary.diff > 0 ? t("ex.payExtra") : summary.diff < 0 ? t("ex.refundDue") : t("ex.even")}: ${summary.diff}`);
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || t("common.errorGeneric"));
+    }
+    setExchanging(false);
+  }
 
   // نسبة ضريبة الشركة (من شركتي) — 0 تعني بدون ضريبة
   const [taxRate, setTaxRate] = useState(0);
@@ -751,6 +916,11 @@ export default function Invoices() {
             <button type="button" className="btn-primary btn-sm" onClick={() => openPieceMatch(inv)} style={{ marginInlineStart: "auto" }}>
               {t("in.openPieceReturn")}
             </button>
+            {isAdmin && (
+              <button type="button" className="btn-secondary btn-sm" onClick={() => openExchange(inv)} title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}>
+                <i className="fas fa-right-left"></i> {t("ex.exchangeBtn")}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -769,6 +939,7 @@ export default function Invoices() {
           onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
           onReturn={isAdmin ? (inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); } : null}
+          onExchange={isAdmin ? (inv) => openExchange(inv) : null}
           onDelete={deleteInvoice}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}
@@ -779,6 +950,7 @@ export default function Invoices() {
           editingInvoice={editingInvoice} setEditingInvoice={setEditingInvoice} showEditModal={showEditModal} setShowEditModal={setShowEditModal} onUpdateInvoice={updateInvoice}
           payingInvoice={payingInvoice} showPayModal={showPayModal} setShowPayModal={setShowPayModal} payAmount={payAmount} setPayAmount={setPayAmount} onRecordPayment={recordPayment} paying={paying}
           returningInvoice={returningInvoice} showReturnModal={showReturnModal} setShowReturnModal={setShowReturnModal} returnQtys={returnQtys} setReturnQtys={setReturnQtys} returnReason={returnReason} setReturnReason={setReturnReason} onSubmitReturn={submitSaleReturn} returning={returning}
+          exchangingInvoice={exchangingInvoice} showExchangeModal={showExchangeModal} setShowExchangeModal={setShowExchangeModal} exchangeReturnQtys={exchangeReturnQtys} setExchangeReturnQtys={setExchangeReturnQtys} exchangePriorMap={exchangePriorMap} exchangeReason={exchangeReason} setExchangeReason={setExchangeReason} exchangeSearch={exchangeSearch} setExchangeSearch={setExchangeSearch} exchangePicks={exchangePicks} setExchangePicks={setExchangePicks} exchangeSummary={exchangeSummary} onSubmitExchange={submitExchange} exchanging={exchanging}
           clients={clients} products={products}
         />
       </div>
