@@ -414,7 +414,7 @@ label: t("nav.attendance"),
         <Logo size={40} />
         <div className="logo-text">
           <span className="logo-name">{t("brand.name")}</span>
-          <span className="logo-badge">Business Platform</span>
+          <span className="logo-badge">{t("brand.tagline")}</span>
         </div>
         <button
           onClick={closeSidebar}

@@ -1,6 +1,7 @@
 ﻿export const translations = {
   ar: {
     "brand.name": "اعمالى PRO",
+    "brand.tagline": "اعمالى",
     "lang.switch": "English",
     currency: "ج.م",
     "currency.short": "ج",
@@ -2148,6 +2149,7 @@
   },
   en: {
     "brand.name": "AamalyPro",
+    "brand.tagline": "Aamaly",
     "lang.switch": "العربية",
     currency: "EGP",
     "currency.short": "EGP",

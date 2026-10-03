@@ -306,10 +306,17 @@ export default function Invoices() {
       // 2) فاتورة البديل مربوطة (دخول الفلوس + خصم المخزون) — نفس شكل StorePOS
       try {
         const invoiceRef = doc(collection(db, "invoices"));
+        // ⚠️ قاعدة Firestore: كل القراءات أولاً ثم كل الكتابات — قراءة بعد
+        // كتابة (حتى لسطر تاني) بترمي "transactions require all reads..."
         await runTransaction(db, async (tx) => {
+          // 1) كل القراءات
+          const reads = [];
           for (const l of saleLines) {
             const pref = doc(db, "inventory", l.productId);
-            const psnap = await tx.get(pref);
+            reads.push({ l, pref, psnap: await tx.get(pref) });
+          }
+          // 2) فحص الأرصدة من المقروء (بدون قراءة جديدة)
+          for (const { l, psnap } of reads) {
             if (!psnap.exists()) throw new Error(`الصنف غير موجود`);
             const cur = parseFloat(psnap.data().quantity) || 0;
             if (cur < parseFloat(l.quantity)) {
@@ -317,9 +324,8 @@ export default function Invoices() {
               throw new Error(t("ex.noStock", { name: nm, qty: cur }));
             }
           }
-          for (const l of saleLines) {
-            const pref = doc(db, "inventory", l.productId);
-            const psnap = await tx.get(pref);
+          // 3) كل الكتابات
+          for (const { l, pref, psnap } of reads) {
             const cur = parseFloat(psnap.data().quantity) || 0;
             tx.update(pref, { quantity: round2(cur - parseFloat(l.quantity)) });
           }
