@@ -52,6 +52,7 @@ export function printPurchaseThermal(purchase, { suppliers, products, getPurchas
 <div class="divider"></div>
 <div style="font-size:12px;margin-bottom:4px;">
   <strong>المورد:</strong> ${supplierName}<br/>
+  ${purchase.invoiceNumber ? `<strong>رقم الفاتورة:</strong> ${purchase.invoiceNumber}<br/>` : ""}
   ${purchase.description ? `<strong>ملاحظات:</strong> ${purchase.description}` : ""}
 </div>
 <div class="divider"></div>

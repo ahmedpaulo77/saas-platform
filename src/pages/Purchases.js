@@ -153,7 +153,10 @@ export default function Purchases() {
       alert("تم تسجيل مرتجع الشراء وخصمه من المخزون");
     } catch (err) {
       console.error(err);
-      alert(t("common.errorGeneric"));
+      // لو الخطأ من returns.js (رصيد غير كافٍ) → اعرض الرسالة العربية مباشرة
+      // لو خطأ تاني (شبكة / صلاحيات) → الرسالة العامة
+      const msg = err?.message || "";
+      alert(msg.startsWith("الرصيد لا يكفي") ? msg : t("common.errorGeneric"));
     }
     setReturning(false);
   }

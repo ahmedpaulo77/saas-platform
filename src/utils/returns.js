@@ -56,7 +56,8 @@ export async function createReturn({
       ? stockDelta(unit, line.quantity, line.weight)
       : parseFloat(line.quantity) || 0;
     if (!(delta > 0)) return;
-    adjustments.push({ line, unit, delta });
+    // نحفظ اسم الصنف عشان رسالة الخطأ تكون واضحة للمستخدم
+    adjustments.push({ line, unit, delta, productName: line.productName || line.name || line.productId });
   });
 
   const returnRef = doc(collection(db, "returns"));
@@ -67,7 +68,7 @@ export async function createReturn({
   const applyWrites = (w, snaps) => {
     snaps.forEach((snap, idx) => {
       if (!snap || !snap.exists()) return;
-      const { line, unit, delta } = adjustments[idx];
+      const { line, unit, delta, productName } = adjustments[idx];
       const data = snap.data();
       const current = parseFloat(data.quantity) || 0;
       const effectiveUnit = unit || getProductUnit(data);
@@ -75,15 +76,14 @@ export async function createReturn({
       if (kind === "sale") {
         w.update(inventoryRefs[idx], { quantity: roundQty(current + delta, effectiveUnit) });
       } else {
-        // مرتجع شراء: ما ننزلش تحت الصفر أبدًا
-        const deduct = Math.min(delta, current);
-        if (deduct > 0) {
-          w.update(inventoryRefs[idx], { quantity: roundQty(current - deduct, effectiveUnit) });
-        } else {
-          console.warn(
-            `purchase return skipped restock (no stock left) for product ${line.productId}`
+        // مرتجع شراء: لو الكمية المرتجعة أكبر من الرصيد → خطأ صريح.
+        // الـ transaction كلها بتتلغي ومفيش حاجة بتتسجل.
+        if (delta > current) {
+          throw new Error(
+            `الرصيد لا يكفي لمرتجع الصنف: ${productName || data.name || line.productId}، المتاح ${current}`
           );
         }
+        w.update(inventoryRefs[idx], { quantity: roundQty(current - delta, effectiveUnit) });
       }
     });
 

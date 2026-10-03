@@ -118,6 +118,8 @@ export default function Invoices() {
       if (matches.length === 1) {
         setPieceMatches(null);
         setPieceScan("");
+        // التعديل 3: المرتجع للأدمن فقط
+        if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
         setReturningInvoice(matches[0]); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
         return;
       }
@@ -130,6 +132,8 @@ export default function Invoices() {
   function openPieceMatch(inv) {
     setPieceMatches(null);
     setPieceScan("");
+    // التعديل 3: المرتجع للأدمن فقط
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
     setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
   }
 
@@ -150,6 +154,12 @@ export default function Invoices() {
         if (snap.exists()) found = { id: snap.id, ...snap.data() };
       }
       if (!found) { alert("لا توجد فاتورة بهذا الرقم"); return; }
+      // التعديل 3: المرتجع للأدمن فقط — الموظف العادي يرى رسالة واضحة
+      if (!isAdmin) {
+        alert(t("in.returnAdminOnly"));
+        setBarcodeScan("");
+        return;
+      }
       setReturningInvoice(found); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
       setBarcodeScan("");
     } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
@@ -174,6 +184,8 @@ export default function Invoices() {
       }
       if (!inv) return;
       try { sessionStorage.removeItem("aamalypro-return-invoice"); } catch { /* ignore */ }
+      // التعديل 3: المرتجع للأدمن فقط — لو موظف، امسح الـ handoff وأوقف
+      if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
       setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
     })();
   }, [invoices]);
@@ -600,6 +612,19 @@ export default function Invoices() {
     // الكود كان بيقرا `products` بس، فكان correctLines فاضي على طول والialog
     // "حدد كمية مرتجع أكبر من صفر" بيظهر للمستخدم على أي مرتجع من POS.
     const sourceLines = returningInvoice.products || returningInvoice.items || [];
+
+    // ── نسبة الخصم (StorePOS فقط) ───────────────────────────────────
+    // StorePOS يسجّل amount السطر قبل الخصم (price × qty).
+    // لو المرتجع يستخدم هذا الـ amount مباشرةً، العميل يسترد أكتر
+    // مما دفعه فعلاً. الحل: نضرب مبلغ كل سطر في نسبة (بعد الخصم / قبله).
+    // POS.js دايماً discount=0 → ratio=1 (مفيش تغيير).
+    // Invoices.js مفيش خصم على مستوى الفاتورة → ratio=1 كمان.
+    const invSubtotal = parseFloat(returningInvoice.subtotal) || 0;
+    const invDiscount = parseFloat(returningInvoice.discount) || 0;
+    const discountRatio = (invSubtotal > 0 && invDiscount > 0)
+      ? (invSubtotal - invDiscount) / invSubtotal
+      : 1;
+
     const correctLines = sourceLines.map((p, idx) => {
       const rq = parseFloat(returnQtys[idx]) || 0; const oq = parseFloat(p.quantity) || 0;
       const already = priorMap[p.productId] || 0;
@@ -612,7 +637,8 @@ export default function Invoices() {
         quantity: allowed,
         weight: p.weight || "",
         unit: p.unit || "",
-        amount: (parseFloat(p.amount) || 0) * ratio,
+        // مبلغ الرد = سعر السطر × نسبة الكمية × نسبة الخصم
+        amount: round2((parseFloat(p.amount) || 0) * ratio * discountRatio),
       };
     }).filter((l) => l.quantity > 0);
     if (correctLines.length === 0) { alert("حدد كمية مرتجع أكبر من صفر"); return; }
@@ -742,7 +768,7 @@ export default function Invoices() {
           onValidate={isAdmin ? validateInvoice : null}
           onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
-          onReturn={(inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); }}
+          onReturn={isAdmin ? (inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); } : null}
           onDelete={deleteInvoice}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}

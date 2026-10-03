@@ -124,6 +124,46 @@ export function cogsFor(invoices, costByProduct, inRange) {
 }
 
 /**
+ * تكلفة البضاعة المُرتجَعة — تُطرح من COGS لأن البضاعة رجعت للمخزون
+ * ولا يجب محاسبة تكلفتها على الفترة.
+ *
+ * نفس منطق cogsFor بالضبط لكن على سطور المرتجعات (kind = sale).
+ * returns[].items = السطور المرجعة بنفس بنية فاتورة البيع.
+ *
+ * مثال: بعت قطعتين تكلفة كل واحدة 200 → COGS = 400.
+ * رجعت قطعة → returnedCOGS = 200 → صافي COGS = 200. ✅
+ *
+ * @param {Array} returns       وثائق مرتجعات البيع
+ * @param {Map}   costByProduct productId → { avgCost, lastUnitCost }
+ * @param {Function} [inRange]  فلتر التاريخ (نفس inRange الخاص بالفترة)
+ * @returns {number}
+ */
+export function returnedCogsFor(returns, costByProduct, inRange) {
+  return round2(
+    (returns || []).reduce((sum, r) => {
+      // مرتجعات الشراء لا تؤثر على COGS المبيعات
+      if (r.kind && r.kind !== "sale") return sum;
+      if (inRange && !inRange(r.date || r.createdAt)) return sum;
+      const lines = r.items || r.lines || [];
+      lines.forEach((l) => {
+        const pid = l.productId;
+        if (!pid) return;
+        const info = costByProduct?.get?.(pid) || costByProduct?.[pid];
+        if (!info) return;
+        const unitCost =
+          parseFloat(info.avgCost) || parseFloat(info.lastUnitCost) || 0;
+        if (!(unitCost > 0)) return;
+        const qty = parseFloat(l.quantity) || 0;
+        const w = parseFloat(l.weight) || 0;
+        const effectiveQty = w > 0 ? w : qty;
+        sum += unitCost * effectiveQty;
+      });
+      return sum;
+    }, 0)
+  );
+}
+
+/**
  * الدفعة الموحّدة: لجمع كل حاجة من الفواتير + المرتجعات + المصروفات.
  * مفيش صفحة تاني تحسبه بنفسها.
  *
@@ -163,7 +203,11 @@ export function computePeriod({
 
   const saleReturns = saleReturnsTotal(returns, range);
   const purchaseReturns = purchaseReturnsTotal(returns, range);
-  const cogs = cogsFor(invoices, costByProduct, range);
+  // COGS صافي = تكلفة المبيعات − تكلفة البضاعة المُرتجَعة
+  // (البضاعة التي رجعت للمخزون لا يجب حسابها ضمن تكلفة الفترة)
+  const rawCogs = cogsFor(invoices, costByProduct, range);
+  const retCogs = returnedCogsFor(returns, costByProduct, range);
+  const cogs = round2(rawCogs - retCogs);
 
   let expensesOut = 0, incomeIn = 0, waste = 0;
   expenses.forEach((e) => {
@@ -174,7 +218,9 @@ export function computePeriod({
     if (e.category === "waste") waste += amt;
   });
 
-  const grossProfit = round2(revenue - returns - cogs);
+  // ✅ إصلاح bug: كان grossProfit = revenue - returns[] - cogs
+  //    (طرح المصفوفة كلها بدل الرقم saleReturns) → NaN في أي شهر فيه مرتجعات.
+  const grossProfit = round2(revenue - saleReturns - cogs);
 
   return {
     grossRevenue,
