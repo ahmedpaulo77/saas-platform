@@ -36,7 +36,14 @@ export default function StorePOS() {
   const [newClientPhone, setNewClientPhone] = useState("");
   const [addingClient, setAddingClient] = useState(false);
   const [discount, setDiscount] = useState("");
+  const [discountType, setDiscountType] = useState("amount"); // "percent" | "amount"
+  // ── الدفع المقسم ──
+  const [splitPayment, setSplitPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [splitMethod1, setSplitMethod1] = useState("cash");
+  const [splitAmount1, setSplitAmount1] = useState("");
+  const [splitMethod2, setSplitMethod2] = useState("instapay");
+  const [splitAmount2, setSplitAmount2] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [storeName, setStoreName] = useState("");
@@ -493,15 +500,21 @@ export default function StorePOS() {
 
   const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
   const subtotal = round2(cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * item.quantity, 0));
-  const discountNum = Math.max(0, parseFloat(discount) || 0);
-  // ⚠️ الخصم كان مفتوح بلا حد — كاشير يكتب "خصم 500" على فاتورة 100 والشاحن
-  // بياخد 0.00 والفاتورة بتطبع "الخصم: 500" و"الإجمالي: 0". بنتحقق عند
-  // الحفظ (handleCheckout) وبنخلي العرض هنا محايد.
+  // الخصم: نسبة أو مبلغ ثابت
+  const discountRaw = Math.max(0, parseFloat(discount) || 0);
+  const discountNum = discountType === "percent"
+    ? round2(subtotal * discountRaw / 100)
+    : round2(discountRaw);
   const total = round2(Math.max(0, subtotal - discountNum));
   const discountExceedsSubtotal = discountNum > subtotal;
+  // الدفع المقسم
+  const split1 = round2(parseFloat(splitAmount1) || 0);
+  const split2 = round2(parseFloat(splitAmount2) || 0);
+  const splitTotal = round2(split1 + split2);
+  const splitRemaining = round2(total - split1);
 
-  // ── طباعة فاتورة حرارية 80mm (اسم الكاشير + رسالة ترحيب + اسم المحل تحت) ──
-  function handleThermalPrint(inv, cartSnapshot, clientName, cashierName) {
+  // ── طباعة فاتورة حرارية 80mm ──
+  function handleThermalPrint(inv, cartSnapshot, clientName, clientPhone, cashierName, splitInfo) {
     const escHtml = (s) =>
       String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const rows = cartSnapshot
@@ -516,8 +529,18 @@ export default function StorePOS() {
       </tr>`;
       })
       .join("");
-    // رقم الفاتورة كامل في الباركود — السكانر يرجّع نفس الـ ID لفتح المرتجع
     const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "") || "0";
+
+    // سطر الدفع: عادي أو مقسم
+    let paymentLines = "";
+    if (splitInfo && splitInfo.isSplit) {
+      paymentLines = `<span class="lbl">الدفع:</span> مقسم<br/>
+  &nbsp;&nbsp;• ${escHtml(splitInfo.label1)}: ${parseFloat(splitInfo.amount1 || 0).toFixed(2)} ج.م<br/>
+  &nbsp;&nbsp;• ${escHtml(splitInfo.label2)}: ${parseFloat(splitInfo.amount2 || 0).toFixed(2)} ج.م`;
+    } else {
+      paymentLines = `<span class="lbl">الدفع:</span> ${escHtml(getPaymentLabel(inv.paymentMethod))}`;
+    }
+
     const printContent = `<!DOCTYPE html>
 <html dir="rtl">
 <head>
@@ -532,7 +555,7 @@ export default function StorePOS() {
   .divider { border-top: 2px dashed #000; margin: 6px 0; }
   .divider-thin { border-top: 1px dashed #000; margin: 5px 0; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; font-weight: 700; }
-  th { background: #000; color: #fff; padding: 5px 6px; font-size: 12px; font-weight: 900; }
+  th { padding: 5px 6px; font-size: 12px; font-weight: 900; border-bottom: 2px solid #000; }
   td { padding: 4px 6px; border-bottom: 1px dashed #aaa; font-weight: 700; }
   .variant-line { font-size: 11px; font-weight: 700; color: #333; }
   .total-row  { font-weight: 900; font-size: 17px; border-top: 3px solid #000; padding-top: 5px; margin-top: 4px; }
@@ -545,24 +568,20 @@ export default function StorePOS() {
 </head>
 <body>
 
-<!-- اسم المحل فوق خالص -->
 <div class="store-name">${escHtml(storeName || "المحل")}</div>
 <div class="divider"></div>
 
-<!-- عنوان الفاتورة -->
 <div class="inv-title">🧾 فاتورة بيع</div>
 <div class="center" style="font-size:12px;font-weight:700;">${new Date().toLocaleString("ar-EG")}</div>
 <div class="divider-thin"></div>
 
-<!-- بيانات العملية -->
 <div style="font-size:13px;font-weight:700;line-height:2;">
   <span class="lbl">الكاشير:</span> ${escHtml(cashierName || "—")}<br/>
-  <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}<br/>
-  <span class="lbl">الدفع:</span> ${escHtml(getPaymentLabel(inv.paymentMethod))}
+  <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}${clientPhone ? `<br/><span class="lbl">التليفون:</span> ${escHtml(clientPhone)}` : ""}<br/>
+  ${paymentLines}
 </div>
 <div class="divider"></div>
 
-<!-- جدول الأصناف -->
 <table>
   <thead><tr>
     <th style="text-align:right;">الصنف</th>
@@ -574,21 +593,18 @@ export default function StorePOS() {
 </table>
 <div class="divider"></div>
 
-<!-- المجاميع -->
 <div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
   <div><span class="lbl">المجموع:</span> ${subtotal.toFixed(2)} ج.م</div>
-  ${discountNum > 0 ? `<div><span class="lbl">الخصم:</span> ${discountNum.toFixed(2)} ج.م</div>` : ""}
+  ${discountNum > 0 ? `<div><span class="lbl">الخصم${inv.discountType === "percent" && inv.discountRaw ? ` (${inv.discountRaw}%)` : ""}:</span> ${discountNum.toFixed(2)} ج.م</div>` : ""}
   <div class="total-row">
     <span class="lbl">✅ الإجمالي:</span> ${total.toFixed(2)} ج.م
   </div>
 </div>
 <div class="divider"></div>
 
-<!-- باركود الفاتورة -->
 <svg class="bc" id="invbc"></svg>
 <div class="divider"></div>
 
-<!-- سياسة الاستبدال والاسترجاع -->
 <div class="policy-title">📋 سياسة الاستبدال والاسترجاع</div>
 <div class="policy">
   يُقبل الاستبدال والاسترجاع خلال <strong>14 يوم</strong> من تاريخ الشراء<br/>
@@ -597,7 +613,6 @@ export default function StorePOS() {
 </div>
 <div class="divider"></div>
 
-<!-- اسم المحل تحت خالص -->
 <div class="center" style="font-size:13px;font-weight:900;margin-bottom:2px;">شكراً لتسوقكم معنا ❤</div>
 <div class="store-name" style="font-size:18px;">${escHtml(storeName || "")}</div>
 
@@ -620,7 +635,145 @@ export default function StorePOS() {
     win.focus();
   }
 
-  // ── Checkout ──
+  // ── طباعة PDF ملخص مبيعات اليوم ──
+  async function printDailySalesPDF() {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const todayStr = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+      const todayInvs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((inv) => {
+          if ((inv.approval || "validated") !== "validated") return false;
+          if (inv.type && inv.type !== "store-pos") return false;
+          const ts = new Date(inv.date || inv.createdAt || 0).getTime();
+          return ts >= todayStart.getTime() && ts <= todayEnd.getTime();
+        })
+        .sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0));
+
+      if (todayInvs.length === 0) {
+        alert("لا توجد مبيعات اليوم بعد");
+        return;
+      }
+
+      const grandTotal = todayInvs.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+      const grandDiscount = todayInvs.reduce((s, i) => s + (parseFloat(i.discount) || 0), 0);
+
+      // جمع حسب طريقة الدفع (مع دعم الدفع المقسم)
+      const byMethod = {};
+      todayInvs.forEach((inv) => {
+        if (inv.splitPayment && inv.splitPayments) {
+          inv.splitPayments.forEach((sp) => {
+            const m = sp.method || "cash";
+            byMethod[m] = round2((byMethod[m] || 0) + (parseFloat(sp.amount) || 0));
+          });
+        } else {
+          const m = inv.paymentMethod || "cash";
+          byMethod[m] = round2((byMethod[m] || 0) + (parseFloat(inv.amount) || 0));
+        }
+      });
+
+      const clientsSnap = await getDocs(getScopedQuery("clients", userRole, userCompanyId, currentUser?.uid));
+      const clientsMap = {};
+      clientsSnap.docs.forEach((d) => { clientsMap[d.id] = d.data().name || "—"; });
+
+      const rows = todayInvs.map((inv, idx) => {
+        const items = (inv.products || []).map((p) => `${p.productName || p.name || "صنف"} ×${p.quantity}`).join("، ");
+        const clientName = inv.clientId ? (clientsMap[inv.clientId] || "—") : "زبون نقدي";
+        const payStr = inv.splitPayment && inv.splitPayments
+          ? inv.splitPayments.map((sp) => `${getPaymentLabel(sp.method)}: ${(parseFloat(sp.amount)||0).toFixed(2)}`).join(" + ")
+          : getPaymentLabel(inv.paymentMethod);
+        const discStr = parseFloat(inv.discount) > 0 ? `<br/><small style="color:#b45309;">خصم: ${(parseFloat(inv.discount)||0).toFixed(2)} ج.م</small>` : "";
+        return `<tr>
+          <td style="padding:6px 8px;text-align:center;">${idx + 1}</td>
+          <td style="padding:6px 8px;">${new Date(inv.date || inv.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</td>
+          <td style="padding:6px 8px;">${clientName}</td>
+          <td style="padding:6px 8px;font-size:11px;">${items}</td>
+          <td style="padding:6px 8px;text-align:center;">${payStr}</td>
+          <td style="padding:6px 8px;text-align:left;font-weight:800;">${(parseFloat(inv.amount)||0).toFixed(2)}${discStr}</td>
+        </tr>`;
+      }).join("");
+
+      const methodRows = Object.entries(byMethod).map(([m, amt]) =>
+        `<tr><td style="padding:5px 12px;">${getPaymentLabel(m)}</td><td style="padding:5px 12px;font-weight:800;text-align:left;">${amt.toFixed(2)} ج.م</td></tr>`
+      ).join("");
+
+      const html = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>مبيعات اليوم — ${todayStr}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Cairo', 'Arial', sans-serif; font-size: 13px; color: #1e293b; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+  h2 { font-size: 15px; font-weight: 700; margin: 16px 0 8px; color: #1e3a8a; }
+  .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th { background: #f1f5f9; padding: 7px 8px; font-weight: 800; font-size: 12px; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .summary-box { display: inline-block; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 20px; margin-left: 12px; text-align: center; }
+  .summary-box .val { font-size: 22px; font-weight: 900; color: #1e3a8a; }
+  .summary-box .lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .method-table { max-width: 320px; }
+  @media print { body { padding: 10px; } @page { margin: 10mm; } }
+</style>
+</head>
+<body>
+<h1>📊 ${storeName || "المحل"} — مبيعات اليوم</h1>
+<div class="subtitle">${todayStr} · ${todayInvs.length} فاتورة</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+  <div class="summary-box">
+    <div class="val">${todayInvs.length}</div>
+    <div class="lbl">إجمالي الفواتير</div>
+  </div>
+  <div class="summary-box">
+    <div class="val">${grandTotal.toFixed(2)} ج.م</div>
+    <div class="lbl">إجمالي المبيعات</div>
+  </div>
+  ${grandDiscount > 0 ? `<div class="summary-box" style="background:#fffbeb;border-color:#fcd34d;">
+    <div class="val" style="color:#b45309;">${grandDiscount.toFixed(2)} ج.م</div>
+    <div class="lbl">إجمالي الخصومات</div>
+  </div>` : ""}
+</div>
+
+<h2>📋 تفاصيل الفواتير</h2>
+<table>
+  <thead><tr>
+    <th>#</th><th>الوقت</th><th>العميل</th><th>الأصناف</th><th>الدفع</th><th>الإجمالي</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+
+<h2>💳 ملخص طرق الدفع</h2>
+<table class="method-table">
+  <thead><tr><th>طريقة الدفع</th><th>المبلغ</th></tr></thead>
+  <tbody>${methodRows}</tbody>
+  <tfoot><tr style="border-top:2px solid #1e3a8a;">
+    <td style="padding:6px 12px;font-weight:900;">الإجمالي</td>
+    <td style="padding:6px 12px;font-weight:900;text-align:left;">${grandTotal.toFixed(2)} ج.م</td>
+  </tr></tfoot>
+</table>
+
+<script>setTimeout(function(){window.print();},400);<\/script>
+</body>
+</html>`;
+
+      const win = window.open("", "_blank", "width=900,height=700");
+      if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+    } catch (err) {
+      console.error(err);
+      alert("تعذر تحميل مبيعات اليوم");
+    }
+  }
+
   async function checkout(e) {
     e?.preventDefault();
     if (cart.length === 0) {
@@ -635,18 +788,60 @@ export default function StorePOS() {
       alert(t("storepos.discountTooHigh"));
       return;
     }
+    // التحقق من الدفع المقسم
+    if (splitPayment) {
+      if (!split1 || !split2) {
+        alert(t("storepos.splitRequired"));
+        return;
+      }
+      if (Math.abs(splitTotal - total) > 0.01) {
+        alert(t("storepos.splitMismatch", { total: total.toFixed(2), entered: splitTotal.toFixed(2) }));
+        return;
+      }
+    }
     setSubmitting(true);
+
+    // بناء بيانات الدفع
+    const finalPaymentMethod = splitPayment ? "split" : paymentMethod;
+    const splitPaymentsArr = splitPayment
+      ? [{ method: splitMethod1, amount: split1 }, { method: splitMethod2, amount: split2 }]
+      : null;
+
     try {
       const now = new Date().toISOString();
       const invoiceRef = doc(collection(db, "invoices"));
 
-      // ⚠️ الخصم والمخزون والفاتورة لازم كلهم في transaction واحد.
-      // قبل كده: الـ transaction كان بيخلص بنجاح وبعدين addDoc للفاتورة
-      // ممكن يفشل → مخزون اتخصم من غير فاتورة.
-      //
-      // كمان: الخصم مكانش بيتحفظ خالص (invDoc كان فيه amount: total بس)،
-      // فأي تعديل على الفاتورة بعدين كان بيرجّع السعر قبل الخصم.
-      // أوفلاين: نفس المنطق على الكاش + batch (تُحفظ محليًا وتتزامن لاحقًا)
+      const invoiceData = {
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdByEmail: currentUser?.email || "",
+        clientId: selectedClient || null,
+        products: cart.map((item) => ({
+          productId: item.id,
+          productName: item.name,
+          quantity: item.quantity,
+          amount: round2((parseFloat(item.price) || 0) * item.quantity),
+          price: parseFloat(item.price) || 0,
+          size: item.size || "",
+          color: item.color || "",
+        })),
+        subtotal,
+        discount: discountNum,
+        discountRaw: discountType === "percent" ? discountRaw : discountNum,
+        discountType,
+        amount: total,
+        paidAmount: total,
+        status: "paid",
+        approval: "validated",
+        validatedBy: currentUser?.uid || null,
+        validatedAt: now,
+        paymentMethod: finalPaymentMethod,
+        ...(splitPaymentsArr ? { splitPayment: true, splitPayments: splitPaymentsArr } : {}),
+        date: now,
+        createdAt: now,
+        type: "store-pos",
+      };
+
       if (isOffline()) {
         const { refs, snaps } = await readStockCache("inventory", cart.map((item) => item.id));
         const byId = new Map(refs.map((r, i) => [r.id, snaps[i]]));
@@ -664,118 +859,77 @@ export default function StorePOS() {
           const currentQty = parseFloat(snap.data().quantity) || 0;
           batch.update(doc(db, "inventory", item.id), { quantity: round2(currentQty - item.quantity) });
         });
-        batch.set(invoiceRef, {
-          companyId: userCompanyId,
-          createdBy: currentUser?.uid || null,
-          createdByEmail: currentUser?.email || "",
-          clientId: selectedClient || null,
-          products: cart.map((item) => ({
-            productId: item.id,
-            productName: item.name,
-            quantity: item.quantity,
-            amount: round2((parseFloat(item.price) || 0) * item.quantity),
-            price: parseFloat(item.price) || 0,
-            size: item.size || "",
-            color: item.color || "",
-          })),
-          subtotal,
-          discount: discountNum,
-          amount: total,
-          paidAmount: total,
-          status: "paid",
-          approval: "validated",
-          validatedBy: currentUser?.uid || null,
-          validatedAt: now,
-          paymentMethod: paymentMethod || "cash",
-          date: now,
-          createdAt: now,
-          type: "store-pos",
-        });
+        batch.set(invoiceRef, invoiceData);
         await batch.commit();
-      } else
-      await runTransaction(db, async (tx) => {
-        // كل القراءات أولاً
-        const reads = [];
-        for (const item of cart) {
-          const productRef = doc(db, "inventory", item.id);
-          const productDoc = await tx.get(productRef);
-          reads.push({ item, productRef, productDoc });
-        }
-        for (const { item, productDoc } of reads) {
-          if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
-          const currentQty = parseFloat(productDoc.data().quantity) || 0;
-          if (currentQty < item.quantity) {
-            throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
+      } else {
+        await runTransaction(db, async (tx) => {
+          const reads = [];
+          for (const item of cart) {
+            const productRef = doc(db, "inventory", item.id);
+            const productDoc = await tx.get(productRef);
+            reads.push({ item, productRef, productDoc });
           }
-        }
-
-        // كل الكتابات بعد ما كل القراءات خلصت
-        for (const { item, productRef, productDoc } of reads) {
-          const currentQty = parseFloat(productDoc.data().quantity) || 0;
-          tx.update(productRef, { quantity: round2(currentQty - item.quantity) });
-        }
-
-        tx.set(invoiceRef, {
-          companyId: userCompanyId,
-          createdBy: currentUser?.uid || null,
-          createdByEmail: currentUser?.email || "",
-          clientId: selectedClient || null,
-          products: cart.map((item) => ({
-            productId: item.id,
-            productName: item.name,
-            quantity: item.quantity,
-            // amount = سطر قبل الخصم (السعر × الكمية)
-            amount: round2((parseFloat(item.price) || 0) * item.quantity),
-            price: parseFloat(item.price) || 0,
-            size: item.size || "",
-            color: item.color || "",
-          })),
-          // subtotal/discount بيوصلوا للتقارير + بتخلّي تعديل الفاتورة
-          // يحافظ على الخصم بدل ما يمسحه
-          subtotal,
-          discount: discountNum,
-          amount: total,
-          paidAmount: total,
-          status: "paid",
-          approval: "validated",
-          validatedBy: currentUser?.uid || null,
-          validatedAt: now,
-          paymentMethod: paymentMethod || "cash",
-          date: now,
-          createdAt: now,
-          type: "store-pos",
+          for (const { item, productDoc } of reads) {
+            if (!productDoc.exists()) throw new Error(`الصنف "${item.name}" غير موجود`);
+            const currentQty = parseFloat(productDoc.data().quantity) || 0;
+            if (currentQty < item.quantity) {
+              throw new Error(`الكمية المتاحة من "${item.name}" غير كافية (متاح: ${currentQty})`);
+            }
+          }
+          for (const { item, productRef, productDoc } of reads) {
+            const currentQty = parseFloat(productDoc.data().quantity) || 0;
+            tx.update(productRef, { quantity: round2(currentQty - item.quantity) });
+          }
+          tx.set(invoiceRef, invoiceData);
         });
-      });
-
-      const invRef = invoiceRef;
+      }
 
       await logActivity({
         actionType: "CREATE",
         collectionName: "invoices",
-        itemId: invRef.id,
+        itemId: invoiceRef.id,
         details: `Store POS sale: ${cart.length} items, total ${total}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
       const cartSnapshot = [...cart];
-      const clientName = clients.find((c) => c.id === selectedClient)?.name || newClientName.trim() || "";
-      const payMethod = paymentMethod;
+      const clientObj   = clients.find((c) => c.id === selectedClient);
+      const clientName  = clientObj?.name || newClientName.trim() || "";
+      const clientPhone = clientObj?.phone || newClientPhone.trim() || "";
+
+      // بناء معلومات الدفع المقسم للفاتورة
+      const splitInfoForPrint = splitPayment ? {
+        isSplit: true,
+        label1: getPaymentLabel(splitMethod1),
+        amount1: split1,
+        label2: getPaymentLabel(splitMethod2),
+        amount2: split2,
+      } : null;
+
       setCart([]);
       setSelectedClient("");
       setNewClientName("");
       setNewClientPhone("");
       setDiscount("");
+      setDiscountType("amount");
       setPaymentMethod("cash");
-      // تحديث المخزون محليًا من نتيجة البيع نفسها بدل إعادة سحب كل
-      // الأصناف بالصور من السيرفر بعد كل فاتورة (توفير قراءات + نقل بيانات).
-      // الحساب مطابق للسيرفر (نفس round2)، وأي فرق ناتج عن جهاز آخر
-      // بيتظبط مع أول تحميل كامل للصفحة.
+      setSplitPayment(false);
+      setSplitAmount1("");
+      setSplitAmount2("");
+      setSplitMethod1("cash");
+      setSplitMethod2("instapay");
+
       const soldMap = new Map(cartSnapshot.map((it) => [it.id, parseFloat(it.quantity) || 0]));
       setProducts((prev) => prev.map((p) => soldMap.has(p.id)
         ? { ...p, quantity: round2(Math.max(0, (parseFloat(p.quantity) || 0) - soldMap.get(p.id))) }
         : p));
       await Promise.all([fetchClients(), fetchShift()]);
-      handleThermalPrint({ id: invRef.id, paymentMethod: payMethod }, cartSnapshot, clientName, cashierName.trim() || "—");
+      handleThermalPrint(
+        { id: invoiceRef.id, paymentMethod: finalPaymentMethod, discountType, discountRaw },
+        cartSnapshot, clientName, clientPhone,
+        cashierName.trim() || "—",
+        splitInfoForPrint
+      );
     } catch (err) {
       console.error(err);
       if (!handleOfflineError(err, t, (m) => alert(m))) alert(err.message || t("pos.fail"));
@@ -1187,20 +1341,196 @@ export default function StorePOS() {
               )}
             </div>
 
-            {/* طريقة الدفع */}
+            {/* ── قسم الخصم ── */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600, display: "block", marginBottom: 6 }}>{t("pay.title")}</label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}
-              >
-                {EGYPT_PAYMENTS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              {/* تبديل نوع الخصم */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setDiscountType("amount")}
+                  style={{
+                    flex: 1, padding: "5px 0", fontSize: 12, fontWeight: 700,
+                    border: `2px solid ${discountType === "amount" ? NAVY : "#e2e8f0"}`,
+                    borderRadius: 8, background: discountType === "amount" ? "#eff6ff" : "white",
+                    color: discountType === "amount" ? NAVY : "#64748b", cursor: "pointer",
+                  }}
+                >
+                  {t("storepos.discountFixed")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountType("percent")}
+                  style={{
+                    flex: 1, padding: "5px 0", fontSize: 12, fontWeight: 700,
+                    border: `2px solid ${discountType === "percent" ? NAVY : "#e2e8f0"}`,
+                    borderRadius: 8, background: discountType === "percent" ? "#eff6ff" : "white",
+                    color: discountType === "percent" ? NAVY : "#64748b", cursor: "pointer",
+                  }}
+                >
+                  {t("storepos.discountPercent")}
+                </button>
+              </div>
+
+              {/* أزرار نسب الخصم السريع (تظهر فقط في وضع النسبة) */}
+              {discountType === "percent" && (
+                <div style={{ display: "flex", gap: 5, marginBottom: 6, flexWrap: "wrap" }}>
+                  {[5, 10, 15, 20, 25].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setDiscount(String(pct))}
+                      style={{
+                        padding: "4px 10px", fontSize: 12, fontWeight: 800,
+                        border: `2px solid ${parseFloat(discount) === pct ? NAVY : "#e2e8f0"}`,
+                        borderRadius: 20,
+                        background: parseFloat(discount) === pct ? NAVY : "white",
+                        color: parseFloat(discount) === pct ? "white" : "#475569",
+                        cursor: "pointer", transition: "all 0.15s",
+                      }}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setDiscount("")}
+                    style={{
+                      padding: "4px 10px", fontSize: 12, fontWeight: 700,
+                      border: "2px solid #e2e8f0", borderRadius: 20,
+                      background: "white", color: "#94a3b8", cursor: "pointer",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* حقل الخصم */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="number"
+                  min="0"
+                  step={discountType === "percent" ? "1" : "0.5"}
+                  max={discountType === "percent" ? "100" : undefined}
+                  placeholder={discountType === "percent" ? "0%" : "0"}
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  style={{
+                    flex: 1, padding: "7px 10px",
+                    border: `1px solid ${discountExceedsSubtotal ? "#fca5a5" : "#e2e8f0"}`,
+                    borderRadius: 8, fontSize: 13, textAlign: "center",
+                  }}
+                />
+                <span style={{ fontSize: 13, color: "#64748b", fontWeight: 700, minWidth: 24 }}>
+                  {discountType === "percent" ? "%" : t("currency")}
+                </span>
+              </div>
+
+              {/* معاينة مبلغ الخصم لو نسبة */}
+              {discountType === "percent" && discountNum > 0 && (
+                <div style={{ fontSize: 11, color: "#b45309", fontWeight: 700, marginTop: 3, textAlign: "center" }}>
+                  = {discountNum.toFixed(2)} {t("currency")} {t("storepos.discountSaved")}
+                </div>
+              )}
+              {discountExceedsSubtotal && (
+                <div style={{ fontSize: 11, color: "#dc2626", fontWeight: 700, marginTop: 3 }}>
+                  ⚠️ {t("storepos.discountTooHigh")}
+                </div>
+              )}
+            </div>
+
+            {/* ── طريقة الدفع ── */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{t("pay.title")}</label>
+                <button
+                  type="button"
+                  onClick={() => setSplitPayment((v) => !v)}
+                  style={{
+                    fontSize: 11, fontWeight: 700, padding: "3px 10px",
+                    border: `2px solid ${splitPayment ? NAVY : "#e2e8f0"}`,
+                    borderRadius: 16,
+                    background: splitPayment ? "#eff6ff" : "white",
+                    color: splitPayment ? NAVY : "#64748b", cursor: "pointer",
+                  }}
+                >
+                  {t("storepos.splitPayment")}
+                </button>
+              </div>
+
+              {!splitPayment ? (
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}
+                >
+                  {EGYPT_PAYMENTS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ background: "#f8fafc", borderRadius: 10, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* طريقة 1 */}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <select
+                      value={splitMethod1}
+                      onChange={(e) => setSplitMethod1(e.target.value)}
+                      style={{ flex: 1, padding: "7px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
+                    >
+                      {EGYPT_PAYMENTS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={splitAmount1}
+                      onChange={(e) => {
+                        setSplitAmount1(e.target.value);
+                        // الباقي تلقائي
+                        const v = parseFloat(e.target.value) || 0;
+                        const rem = round2(total - v);
+                        setSplitAmount2(rem > 0 ? String(rem) : "");
+                      }}
+                      style={{ width: 90, padding: "7px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, textAlign: "center" }}
+                    />
+                  </div>
+                  {/* طريقة 2 */}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <select
+                      value={splitMethod2}
+                      onChange={(e) => setSplitMethod2(e.target.value)}
+                      style={{ flex: 1, padding: "7px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
+                    >
+                      {EGYPT_PAYMENTS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={splitAmount2}
+                      onChange={(e) => setSplitAmount2(e.target.value)}
+                      style={{ width: 90, padding: "7px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, textAlign: "center" }}
+                    />
+                  </div>
+                  {/* تحقق من مجموع الدفع */}
+                  {(split1 + split2) > 0 && (
+                    <div style={{
+                      fontSize: 12, fontWeight: 700, textAlign: "center",
+                      color: Math.abs(splitTotal - total) < 0.01 ? "#16a34a" : "#dc2626",
+                    }}>
+                      {Math.abs(splitTotal - total) < 0.01
+                        ? `✅ ${t("storepos.splitOk")}`
+                        : `⚠️ ${t("storepos.splitRemaining")}: ${Math.abs(splitTotal - total).toFixed(2)} ${t("currency")}`}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* الإجمالي */}
@@ -1209,18 +1539,14 @@ export default function StorePOS() {
                 <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.subtotal")}</span>
                 <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} {t("currency")}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
-                <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.discount")}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  placeholder="0"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  style={{ width: 110, padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, textAlign: "center" }}
-                />
-              </div>
+              {discountNum > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: "#b45309" }}>
+                    {t("pos.discount")}{discountType === "percent" && discount ? ` (${discount}%)` : ""}
+                  </span>
+                  <span style={{ fontWeight: 700, color: "#b45309" }}>− {discountNum.toFixed(2)} {t("currency")}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px dashed #e2e8f0", paddingTop: 10 }}>
                 <span style={{ fontWeight: 800, fontSize: 15, color: "#1e293b" }}>{t("pos.total")}</span>
                 <span style={{ fontWeight: 900, fontSize: 20, color: "#1e3a8a" }}>
@@ -1250,6 +1576,36 @@ export default function StorePOS() {
               )}
             </button>
           </div>
+        </div>
+
+        {/* ── زر PDF مبيعات اليوم (أسفل الصفحة) ── */}
+        <div style={{
+          marginTop: 24, padding: "14px 20px",
+          background: "#f0fdf4", border: "2px dashed #86efac",
+          borderRadius: 12, display: "flex", alignItems: "center",
+          justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+        }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: "#166534" }}>
+              📊 {t("storepos.dailyPDFTitle")}
+            </div>
+            <div style={{ fontSize: 12, color: "#16a34a", marginTop: 2 }}>
+              {t("storepos.dailyPDFDesc")}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={printDailySalesPDF}
+            style={{
+              padding: "10px 20px", fontSize: 13, fontWeight: 800,
+              background: "#16a34a", color: "white", border: "none",
+              borderRadius: 10, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            <i className="fas fa-file-pdf"></i>
+            {t("storepos.dailyPDFBtn")}
+          </button>
         </div>
 
         {/* ── مودال تقفيل الوردية وتسليم الشيفت (NAVY theme) ── */}
