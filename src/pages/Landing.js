@@ -786,20 +786,31 @@ export default function Landing() {
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
           {t("landing.rights")}
         </p>
-        <div style={{ display: "flex", gap: 16 }}>
-          {["fas fa-envelope", "fab fa-twitter", "fab fa-linkedin"].map(
-            (ic) => (
-              <i
-                key={ic}
-                className={ic}
-                style={{
-                  color: "rgba(255,255,255,0.3)",
-                  fontSize: 18,
-                  cursor: "pointer",
-                }}
-              ></i>
-            ),
-          )}
+        <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+          {/* LinkedIn */}
+          <a
+            href="https://www.linkedin.com/in/ahmed-abd-elmaqsoud-36715641a"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "rgba(255,255,255,0.6)", fontSize: 26, transition: "color 0.2s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#0a66c2")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
+            title="LinkedIn"
+          >
+            <i className="fab fa-linkedin"></i>
+          </a>
+          {/* WhatsApp */}
+          <a
+            href="https://wa.me/201220811060"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "rgba(255,255,255,0.6)", fontSize: 26, transition: "color 0.2s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#25d366")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
+            title="WhatsApp"
+          >
+            <i className="fab fa-whatsapp"></i>
+          </a>
         </div>
       </footer>
     </div>
