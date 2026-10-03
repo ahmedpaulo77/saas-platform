@@ -93,21 +93,21 @@ export default function Landing() {
   // SEO: dynamic title + description حسب اللغة
   useEffect(() => {
     if (lang === "ar") {
-      document.title = "عمالى برو | برنامج محاسبة سحابي للشركات والمتاجر";
+      document.title = "أعمالى Pro | نظام إدارة الأعمال الذكي";
       document.querySelector('meta[name="description"]')?.setAttribute(
         "content",
-        "عمالى برو — برنامج محاسبة سحابي متكامل: فواتير، مخزون، نقطة بيع، مشتريات، تقارير أرباح. جرّب مجاناً."
+        "أعمالى Pro — نظام إدارة الأعمال الذكي: فواتير، مخزون، نقطة بيع، مشتريات، تقارير أرباح. جرّب مجاناً."
       );
     } else {
-      document.title = "AamalyPro | Cloud Accounting Software for Businesses";
+      document.title = "Aamaly Pro | Smart Business Management System";
       document.querySelector('meta[name="description"]')?.setAttribute(
         "content",
-        "AamalyPro — Cloud accounting software: invoices, inventory, POS, purchases, profit reports. Try for free."
+        "Aamaly Pro — Smart business management: invoices, inventory, POS, purchases, profit reports. Try for free."
       );
     }
-    // إعادة الـ title الافتراضي لما تتنقل من الصفحة
+    // إعادة الـ title لما تتنقل من الصفحة
     return () => {
-      document.title = "عمالى برو | برنامج محاسبة سحابي للشركات والمتاجر";
+      document.title = "أعمالى Pro | نظام إدارة الأعمال الذكي";
     };
   }, [lang]);
 
