@@ -388,7 +388,6 @@ export default function StorePOS() {
       })
       .join("");
     const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "") || "0";
-    const diff = parseFloat(lastExchange.diff) || 0;
     const printContent = `<!DOCTYPE html>
 <html dir="rtl">
 <head>
@@ -441,9 +440,6 @@ export default function StorePOS() {
 <div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
   <div><span class="lbl">البديل:</span> ${(parseFloat(lastExchange.newTotal) || 0).toFixed(2)} ج.م</div>
   <div><span class="lbl">المرتجع:</span> ${(parseFloat(lastExchange.refundTotal) || 0).toFixed(2)} ج.م</div>
-  <div class="total-row">
-    <span class="lbl">الفرق${diff > 0 ? " (يدفع)" : diff < 0 ? " (يسترد)" : ""}:</span> ${diff > 0 ? "+" : ""}${diff.toFixed(2)} ج.م
-  </div>
 </div>
 <div class="divider"></div>
 
