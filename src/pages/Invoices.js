@@ -1003,7 +1003,19 @@ export default function Invoices() {
                 <button type="button" className="btn-primary" style={{ flex: 1 }} onClick={() => handleThermalPrint(exchangeResult.invoice)}>
                   <i className="fas fa-print"></i> {t("ex.printInvoice")}
                 </button>
-                <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => { setExchangeResult(null); navigate(userIndustry === "clothing" ? "/store-pos" : "/pos"); }}>
+                <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => {
+                  // تسليم الفاتورة لنقطة البيع: تظهر جاهزة هناك للطباعة والمتابعة
+                  try {
+                    sessionStorage.setItem("aamalypro-last-exchange", JSON.stringify({
+                      id: exchangeResult.invoice.id,
+                      refundTotal: exchangeResult.summary.refundTotal,
+                      newTotal: exchangeResult.summary.newTotal,
+                      diff: exchangeResult.summary.diff,
+                    }));
+                  } catch { /* ignore */ }
+                  setExchangeResult(null);
+                  navigate(userIndustry === "clothing" ? "/store-pos" : "/pos");
+                }}>
                   <i className="fas fa-cash-register"></i> {t("ex.backToPOS")}
                 </button>
               </div>

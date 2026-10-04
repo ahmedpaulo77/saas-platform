@@ -346,6 +346,129 @@ export default function StorePOS() {
   const [unknownBarcode, setUnknownBarcode] = useState(null);
   const [assignSearch, setAssignSearch] = useState("");
 
+  // فاتورة الاستبدال الأخيرة (تسليم من صفحة الفواتير) — جاهزة للعرض والطباعة
+  const [lastExchange, setLastExchange] = useState(null);
+  useEffect(() => {
+    let raw = null;
+    try { raw = sessionStorage.getItem("aamalypro-last-exchange"); } catch { /* ignore */ }
+    if (!raw) return;
+    (async () => {
+      try {
+        const handoff = JSON.parse(raw);
+        if (!handoff?.id) return;
+        const snap = await getDoc(doc(db, "invoices", handoff.id));
+        if (!snap.exists() || snap.data().companyId !== userCompanyId) return;
+        setLastExchange({ ...handoff, invoice: { id: snap.id, ...snap.data() } });
+      } catch (e) { console.warn("exchange handoff:", e?.message); }
+    })();
+  }, [userCompanyId]);
+
+  function dismissLastExchange() {
+    try { sessionStorage.removeItem("aamalypro-last-exchange"); } catch { /* ignore */ }
+    setLastExchange(null);
+  }
+
+  // طباعة ريسيت فاتورة الاستبدال — نفس روح إيصال البيع (80mm + باركود الفاتورة)
+  function printExchangeReceipt() {
+    if (!lastExchange?.invoice) return;
+    const inv = lastExchange.invoice;
+    const escHtml = (s) =>
+      String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const clientObj = (clients || []).find((c) => c.id === inv.clientId);
+    const rows = (inv.products || [])
+      .map((item) => {
+        const variant = [item.size, item.color].filter(Boolean).join(" / ");
+        const line = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
+        return `<tr>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${escHtml(item.productName || item.name || "صنف")}${variant ? `<div style="font-size:10px;color:#555;">${escHtml(variant)}</div>` : ""}</td>
+        <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${item.quantity}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${escHtml(String(item.price ?? ""))}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${line.toFixed(2)}</td>
+      </tr>`;
+      })
+      .join("");
+    const invCode = String(inv.id || "").replace(/[^A-Za-z0-9]/g, "") || "0";
+    const diff = parseFloat(lastExchange.diff) || 0;
+    const printContent = `<!DOCTYPE html>
+<html dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
+  .store-name { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
+  .inv-title  { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 2px; }
+  .center { text-align: center; }
+  .divider { border-top: 2px dashed #000; margin: 6px 0; }
+  .divider-thin { border-top: 1px dashed #000; margin: 5px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-weight: 700; }
+  th { padding: 5px 6px; font-size: 12px; font-weight: 900; border-bottom: 2px solid #000; }
+  td { padding: 4px 6px; border-bottom: 1px dashed #aaa; font-weight: 700; }
+  .total-row  { font-weight: 900; font-size: 17px; border-top: 3px solid #000; padding-top: 5px; margin-top: 4px; }
+  .lbl        { font-weight: 900; }
+  svg.bc { width: 62mm; height: 13mm; display: block; margin: 4px auto 0; }
+  @media print { body { width: 80mm; } @page { size: 80mm auto; margin: 0; } }
+</style>
+</head>
+<body>
+
+<div class="store-name">${escHtml(storeName || "المحل")}</div>
+<div class="divider"></div>
+
+<div class="inv-title">🔄 فاتورة استبدال</div>
+<div class="center" style="font-size:12px;font-weight:700;">${escHtml(new Date(inv.date || inv.createdAt || Date.now()).toLocaleString("ar-EG"))}</div>
+<div class="divider-thin"></div>
+
+<div style="font-size:13px;font-weight:700;line-height:2;">
+  <span class="lbl">العميل:</span> ${escHtml(clientObj?.name || "زبون نقدي")}<br/>
+  <span class="lbl">الدفع:</span> ${escHtml(getPaymentLabel(inv.paymentMethod))}<br/>
+  <span class="lbl">بدل الفاتورة:</span> ${escHtml(inv.exchangeOf || "—")}
+</div>
+<div class="divider"></div>
+
+<table>
+  <thead><tr>
+    <th style="text-align:right;">الصنف</th>
+    <th style="text-align:center;">الكمية</th>
+    <th style="text-align:center;">السعر</th>
+    <th style="text-align:center;">الإجمالي</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="divider"></div>
+
+<div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
+  <div><span class="lbl">البديل:</span> ${(parseFloat(lastExchange.newTotal) || 0).toFixed(2)} ج.م</div>
+  <div><span class="lbl">المرتجع:</span> ${(parseFloat(lastExchange.refundTotal) || 0).toFixed(2)} ج.م</div>
+  <div class="total-row">
+    <span class="lbl">الفرق${diff > 0 ? " (يدفع)" : diff < 0 ? " (يسترد)" : ""}:</span> ${diff > 0 ? "+" : ""}${diff.toFixed(2)} ج.م
+  </div>
+</div>
+<div class="divider"></div>
+
+<svg class="bc" id="exbc"></svg>
+<div class="divider"></div>
+
+<div class="center" style="font-size:13px;font-weight:900;margin-bottom:2px;">شكراً لتسوقكم معنا ❤</div>
+<div class="store-name" style="font-size:18px;">${escHtml(storeName || "")}</div>
+
+<script>
+  try {
+    if (window.JsBarcode) JsBarcode("#exbc", "${invCode}", { format: "CODE128", displayValue: true, fontSize: 11, height: 40, width: 1.5, margin: 0 });
+    else document.getElementById("exbc").outerHTML = "<div class='center'>${invCode}</div>";
+  } catch (e) { document.getElementById("exbc").outerHTML = "<div class='center'>${invCode}</div>"; }
+  setTimeout(function () { window.print(); }, 400);
+<\/script>
+</body>
+</html>`;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }
+    win.document.write(printContent);
+    win.document.close();
+    win.focus();
+  }
+
   // حفظ باركود ممسوح على صنف موجود + إضافته للسلة فوراً
   async function assignBarcodeToProduct(product) {
     if (!product || !unknownBarcode) return;
@@ -974,6 +1097,27 @@ export default function StorePOS() {
             <p className="subtitle">{t("storepos.subtitle")}</p>
           </div>
         </div>
+
+        {/* فاتورة الاستبدال الأخيرة — جاهزة للعرض والطباعة بعد الرجوع من الفواتير */}
+        {lastExchange?.invoice && (
+          <div style={{ background: "#f0fdf4", border: "2px solid #16a34a", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <i className="fas fa-right-left" style={{ fontSize: 22, color: "#16a34a" }}></i>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 900, fontSize: 14 }}>🔄 فاتورة استبدال جاهزة <span dir="ltr" style={{ fontFamily: "monospace", fontSize: 12, color: "#64748b" }}>#{lastExchange.id}</span></div>
+              <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+                البديل: <strong style={{ color: "#059669" }}>{(parseFloat(lastExchange.newTotal) || 0).toFixed(2)}</strong>
+                {" • "}المرتجع: <strong style={{ color: "#dc2626" }}>{(parseFloat(lastExchange.refundTotal) || 0).toFixed(2)}</strong>
+                {" • "}الفرق: <strong>{(parseFloat(lastExchange.diff) || 0) > 0 ? "+" : ""}{(parseFloat(lastExchange.diff) || 0).toFixed(2)}</strong>
+              </div>
+            </div>
+            <button type="button" className="btn-primary btn-sm" onClick={printExchangeReceipt}>
+              <i className="fas fa-print"></i> طباعة الفاتورة
+            </button>
+            <button type="button" className="btn-secondary btn-sm" onClick={dismissLastExchange}>
+              إغلاق
+            </button>
+          </div>
+        )}
 
         {/* ── شريط الوردية (NAVY theme) ── */}
         {!shift ? (
