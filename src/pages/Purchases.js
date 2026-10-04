@@ -527,6 +527,8 @@ export default function Purchases() {
 
   async function updatePurchase(e) {
     e.preventDefault();
+    // مالية — للأدمن فقط (الزرار مخفي عن غيره، ودي حماية زيادة)
+    if (!isAdmin) { alert(t("errors.adminsOnly")); return; }
     try {
       const amount = parseFloat(editingPurchase.amount) || 0;
       await updateDoc(doc(db, "purchases", editingPurchase.id), {
@@ -549,6 +551,7 @@ export default function Purchases() {
       setShowEditModal(false);
     } catch (e) {
       console.error(e);
+      alert(e?.code === "permission-denied" ? t("errors.adminsOnly") : t("common.errorGeneric"));
     }
   }
 
@@ -666,6 +669,8 @@ export default function Purchases() {
   async function recordPayment(e) {
     e.preventDefault();
     if (!payingPurchase) return;
+    // مالية — للأدمن فقط (الزرار مخفي عن غيره، ودي حماية زيادة)
+    if (!isAdmin) { alert(t("errors.adminsOnly")); return; }
     const amount = parseFloat(payAmount) || 0;
     const currentPaid = parseFloat(payingPurchase.paidAmount) || 0;
     const total = parseFloat(payingPurchase.amount) || 0;
@@ -1503,7 +1508,8 @@ ${labelDivs}
                                 <i className="fas fa-barcode"></i>
                               </button>
                             )}
-                              {p.status !== "paid" && (
+                              {/* الدفع والتعديل ماليات — للأدمن فقط (القواعد ترفض غيره) */}
+                              {isAdmin && p.status !== "paid" && (
                                 <button
                                   onClick={() => {
                                     setPayingPurchase(p);
@@ -1516,16 +1522,18 @@ ${labelDivs}
                                   <i className="fas fa-money-bill-wave"></i>
                                 </button>
                               )}
-                              <button
-                                onClick={() => {
-                                  setEditingPurchase(p);
-                                  setShowEditModal(true);
-                                }}
-                                className="btn-secondary btn-sm"
-                                title={t("common.edit")}
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    setEditingPurchase(p);
+                                    setShowEditModal(true);
+                                  }}
+                                  className="btn-secondary btn-sm"
+                                  title={t("common.edit")}
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                              )}
                               {/* المرتجع للأدمن فقط — نفس قاعدة مرتجع البيع (واجهة بس) */}
                               {isAdmin && (
                                 <button

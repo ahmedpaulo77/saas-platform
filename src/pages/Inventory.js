@@ -378,6 +378,17 @@ export default function Inventory() {
     if (!newProduct.name || newProduct.price === "" || newProduct.price == null) {
       alert(t("common.fillRequired")); return;
     }
+    // منع تكرار الصنف للملابس (نفس الاسم + المقاس + اللون) — زي المولد والمشتريات السريعة.
+    // التكرار كان بيفتت المخزون والبيع بيخصم من سطر واحد بس.
+    if (isClothing) {
+      const nameNorm = (newProduct.name || "").trim().toLowerCase();
+      const dup = products.find((p) =>
+        (p.name || "").trim().toLowerCase() === nameNorm &&
+        (p.size || "") === (newProduct.size || "") &&
+        (p.color || "") === (newProduct.color || "")
+      );
+      if (dup) { alert(t("pur.variantExists")); return; }
+    }
     setUploading(true);
     try {
       let imageUrl = "";
@@ -439,7 +450,9 @@ export default function Inventory() {
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
         category: "",
-        quantity: 0,
+        // ⚠️ كان ثابت 0 — أي تعديل (حتى اسم) كان بيمسح رصيد الصنف.
+        // دلوقتي بنحفظ القيمة الظاهرة في خانة الكمية بالمودال كما هي.
+        quantity: parseFloat(editingProduct.quantity) || 0,
         price: parseFloat(editingProduct.price),
         unit: isTrader ? (editingProduct.unit || "kg") : "",
         description: editingProduct.description || "",
@@ -490,6 +503,24 @@ export default function Inventory() {
     try {
       const productDoc = await getDoc(doc(db, "inventory", id));
       const productName = productDoc.exists() ? productDoc.data().name : "Unknown";
+      // منع حذف صنف عليه حركات — الحذف كان بييتّم الفواتير والمشتريات والمرتجعات
+      const [dInv, dPur, dRet] = await Promise.all([
+        getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("purchases", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
+      ]);
+      const hasLines = (d, keys) => d.docs.some((s) => {
+        const data = s.data() || {};
+        return keys.some((k) => (data[k] || []).some((l) => l && l.productId === id));
+      });
+      if (
+        hasLines(dInv, ["products", "items"]) ||
+        hasLines(dPur, ["items", "products"]) ||
+        hasLines(dRet, ["items", "lines"])
+      ) {
+        alert(t("inv.deleteBlockedUsed"));
+        return;
+      }
       await deleteDoc(doc(db, "inventory", id));
       await logActivity({
         actionType: "DELETE", collectionName: "inventory", itemId: id,
@@ -1147,8 +1178,8 @@ export default function Inventory() {
 
         
 
-        {/* ── الجرد ── */}
-        {isMarket && (
+        {/* ── الجرد (ماركت + ملابس — نفس البحث بالباركود/الاسم ينفع للاتنين) ── */}
+        {(isMarket || isClothing) && (
           <div className="form-card" style={{ border: "2px solid #10b98155", marginTop: 20 }}>
             <h3>
               <i className="fas fa-clipboard-check" style={{ color: "#10b981" }}></i>

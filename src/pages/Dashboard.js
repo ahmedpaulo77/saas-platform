@@ -527,6 +527,29 @@ export default function Dashboard() {
           if (mKey === curKey) curMonth += rev;
           else if (mKey === prevKey) prevMonth += rev;
         });
+        // خصم مرتجعات البيع يوم بيوم (بتاريخ المرتجع) — الرسم كان بيجمع
+        // الإيراد من غير طرحها فأي شهر فيه مرتجع كان متضخم
+        try {
+          const retRef2 = collection(db, "returns");
+          const retQ2 = userRole === "super_admin"
+            ? retRef2
+            : query(retRef2, where("companyId", "==", userCompanyId));
+          const retSnap2 = await getDocs(retQ2);
+          if (cancelled) return;
+          retSnap2.docs.forEach((d) => {
+            const r = d.data();
+            if (r.kind && r.kind !== "sale") return;
+            const dt = r.date ? new Date(r.date) : (r.createdAt ? new Date(r.createdAt) : null);
+            if (!dt || isNaN(dt.getTime())) return;
+            const amt = parseFloat(r.amount) || 0;
+            if (!(amt > 0)) return;
+            const dayKey = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+            byDay[dayKey] = (byDay[dayKey] || 0) - amt;
+            const mKey = `${dt.getFullYear()}-${dt.getMonth()}`;
+            if (mKey === curKey) curMonth -= amt;
+            else if (mKey === prevKey) prevMonth -= amt;
+          });
+        } catch (e) { console.warn("chart returns:", e?.message); }
         const series = [];
         for (let i = 29; i >= 0; i--) {
           const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);

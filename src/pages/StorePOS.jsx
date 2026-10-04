@@ -184,14 +184,28 @@ export default function StorePOS() {
           total += parseFloat(inv.amount) || 0;
           const p = parseFloat(inv.paidAmount) || 0;
           paid += p;
-          // ⚠️ ما ن fallbackش على `source` — ده مصدر الطلب مش طريقة دفع
-          const m = inv.paymentMethod || "cash";
-          byMethod[m] = (byMethod[m] || 0) + p;
-          if (m === "cash") cashSales += p;
-          windowInvoices.set(d.id, { ts, paymentMethod: m });
+          if (inv.splitPayment && Array.isArray(inv.splitPayments)) {
+            // فك الدفع المقسم لطرقه الحقيقية — كان بيتسجل كله تحت "split"
+            // وجزء الكاش بيضيع من المتوقع
+            let hasCashPart = false;
+            inv.splitPayments.forEach((sp) => {
+              const m = sp.method || "cash";
+              const a = parseFloat(sp.amount) || 0;
+              byMethod[m] = (byMethod[m] || 0) + a;
+              if (m === "cash") { cashSales += a; hasCashPart = true; }
+            });
+            windowInvoices.set(d.id, { ts, paymentMethod: hasCashPart ? "cash" : (inv.splitPayments[0]?.method || "cash") });
+          } else {
+            // ⚠️ ما ن fallbackش على `source` — ده مصدر الطلب مش طريقة دفع
+            const m = inv.paymentMethod || "cash";
+            byMethod[m] = (byMethod[m] || 0) + p;
+            if (m === "cash") cashSales += p;
+            windowInvoices.set(d.id, { ts, paymentMethod: m });
+          }
         }
       });
       let returnsCount = 0, returnsTotal = 0, cashReturnsTotal = 0;
+      const missingParents = [];
       retSnap.docs.forEach((d) => {
         const r = d.data();
         if (r.kind && r.kind !== "sale") return;
@@ -204,8 +218,26 @@ export default function StorePOS() {
         const parent = r.refId ? windowInvoices.get(r.refId) : null;
         if (parent && parent.paymentMethod === "cash" && parent.ts >= from) {
           cashReturnsTotal += amt;
+        } else if (r.refId && !parent) {
+          // الأصل خارج النافذة (وردية قديمة) — يُفحص تحت
+          missingParents.push({ refId: r.refId, amt });
         }
       });
+      // استبدال/مرتجع النهاردة لفاتورة من وردية قديمة: الخروج النقدي حصل
+      // في الوردية دي فعلاً، فلازم يتخصم — نجيب طريقة دفع الأصل مباشرة
+      for (const mp of missingParents) {
+        try {
+          const psnap = await getDoc(doc(db, "invoices", mp.refId));
+          if (!psnap.exists()) continue;
+          const pdata = psnap.data() || {};
+          if (pdata.companyId !== userCompanyId) continue;
+          let isCash = (pdata.paymentMethod || "cash") === "cash";
+          if (!isCash && pdata.splitPayment && Array.isArray(pdata.splitPayments)) {
+            isCash = pdata.splitPayments.some((sp) => (sp.method || "cash") === "cash");
+          }
+          if (isCash) cashReturnsTotal += mp.amt;
+        } catch (e) { console.warn("parent invoice fetch:", e?.message); }
+      }
       let cashIn = 0, cashOut = 0, expInCount = 0, expOutCount = 0;
       try {
         expSnap.docs.forEach((d) => {
@@ -641,6 +673,12 @@ export default function StorePOS() {
     : round2(discountRaw);
   const total = round2(Math.max(0, subtotal - discountNum));
   const discountExceedsSubtotal = discountNum > subtotal;
+  // سقف الخصم لغير الأدمن: 20% كحد أقصى، والفاتورة المجانية (صفر) للأدمن فقط
+  const MAX_CASHIER_DISCOUNT_PCT = 20;
+  const isStoreAdmin = userRole === "admin" || userRole === "super_admin";
+  const discountPctOfSubtotal = subtotal > 0 ? (discountNum / subtotal) * 100 : 0;
+  const cashierDiscountBlocked = !isStoreAdmin && subtotal > 0 &&
+    (total <= 0 || discountPctOfSubtotal > MAX_CASHIER_DISCOUNT_PCT);
   // الدفع المقسم
   const split1 = round2(parseFloat(splitAmount1) || 0);
   const split2 = round2(parseFloat(splitAmount2) || 0);
@@ -947,10 +985,18 @@ export default function StorePOS() {
       alert(t("storepos.discountTooHigh"));
       return;
     }
+    if (cashierDiscountBlocked) {
+      alert(t("storepos.discountAdminOnly", { pct: MAX_CASHIER_DISCOUNT_PCT }));
+      return;
+    }
     // التحقق من الدفع المقسم
     if (splitPayment) {
       if (!split1 || !split2) {
         alert(t("storepos.splitRequired"));
+        return;
+      }
+      if (splitMethod1 === splitMethod2) {
+        alert(t("storepos.splitSameMethod"));
         return;
       }
       if (Math.abs(splitTotal - total) > 0.01) {

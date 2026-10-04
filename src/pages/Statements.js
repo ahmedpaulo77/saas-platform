@@ -88,11 +88,22 @@ export default function Statements() {
       return true;
     };
     const rows = [];
+    const returnsById = {};
+    (returns || []).forEach((r) => { if (r.id) returnsById[r.id] = r; });
     if (tab === "clients") {
       invoices.filter((i) => i.clientId === entityId && !i.isReturn && inRange(i)).forEach((i) => {
         const amount = parseFloat(i.amount) || 0;
-        const paid = parseFloat(i.paidAmount) || 0;
-        rows.push({ date: i.date || i.createdAt, type: t("st.invoiceSale"), ref: i.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
+        let paid = parseFloat(i.paidAmount) || 0;
+        let type = t("st.invoiceSale");
+        // فاتورة الاستبدال مربوطة بمرتجعها (exchangeReturnRef): نخفض المحصل
+        // بقيمة المرتجع — وإلا الرصيد يطلع سالب وهمي (مدفوع كامل + مرتجع مخصوم)
+        // والمرتجع نفسه سطر دائن منفصل تحت
+        if (i.type === "exchange" && i.exchangeReturnRef && returnsById[i.exchangeReturnRef]) {
+          const refund = parseFloat(returnsById[i.exchangeReturnRef].amount) || 0;
+          paid = Math.max(0, paid - refund);
+          type = `${t("st.invoiceSale")} (${t("st.exchangeTag")})`;
+        }
+        rows.push({ date: i.date || i.createdAt, type, ref: i.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
       });
       returns.filter((r) => r.kind === "sale" && r.entityId === entityId && inRange(r)).forEach((r) => {
         rows.push({ date: r.date || r.createdAt, type: t("st.returnSale"), ref: (r.refId || "").slice(0, 6).toUpperCase(), debit: 0, credit: parseFloat(r.amount) || 0, paid: 0, remaining: 0 });

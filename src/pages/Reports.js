@@ -422,6 +422,28 @@ export default function Reports() {
         });
       });
 
+      // خصم كميات مرتجعات البيع من تحليلات الملابس — المرتجع كان محسوب
+      // "الأكثر مبيعاً" وقرارات شراء الموسم بتتبني عليه
+      returnsData.forEach((r) => {
+        if (r.kind && r.kind !== "sale") return;
+        const lines = r.items || r.lines || [];
+        if (!Array.isArray(lines)) return;
+        lines.forEach((item) => {
+          const qty = parseFloat(item.quantity) || 0;
+          if (qty <= 0) return;
+          const prod = productMap[item.productId] || productMap[item.id] || {};
+          const sizeKey = norm(item.size ?? item.Size ?? prod.size ?? prod.Size) || t('common.unspecified');
+          const colorKey = norm(item.color ?? item.Color ?? prod.color ?? prod.Color) || t('common.unspecified');
+          const typeKey = norm(item.type ?? prod.type ?? prod.category ?? prod.Category) || t('common.unspecified');
+          const prodName = prod.name || item.name || t('rep.product');
+          const prodKey = item.productId || item.id || `${prodName}|${typeKey}|${sizeKey}|${colorKey}`;
+          sizeMap[sizeKey] = Math.max(0, (sizeMap[sizeKey] || 0) - qty);
+          colorMap[colorKey] = Math.max(0, (colorMap[colorKey] || 0) - qty);
+          typeMap[typeKey] = Math.max(0, (typeMap[typeKey] || 0) - qty);
+          if (prodMap[prodKey]) prodMap[prodKey].qty = Math.max(0, prodMap[prodKey].qty - qty);
+        });
+      });
+
       const toSorted = (map) =>
         Object.entries(map)
           .map(([name, quantity]) => ({ name, quantity }))
