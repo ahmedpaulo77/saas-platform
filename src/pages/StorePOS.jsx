@@ -762,7 +762,10 @@ export default function StorePOS() {
   async function printDailySalesPDF() {
     if (!userCompanyId) return;
     try {
-      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const [snap, retSnap] = await Promise.all([
+        getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("returns", userRole, userCompanyId, currentUser?.uid)),
+      ]);
       const todayStr = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
@@ -770,7 +773,8 @@ export default function StorePOS() {
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((inv) => {
           if ((inv.approval || "validated") !== "validated") return false;
-          if (inv.type && inv.type !== "store-pos") return false;
+          // فواتير الاستبدال (type=exchange) مبيعات محسوبة مثل store-pos
+          if (inv.type && inv.type !== "store-pos" && inv.type !== "exchange") return false;
           const ts = new Date(inv.date || inv.createdAt || 0).getTime();
           return ts >= todayStart.getTime() && ts <= todayEnd.getTime();
         })
@@ -783,6 +787,17 @@ export default function StorePOS() {
 
       const grandTotal = todayInvs.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
       const grandDiscount = todayInvs.reduce((s, i) => s + (parseFloat(i.discount) || 0), 0);
+      // مرتجعات البيع بتاعة النهاردة (نفس منطق تقفيل الوردية) — عشان الصافي يطلع صح
+      // خصوصًا مع الاستبدال: فاتورة البديل داخلة فوق، وقيمة المرتجع لازم تتخصم هنا
+      const todayReturns = retSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => {
+          if (r.kind && r.kind !== "sale") return false;
+          const ts = new Date(r.date || r.createdAt || 0).getTime();
+          return ts >= todayStart.getTime() && ts <= todayEnd.getTime();
+        });
+      const returnsTotal = todayReturns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const netTotal = round2(grandTotal - returnsTotal);
 
       // جمع حسب طريقة الدفع (مع دعم الدفع المقسم)
       const byMethod = {};
@@ -809,13 +824,14 @@ export default function StorePOS() {
           ? inv.splitPayments.map((sp) => `${getPaymentLabel(sp.method)}: ${(parseFloat(sp.amount)||0).toFixed(2)}`).join(" + ")
           : getPaymentLabel(inv.paymentMethod);
         const discStr = parseFloat(inv.discount) > 0 ? `<br/><small style="color:#b45309;">خصم: ${(parseFloat(inv.discount)||0).toFixed(2)} ج.م</small>` : "";
+        const exTag = inv.type === "exchange" ? `<br/><small style="color:#1e3a8a;font-weight:800;">🔄 استبدال</small>` : "";
         return `<tr>
           <td style="padding:6px 8px;text-align:center;">${idx + 1}</td>
           <td style="padding:6px 8px;">${new Date(inv.date || inv.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</td>
           <td style="padding:6px 8px;">${clientName}</td>
           <td style="padding:6px 8px;font-size:11px;">${items}</td>
           <td style="padding:6px 8px;text-align:center;">${payStr}</td>
-          <td style="padding:6px 8px;text-align:left;font-weight:800;">${(parseFloat(inv.amount)||0).toFixed(2)}${discStr}</td>
+          <td style="padding:6px 8px;text-align:left;font-weight:800;">${(parseFloat(inv.amount)||0).toFixed(2)}${discStr}${exTag}</td>
         </tr>`;
       }).join("");
 
@@ -861,6 +877,14 @@ export default function StorePOS() {
   ${grandDiscount > 0 ? `<div class="summary-box" style="background:#fffbeb;border-color:#fcd34d;">
     <div class="val" style="color:#b45309;">${grandDiscount.toFixed(2)} ج.م</div>
     <div class="lbl">إجمالي الخصومات</div>
+  </div>` : ""}
+  ${returnsTotal > 0 ? `<div class="summary-box" style="background:#fef2f2;border-color:#fecaca;">
+    <div class="val" style="color:#dc2626;">${returnsTotal.toFixed(2)} ج.م</div>
+    <div class="lbl">مرتجعات اليوم (${todayReturns.length})</div>
+  </div>
+  <div class="summary-box" style="background:#f0fdf4;border-color:#86efac;">
+    <div class="val" style="color:#059669;">${netTotal.toFixed(2)} ج.م</div>
+    <div class="lbl">صافي المبيعات</div>
   </div>` : ""}
 </div>
 
