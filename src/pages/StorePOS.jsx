@@ -467,6 +467,18 @@ export default function StorePOS() {
     win.document.write(printContent);
     win.document.close();
     win.focus();
+    // بعد الطباعة (أو إلغائها) نافذة الطباعة تتقفل وكارت الاستبدال يتقفل معاها تلقائيًا
+    try {
+      win.onafterprint = function () { try { win.close(); } catch (e) { /* ignore */ } };
+    } catch (e) { /* ignore */ }
+    const watcher = setInterval(() => {
+      try {
+        if (win.closed) {
+          clearInterval(watcher);
+          dismissLastExchange();
+        }
+      } catch (e) { clearInterval(watcher); }
+    }, 600);
   }
 
   // حفظ باركود ممسوح على صنف موجود + إضافته للسلة فوراً
