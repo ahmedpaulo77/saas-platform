@@ -1,5 +1,6 @@
 // src/pages/Invoices.js - thin orchestrator after split (was 2564 lines)
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, where, runTransaction, writeBatch } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
@@ -32,6 +33,7 @@ function isInvoiceValidatedDoc(inv) {
 
 export default function Invoices() {
   const { t, locale } = useLanguage();
+  const navigate = useNavigate();
   const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
@@ -219,6 +221,8 @@ export default function Invoices() {
   const [exchangeSearch, setExchangeSearch] = useState("");
   const [exchangePicks, setExchangePicks] = useState([]);
   const [exchanging, setExchanging] = useState(false);
+  // نتيجة الاستبدال الناجح — لوحة الطباعة والرجوع لنقطة البيع
+  const [exchangeResult, setExchangeResult] = useState(null);
 
   function resetExchangeStates() {
     setExchangingInvoice(null); setShowExchangeModal(false);
@@ -329,7 +333,7 @@ export default function Invoices() {
             const cur = parseFloat(psnap.data().quantity) || 0;
             tx.update(pref, { quantity: round2(cur - parseFloat(l.quantity)) });
           }
-          tx.set(invoiceRef, {
+          const newInvoiceData = {
             companyId: userCompanyId,
             createdBy: currentUser?.uid || null,
             createdByEmail: currentUser?.email || "",
@@ -349,7 +353,8 @@ export default function Invoices() {
             type: "exchange",
             exchangeOf: inv.id,
             exchangeReturnRef: returnId,
-          });
+          };
+          tx.set(invoiceRef, newInvoiceData);
         });
         await logActivity({
           actionType: "CREATE", collectionName: "invoices", itemId: invoiceRef.id,
@@ -372,7 +377,12 @@ export default function Invoices() {
       });
       resetExchangeStates();
       await Promise.all([resetPagination(), fetchProducts(), fetchReturnsMap()]);
-      alert(`${t("ex.success")} — ${summary.diff > 0 ? t("ex.payExtra") : summary.diff < 0 ? t("ex.refundDue") : t("ex.even")}: ${summary.diff}`);
+      // لوحة النجاح بدل التنبيه: رقم الفاتورة + طباعة + رجوع لنقطة البيع
+      setExchangeResult({
+        invoice: { id: invoiceRef.id, ...newInvoiceData },
+        summary,
+        clientName,
+      });
     } catch (err) {
       console.error(err);
       alert(err?.message || t("common.errorGeneric"));
@@ -959,6 +969,46 @@ export default function Invoices() {
           exchangingInvoice={exchangingInvoice} showExchangeModal={showExchangeModal} setShowExchangeModal={setShowExchangeModal} exchangeReturnQtys={exchangeReturnQtys} setExchangeReturnQtys={setExchangeReturnQtys} exchangePriorMap={exchangePriorMap} exchangeReason={exchangeReason} setExchangeReason={setExchangeReason} exchangeSearch={exchangeSearch} setExchangeSearch={setExchangeSearch} exchangePicks={exchangePicks} setExchangePicks={setExchangePicks} exchangeSummary={exchangeSummary} onSubmitExchange={submitExchange} exchanging={exchanging}
           clients={clients} products={products}
         />
+
+        {/* لوحة ما بعد الاستبدال: رقم الفاتورة + طباعة + رجوع لنقطة البيع */}
+        {exchangeResult && (
+          <div className="modal-overlay" onClick={() => setExchangeResult(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-header">
+                <h3><i className="fas fa-check-circle" style={{ color: "#059669" }}></i> {t("ex.success")}</h3>
+                <button className="modal-close" onClick={() => setExchangeResult(null)}>×</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 12, fontSize: 13 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#64748b" }}>{t("ex.newInvoiceNo")}</span>
+                    <span style={{ fontWeight: 800, fontFamily: "monospace", direction: "ltr" }}>{exchangeResult.invoice.id}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#64748b" }}>{t("ex.refundValue")}</span>
+                    <span style={{ fontWeight: 800, color: "#dc2626" }}>{moneyShort(exchangeResult.summary.refundTotal, locale)} {t("currency")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "#64748b" }}>{t("ex.newValue")}</span>
+                    <span style={{ fontWeight: 800, color: "#059669" }}>{moneyShort(exchangeResult.summary.newTotal, locale)} {t("currency")}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #86efac", paddingTop: 6 }}>
+                    <span style={{ fontWeight: 800 }}>{t("ex.difference")}</span>
+                    <span style={{ fontWeight: 900 }}>{exchangeResult.summary.diff > 0 ? "+" : ""}{moneyShort(exchangeResult.summary.diff, locale)} {t("currency")}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="btn-primary" style={{ flex: 1 }} onClick={() => handleThermalPrint(exchangeResult.invoice)}>
+                  <i className="fas fa-print"></i> {t("ex.printInvoice")}
+                </button>
+                <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => { setExchangeResult(null); navigate(userIndustry === "clothing" ? "/store-pos" : "/pos"); }}>
+                  <i className="fas fa-cash-register"></i> {t("ex.backToPOS")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
