@@ -395,7 +395,7 @@ export default function StorePOS() {
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
+  body { font-family: Arial, Tahoma, sans-serif; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
   .store-name { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
   .inv-title  { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 2px; }
   .center { text-align: center; }
@@ -438,8 +438,11 @@ export default function StorePOS() {
 <div class="divider"></div>
 
 <div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
-  <div><span class="lbl">البديل:</span> ${(parseFloat(lastExchange.newTotal) || 0).toFixed(2)} ج.م</div>
-  <div><span class="lbl">المرتجع:</span> ${(parseFloat(lastExchange.refundTotal) || 0).toFixed(2)} ج.م</div>
+  <div><span class="lbl">البديل:</span> <span dir="ltr">${(parseFloat(lastExchange.newTotal) || 0).toFixed(2)} ج.م</span></div>
+  <div><span class="lbl">المرتجع:</span> <span dir="ltr">${(parseFloat(lastExchange.refundTotal) || 0).toFixed(2)} ج.م</span></div>
+  <div class="total-row">
+    <span class="lbl">الفرق:</span> <span dir="ltr">${(() => { const d = (parseFloat(lastExchange.newTotal) || 0) - (parseFloat(lastExchange.refundTotal) || 0); return (d > 0 ? "+" : "") + d.toFixed(2); })()} ج.م</span>
+  </div>
 </div>
 <div class="divider"></div>
 
@@ -679,7 +682,7 @@ export default function StorePOS() {
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
+  body { font-family: Arial, Tahoma, sans-serif; font-size: 14px; font-weight: 700; width: 80mm; padding: 8px; }
   .store-name { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
   .inv-title  { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 2px; }
   .center { text-align: center; }
@@ -691,6 +694,7 @@ export default function StorePOS() {
   .variant-line { font-size: 11px; font-weight: 700; color: #333; }
   .total-row  { font-weight: 900; font-size: 17px; border-top: 3px solid #000; padding-top: 5px; margin-top: 4px; }
   .lbl        { font-weight: 900; }
+  .mono { font-family: 'Courier New', monospace; }
   svg.bc { width: 62mm; height: 13mm; display: block; margin: 4px auto 0; }
   .policy { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.7; margin-top: 2px; }
   .policy-title { font-size: 12px; font-weight: 900; text-align: center; margin-bottom: 2px; }
