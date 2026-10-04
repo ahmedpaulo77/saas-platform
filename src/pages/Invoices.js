@@ -308,8 +308,30 @@ export default function Invoices() {
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader,
       });
       // 2) فاتورة البديل مربوطة (دخول الفلوس + خصم المخزون) — نفس شكل StorePOS
+      // (الاثنان خارج الـ try/catch عشان لوحة النجاح تستخدمهما بعد نجاح الكتابة)
+      const invoiceRef = doc(collection(db, "invoices"));
+      const newInvoiceData = {
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdByEmail: currentUser?.email || "",
+        clientId: inv.clientId || null,
+        products: saleLines,
+        subtotal: summary.newTotal,
+        discount: 0,
+        amount: summary.newTotal,
+        paidAmount: summary.newTotal,
+        status: "paid",
+        approval: "validated",
+        validatedBy: currentUser?.uid || null,
+        validatedAt: now,
+        paymentMethod: inv.paymentMethod || "cash",
+        date: now,
+        createdAt: now,
+        type: "exchange",
+        exchangeOf: inv.id,
+        exchangeReturnRef: returnId,
+      };
       try {
-        const invoiceRef = doc(collection(db, "invoices"));
         // ⚠️ قاعدة Firestore: كل القراءات أولاً ثم كل الكتابات — قراءة بعد
         // كتابة (حتى لسطر تاني) بترمي "transactions require all reads..."
         await runTransaction(db, async (tx) => {
@@ -333,27 +355,6 @@ export default function Invoices() {
             const cur = parseFloat(psnap.data().quantity) || 0;
             tx.update(pref, { quantity: round2(cur - parseFloat(l.quantity)) });
           }
-          const newInvoiceData = {
-            companyId: userCompanyId,
-            createdBy: currentUser?.uid || null,
-            createdByEmail: currentUser?.email || "",
-            clientId: inv.clientId || null,
-            products: saleLines,
-            subtotal: summary.newTotal,
-            discount: 0,
-            amount: summary.newTotal,
-            paidAmount: summary.newTotal,
-            status: "paid",
-            approval: "validated",
-            validatedBy: currentUser?.uid || null,
-            validatedAt: now,
-            paymentMethod: inv.paymentMethod || "cash",
-            date: now,
-            createdAt: now,
-            type: "exchange",
-            exchangeOf: inv.id,
-            exchangeReturnRef: returnId,
-          };
           tx.set(invoiceRef, newInvoiceData);
         });
         await logActivity({
