@@ -1067,6 +1067,18 @@ export default function StorePOS() {
                   </option>
                 ))}
               </select>
+              {/* دخول الاستبدال من نقطة البيع (للأدمن فقط) — نفس شاشة الفواتير، نفس القواعد */}
+              {(userRole === "admin" || userRole === "super_admin") && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/invoices")}
+                  className="btn-secondary btn-sm"
+                  title={t("ex.exchangeBtn")}
+                  style={{ borderColor: "#1e3a8a", color: "#1e3a8a", whiteSpace: "nowrap" }}
+                >
+                  <i className="fas fa-right-left"></i> {t("ex.exchangeBtn")}
+                </button>
+              )}
             </div>
 
             {/* باركود مجهول: تسجيله على صنف عشان المسح الجاي يشتغل */}

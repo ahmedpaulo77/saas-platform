@@ -263,6 +263,19 @@ export function ExchangeModal({
     setExchangePicks((prev) => (prev || []).filter((x) => x.productId !== productId));
   };
 
+  // مسح باركود القطعة البديلة → تتضاف فوراً بدل البحث والضغط
+  const addByScan = (e) => {
+    if (e.key !== "Enter") return;
+    const term = (exchangeSearch || "").trim().toLowerCase();
+    if (!term) return;
+    const hit = (products || []).find((p) => (p.barcode || "").trim().toLowerCase() === term);
+    if (hit) {
+      e.preventDefault();
+      addPick(hit.id);
+      setExchangeSearch("");
+    }
+  };
+
   const { refundTotal = 0, newTotal = 0, diff = 0 } = exchangeSummary || {};
   const diffLabel = diff > 0 ? t("ex.payExtra") : diff < 0 ? t("ex.refundDue") : t("ex.even");
 
@@ -301,6 +314,7 @@ export function ExchangeModal({
               placeholder={t("ex.searchProduct")}
               value={exchangeSearch}
               onChange={(e) => setExchangeSearch(e.target.value)}
+              onKeyDown={addByScan}
               style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
             />
             {candidates.map((p) => (
