@@ -129,8 +129,10 @@ export default function POS() {
   }, [rawMats]);
 
   // أقصى عدد أطباق يتعمل من الخامات الحالية (null = الطبق بلا وصفة → غير معروف)
-  function dishAvailability(product) {
+  // mult = معامل المقاس (الوسط يستهلك ×1.5 مثلاً)
+  function dishAvailability(product, mult = 1) {
     if (!isRestaurantStock) return null;
+    const m = parseFloat(mult) > 0 ? parseFloat(mult) : 1;
     const recipe = Array.isArray(product?.recipe)
       ? product.recipe.filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
       : [];
@@ -140,7 +142,7 @@ export default function POS() {
       const mat = rawMatsById.get(step.materialId);
       if (!mat) return 0;
       const stockQty = parseFloat(mat.quantity) || 0;
-      const need = parseFloat(step.qty) || 0;
+      const need = (parseFloat(step.qty) || 0) * m;
       if (!(need > 0)) continue;
       const conv = convertQty(need, step.unit, mat.unit);
       if (!(conv.qty > 0)) return 0;
@@ -149,6 +151,12 @@ export default function POS() {
     }
     return max === Infinity ? null : max;
   }
+
+  // مودال اختيار المقاس بسعره (منتجات المطعم متعددة الأحجام)
+  const [sizePicker, setSizePicker] = useState(null);
+  const sizePickerSizes = sizePicker && Array.isArray(sizePicker.sizes)
+    ? sizePicker.sizes.filter((s) => s && s.size)
+    : [];
 
   // ── الوردية والتقفيل اليدوي ──
   const [shift, setShift] = useState(null); // التقفيلة المفتوحة
@@ -161,6 +169,16 @@ export default function POS() {
   const [closing, setClosing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  // دفع مقسم (جزء كاش + جزء فيزا/محفظة) — مطعم فقط
+  // (الحساب بـ Math.round هنا لأن round2 معرّفة تحت — تجنب TDZ)
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [splitMethod1, setSplitMethod1] = useState("cash");
+  const [splitAmount1, setSplitAmount1] = useState("");
+  const [splitMethod2, setSplitMethod2] = useState("visa");
+  const [splitAmount2, setSplitAmount2] = useState("");
+  const split1 = Math.round((parseFloat(splitAmount1) || 0) * 100) / 100;
+  const split2 = Math.round((parseFloat(splitAmount2) || 0) * 100) / 100;
+  const splitTotal = Math.round((split1 + split2) * 100) / 100;
 
   const fetchShift = useCallback(async () => {
     if (!userCompanyId) return;
@@ -233,10 +251,22 @@ export default function POS() {
           paid += p;
           // ⚠️ ما ن fallbackش على `source` — ده *مصدر الطلب* (whatsapp/direct)
           // مش طريقة دفع. كان بيخلي أي طلب واتساب نقدي يتحسب كاش في الدرج.
-          const m = inv.paymentMethod || "cash";
-          byMethod[m] = (byMethod[m] || 0) + p;
-          if (m === "cash") cashSales += p;
-          windowInvoices.set(d.id, { ts, paymentMethod: m });
+          if (inv.splitPayment && Array.isArray(inv.splitPayments)) {
+            // فك المقسم لطرقه — جزء الكاش يدخل المتوقع (كان ضايع تحت "split")
+            let hasCashPart = false;
+            inv.splitPayments.forEach((sp) => {
+              const m = sp.method || "cash";
+              const a = parseFloat(sp.amount) || 0;
+              byMethod[m] = (byMethod[m] || 0) + a;
+              if (m === "cash") { cashSales += a; hasCashPart = true; }
+            });
+            windowInvoices.set(d.id, { ts, paymentMethod: hasCashPart ? "cash" : (inv.splitPayments[0]?.method || "cash") });
+          } else {
+            const m = inv.paymentMethod || "cash";
+            byMethod[m] = (byMethod[m] || 0) + p;
+            if (m === "cash") cashSales += p;
+            windowInvoices.set(d.id, { ts, paymentMethod: m });
+          }
         }
       });
       let returnsCount = 0, returnsTotal = 0, cashReturnsTotal = 0;
@@ -438,11 +468,14 @@ export default function POS() {
       for (const it of items) {
         const prod = products.find((p) => p.id === it.productId);
         if (!prod) continue;
+        const size = it.size || "";
+        const mult = parseFloat(it.mult) > 0 ? parseFloat(it.mult) : 1;
+        const key = cartKeyOf(prod.id, size);
         const avail = isRestaurantStock ? dishAvailability(prod) : null;
-        const cap = avail === null ? (prod.quantity || 0) : avail;
+        const cap = avail === null ? (prod.quantity || 0) : Math.floor(avail / mult);
         const qty = Math.min(it.quantity || 1, cap);
         if (qty <= 0) continue;
-        restored.push({ ...prod, quantity: qty, stockQty: cap });
+        restored.push({ ...prod, key, size, mult, price: it.price ?? prod.price, quantity: qty, stockQty: cap });
       }
       if (restored.length === 0) { alert("أصناف آخر أوردر مش متاحة حالياً"); return; }
       setCart(restored);
@@ -504,45 +537,52 @@ export default function POS() {
   };
 
   // ── إدارة السلة ──
-  function addToCart(product) {
+  // مفتاح السطر = الصنف + المقاس (نفس الصنف بمقاسين = سطرين)
+  const cartKeyOf = (productId, size) => `${productId}__${size || ""}`;
+  // sizeOpt للمطعم: { size, price, mult } من المقاس المختار — بدونه السعر/المقاس الأساسي
+  function addToCart(product, sizeOpt = null) {
     // صيدلية: منع بيع صنف منتهي الصلاحية (تاريخ الصنف نفسه)
     if (isPharmacy && product.expiryDate) {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       if (new Date(product.expiryDate) < today) { alert("هذا الدواء منتهي الصلاحية — البيع موقوف"); return; }
     }
-    // مطعم: السقف من إتاحة الوصفة (null = بلا وصفة → السماح مع تحذير الشارة)
+    const size = sizeOpt?.size ?? product.size ?? "";
+    const price = sizeOpt ? (parseFloat(sizeOpt.price) || 0) : product.price;
+    const mult = sizeOpt ? (parseFloat(sizeOpt.mult) > 0 ? parseFloat(sizeOpt.mult) : 1) : 1;
+    const key = cartKeyOf(product.id, size);
+    // مطعم: السقف من إتاحة الوصفة × المعامل (null = بلا وصفة → السماح مع تحذير الشارة)
     const avail = isRestaurantStock ? dishAvailability(product) : null;
-    const cap = avail === null ? (product.quantity ?? Infinity) : avail;
+    const cap = avail === null ? (product.quantity ?? Infinity) : Math.floor(avail / mult);
     // ملاحظة التحضير الافتراضية تتملي تلقائيًا لو الكاشير مكتبش واحدة
     if (isRestaurant && product.preparationNote) {
       setCartItemNotes((prevNotes) => {
-        if (prevNotes[product.id]) return prevNotes;
-        return { ...prevNotes, [product.id]: product.preparationNote };
+        if (prevNotes[key]) return prevNotes;
+        return { ...prevNotes, [key]: product.preparationNote };
       });
     }
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find((item) => item.key === key);
       if (existing) {
         if (existing.quantity + 1 > cap) { alert(t("pos.qtyOver")); return prev; }
-        return prev.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map((item) => item.key === key ? { ...item, quantity: item.quantity + 1 } : item);
       } else {
         if (cap < 1) { alert(t("pos.notAvail")); return prev; }
-        return [...prev, { ...product, quantity: 1, stockQty: cap }];
+        return [...prev, { ...product, key, size, price, mult, quantity: 1, stockQty: cap }];
       }
     });
   }
 
-  function removeFromCart(productId) {
-    setCart((prev) => prev.filter((item) => item.id !== productId));
-    setCartItemNotes((prev) => { const n = { ...prev }; delete n[productId]; return n; });
-    setCartItemExtras((prev) => { const n = { ...prev }; delete n[productId]; return n; });
+  function removeFromCart(cartKey) {
+    setCart((prev) => prev.filter((item) => (item.key || item.id) !== cartKey));
+    setCartItemNotes((prev) => { const n = { ...prev }; delete n[cartKey]; return n; });
+    setCartItemExtras((prev) => { const n = { ...prev }; delete n[cartKey]; return n; });
   }
 
-  function updateCartQuantity(productId, newQty) {
+  function updateCartQuantity(cartKey, newQty) {
     if (newQty < 0) return;
-    if (newQty === 0) { removeFromCart(productId); return; }
+    if (newQty === 0) { removeFromCart(cartKey); return; }
     setCart((prev) => prev.map((item) => {
-      if (item.id !== productId) return item;
+      if ((item.key || item.id) !== cartKey) return item;
       if (newQty > (item.stockQty || item.quantity)) { alert(t("pos.qtyOver")); return item; }
       return { ...item, quantity: newQty };
     }));
@@ -553,7 +593,7 @@ export default function POS() {
     const basePrice = (item.price || 0) * item.quantity;
     if (!isRestaurant) return basePrice;
     const extras = item.extras || [];
-    const selectedExtraIdxs = cartItemExtras[item.id] || [];
+    const selectedExtraIdxs = cartItemExtras[item.key || item.id] || [];
     const extrasTotal = selectedExtraIdxs.reduce((sum, idx) => {
       const ex = extras[idx];
       return ex ? sum + (parseFloat(ex.price) || 0) * item.quantity : sum;
@@ -609,7 +649,9 @@ export default function POS() {
       code,
       cashier: currentUser?.displayName || currentUser?.email || "",
       clientName: invoiceData?.clientName || "",
-      paymentLabel: getPaymentLabel(invoiceData?.paymentMethod || paymentMethod),
+      paymentLabel: invoiceData?.splitPayment && Array.isArray(invoiceData?.splitPayments)
+        ? invoiceData.splitPayments.map((sp) => `${getPaymentLabel(sp.method)} ${(parseFloat(sp.amount) || 0).toFixed(2)}`).join(" + ")
+        : getPaymentLabel(invoiceData?.paymentMethod || paymentMethod),
       items: (invoiceData?.items || []).map((it) => ({
         name: it.productName,
         quantity: it.quantity,
@@ -649,6 +691,14 @@ export default function POS() {
     if (cart.length === 0) { alert(t("pos.addFirst")); return; }
     if (isRestaurant && orderType === "delivery" && !deliveryAddress.trim()) {
       alert("يرجى إدخال عنوان التوصيل"); return;
+    }
+    // التحقق من الدفع المقسم: مبلغين + طريقتين مختلفتين + المجموع = الإجمالي
+    if (isRestaurant && splitPayment) {
+      if (!(split1 > 0) || !(split2 > 0)) { alert("اكتب مبالغ الدفع المقسم"); return; }
+      if (splitMethod1 === splitMethod2) { alert("طريقتا الدفع المقسم لازم تكونا مختلفتين"); return; }
+      if (Math.abs(splitTotal - total) > 0.01) {
+        alert(`مجموع الدفع (${splitTotal.toFixed(2)}) لا يساوي الإجمالي (${total.toFixed(2)})`); return;
+      }
     }
     setSubmitting(true);
     try {
@@ -701,14 +751,15 @@ export default function POS() {
         const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
         const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
         const { materialLines, skipped } = expandRecipeLines(
-          cart.map((item) => ({ productId: item.id, quantity: item.quantity })), dishById
+          // المقاس يضاعف استهلاك الوصفة (وسط ×1.5 مثلاً)
+          cart.map((item) => ({ productId: item.id, quantity: (parseFloat(item.quantity) || 0) * (parseFloat(item.mult) > 0 ? parseFloat(item.mult) : 1) })), dishById
         );
         if (skipped.length > 0) console.warn("POS dishes without recipe (stock not consumed):", skipped);
         // إضافات مربوطة بخامات: تُستهلك مع الطبق (كمية الإضافة × عدد الأطباق)
         const extraTotals = new Map();
         cart.forEach((item) => {
           const prodExtras = item.extras || [];
-          (cartItemExtras[item.id] || []).forEach((exIdx) => {
+          (cartItemExtras[item.key || item.id] || []).forEach((exIdx) => {
             const ex = prodExtras[exIdx];
             const eq = parseFloat(ex?.qty) || 0;
             if (!ex?.materialId || !(eq > 0)) return;
@@ -832,7 +883,7 @@ export default function POS() {
         clientId: finalClientId,
         clientName: finalClientName,
         items: cart.map((item) => {
-          const selectedExtraIdxs = cartItemExtras[item.id] || [];
+          const selectedExtraIdxs = cartItemExtras[item.key || item.id] || [];
           const selectedExtras = (item.extras || []).filter((_, i) => selectedExtraIdxs.includes(i));
           return {
             productId: item.id,
@@ -842,8 +893,11 @@ export default function POS() {
             amount: round2(getItemTotalPrice(item)),
             quantity: item.quantity,
             price: item.price || 0,
+            // المقاس ومعامل الوصفة — للمرتجع والتكلفة (افتراضي مقاس/معامل 1)
+            size: item.size || "",
+            mult: parseFloat(item.mult) > 0 ? parseFloat(item.mult) : 1,
             extras: isRestaurant ? selectedExtras : [],
-            note: cartItemNotes[item.id] || "",
+            note: cartItemNotes[item.key || item.id] || "",
             itemTotal: round2(getItemTotalPrice(item)),
             // حقول الملابس
             productType: item.type || "",
@@ -861,7 +915,8 @@ export default function POS() {
         amount: subtotal,
         status: "paid",
         paidAmount: total,
-        paymentMethod: paymentMethod || "cash",
+        paymentMethod: (isRestaurant && splitPayment) ? "split" : (paymentMethod || "cash"),
+        ...(isRestaurant && splitPayment ? { splitPayment: true, splitPayments: [{ method: splitMethod1, amount: split1 }, { method: splitMethod2, amount: split2 }] } : {}),
         approval: "validated",
         validatedBy: currentUser?.uid || null,
         validatedAt: new Date().toISOString(),
@@ -997,6 +1052,9 @@ export default function POS() {
       setDeliveryFee("");
       setDiscount("");
       setDiscountType("amount");
+      setSplitPayment(false);
+      setSplitAmount1("");
+      setSplitAmount2("");
       setTableNumber("");
       setCustomerNote("");
       setPhoneHint("");
@@ -1167,16 +1225,22 @@ export default function POS() {
               ) : (
                 filteredProducts.map((product) => {
                   const details = getProductDetails(product);
-                  const inCart = cart.find((c) => c.id === product.id);
                   // مطعم: الإتاحة من الوصفة والخامات (null = بلا وصفة → تنبيه فقط).
                   // غير المطعم: نفس السلوك القديم (رصيد الصنف).
                   const dishAvail = isRestaurantStock ? dishAvailability(product) : null;
                   const noRecipe = isRestaurantStock && dishAvail === null;
                   const soldOut = isRestaurantStock ? dishAvail === 0 : product.quantity < 1;
+                  // المطعم: الاسم والسعر فقط (التفاصيل الداخلية لا تظهر على الكارت)
+                  const prodSizes = (isRestaurantStock && Array.isArray(product.sizes) ? product.sizes.filter((s) => s && s.size) : []);
+                  const fromPrice = prodSizes.length > 0
+                    ? Math.min(...prodSizes.map((s) => parseFloat(s.price) || 0))
+                    : product.price;
+                  const inCartQty = cart.filter((c) => c.id === product.id).reduce((s, c) => s + (parseFloat(c.quantity) || 0), 0);
+                  const inCart = inCartQty > 0 ? { quantity: inCartQty } : null;
                   return (
                     <button
                       key={product.id}
-                      onClick={() => addToCart(product)}
+                      onClick={() => (prodSizes.length > 0 ? setSizePicker(product) : addToCart(product))}
                       disabled={soldOut}
                       style={{
                         background: "white",
@@ -1210,39 +1274,35 @@ export default function POS() {
                           fontSize: 11, fontWeight: 700,
                         }}>{inCart.quantity}</span>
                       )}
-                      {isRestaurant && product.category && (
+                      {isRestaurant && !isRestaurantStock && product.category && (
                         <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 2 }}>
                           {getCategoryLabel(product.category)}
                         </div>
                       )}
                       <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{product.name}</div>
-                      {noRecipe && (
-                        <div style={{ fontSize: 10, color: "#b45309", background: "#fef3c7", borderRadius: 6, padding: "1px 6px", alignSelf: "flex-start", fontWeight: 700 }}>
-                          🧾 بلا وصفة — البيع لن يخصم خامات
-                        </div>
+                      {isRestaurantStock && prodSizes.length > 0 && (
+                        <div style={{ fontSize: 10, color: "#1e3a8a", fontWeight: 700 }}>📏 {prodSizes.length} مقاسات</div>
                       )}
-                      {isRestaurantStock && !noRecipe && (
-                        <div style={{ fontSize: 10, color: dishAvail === 0 ? "#dc2626" : "#64748b", fontWeight: 700 }}>
-                          {dishAvail === 0 ? "خامات غير كافية" : `يكفي ~${dishAvail} طبق`}
-                        </div>
-                      )}
-                      {!isRestaurant && product.barcode && (
+                      {!isRestaurantStock && product.barcode && (
                         <div style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", direction: "ltr", textAlign: "right" }}>
                           {product.barcode}
                         </div>
                       )}
-                      {details && <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 500 }}>{details}</div>}
+                      {!isRestaurantStock && details && <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 500 }}>{details}</div>}
                       {!isRestaurant && (
                         <div style={{ fontSize: 12, color: "#64748b" }}>{product.category || t("pos.noCat")}</div>
                       )}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                        <span style={{ fontWeight: 800, color: "#10b981" }}>{product.price} {t("currency")}</span>
-                        <span className="badge" style={{ background: product.quantity < 5 ? "#fef2f2" : "#f0fdf4", color: product.quantity < 5 ? "#dc2626" : "#16a34a", fontSize: 10 }}>
-                          {product.quantity} {t("pos.remaining")}
+                        <span style={{ fontWeight: 800, color: "#10b981" }}>
+                          {prodSizes.length > 0 ? `يبدأ من ${fromPrice}` : product.price} {t("currency")}
                         </span>
+                        {!isRestaurantStock && (
+                          <span className="badge" style={{ background: product.quantity < 5 ? "#fef2f2" : "#f0fdf4", color: product.quantity < 5 ? "#dc2626" : "#16a34a", fontSize: 10 }}>
+                            {product.quantity} {t("pos.remaining")}
+                          </span>
+                        )}
                       </div>
-                      {/* إضافات المنيو — مطعم وكافيه */}
-                      {isRestaurant && (product.extras || []).length > 0 && (
+                      {!isRestaurantStock && isRestaurant && (product.extras || []).length > 0 && (
                         <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
                           {product.extras.slice(0, 3).map((ex, i) => (
                             <span key={i} style={{ fontSize: 9, background: "#ede9fe", color: "#6d28d9", padding: "1px 6px", borderRadius: 10 }}>
@@ -1257,6 +1317,35 @@ export default function POS() {
                 })
               )}
             </div>
+
+            {/* مودال اختيار المقاس بسعره (منتج واحد = مقاسات متعددة) */}
+            {sizePicker && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setSizePicker(null)}>
+                <div style={{ background: "white", borderRadius: 16, padding: 20, width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{sizePicker.name}</h3>
+                    <button type="button" onClick={() => setSizePicker(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#64748b" }}>×</button>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>اختار المقاس — السعر والاستهلاك حسب المقاس</div>
+                  {sizePickerSizes.map((sz, idx) => {
+                    const mult = parseFloat(sz.mult) > 0 ? parseFloat(sz.mult) : 1;
+                    const avail = dishAvailability(sizePicker, mult);
+                    const out = avail === 0;
+                    return (
+                      <button key={idx} type="button" disabled={out}
+                        onClick={() => { addToCart(sizePicker, { size: sz.size, price: sz.price, mult }); setSizePicker(null); }}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "12px 14px", marginBottom: 8, borderRadius: 10, cursor: out ? "not-allowed" : "pointer", border: `2px solid ${out ? "#e2e8f0" : "#6366f1"}`, background: out ? "#f8fafc" : "white", opacity: out ? 0.5 : 1, fontFamily: "Cairo" }}>
+                        <span style={{ fontWeight: 800, fontSize: 14 }}>📏 {sz.size}</span>
+                        <span style={{ fontSize: 12, color: out ? "#dc2626" : "#64748b", fontWeight: 700 }}>
+                          {out ? "غير متاح" : (avail !== null ? `متاح ~${avail}` : "")}
+                        </span>
+                        <span style={{ fontWeight: 900, fontSize: 15, color: "#10b981" }}>{parseFloat(sz.price) || 0} {t("currency")}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── السلة ── */}
@@ -1428,12 +1517,16 @@ export default function POS() {
                 </div>
               ) : (
                 cart.map((item) => {
-                  const selectedExtraIdxs = cartItemExtras[item.id] || [];
+                  const itemKey = item.key || item.id;
+                  const selectedExtraIdxs = cartItemExtras[itemKey] || [];
                   return (
-                    <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+                    <div key={itemKey} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{item.name}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+                            {item.name}
+                            {item.size ? <span style={{ fontSize: 11, color: "#1e3a8a", fontWeight: 700 }}> ({item.size})</span> : null}
+                          </div>
                           <div style={{ fontSize: 11, color: "#94a3b8" }}>
                             {item.price} {t("currency")} × {item.quantity}
                             {isRestaurant && selectedExtraIdxs.length > 0 && (
@@ -1443,11 +1536,11 @@ export default function POS() {
                             )}
                           </div>
                         </div>
-                        <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>−</button>
+                        <button onClick={() => updateCartQuantity(itemKey, item.quantity - 1)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>−</button>
                         <span style={{ fontWeight: 700, minWidth: 24, textAlign: "center" }}>{item.quantity}</span>
-                        <button onClick={() => updateCartQuantity(item.id, item.quantity + 1)} className="btn-success btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}
+                        <button onClick={() => updateCartQuantity(itemKey, item.quantity + 1)} className="btn-success btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}
                           disabled={item.quantity >= (item.stockQty || item.quantity)}>+</button>
-                        <button onClick={() => removeFromCart(item.id)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>
+                        <button onClick={() => removeFromCart(itemKey)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>
                           <i className="fas fa-trash"></i>
                         </button>
                       </div>
@@ -1462,9 +1555,10 @@ export default function POS() {
                               return (
                                 <button key={idx} type="button"
                                   onClick={() => {
-                                    const current = cartItemExtras[item.id] || [];
+                                    const k = item.key || item.id;
+                                    const current = cartItemExtras[k] || [];
                                     const updated = isSelected ? current.filter((i) => i !== idx) : [...current, idx];
-                                    setCartItemExtras({ ...cartItemExtras, [item.id]: updated });
+                                    setCartItemExtras({ ...cartItemExtras, [k]: updated });
                                   }}
                                   style={{
                                     padding: "2px 8px", fontSize: 11, borderRadius: 12, cursor: "pointer",
@@ -1485,8 +1579,8 @@ export default function POS() {
                       {/* ملاحظة على الصنف */}
                       {isRestaurant && (
                         <input type="text" placeholder="ملاحظة على هذا الصنف (اختياري)"
-                          value={cartItemNotes[item.id] || ""}
-                          onChange={(e) => setCartItemNotes({ ...cartItemNotes, [item.id]: e.target.value })}
+                          value={cartItemNotes[item.key || item.id] || ""}
+                          onChange={(e) => setCartItemNotes({ ...cartItemNotes, [item.key || item.id]: e.target.value })}
                           style={{ marginTop: 6, width: "100%", padding: "5px 8px", border: "1px dashed #e2e8f0", borderRadius: 6, fontSize: 11, boxSizing: "border-box", background: "#fafafa" }}
                         />
                       )}
@@ -1506,6 +1600,42 @@ export default function POS() {
                 ))}
               </select>
             </div>
+
+            {/* دفع مقسم: جزء كاش + جزء تاني — مطعم فقط (زي نقطة بيع الملابس) */}
+            {isRestaurant && (
+              <div style={{ marginBottom: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  <input type="checkbox" checked={splitPayment} onChange={(e) => setSplitPayment(e.target.checked)} />
+                  ⚡ دفع مقسم (مثال: جزء كاش + جزء فيزا)
+                </label>
+                {splitPayment && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                    <select value={splitMethod1} onChange={(e) => setSplitMethod1(e.target.value)}
+                      style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}>
+                      {EGYPT_PAYMENTS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    <input type="number" min="0" step="0.5" placeholder="المبلغ الأول"
+                      value={splitAmount1} onChange={(e) => setSplitAmount1(e.target.value)}
+                      style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }} />
+                    <select value={splitMethod2} onChange={(e) => setSplitMethod2(e.target.value)}
+                      style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}>
+                      {EGYPT_PAYMENTS.map((p) => (
+                        <option key={p.value} value={p.value}>{p.label}</option>
+                      ))}
+                    </select>
+                    <input type="number" min="0" step="0.5" placeholder="المبلغ الثاني"
+                      value={splitAmount2} onChange={(e) => setSplitAmount2(e.target.value)}
+                      style={{ padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }} />
+                    <div style={{ gridColumn: "1/-1", fontSize: 12, fontWeight: 700, color: Math.abs(splitTotal - total) < 0.01 ? "#059669" : "#dc2626" }}>
+                      المجموع: {splitTotal.toFixed(2)} / الإجمالي: {total.toFixed(2)}
+                      {splitMethod1 === splitMethod2 ? " — ⚠️ الطريقتان متطابقتان" : ""}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* الإجمالي */}
             <div style={{ background: "#f8fafc", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>

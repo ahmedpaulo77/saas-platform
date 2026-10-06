@@ -6,6 +6,7 @@ import {
   computePeriod,
   cogsFor,
   returnedCogsFor,
+  restaurantCogsFor,
   saleReturnsTotal,
   round2,
 } from "./revenue.js";
@@ -126,5 +127,43 @@ describe("inRange — مرتجع خارج الفترة لا يُطرح", () => {
 
     expect(retAmt).toBe(0);       // المرتجع خارج الفترة
     expect(netProfit).toBe(600);  // مفيش مرتجعات → 1000 − 0 − 400
+  });
+});
+
+// ── 6. معامل المقاس في تكلفة المطعم ────────────────────────────
+// بيتزا وسط (×1.5) تستهلك مرة ونصف الوصفة الأساسية
+describe("معامل المقاس — مطعم", () => {
+  const dishMap = new Map([
+    ["dish-1", { name: "بيتزا", recipe: [{ materialId: "m1", qty: 0.2, unit: "kg" }] }],
+  ]);
+  const rawMap = new Map([["m1", { costPerUnit: 100 }]]);
+  // سطر بمقاس وسط ×1.5: 0.2 × 1 × 1.5 × 100 = 30
+  const inv = {
+    id: "inv-x", approval: "validated", status: "paid", paidAmount: 120,
+    date: "2024-06-15T10:00:00.000Z",
+    products: [{ productId: "dish-1", quantity: 1, amount: 120, mult: 1.5 }],
+  };
+
+  it("restaurantCogsFor يضرب في المعامل", () => {
+    const { cogs, missingRecipes } = restaurantCogsFor([inv], dishMap, rawMap);
+    expect(cogs).toBe(30);
+    expect(missingRecipes.size).toBe(0);
+  });
+
+  it("بدون معامل (فواتير قديمة) = السلوك القديم", () => {
+    const invOld = {
+      ...inv,
+      products: [{ productId: "dish-1", quantity: 1, amount: 120 }],
+    };
+    const { cogs } = restaurantCogsFor([invOld], dishMap, rawMap);
+    expect(cogs).toBe(20); // 0.2 × 1 × 100
+  });
+
+  it("returnedCogsFor يعكس تكلفة الوصفة بالمعامل", () => {
+    const ret = {
+      id: "ret-x", kind: "sale", amount: 120, date: "2024-06-15T12:00:00.000Z",
+      items: [{ productId: "dish-1", quantity: 1, amount: 120, mult: 1.5 }],
+    };
+    expect(returnedCogsFor([ret], new Map(), null, { dishMap, rawMatsMap: rawMap })).toBe(30);
   });
 });

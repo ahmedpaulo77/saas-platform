@@ -827,6 +827,8 @@ export default function Invoices() {
         quantity: allowed,
         weight: p.weight || "",
         unit: p.unit || "",
+        // معامل المقاس للمرتجع المخزني (وسط ×1.5) — الفواتير القديمة بلا mult = 1
+        mult: parseFloat(p.mult) > 0 ? parseFloat(p.mult) : 1,
         // مبلغ الرد = سعر السطر × نسبة الكمية × نسبة الخصم
         amount: round2((parseFloat(p.amount) || 0) * ratio * discountRatio),
       };
@@ -841,7 +843,11 @@ export default function Invoices() {
         const dishIds = [...new Set(correctLines.map((l) => l.productId).filter(Boolean))];
         const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
         const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
-        const expanded = expandRecipeLines(correctLines, dishById).materialLines;
+        // التوسعة بكمية × معامل المقاس (سطر وسط ×1.5 يرد خامات أكثر)
+        const expanded = expandRecipeLines(
+          correctLines.map((l) => ({ ...l, quantity: (parseFloat(l.quantity) || 0) * (parseFloat(l.mult) > 0 ? parseFloat(l.mult) : 1) })),
+          dishById
+        ).materialLines;
         // إضافات مربوطة بخامات: تُرد مع الطبق بنسبة الكمية المرتجعة فعلاً
         const extraTotals = new Map();
         correctLines.forEach((cl) => {

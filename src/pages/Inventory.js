@@ -63,10 +63,32 @@ export default function Inventory() {
     extras: [], // [{ name, price }]
     preparationNote: "", // ملاحظة تحضير افتراضية
     unit: "kg",
+    // مطعم - وصفة الطبق (تتكتب من الإضافة مباشرة بدل التعديل)
+    recipe: [], // [{ materialId, qty, unit }]
   });
 
   // إضافة extra مؤقت في النموذج
   const [tempExtra, setTempExtra] = useState({ name: "", price: "", materialId: "", qty: "", unit: "" });
+
+  // سطر وصفة مؤقت في نموذج الإضافة
+  const [tempRecipe, setTempRecipe] = useState({ materialId: "", qty: "", unit: "" });
+
+  function addTempRecipe() {
+    if (!tempRecipe.materialId || !(parseFloat(tempRecipe.qty) > 0)) return;
+    const m = rawMaterials.find((x) => x.id === tempRecipe.materialId);
+    setNewProduct((prev) => ({
+      ...prev,
+      recipe: [...(prev.recipe || []), {
+        materialId: tempRecipe.materialId,
+        qty: tempRecipe.qty,
+        unit: m?.unit || tempRecipe.unit || "piece",
+      }],
+    }));
+    setTempRecipe({ materialId: "", qty: "", unit: "" });
+  }
+  function removeTempRecipe(idx) {
+    setNewProduct((prev) => ({ ...prev, recipe: (prev.recipe || []).filter((_, i) => i !== idx) }));
+  }
 
   // ── صور المنتجات (Firebase Storage: products/{companyId}/...) ──
   const [newImageFile, setNewImageFile] = useState(null);
@@ -368,6 +390,17 @@ export default function Inventory() {
     fetchMenuCategories();
   }, [fetchMenuCategories]);
 
+  // تنظيف قائمة الأحجام: اسم غير فاضي + سعر رقمي + معامل افتراضي 1
+  function cleanSizes(list) {
+    return (list || [])
+      .map((s) => ({
+        size: String(s?.size || "").trim(),
+        price: parseFloat(s?.price) || 0,
+        mult: parseFloat(s?.mult) > 0 ? parseFloat(s.mult) : 1,
+      }))
+      .filter((s) => s.size);
+  }
+
   // ── helpers للإضافات (بربط اختياري بخامة عشان تُستهلك مخزنيًا مع الطبق) ──
   function addTempExtra() {
     if (!tempExtra.name.trim()) return;
@@ -439,6 +472,8 @@ export default function Inventory() {
         brand: isClothing ? newProduct.brand || "" : "",
         model: isClothing ? (newProduct.model || "").trim() : "",
         code: isClothing ? (newProduct.code || "").trim() : "",
+        // أحجام المطعم بأسعارها (من فورم الإضافة) — باقي الأنشطة لا تُمس
+        ...(isRestaurant ? { sizes: cleanSizes(newProduct.sizes) } : {}),
         expiryDate: newProduct.expiryDate || "",
         barcode: (newProduct.barcode || "").trim(),
         purchasePrice: isMarket ? (parseFloat(newProduct.purchasePrice) || 0) : 0,
@@ -447,6 +482,12 @@ export default function Inventory() {
         activeIngredient: isPharmacy ? (newProduct.activeIngredient || "").trim() : "",
         extras: isRestaurant ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
+        // وصفة الطبق من الإضافة مباشرة (مطعم فقط) — باقي الأنشطة لا تُمس
+        ...(isRestaurantOnly ? {
+          recipe: (newProduct.recipe || [])
+            .filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
+            .map((e) => ({ materialId: e.materialId, qty: parseFloat(e.qty), unit: e.unit || "piece" })),
+        } : {}),
         // القسم: للمطعم/الكافيه فقط — ده اللي POS بيفلتر عليه
         category: isRestaurant ? (newProduct.category || "") : "",
         imageUrl,
@@ -457,8 +498,9 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg", category: "" });
+      setNewProduct({ name: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg", category: "", sizes: [], recipe: [] });
       setTempExtra({ name: "", price: "" });
+      setTempRecipe({ materialId: "", qty: "", unit: "" });
       setNewImageFile(null);
       setNewImagePreview("");
       await fetchProducts();
@@ -501,6 +543,8 @@ export default function Inventory() {
         brand: isClothing ? editingProduct.brand || "" : "",
         model: isClothing ? (editingProduct.model || "").trim() : "",
         code: isClothing ? (editingProduct.code || "").trim() : "",
+        // أحجام المطعم بأسعارها — باقي الأنشطة لا تُمس (الحقل يُحفظ كما هو)
+        ...(isRestaurant ? { sizes: cleanSizes(editingProduct.sizes) } : {}),
         expiryDate: editingProduct.expiryDate || "",
         barcode: (editingProduct.barcode || "").trim(),
         purchasePrice: isMarket ? (parseFloat(editingProduct.purchasePrice) || 0) : 0,
@@ -941,6 +985,53 @@ export default function Inventory() {
                   )}
                 </div>
                 </>)}
+                {/* وصفة الطبق من الإضافة مباشرة — من غير ما تحتاج التعديل */}
+                {isRestaurantOnly && (
+                  <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: 12, marginTop: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#166534", marginBottom: 8 }}>
+                      🧾 وصفة الطبق <span style={{ fontWeight: 400, color: "#64748b", fontSize: 11 }}>— البيع هيخصم الخامات دي تلقائياً</span>
+                    </div>
+                    {(newProduct.recipe || []).length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                        {(newProduct.recipe || []).map((line, idx) => {
+                          const m = rawMaterials.find((x) => x.id === line.materialId);
+                          return (
+                            <span key={idx} style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                              {m?.name || "خامة"} {line.qty} {line.unit || m?.unit || ""}
+                              <button type="button" onClick={() => removeTempRecipe(idx)}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "#16a34a", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {rawMaterials.length > 0 ? (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <select
+                          value={tempRecipe.materialId}
+                          onChange={(e) => {
+                            const m = rawMaterials.find((x) => x.id === e.target.value);
+                            setTempRecipe({ ...tempRecipe, materialId: e.target.value, unit: m?.unit || "" });
+                          }}
+                          style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}
+                        >
+                          <option value="">— اختر الخامة —</option>
+                          {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.quantity || 0} {m.unit || ""})</option>)}
+                        </select>
+                        <input type="number" step="0.001" min="0" placeholder="كمية/طبق"
+                          value={tempRecipe.qty}
+                          onChange={(e) => setTempRecipe({ ...tempRecipe, qty: e.target.value })}
+                          style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                        <button type="button" onClick={addTempRecipe}
+                          style={{ background: "#16a34a", color: "white", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13 }}>
+                          + ضيف
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#b45309" }}>ضيف الخامات الأول من صفحة الخامات عشان تبني الوصفة.</div>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -963,6 +1054,42 @@ export default function Inventory() {
               onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
               required
             />
+            {/* الأحجام بأسعارها عند الإدخال — بدل إدخال المنتج 3 مرات */}
+            {isRestaurant && (
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+                  📏 الأحجام والأسعار <span style={{ fontWeight: 400, color: "#94a3b8", fontSize: 11 }}>(اختياري — مثال: صغير 80 / وسط 120 / كبير 160)</span>
+                </div>
+                {(newProduct.sizes || []).map((sz, idx) => (
+                  <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <input type="text" placeholder="الحجم" value={sz.size || ""}
+                      onChange={(e) => {
+                        const sizes = (newProduct.sizes || []).map((s, i) => i === idx ? { ...s, size: e.target.value } : s);
+                        setNewProduct({ ...newProduct, sizes });
+                      }}
+                      style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" min="0" step="0.5" placeholder="السعر" value={sz.price ?? ""}
+                      onChange={(e) => {
+                        const sizes = (newProduct.sizes || []).map((s, i) => i === idx ? { ...s, price: e.target.value } : s);
+                        setNewProduct({ ...newProduct, sizes });
+                      }}
+                      style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                    <input type="number" min="0" step="0.1" placeholder="×1" title="معامل استهلاك الوصفة" value={sz.mult ?? ""}
+                      onChange={(e) => {
+                        const sizes = (newProduct.sizes || []).map((s, i) => i === idx ? { ...s, mult: e.target.value } : s);
+                        setNewProduct({ ...newProduct, sizes });
+                      }}
+                      style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }} />
+                    <button type="button" onClick={() => setNewProduct({ ...newProduct, sizes: (newProduct.sizes || []).filter((_, i) => i !== idx) })}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: 14 }}>×</button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setNewProduct({ ...newProduct, sizes: [...(newProduct.sizes || []), { size: "", price: "", mult: "1" }] })}
+                  style={{ background: "none", border: "1px dashed #cbd5e1", color: "#475569", borderRadius: 8, padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 600, width: "100%" }}>
+                  + إضافة حجم بسعر
+                </button>
+              </div>
+            )}
             {/* سعر الشراء — ماركت/صيدلية (لرأس المال) */}
             {isMarket && (
               <input
@@ -1623,6 +1750,35 @@ export default function Inventory() {
                       </select>
                     </div>
                   )}
+                  {/* الأحجام بأسعارها — بدل إدخال المنتج 3 مرات (صغير/وسط/كبير بسعر مختلف) */}
+                  <div style={styles.formGroup}>
+                    <label>📏 الأحجام والأسعار <span style={{ fontWeight: 400, color: "#94a3b8", fontSize: 11 }}>— المعامل = استهلاك الوصفة (1 للصغير، 1.5 للوسط...)</span></label>
+                    {(editingProduct.sizes || []).map((sz, idx) => (
+                      <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                        <input type="text" placeholder="الحجم (صغير/وسط/كبير...)" value={sz.size || ""} style={{ ...styles.input, flex: 2 }}
+                          onChange={(e) => {
+                            const sizes = (editingProduct.sizes || []).map((s, i) => i === idx ? { ...s, size: e.target.value } : s);
+                            setEditingProduct({ ...editingProduct, sizes });
+                          }} />
+                        <input type="number" min="0" step="0.5" placeholder="السعر" value={sz.price ?? ""} style={{ ...styles.input, flex: 1 }}
+                          onChange={(e) => {
+                            const sizes = (editingProduct.sizes || []).map((s, i) => i === idx ? { ...s, price: e.target.value } : s);
+                            setEditingProduct({ ...editingProduct, sizes });
+                          }} />
+                        <input type="number" min="0" step="0.1" placeholder="×1" title="معامل استهلاك الوصفة" value={sz.mult ?? ""} style={{ ...styles.input, flex: 1 }}
+                          onChange={(e) => {
+                            const sizes = (editingProduct.sizes || []).map((s, i) => i === idx ? { ...s, mult: e.target.value } : s);
+                            setEditingProduct({ ...editingProduct, sizes });
+                          }} />
+                        <button type="button" onClick={() => setEditingProduct({ ...editingProduct, sizes: (editingProduct.sizes || []).filter((_, i) => i !== idx) })}
+                          style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => setEditingProduct({ ...editingProduct, sizes: [...(editingProduct.sizes || []), { size: "", price: "", mult: "1" }] })}
+                      style={{ background: "none", border: "1px dashed #cbd5e1", color: "#475569", borderRadius: 8, padding: "8px", cursor: "pointer", fontSize: 13, fontWeight: 600, width: "100%" }}>
+                      + إضافة حجم بسعر
+                    </button>
+                  </div>
                   </>
                 )}
                 {/* وصفة الطبق — مطعم فقط: البيع يخصم هذه الخامات تلقائياً */}

@@ -160,8 +160,10 @@ export function returnedCogsFor(returns, costByProduct, inRange, recipeCtx = nul
             ? dish.recipe.filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
             : [];
           if (recipe.length > 0) {
+            // معامل المقاس المخزن على سطر المرتجع (وسط ×1.5 مثلاً)
+            const lineMult = parseFloat(l.mult) > 0 ? parseFloat(l.mult) : 1;
             for (const step of recipe) {
-              const matQty = (parseFloat(step.qty) || 0) * qty;
+              const matQty = (parseFloat(step.qty) || 0) * qty * lineMult;
               if (!(matQty > 0)) continue;
               const mat = recipeCtx.rawMatsMap?.get?.(step.materialId);
               const cost = parseFloat(mat?.costPerUnit) || 0;
@@ -231,9 +233,11 @@ export function restaurantCogsFor(invoices, dishMap, rawMatsMap, inRange) {
         return;
       }
 
+      // معامل المقاس المخزن على سطر الفاتورة (وسط ×1.5 مثلاً)
+      const lineMult = parseFloat(l.mult) > 0 ? parseFloat(l.mult) : 1;
       for (const step of recipe) {
         const matId = step.materialId;
-        const matQty = (parseFloat(step.qty) || 0) * qty;
+        const matQty = (parseFloat(step.qty) || 0) * qty * lineMult;
         if (!(matQty > 0)) continue;
         const mat = rawMatsMap?.get?.(matId);
         const cost = parseFloat(mat?.costPerUnit) || 0;
