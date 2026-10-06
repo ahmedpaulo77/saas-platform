@@ -137,6 +137,15 @@ export default function Statements() {
     return { debit, credit, paid, balance: debit - paid - credit };
   }, [movements]);
 
+  // تنبيه المرتجعات اليتيمة: مرتجعات ظاهرة من غير أي فواتير في نفس النطاق —
+  // غالباً فلتر التاريخ مستبعد الفواتير، أو الفواتير اتمسحت وسابت مرتجعاتها
+  const orphanReturns = useMemo(() => {
+    if (!entityId || movements.length === 0) return false;
+    const hasInvoice = movements.some((m) => (m.debit || 0) > 0);
+    const hasCredit = movements.some((m) => (m.credit || 0) > 0);
+    return hasCredit && !hasInvoice;
+  }, [entityId, movements]);
+
   function handlePrint() {
     const rowsHtml = movements.map((m, i) => `
       <tr>
@@ -251,6 +260,11 @@ export default function Statements() {
 
         {entityId && (
           <>
+            {orphanReturns && (
+              <div style={{ background: "#fffbeb", border: "2px solid #f59e0b", color: "#92400e", borderRadius: 12, padding: "12px 16px", marginBottom: 16, fontSize: 13, fontWeight: 700 }}>
+                ⚠️ فيه مرتجعات ظاهرة من غير أي فواتير في الفترة دي — غالباً فلتر التاريخ مستبعد الفواتير (وسّع المدة) أو الفواتير الأصلية اتمسحت. الرصيد هنا ناقص ومش معبر عن الحقيقة.
+              </div>
+            )}
             <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", marginBottom: 20 }}>
               <div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.debit, locale)}</div><div className="stat-label">{t("st.totalInvoices")}</div></div>
               <div className="stat-card green"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 17 }}>{moneyShort(totals.paid, locale)}</div><div className="stat-label">{t("st.paid")}</div></div>

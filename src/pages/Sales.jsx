@@ -6,7 +6,7 @@ import { getScopedQuery } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
 import Pagination from "../components/common/Pagination.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
-import { getPaymentLabel } from "../utils/paymentMethods.js";
+import { getPaymentLabel, distributeByMethod, paymentLabelOf } from "../utils/paymentMethods.js";
 import { invoiceRevenue, saleReturnsTotal, round2 } from "../utils/revenue.js";
 import { moneyShort } from "../utils/fmt.js";
 
@@ -116,7 +116,8 @@ export default function Sales() {
       const dt = toDate(inv.date || inv.createdAt);
       const ts = dt ? dt.getTime() : 0;
       const clientName = clientMap[inv.clientId] || t("sales.walkIn");
-      const method = inv.paymentMethod || "cash";
+      // المقسم يظهر بأجزائه (كاش 200 + انستاباي 200) بدل كلمة "split"
+      const method = paymentLabelOf(inv, lang);
       const ref = inv.id.slice(0, 6).toUpperCase();
       const items = inv.products || inv.items || [];
       if (!Array.isArray(items)) return;
@@ -149,7 +150,7 @@ export default function Sales() {
     });
     out.sort((a, b) => a.ts - b.ts);
     return out;
-  }, [dayInvoices, productMap, clientMap, t]);
+  }, [dayInvoices, productMap, clientMap, t, lang]);
 
   const revenue = useMemo(
     () => round2(dayInvoices.reduce((s, inv) => s + invoiceRevenue(inv), 0)),
@@ -194,8 +195,10 @@ export default function Sales() {
     dayInvoices.forEach((inv) => {
       const rev = invoiceRevenue(inv);
       if (!rev) return;
-      const m = inv.paymentMethod || "cash";
-      grouped[m] = (grouped[m] || 0) + rev;
+      // المقسم يتفكك لطرقه الحقيقية (مفيش "split" في التقارير)
+      distributeByMethod(inv, rev).forEach(({ method, amount }) => {
+        grouped[method] = (grouped[method] || 0) + amount;
+      });
     });
     return grouped;
   }, [dayInvoices]);

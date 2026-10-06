@@ -50,3 +50,35 @@ export function normalizePaymentMethod(value) {
   if (!value) return "cash";
   return String(value);
 }
+
+// 🆕 فك الدفع المقسم لطرقه الحقيقية — "split" طريقة إدخال في الكاشير فقط،
+// والتقارير (أرباح/مبيعات/تقفيل) لازم تشوف الطرق الفعلية بنسبها.
+// distributeByMethod(inv, total): يوزع الإجمالي بنسب أجزاء المقسم،
+// وغير المقسم يرجع طريقته كما هي. مثال: 400 مقسمة 200+200 → كاش 200 + انستاباي 200.
+export function distributeByMethod(inv, total) {
+  const t = parseFloat(total) || 0;
+  if (t <= 0) return [];
+  const parts = inv && inv.splitPayment && Array.isArray(inv.splitPayments)
+    ? inv.splitPayments
+    : null;
+  if (parts && parts.length > 0) {
+    const sum = parts.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    if (sum > 0) {
+      return parts.map((p) => ({
+        method: p.method || "cash",
+        amount: (t * (parseFloat(p.amount) || 0)) / sum,
+      }));
+    }
+  }
+  return [{ method: (inv && inv.paymentMethod) || "cash", amount: t }];
+}
+
+// لافتة طريقة الدفع لفاتورة واحدة: المقسم يظهر بأجزائه بدل كلمة "split"
+export function paymentLabelOf(inv, lang = "ar") {
+  if (inv && inv.splitPayment && Array.isArray(inv.splitPayments) && inv.splitPayments.length > 0) {
+    return inv.splitPayments
+      .map((p) => `${getPaymentLabel(p.method, lang)} ${(parseFloat(p.amount) || 0).toFixed(2)}`)
+      .join(" + ");
+  }
+  return getPaymentLabel(inv && inv.paymentMethod, lang);
+}

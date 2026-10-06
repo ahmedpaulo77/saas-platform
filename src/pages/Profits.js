@@ -14,7 +14,7 @@ import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
-import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
+import { EGYPT_PAYMENTS, getPaymentLabel, distributeByMethod } from "../utils/paymentMethods.js";
 import { computePeriod, invoiceRevenue, restaurantCogsFor, returnedCogsFor } from "../utils/revenue.js";
 import { round2 } from "../utils/traderUnits.js";
 import { fmtDate, moneyShort } from "../utils/fmt.js";
@@ -452,8 +452,10 @@ export default function Profits() {
       // مش بيظهر في build (غلط scope وقت التشغيل).
       const rev = invoiceRevenue(inv);
       if (!rev) return;
-      const m = inv.paymentMethod || "cash";
-      grouped[m] = (grouped[m] || 0) + rev;
+      // المقسم يتفكك لطرقه الحقيقية (مفيش "split" في التقارير)
+      distributeByMethod(inv, rev).forEach(({ method, amount }) => {
+        grouped[method] = (grouped[method] || 0) + amount;
+      });
     });
     return grouped;
   }, [invoices, periodRanges]);
