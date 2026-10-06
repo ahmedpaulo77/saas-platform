@@ -468,7 +468,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
           (
           isSuperAdmin() ||
           (

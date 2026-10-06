@@ -271,6 +271,8 @@ export default function Dashboard() {
 
   // ✅ اسم الشركة اللي هيظهر جنب Welcome
   const [companyName, setCompanyName] = useState("");
+  // ✅ لوجو المحل — نفس الصورة المرفوعة للفاتورة (من شركتي)، تظهر جنب الاسم
+  const [companyLogo, setCompanyLogo] = useState("");
 
   // ✅ رسم الإيراد اليومي (آخر 30 يوم) + مقارنة الشهر الحالي بالسابق
   const [dailyRevenue, setDailyRevenue] = useState([]);
@@ -283,6 +285,7 @@ export default function Dashboard() {
         const snap = await getDoc(doc(db, "companies", userCompanyId));
         if (snap.exists()) {
           setCompanyName(snap.data().name || "");
+          if (snap.data().logoUrl) setCompanyLogo(String(snap.data().logoUrl));
         }
       } catch (e) {
         console.error("Failed to fetch company name", e);
@@ -578,14 +581,19 @@ export default function Dashboard() {
       <div className="main-content">
         <div className="header">
           <div>
-            <h1>
-              {t("dash.welcome")}
-              {companyName && (
-                <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>
-                  {" "}
-                  ({companyName})
-                </span>
+            <h1 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {companyLogo && (
+                <img src={companyLogo} alt="logo" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 10, border: "1px solid #e2e8f0", background: "white" }} />
               )}
+              <span>
+                {t("dash.welcome")}
+                {companyName && (
+                  <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>
+                    {" "}
+                    ({companyName})
+                  </span>
+                )}
+              </span>
             </h1>
             <p className="subtitle">{t("dash.subtitle")}</p>
           </div>

@@ -48,6 +48,8 @@ export default function StorePOS() {
   const [submitting, setSubmitting] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeLogo, setStoreLogo] = useState("");
+  // نص سياسة الاستبدال الخاص بالمحل (undefined = الافتراضي القديم، "" = إخفاء)
+  const [receiptPolicy, setReceiptPolicy] = useState(undefined);
   // اسم الكاشير الواقف — متسجل زي الشيفت وبيطلع في الفاتورة
   const [cashierName, setCashierName] = useState(() => {
     try {
@@ -103,6 +105,7 @@ export default function StorePOS() {
         if (snap.exists()) {
           setStoreName((snap.data().name || "").toString());
           if (snap.data().logoUrl) setStoreLogo(String(snap.data().logoUrl));
+          setReceiptPolicy(snap.data().receiptPolicy !== undefined ? String(snap.data().receiptPolicy || "") : undefined);
         }
       } catch (e) {
         console.error(e);
@@ -801,13 +804,15 @@ ${storeLogo ? `<div class="center"><img src="${storeLogo}" alt="logo" style="max
 <svg class="bc" id="invbc"></svg>
 <div class="divider"></div>
 
-<div class="policy-title">📋 سياسة الاستبدال والاسترجاع</div>
+${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة الاستبدال والاسترجاع</div>
 <div class="policy">
   يُقبل الاستبدال والاسترجاع خلال <strong>14 يوم</strong> من تاريخ الشراء<br/>
   بشرط سلامة المنتج وإحضار الفاتورة<br/>
   <strong>⚠️ غير شامل ألعاب الأطفال</strong>
 </div>
-<div class="divider"></div>
+<div class="divider"></div>` : receiptPolicy ? `<div class="policy-title">📋 سياسة الاستبدال والاسترجاع</div>
+<div class="policy">${escHtml(receiptPolicy).replace(/\n/g, "<br/>")}</div>
+<div class="divider"></div>` : ""}
 
 <div class="center" style="font-size:13px;font-weight:900;margin-bottom:2px;">شكراً لتسوقكم معنا ❤</div>
 <div class="store-name" style="font-size:18px;">${escHtml(storeName || "")}</div>

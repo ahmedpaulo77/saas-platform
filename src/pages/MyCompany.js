@@ -22,6 +22,9 @@ export default function MyCompany() {
   // لوجو المحل — يظهر فقط لو الميزة مفعلة من السوبر أدمن
   const [savingLogo, setSavingLogo] = useState(false);
   const logoEnabled = !!(company && company.features && company.features.customLogo);
+  // نص سياسة الاستبدال على الريسيت — كل محل يكتب اللي يناسبه (فاضي = إخفاء)
+  const [receiptPolicy, setReceiptPolicy] = useState('');
+  const [savingPolicy, setSavingPolicy] = useState(false);
 
   function fileToLogo(file) {
     return new Promise((resolve, reject) => {
@@ -64,6 +67,23 @@ export default function MyCompany() {
     }
   }
 
+  async function handleSavePolicy(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    setSavingPolicy(true);
+    setError('');
+    try {
+      await updateDoc(doc(db, 'companies', userCompanyId), { receiptPolicy: receiptPolicy.trim() });
+      setCompany((c) => ({ ...c, receiptPolicy: receiptPolicy.trim() }));
+      alert(t('mc.policySaved'));
+    } catch (err) {
+      console.error('Error saving policy:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingPolicy(false);
+    }
+  }
+
   async function handleLogoRemove() {
     if (!userCompanyId || !window.confirm(t('common.confirmDelete'))) return;
     setSavingLogo(true);
@@ -96,6 +116,7 @@ export default function MyCompany() {
       }
       setCompany({ id: snap.id, ...snap.data() });
       setTaxRate(snap.data().taxRate != null ? String(snap.data().taxRate) : '');
+      setReceiptPolicy(snap.data().receiptPolicy != null ? String(snap.data().receiptPolicy) : '');
 
       // الأكواد في السبل-كولكشن companies/{id}/codes/current
       // (المصدر الرسمي للتحقق هو invite_codes — انظر utils/companyQuery.js)
@@ -282,6 +303,33 @@ export default function MyCompany() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 📋 نص سياسة الاستبدال على الريسيت — كل محل يكتب اللي يناسبه */}
+            {isAdmin && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-receipt" style={{ color: '#6366f1', marginLeft: 8 }}></i>
+                  {t('mc.policy')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  {t('mc.policyHint')}
+                </p>
+                <form onSubmit={handleSavePolicy} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ marginBottom: 0, flex: 1, minWidth: 220 }}>
+                    <textarea
+                      rows={3}
+                      placeholder={t('mc.policyPh')}
+                      value={receiptPolicy}
+                      onChange={(e) => setReceiptPolicy(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary btn-sm" disabled={savingPolicy}>
+                    {savingPolicy ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
+                  </button>
+                </form>
               </div>
             )}
 
