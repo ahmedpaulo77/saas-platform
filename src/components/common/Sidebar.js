@@ -52,7 +52,7 @@ export default function Sidebar() {
 
   // نفس الـ modules بدون أي تغيير — التجميع بصري فقط
   function moduleGroup(module) {
-    if (["pos", "store-pos", "sales", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
+    if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
     if (["inventory", "variant-codes", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
     if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages"].includes(module)) return "people";
     return "ops";
@@ -108,6 +108,12 @@ export default function Sidebar() {
       icon: "fas fa-shopping-bag",
       label: t("nav.sales"),
       module: "sales",
+    },
+    {
+      to: "/sales-reps",
+      icon: "fas fa-user-tie",
+      label: t("nav.salesReps"),
+      module: "sales-reps",
     },
     {
       // ⚠️ كان "/companies" ——was بيودّي لنسخة قديمة من الداشبورد.

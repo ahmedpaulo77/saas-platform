@@ -848,21 +848,7 @@ export default function Invoices() {
           correctLines.map((l) => ({ ...l, quantity: (parseFloat(l.quantity) || 0) * (parseFloat(l.mult) > 0 ? parseFloat(l.mult) : 1) })),
           dishById
         ).materialLines;
-        // إضافات مربوطة بخامات: تُرد مع الطبق بنسبة الكمية المرتجعة فعلاً
-        const extraTotals = new Map();
-        correctLines.forEach((cl) => {
-          const src = sourceLines.find((p) => p.productId === cl.productId);
-          ((src && src.extras) || []).forEach((ex) => {
-            const eq = parseFloat(ex?.qty) || 0;
-            if (!ex?.materialId || !(eq > 0)) return;
-            const cur = extraTotals.get(ex.materialId) || { quantity: 0, unit: ex.unit || "" };
-            cur.quantity += eq * (parseFloat(cl.quantity) || 0);
-            if (ex.unit) cur.unit = ex.unit;
-            extraTotals.set(ex.materialId, cur);
-          });
-        });
         stockLines = [...expanded];
-        extraTotals.forEach((v, materialId) => stockLines.push({ productId: materialId, quantity: v.quantity, unit: v.unit || "piece" }));
         // وحّد سطور الرد على وحدات الخامات الفعلية (createReturn يجمع خامًا بدون تحويل)
         try {
           const matIds = [...new Set(stockLines.map((l) => l.productId).filter(Boolean))];

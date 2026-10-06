@@ -47,6 +47,7 @@ export default function StorePOS() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [storeName, setStoreName] = useState("");
+  const [storeLogo, setStoreLogo] = useState("");
   // اسم الكاشير الواقف — متسجل زي الشيفت وبيطلع في الفاتورة
   const [cashierName, setCashierName] = useState(() => {
     try {
@@ -62,6 +63,23 @@ export default function StorePOS() {
       localStorage.setItem("pos_cashier_name", v);
     } catch {}
   }
+
+  // مندوب المبيعات (السيلز) — اختياري، يُحفظ على الفاتورة لحساب العمولة
+  const [salesReps, setSalesReps] = useState([]);
+  const [salesRepId, setSalesRepId] = useState("");
+
+  const fetchSalesReps = useCallback(async () => {
+    if (!userCompanyId) { setSalesReps([]); return; }
+    try {
+      const snap = await getDocs(getScopedQuery("sales_reps", userRole, userCompanyId, currentUser?.uid));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ar"));
+      setSalesReps(data);
+    } catch (e) {
+      console.error("sales reps fetch:", e?.message);
+      setSalesReps([]);
+    }
+  }, [userRole, userCompanyId, currentUser?.uid]);
 
   // ── الوردية والتقفيل اليدوي (نفس نمط POS.js — بثيم NAVY) ──
   const [shift, setShift] = useState(null);
@@ -82,7 +100,10 @@ export default function StorePOS() {
     (async () => {
       try {
         const snap = await getDoc(doc(db, "companies", userCompanyId));
-        if (snap.exists()) setStoreName((snap.data().name || "").toString());
+        if (snap.exists()) {
+          setStoreName((snap.data().name || "").toString());
+          if (snap.data().logoUrl) setStoreLogo(String(snap.data().logoUrl));
+        }
       } catch (e) {
         console.error(e);
       }
@@ -316,8 +337,8 @@ export default function StorePOS() {
   }
 
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchClients(), fetchVariantCodes(), fetchShift()]);
-  }, [fetchProducts, fetchClients, fetchVariantCodes, fetchShift]);
+    Promise.all([fetchProducts(), fetchClients(), fetchVariantCodes(), fetchShift(), fetchSalesReps()]);
+  }, [fetchProducts, fetchClients, fetchVariantCodes, fetchShift, fetchSalesReps]);
 
   // ── خيارات الفلاتر: من variant_codes لو موجودة وإلا من المنتجات ──
   const codeSizes = variantCodes.filter((c) => c.kind === "size").map((c) => c.name || c.code);
@@ -686,7 +707,7 @@ export default function StorePOS() {
   const splitRemaining = round2(total - split1);
 
   // ── طباعة فاتورة حرارية 80mm ──
-  function handleThermalPrint(inv, cartSnapshot, clientName, clientPhone, cashierName, splitInfo) {
+  function handleThermalPrint(inv, cartSnapshot, clientName, clientPhone, cashierName, splitInfo, salesRep = "") {
     const escHtml = (s) =>
       String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const rows = cartSnapshot
@@ -741,6 +762,7 @@ export default function StorePOS() {
 </head>
 <body>
 
+${storeLogo ? `<div class="center"><img src="${storeLogo}" alt="logo" style="max-width:60mm;max-height:22mm;object-fit:contain;" /></div>` : ""}
 <div class="store-name">${escHtml(storeName || "المحل")}</div>
 <div class="divider"></div>
 
@@ -750,6 +772,7 @@ export default function StorePOS() {
 
 <div style="font-size:13px;font-weight:700;line-height:2;">
   <span class="lbl">الكاشير:</span> ${escHtml(cashierName || "—")}<br/>
+  ${salesRep ? `<span class="lbl">المندوب:</span> ${escHtml(salesRep)}<br/>` : ""}
   <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}${clientPhone ? `<br/><span class="lbl">الرقم:</span> ${escHtml(clientPhone)}` : ""}<br/>
   ${paymentLines}
 </div>
@@ -1016,11 +1039,14 @@ export default function StorePOS() {
       const now = new Date().toISOString();
       const invoiceRef = doc(collection(db, "invoices"));
 
+      const repObj = salesReps.find((r) => r.id === salesRepId) || null;
       const invoiceData = {
         companyId: userCompanyId,
         createdBy: currentUser?.uid || null,
         createdByEmail: currentUser?.email || "",
         clientId: selectedClient || null,
+        salesRepId: repObj ? repObj.id : null,
+        salesRepName: repObj ? (repObj.name || "") : "",
         products: cart.map((item) => ({
           productId: item.id,
           productName: item.name,
@@ -1113,6 +1139,7 @@ export default function StorePOS() {
 
       setCart([]);
       setSelectedClient("");
+      setSalesRepId("");
       setNewClientName("");
       setNewClientPhone("");
       setDiscount("");
@@ -1133,7 +1160,8 @@ export default function StorePOS() {
         { id: invoiceRef.id, paymentMethod: finalPaymentMethod, discountType, discountRaw },
         cartSnapshot, clientName, clientPhone,
         cashierName.trim() || "—",
-        splitInfoForPrint
+        splitInfoForPrint,
+        invoiceData.salesRepName || ""
       );
     } catch (err) {
       console.error(err);
@@ -1474,6 +1502,23 @@ export default function StorePOS() {
                 style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
               />
             </div>
+
+            {/* مندوب المبيعات — تحت اسم الكاشير، يُحفظ على الفاتورة للعمولة */}
+            {salesReps.length > 0 && (
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: "#64748b" }}>🤝 {t("storepos.salesRep")}</label>
+                <select
+                  value={salesRepId}
+                  onChange={(e) => setSalesRepId(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
+                >
+                  <option value="">{t("storepos.noRep")}</option>
+                  {salesReps.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}{r.code ? ` (${r.code})` : ""}{r.phone ? ` — ${r.phone}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* العميل */}
             <div className="form-group" style={{ marginBottom: 12 }}>

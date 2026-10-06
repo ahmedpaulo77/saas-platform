@@ -755,24 +755,8 @@ export default function POS() {
           cart.map((item) => ({ productId: item.id, quantity: (parseFloat(item.quantity) || 0) * (parseFloat(item.mult) > 0 ? parseFloat(item.mult) : 1) })), dishById
         );
         if (skipped.length > 0) console.warn("POS dishes without recipe (stock not consumed):", skipped);
-        // إضافات مربوطة بخامات: تُستهلك مع الطبق (كمية الإضافة × عدد الأطباق)
-        const extraTotals = new Map();
-        cart.forEach((item) => {
-          const prodExtras = item.extras || [];
-          (cartItemExtras[item.key || item.id] || []).forEach((exIdx) => {
-            const ex = prodExtras[exIdx];
-            const eq = parseFloat(ex?.qty) || 0;
-            if (!ex?.materialId || !(eq > 0)) return;
-            const cur = extraTotals.get(ex.materialId) || { quantity: 0, unit: ex.unit || "" };
-            cur.quantity += eq * (parseFloat(item.quantity) || 0);
-            if (ex.unit) cur.unit = ex.unit;
-            extraTotals.set(ex.materialId, cur);
-          });
-        });
-        const allMatLines = [...materialLines];
-        extraTotals.forEach((v, materialId) => allMatLines.push({ productId: materialId, quantity: v.quantity, unit: v.unit || "piece" }));
-        const matSnaps = await Promise.all(allMatLines.map((l) => getDoc(doc(db, "raw_materials", l.productId))));
-        recipeMats = allMatLines.map((line, i) => ({
+        const matSnaps = await Promise.all(materialLines.map((l) => getDoc(doc(db, "raw_materials", l.productId))));
+        recipeMats = materialLines.map((line, i) => ({
           line,
           ref: doc(db, "raw_materials", line.productId),
           name: matSnaps[i].data()?.name || line.productId,

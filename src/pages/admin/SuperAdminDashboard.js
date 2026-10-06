@@ -232,6 +232,25 @@ export default function SuperAdminDashboard() {
     }
   }
 
+  // 🆕 مفاتيح المزايا لكل شركة (موافقة السوبر أدمن) — مثال: لوجو خاص على الفواتير
+  async function toggleFeature(company, feature) {
+    const key = company.id + ":features";
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      const features = { ...(company.features || {}) };
+      features[feature] = !features[feature];
+      await updateDoc(doc(db, "companies", company.id), { features });
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === company.id ? { ...c, features } : c))
+      );
+    } catch (e) {
+      console.error("toggleFeature failed:", e);
+      alert(t("sa.toggleFail") + ": " + (e.message || e));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  }
+
   async function deleteCompany(id) {
     if (!window.confirm(t("sa.confirmDelete"))) return;
     // ⚠️ صمت؟ لأ — الحذف لازم المستخدم يعرف إنه نجح ولا لأ
@@ -652,6 +671,15 @@ export default function SuperAdminDashboard() {
                                     <i className="fas fa-users" style={{ marginInlineEnd: 6 }}></i>
                                     {t("limits.membersOf", { name: company.name || "—" })}
                                   </strong>
+                                  <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, fontWeight: 700, color: "var(--gray-600)", cursor: "pointer" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={!!(company.features && company.features.customLogo)}
+                                      disabled={!!saving[company.id + ":features"]}
+                                      onChange={() => toggleFeature(company, "customLogo")}
+                                    />
+                                    🖼️ {t("sa.customLogo")}
+                                  </label>
                                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                     {drifted && (
                                       <button

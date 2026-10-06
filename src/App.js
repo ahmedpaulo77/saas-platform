@@ -32,6 +32,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
 const Invoices = lazy(() => import("./pages/Invoices"));
 const Sales = lazy(() => import("./pages/Sales"));
+const SalesReps = lazy(() => import("./pages/SalesReps"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Projects = lazy(() => import("./pages/Projects"));
@@ -179,6 +180,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="sales">
               <Sales />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-reps"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="sales-reps">
+              <SalesReps />
             </IndustryRoute>
           </ProtectedRoute>
         }

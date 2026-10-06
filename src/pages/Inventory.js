@@ -68,7 +68,7 @@ export default function Inventory() {
   });
 
   // إضافة extra مؤقت في النموذج
-  const [tempExtra, setTempExtra] = useState({ name: "", price: "", materialId: "", qty: "", unit: "" });
+  const [tempExtra, setTempExtra] = useState({ name: "", price: "" });
 
   // سطر وصفة مؤقت في نموذج الإضافة
   const [tempRecipe, setTempRecipe] = useState({ materialId: "", qty: "", unit: "" });
@@ -286,7 +286,7 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "", materialId: "", qty: "", unit: "" });
+  const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "" });
 
   // ── خيارات ملابس ──
   const types = [
@@ -401,7 +401,7 @@ export default function Inventory() {
       .filter((s) => s.size);
   }
 
-  // ── helpers للإضافات (بربط اختياري بخامة عشان تُستهلك مخزنيًا مع الطبق) ──
+  // ── helpers للإضافات (سعر فقط — الاستهلاك المخزني عبر وصفة الطبق) ──
   function addTempExtra() {
     if (!tempExtra.name.trim()) return;
     setNewProduct((prev) => ({
@@ -409,12 +409,9 @@ export default function Inventory() {
       extras: [...prev.extras, {
         name: tempExtra.name.trim(),
         price: parseFloat(tempExtra.price) || 0,
-        materialId: tempExtra.materialId || "",
-        qty: parseFloat(tempExtra.qty) || 0,
-        unit: tempExtra.unit || "",
       }],
     }));
-    setTempExtra({ name: "", price: "", materialId: "", qty: "", unit: "" });
+    setTempExtra({ name: "", price: "" });
   }
   function removeTempExtra(idx) {
     setNewProduct((prev) => ({ ...prev, extras: prev.extras.filter((_, i) => i !== idx) }));
@@ -426,12 +423,9 @@ export default function Inventory() {
       extras: [...(prev.extras || []), {
         name: tempEditExtra.name.trim(),
         price: parseFloat(tempEditExtra.price) || 0,
-        materialId: tempEditExtra.materialId || "",
-        qty: parseFloat(tempEditExtra.qty) || 0,
-        unit: tempEditExtra.unit || "",
       }],
     }));
-    setTempEditExtra({ name: "", price: "", materialId: "", qty: "", unit: "" });
+    setTempEditExtra({ name: "", price: "" });
   }
   function removeEditExtra(idx) {
     setEditingProduct((prev) => ({ ...prev, extras: (prev.extras || []).filter((_, i) => i !== idx) }));
@@ -930,7 +924,6 @@ export default function Inventory() {
                           display: "flex", alignItems: "center", gap: 6,
                         }}>
                           {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
-                          {ex.materialId ? <span style={{ opacity: 0.8 }}>🧾{ex.qty || 0}</span> : null}
                           <button
                             type="button"
                             onClick={() => removeTempExtra(idx)}
@@ -961,32 +954,12 @@ export default function Inventory() {
                       + إضافة
                     </button>
                   </div>
-                  {isRestaurantOnly && rawMaterials.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <select
-                        value={tempExtra.materialId}
-                        onChange={(e) => {
-                          const m = rawMaterials.find((x) => x.id === e.target.value);
-                          setTempExtra({ ...tempExtra, materialId: e.target.value, unit: m?.unit || tempExtra.unit });
-                        }}
-                        style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}
-                      >
-                        <option value="">خامة مستهلكة (اختياري)</option>
-                        {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit || ""})</option>)}
-                      </select>
-                      <input
-                        type="number" step="0.001" min="0"
-                        placeholder="كمية/طبق"
-                        value={tempExtra.qty}
-                        onChange={(e) => setTempExtra({ ...tempExtra, qty: e.target.value })}
-                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
-                      />
-                    </div>
-                  )}
                 </div>
                 </>)}
-                {/* وصفة الطبق من الإضافة مباشرة — من غير ما تحتاج التعديل */}
-                {isRestaurantOnly && (
+              </>
+            )}
+            {/* وصفة الطبق من الإضافة مباشرة — من غير ما تحتاج التعديل */}
+            {isRestaurantOnly && (
                   <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: 12, marginTop: 8 }}>
                     <div style={{ fontWeight: 700, fontSize: 13, color: "#166534", marginBottom: 8 }}>
                       🧾 وصفة الطبق <span style={{ fontWeight: 400, color: "#64748b", fontSize: 11 }}>— البيع هيخصم الخامات دي تلقائياً</span>
@@ -1032,8 +1005,6 @@ export default function Inventory() {
                     )}
                   </div>
                 )}
-              </>
-            )}
 
             {isTrader && (
               <select
@@ -1952,7 +1923,6 @@ export default function Inventory() {
                           {(editingProduct.extras || []).map((ex, idx) => (
                             <span key={idx} style={{ background: "#ede9fe", color: "#6d28d9", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                               {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
-                              {ex.materialId ? <span style={{ opacity: 0.8 }}>🧾{ex.qty || 0}</span> : null}
                               <button type="button" onClick={() => removeEditExtra(idx)}
                                 style={{ background: "none", border: "none", cursor: "pointer", color: "#7c3aed", fontSize: 13, padding: 0 }}>×</button>
                             </span>
@@ -1976,28 +1946,6 @@ export default function Inventory() {
                           + إضافة
                         </button>
                       </div>
-                      {isRestaurantOnly && rawMaterials.length > 0 && (
-                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <select
-                            value={tempEditExtra.materialId}
-                            onChange={(e) => {
-                              const m = rawMaterials.find((x) => x.id === e.target.value);
-                              setTempEditExtra({ ...tempEditExtra, materialId: e.target.value, unit: m?.unit || tempEditExtra.unit });
-                            }}
-                            style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}
-                          >
-                            <option value="">خامة مستهلكة (اختياري)</option>
-                            {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit || ""})</option>)}
-                          </select>
-                          <input
-                            type="number" step="0.001" min="0"
-                            placeholder="كمية/طبق"
-                            value={tempEditExtra.qty}
-                            onChange={(e) => setTempEditExtra({ ...tempEditExtra, qty: e.target.value })}
-                            style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}

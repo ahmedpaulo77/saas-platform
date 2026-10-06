@@ -19,6 +19,65 @@ export default function MyCompany() {
   // إعدادات الضريبة (أدمن فقط)
   const [taxRate, setTaxRate] = useState('');
   const [savingTax, setSavingTax] = useState(false);
+  // لوجو المحل — يظهر فقط لو الميزة مفعلة من السوبر أدمن
+  const [savingLogo, setSavingLogo] = useState(false);
+  const logoEnabled = !!(company && company.features && company.features.customLogo);
+
+  function fileToLogo(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxSize = 300;
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleLogoChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !userCompanyId) return;
+    setSavingLogo(true);
+    setError('');
+    try {
+      const logoUrl = await fileToLogo(file);
+      await updateDoc(doc(db, 'companies', userCompanyId), { logoUrl });
+      setCompany((c) => ({ ...c, logoUrl }));
+      alert(t('mc.logoSaved'));
+    } catch (err) {
+      console.error('Error saving logo:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingLogo(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!userCompanyId || !window.confirm(t('common.confirmDelete'))) return;
+    setSavingLogo(true);
+    try {
+      await updateDoc(doc(db, 'companies', userCompanyId), { logoUrl: "" });
+      setCompany((c) => ({ ...c, logoUrl: "" }));
+      alert(t('mc.logoRemoved'));
+    } catch (err) {
+      console.error('Error removing logo:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingLogo(false);
+    }
+  }
 
   // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
@@ -189,6 +248,42 @@ export default function MyCompany() {
                 </div>
               </div>
             </div>
+
+            {/* 🖼️ لوجو المحل — يظهر فقط لو السوبر أدمن فعّل الميزة */}
+            {isAdmin && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-image" style={{ color: '#6366f1', marginLeft: 8 }}></i>
+                  {t('mc.logo')}
+                </h3>
+                {!logoEnabled ? (
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: 13 }}>
+                    <i className="fas fa-lock" style={{ marginLeft: 6 }}></i>
+                    {t('mc.logoLocked')}
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {company.logoUrl && (
+                      <img src={company.logoUrl} alt="logo" style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: 12, border: '2px solid #e2e8f0', background: 'white' }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: 13 }}>{t('mc.logoHint')}</p>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <label className="btn-primary btn-sm" style={{ cursor: savingLogo ? 'wait' : 'pointer', opacity: savingLogo ? 0.6 : 1 }}>
+                          <i className="fas fa-upload"></i> {t('common.save')}
+                          <input type="file" accept="image/*" onChange={handleLogoChange} disabled={savingLogo} style={{ display: 'none' }} />
+                        </label>
+                        {company.logoUrl && (
+                          <button onClick={handleLogoRemove} className="btn-danger btn-sm" disabled={savingLogo}>
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ✅ دعوة - يظهر فقط للأدمن */}
             {isAdmin && (

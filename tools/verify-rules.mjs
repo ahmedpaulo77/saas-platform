@@ -160,7 +160,8 @@ if (m) for (const f of ["maxAdmins", "maxUsers", "adminsCount", "usersCount"]) {
 }
 
 console.log("\n--- a company admin cannot raise the cap ---");
-const adminBranch = src.match(/isAdmin\(\) &&\s*\n\s*userCompanyId\(\) == companyId[\s\S]{0,1200}?\n\s*\)/);
+// نافذة 2500 (كانت 1200): فرع الأدمن كبر بشروط logoUrl/features — الفحص معناه ثابت
+const adminBranch = src.match(/isAdmin\(\) &&\s*\n\s*userCompanyId\(\) == companyId[\s\S]{0,2500}?\n\s*\)/);
 check("admin branch pins maxAdmins", /maxAdmins.*resource\.data\.maxAdmins/.test(adminBranch ? adminBranch[0] : ""));
 check("admin branch pins maxUsers", /maxUsers.*resource\.data\.maxUsers/.test(adminBranch ? adminBranch[0] : ""));
 

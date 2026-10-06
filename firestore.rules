@@ -468,7 +468,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
           (
           isSuperAdmin() ||
           (
@@ -483,7 +483,15 @@
             //    ومش فوق السقف.
             (!('maxAdmins' in request.resource.data) || request.resource.data.maxAdmins == resource.data.maxAdmins) &&
             (!('maxUsers' in request.resource.data) || request.resource.data.maxUsers == resource.data.maxUsers) &&
-            counterChangeIsSane(request.resource.data, resource.data)
+            counterChangeIsSane(request.resource.data, resource.data) &&
+            // 🆕 لوجو المحل: الأدمن يغيّره فقط لو الميزة مفعّلة له من السوبر أدمن
+            // (features.customLogo == true على المستند الحالي)
+            (!('logoUrl' in request.resource.data) ||
+             request.resource.data.logoUrl == resource.data.logoUrl ||
+             (('features' in resource.data) && resource.data.features.customLogo == true)) &&
+            // 🆕 مفاتيح المزايا (features) للسوبر أدمن فقط — الأدمن لا يلمسها
+            (!('features' in request.resource.data) ||
+             request.resource.data.features == resource.data.features)
           )
         );
 
@@ -640,6 +648,16 @@
       }
 
       match /suppliers/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // 🆕 مناديب المبيعات — بيانات تعريفية للشركة (ليسوا مستخدمين دخول).
+      // العمولة تُحسب من فواتيرهم في التقارير. الحذف للأدمن فقط.
+      match /sales_reps/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
         allow create: if canCreateForCompany();
