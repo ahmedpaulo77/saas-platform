@@ -436,6 +436,9 @@ export default function Purchases() {
       const purchaseDoc = {
         supplierId: newPurchase.supplierId,
         supplierName: suppName,
+        // المدفوع يُسجل من لحظة الإنشاء لو الحالة مدفوعة (كان مفقوداً دائماً
+        // فيظهر كشف الحساب "المتبقي" بكامل المبلغ رغم الدفع)
+        paidAmount: newPurchase.status === "paid" ? amount : 0,
         // ✅ أصناف متعددة بالوزن
         items: items.map((it) => ({
           productId: it.productId,

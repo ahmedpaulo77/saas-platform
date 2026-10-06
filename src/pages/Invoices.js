@@ -478,8 +478,11 @@ export default function Invoices() {
         total: isRestaurant && newInvoice.orderType === "delivery"
           ? round2(subtotalAmount + taxAmount + (parseFloat(newInvoice.deliveryFee) || 0))
           : round2(subtotalAmount + taxAmount),
-        // ⚠️ paidAmount: 0 — الطلب بيتسجل كـ "pending" ويتحقق بعد الاعتماد.
-        paidAmount: 0,
+        // ⚠️ paidAmount: لو الحالة مدفوعة من لحظة الإنشاء نسجل المبلغ كاملاً —
+        // كان دائماً 0 فكشف الحساب يظهر "المتبقي" بكامل المبلغ رغم الدفع
+        paidAmount: (!isRestaurant && newInvoice.status === "paid")
+          ? round2(subtotalAmount + taxAmount)
+          : 0,
         // ⚠️ type: "pos" — بدونه الطلب **مش بيوصل شاشة الكليحة خالص**:
         // Kitchen.js:159 بيطلب `data.type === "pos"`. الطلبات المتسجلة من
         // صفحة الفواتير كانت بتختفي من الكليحة.

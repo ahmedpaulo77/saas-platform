@@ -93,7 +93,8 @@ export default function Statements() {
     if (tab === "clients") {
       invoices.filter((i) => i.clientId === entityId && !i.isReturn && inRange(i)).forEach((i) => {
         const amount = parseFloat(i.amount) || 0;
-        let paid = parseFloat(i.paidAmount) || 0;
+        // نفس معاملة المشتريات: فواتير قديمة مسجلة "مدفوعة" بلا paidAmount
+        let paid = parseFloat(i.paidAmount) || (i.status === "paid" ? amount : 0);
         let type = t("st.invoiceSale");
         // فاتورة الاستبدال مربوطة بمرتجعها (exchangeReturnRef): نخفض المحصل
         // بقيمة المرتجع — وإلا الرصيد يطلع سالب وهمي (مدفوع كامل + مرتجع مخصوم)
@@ -115,7 +116,9 @@ export default function Statements() {
     } else {
       purchases.filter((p) => p.supplierId === entityId && inRange(p)).forEach((p) => {
         const amount = parseFloat(p.amount) || 0;
-        const paid = parseFloat(p.paidAmount) || 0;
+        // الفواتير القديمة المسجلة "مدفوعة" قبل إصلاح حفظ paidAmount:
+        // الحالة مدفوعة تعني المبلغ كله مدفوع
+        const paid = parseFloat(p.paidAmount) || (p.status === "paid" ? amount : 0);
         rows.push({ date: p.date || p.createdAt, type: t("st.invoicePurchase"), ref: p.id.slice(0, 6).toUpperCase(), debit: amount, credit: 0, paid, remaining: amount - paid });
       });
       returns.filter((r) => r.kind === "purchase" && r.entityId === entityId && inRange(r)).forEach((r) => {
