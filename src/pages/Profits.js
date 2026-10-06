@@ -15,7 +15,7 @@ import { useAuth } from "../context/AuthContext.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
-import { computePeriod, invoiceRevenue } from "../utils/revenue.js";
+import { computePeriod, invoiceRevenue, restaurantCogsFor, returnedCogsFor } from "../utils/revenue.js";
 import { round2 } from "../utils/traderUnits.js";
 import { fmtDate, moneyShort } from "../utils/fmt.js";
 
@@ -107,6 +107,10 @@ export default function Profits() {
   const [returns, setReturns] = useState([]);
   // productId → { avgCost, lastUnitCost, purchasePrice } — أساس حساب COGS
   const [costByProduct, setCostByProduct] = useState(new Map());
+  // مطعم: خامات + وصفات
+  const [dishMap, setDishMap] = useState(new Map());       // productId (طبق) → { name, recipe }
+  const [rawMatsMap, setRawMatsMap] = useState(new Map()); // materialId → { costPerUnit }
+  const isRestaurant = userIndustry === "restaurant";
 
   // خانة الكفر (احتياطي مالي اختياري)
   const [coverageEnabled, setCoverageEnabled] = useState(false);
@@ -145,6 +149,9 @@ export default function Profits() {
           "returns",
           "inventory",
         ];
+        // المطعم محتاج الخامات عشان نحسب COGS الحقيقي
+        if (userIndustry === "restaurant") SRC.push("raw_materials");
+
         const settled = await Promise.allSettled(
           SRC.map((name) =>
             getDocs(
@@ -183,6 +190,25 @@ export default function Profits() {
           });
         });
         setCostByProduct(map);
+
+        // مطعم: خريطة الأطباق (من inventory — فيها الوصفات)
+        if (userIndustry === "restaurant") {
+          const dMap = new Map();
+          (data.inventory || []).forEach((p) => {
+            dMap.set(p.id, { name: p.name || p.id, recipe: p.recipe || [] });
+          });
+          setDishMap(dMap);
+
+          // خريطة الخامات: materialId → { costPerUnit, name }
+          const rmMap = new Map();
+          (data.raw_materials || []).forEach((m) => {
+            rmMap.set(m.id, {
+              name: m.name || m.id,
+              costPerUnit: parseFloat(m.costPerUnit) || 0,
+            });
+          });
+          setRawMatsMap(rmMap);
+        }
       } catch (err) {
         console.error(err);
         setFailedSources(["__all__"]);
@@ -237,6 +263,23 @@ export default function Profits() {
         inRange,
       });
 
+      // المطعم: استبدل COGS العام (inventory.avgCost = صفر للأطباق)
+      // بالتكلفة الحقيقية من الخامات عبر الوصفات
+      let cogs = r.cogs;
+      let missingRecipesCount = 0;
+      if (isRestaurant) {
+        const res = restaurantCogsFor(invoices, dishMap, rawMatsMap, inRange);
+        // عكس تكلفة الوصفات المرتجعة — returnedCogsFor العادية تقرأ avgCost (صفر للأطباق)
+        const retRestCogs = returnedCogsFor(returns, costByProduct, inRange, { dishMap, rawMatsMap });
+        cogs = round2(res.cogs - retRestCogs);
+        missingRecipesCount = res.missingRecipes.size;
+      }
+
+      // الربح الصافي بالـ COGS الصح
+      const saleReturns = r.returns;
+      const profit = round2(r.revenue - saleReturns - cogs + r.income - r.expenses);
+      const grossProfit = round2(r.revenue - saleReturns - cogs);
+
       // المدفوع فعليًا للموردين (تدفق نقدي — مش تكلفة)
       const cashSpent = round2(
         purchases.reduce(
@@ -254,22 +297,24 @@ export default function Profits() {
       return {
         revenue: r.revenue,
         income: r.income,
-        cogs: r.cogs,
-        grossProfit: r.grossProfit,
+        cogs,
+        grossProfit,
         cashSpent,
         purchases: cashSpent,
-        saleReturns: r.returns,
+        saleReturns,
         purchaseReturns: r.purchaseReturns,
         expenses: r.expenses,
         waste: r.waste,
         otherExpenses: r.otherExpenses,
-        profit: r.netProfit,
-        // مفيش تكلفة متوسطة (منتجات من غير مشتريات مسجّلة)؟ رجّعنا للنقدي
-        // عشان الرقم ميبقاش مضلّل.
-        profitMode: r.cogs > 0 ? "accrual" : "cash",
+        profit,
+        profitMode: cogs > 0 ? "accrual" : "cash",
+        // مطعم: عدد الأطباق اللي اتباعت من غير وصفة
+        missingRecipesCount,
+        // الربح "تقريبي" لو في أطباق من غير وصفة
+        isApproximate: isRestaurant && missingRecipesCount > 0,
       };
     },
-    [invoices, expenses, purchases, returns, costByProduct],
+    [invoices, expenses, purchases, returns, costByProduct, dishMap, rawMatsMap, isRestaurant],
   );
 
   // -------- حساب شهر معين (يُستخدم لمنتقي الشهور) --------
@@ -679,6 +724,24 @@ export default function Profits() {
           </div>
         )}
 
+        {/* ⚠️ تنبيه: أطباق اتباعت من غير وصفة → الربح تقريبي */}
+        {isRestaurant && periodData.isApproximate && (
+          <div style={{
+            background: "#fffbeb", border: "2px solid #f59e0b",
+            color: "#92400e", borderRadius: 12,
+            padding: "12px 16px", marginBottom: 16,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <i className="fas fa-triangle-exclamation" style={{ fontSize: 18, color: "#f59e0b", flexShrink: 0 }}></i>
+            <div>
+              <strong>{t("profits.missingRecipesWarning", { n: periodData.missingRecipesCount })}</strong>
+              <div style={{ fontSize: 12, marginTop: 3 }}>
+                {t("profits.missingRecipesHint")}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ✅ تقرير اليومية: إيراد اليوم − تكلفة البضاعة − مصاريف اليوم = الصافي */}
         <div className="table-container" style={{ marginBottom: 20 }}>
           <div className="table-header">
@@ -811,10 +874,16 @@ export default function Profits() {
                 <i className="fas fa-sack-dollar"></i>
               </div>
               <div className="stat-value" style={{ fontSize: 18 }}>
+                {dayData.isApproximate && <span style={{ fontSize: 12, color: "#f59e0b", marginLeft: 3 }}>~</span>}
                 {moneyShort(dayData.profit, locale)} {t("currency")}
               </div>
               <div className="stat-label">
                 {t("profits.profit")} {t("profits.day")}
+                {dayData.isApproximate && (
+                  <span style={{ fontSize: 10, color: "#f59e0b", marginRight: 4 }}>
+                    {t("profits.approximate")}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -981,9 +1050,17 @@ export default function Profits() {
               <i className="fas fa-sack-dollar"></i>
             </div>
             <div className="stat-value" style={{ fontSize: 20 }}>
+              {periodData.isApproximate && <span style={{ fontSize: 13, color: "#f59e0b", marginLeft: 4 }}>~</span>}
               {moneyShort(periodData.profit, locale)} {t("currency")}
             </div>
-            <div className="stat-label">{t("profits.profit")}</div>
+            <div className="stat-label">
+              {t("profits.profit")}
+              {periodData.isApproximate && (
+                <span style={{ fontSize: 10, color: "#f59e0b", marginRight: 4 }}>
+                  {t("profits.approximate")}
+                </span>
+              )}
+            </div>
           </div>
           {showCoverage && coverageEnabled && (
             <div

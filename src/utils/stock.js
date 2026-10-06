@@ -33,6 +33,61 @@ export function stockLineId(line) {
   return line?.productId || line?.materialId || "";
 }
 
+// ============================================================
+// تحويل الوحدات (مطعم): 500 جرام من خامة بالكيلو كانت تتخصم 500 كيلو!
+// التحويل داخل نفس العائلة فقط (وزن/حجم/عدد) — عبر العائلات يبقى الرقم كما هو
+// (السلوك القديم) بدل التخمين.
+// ============================================================
+const UNIT_FAMILIES = {
+  weight: {
+    units: {
+      ton: 1e6, tonne: 1e6, kg: 1000, kilo: 1000, "كيلو": 1000, "كيلوجرام": 1000, "كجم": 1000,
+      g: 1, gram: 1, grams: 1, "جرام": 1, "جم": 1,
+    },
+  },
+  volume: {
+    units: {
+      liter: 1000, litre: 1000, لتر: 1000,
+      ml: 1, milliliter: 1, "مل": 1, "مليلتر": 1,
+      cup: 250, "كوب": 250, "كوباية": 250,
+      tbsp: 15, "معلقة كبيرة": 15, "ملعقة كبيرة": 15,
+      tsp: 5, "معلقة صغيرة": 5, "ملعقة صغيرة": 5,
+    },
+  },
+  piece: {
+    units: {
+      piece: 1, pieces: 1, "قطعة": 1, box: 1, "علبة": 1,
+      pack: 1, carton: 1, "كرتونة": 1,
+    },
+  },
+};
+
+function normUnit(u) {
+  return String(u ?? "").trim().toLowerCase();
+}
+
+function familyOf(normName) {
+  for (const [fam, def] of Object.entries(UNIT_FAMILIES)) {
+    if (def.units[normName] != null) return fam;
+  }
+  return null;
+}
+
+/**
+ * تحويل كمية من وحدة لأخرى داخل نفس العائلة.
+ * يرجع { qty, converted: true/false } — لو العائلتين مختلفتين أو مجهولتين
+ * يرجع الرقم كما هو (لا تخمين).
+ */
+export function convertQty(qty, fromUnit, toUnit) {
+  const n = parseFloat(qty) || 0;
+  const f = normUnit(fromUnit), t = normUnit(toUnit);
+  if (!f || !t || f === t) return { qty: n, converted: !f || !t || f === t };
+  const famF = familyOf(f), famT = familyOf(t);
+  if (!famF || !famT || famF !== famT) return { qty: n, converted: false };
+  const factor = UNIT_FAMILIES[famF].units[f] / UNIT_FAMILIES[famF].units[t];
+  return { qty: n * factor, converted: true };
+}
+
 /**
  * قراءة مستندات المخزون داخل transaction المتصل.
  * @returns { refs, snaps, byId: Map(id -> snap) }
@@ -78,19 +133,26 @@ export function planStockIn(entries, { isTrader, costKey = "avgCost", meta = {} 
     const delta = lineDeltaOf(line, isTrader, getProductUnit(data));
     if (!(delta > 0)) continue;
     const currentQty = parseFloat(data.quantity) || 0;
+    // وحّد على وحدة المخزون (مثال: شراء بالجرام وخامة بالكيلو)
+    const stockUnit = getProductUnit(data) || unit;
+    const conv = convertQty(delta, unit, stockUnit);
+    const deltaStock = conv.qty;
+    if (!(deltaStock > 0)) continue;
     const unitCost = parseFloat(line?.unitCost) || 0;
+    // سعر الوحدة بنفس وحدة المخزون (لو اتحوّلت الكمية يتحوّل السعر عكسيًا)
+    const unitCostStock = conv.converted && delta > 0 ? (unitCost * delta) / deltaStock : unitCost;
     const updates = {
-      quantity: roundQty(currentQty + delta, unit),
+      quantity: roundQty(currentQty + deltaStock, stockUnit),
     };
     if (meta.supplierId !== undefined) updates.lastSupplierId = meta.supplierId || "";
     if (meta.supplierName !== undefined) updates.lastSupplierName = meta.supplierName || "";
-    if (unitCost > 0) {
-      updates.lastUnitCost = unitCost;
+    if (unitCostStock > 0) {
+      updates.lastUnitCost = unitCostStock;
       const oldAvg = parseFloat(data[costKey]) || parseFloat(data.purchasePrice) || 0;
-      const newQty = currentQty + delta;
+      const newQty = currentQty + deltaStock;
       updates[costKey] = roundQty(
-        newQty > 0 ? (currentQty * oldAvg + delta * unitCost) / newQty : unitCost,
-        unit
+        newQty > 0 ? (currentQty * oldAvg + deltaStock * unitCostStock) / newQty : unitCostStock,
+        stockUnit
       );
     }
     writes.push({ ref, updates });
@@ -110,13 +172,17 @@ export function planStockOut(entries, { isTrader, allowNegative = false } = {}) 
     const unit = line?.unit || getProductUnit(data);
     const delta = lineDeltaOf(line, isTrader, getProductUnit(data));
     if (!(delta > 0)) continue;
+    // وحّد على وحدة المخزون قبل المقارنة (500 جرام ≠ 500 كيلو)
+    const stockUnit = getProductUnit(data) || unit;
+    const deltaStock = convertQty(delta, unit, stockUnit).qty;
+    if (!(deltaStock > 0)) continue;
     const currentQty = parseFloat(data.quantity) || 0;
-    if (!allowNegative && currentQty - delta < 0) {
+    if (!allowNegative && currentQty - deltaStock < 0) {
       const err = new Error("INSUFFICIENT_STOCK");
-      err.details = { id: ref.id, current: currentQty, needed: delta };
+      err.details = { id: ref.id, current: currentQty, needed: deltaStock };
       throw err;
     }
-    writes.push({ ref, updates: { quantity: roundQty(currentQty - delta, unit) } });
+    writes.push({ ref, updates: { quantity: roundQty(currentQty - deltaStock, stockUnit) } });
   }
   return writes;
 }
@@ -155,14 +221,15 @@ export function expandRecipeLines(dishLines, dishById) {
       const need = (parseFloat(e.qty) || 0) * qty;
       if (!(need > 0)) continue;
       const cur = totals.get(e.materialId) || { quantity: 0, unit: e.unit || "" };
-      cur.quantity = roundQty(cur.quantity + need, e.unit || cur.unit || "piece");
+      // تجميع خام بدون تقريب (التقريب المبكر كان يشوّه كسور القطعة مثل 0.3)
+      cur.quantity = cur.quantity + need;
       if (e.unit) cur.unit = e.unit;
       totals.set(e.materialId, cur);
     }
   }
   const materialLines = [...totals.entries()].map(([materialId, v]) => ({
     productId: materialId,
-    quantity: v.quantity,
+    quantity: roundQty(v.quantity, v.unit || "piece"),
     unit: v.unit || "piece",
   }));
   return { materialLines, skipped };

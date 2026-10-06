@@ -136,9 +136,12 @@ export function cogsFor(invoices, costByProduct, inRange) {
  * @param {Array} returns       وثائق مرتجعات البيع
  * @param {Map}   costByProduct productId → { avgCost, lastUnitCost }
  * @param {Function} [inRange]  فلتر التاريخ (نفس inRange الخاص بالفترة)
+ * @param {Object} [recipeCtx]  اختياري للمطعم: { dishMap, rawMatsMap } —
+ *   تكلفة الوصفة أولاً (نفس منطق restaurantCogsFor)، ثم avgCost كاحتياطي.
+ *   بدونه مرتجع المطعم لا يعكس أي تكلفة (avgCost الأطباق = صفر).
  * @returns {number}
  */
-export function returnedCogsFor(returns, costByProduct, inRange) {
+export function returnedCogsFor(returns, costByProduct, inRange, recipeCtx = null) {
   return round2(
     (returns || []).reduce((sum, r) => {
       // مرتجعات الشراء لا تؤثر على COGS المبيعات
@@ -148,19 +151,99 @@ export function returnedCogsFor(returns, costByProduct, inRange) {
       lines.forEach((l) => {
         const pid = l.productId;
         if (!pid) return;
+        const qty = parseFloat(l.quantity) || 0;
+        const w = parseFloat(l.weight) || 0;
+        // مطعم: جرّب تكلفة الوصفة أولاً (نفس منطق restaurantCogsFor — بالكمية)
+        if (recipeCtx?.dishMap && qty > 0) {
+          const dish = recipeCtx.dishMap.get?.(pid);
+          const recipe = Array.isArray(dish?.recipe)
+            ? dish.recipe.filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
+            : [];
+          if (recipe.length > 0) {
+            for (const step of recipe) {
+              const matQty = (parseFloat(step.qty) || 0) * qty;
+              if (!(matQty > 0)) continue;
+              const mat = recipeCtx.rawMatsMap?.get?.(step.materialId);
+              const cost = parseFloat(mat?.costPerUnit) || 0;
+              if (!(cost > 0)) continue;
+              sum += matQty * cost;
+            }
+            return;
+          }
+        }
         const info = costByProduct?.get?.(pid) || costByProduct?.[pid];
         if (!info) return;
         const unitCost =
           parseFloat(info.avgCost) || parseFloat(info.lastUnitCost) || 0;
         if (!(unitCost > 0)) return;
-        const qty = parseFloat(l.quantity) || 0;
-        const w = parseFloat(l.weight) || 0;
         const effectiveQty = w > 0 ? w : qty;
         sum += unitCost * effectiveQty;
       });
       return sum;
     }, 0)
   );
+}
+
+/**
+ * تكلفة الخامات الحقيقية للمطعم — البديل الصح لـ cogsFor للمطاعم.
+ *
+ * المشكلة مع cogsFor للمطعم:
+ *   cogsFor بتقرأ inventory.avgCost لكل طبق — والأطباق مالهاش avgCost
+ *   في inventory (تكلفتها الحقيقية في raw_materials.costPerUnit).
+ *   النتيجة: COGS = 0 → ربح 100% وهمي.
+ *
+ * الحل هنا:
+ *   لكل فاتورة → لكل طبق → افرد وصفته (recipe[]) →
+ *   Σ (qty_خامة × costPerUnit_خامة)
+ *
+ * أطباق بلا وصفة بتترتجع في missingRecipes (مش بتحسب تكلفتها صفر بصمت).
+ *
+ * @param {Array}  invoices    فواتير البيع
+ * @param {Map}    dishMap     productId → { recipe: [{materialId, qty, unit}], ...inventory data }
+ * @param {Map}    rawMatsMap  materialId → { costPerUnit }
+ * @param {Function} [inRange] فلتر التاريخ
+ * @returns {{ cogs: number, missingRecipes: Set<string> }}
+ *   cogs            = مجموع تكاليف الخامات للأطباق اللي ليها وصفة
+ *   missingRecipes  = set أسماء الأطباق اللي اتباعت من غير وصفة
+ */
+export function restaurantCogsFor(invoices, dishMap, rawMatsMap, inRange) {
+  let cogs = 0;
+  const missingRecipes = new Set();
+
+  (invoices || []).forEach((inv) => {
+    if (!isValidatedInvoice(inv)) return;
+    if (inRange && !inRange(inv.date || inv.createdAt)) return;
+    const lines = inv.items || inv.products || [];
+    lines.forEach((l) => {
+      const dishId = l.productId;
+      if (!dishId) return;
+      const qty = parseFloat(l.quantity) || 0;
+      if (!(qty > 0)) return;
+
+      const dish = dishMap?.get?.(dishId);
+      const recipe = Array.isArray(dish?.recipe)
+        ? dish.recipe.filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
+        : [];
+
+      if (recipe.length === 0) {
+        // طبق بلا وصفة — نسجّله ومنعدّش تكلفته صفر
+        missingRecipes.add(dish?.name || dishId);
+        return;
+      }
+
+      for (const step of recipe) {
+        const matId = step.materialId;
+        const matQty = (parseFloat(step.qty) || 0) * qty;
+        if (!(matQty > 0)) continue;
+        const mat = rawMatsMap?.get?.(matId);
+        const cost = parseFloat(mat?.costPerUnit) || 0;
+        if (!(cost > 0)) continue;
+        cogs += matQty * cost;
+      }
+    });
+  });
+
+  return { cogs: round2(cogs), missingRecipes };
 }
 
 /**

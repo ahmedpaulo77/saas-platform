@@ -87,6 +87,13 @@ function OrderCard({ order, t, onAdvance }) {
         </div>
       )}
 
+      {/* رقم الطاولة — عامل الصالة يعرف الطبق رايح فين */}
+      {order.tableNumber && (
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#0f766e", marginBottom: 8, background: "#ccfbf1", padding: "6px 10px", borderRadius: 8, textAlign: "center" }}>
+          🪑 طاولة {order.tableNumber}
+        </div>
+      )}
+
       <div style={{ marginBottom: 10 }}>
         {(order.items || []).map((item, idx) => (
           <div key={idx} style={{ padding: "6px 0", borderBottom: idx < order.items.length - 1 ? "1px dashed #e2e8f0" : "none" }}>

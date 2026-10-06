@@ -91,7 +91,18 @@ export default function Tables() {
   async function deleteTable(id) {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
-      const name = tables.find((tb) => tb.id === id)?.number || id;
+      const tb = tables.find((x) => x.id === id);
+      const name = tb?.number || id;
+      // منع حذف طاولة عليها طلبات نشطة (صالة شغالة)
+      if (tb && tb.status === "occupied") {
+        const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+        const busy = snap.docs.some((d) => {
+          const o = d.data() || {};
+          return String(o.tableNumber ?? "") === String(tb.number) &&
+            ["new", "preparing", "ready"].includes(o.orderStatus || "new");
+        });
+        if (busy) { alert(t("tables.deleteBlockedBusy")); return; }
+      }
       await deleteDoc(doc(db, "tables", id));
       await logActivity({ actionType: "DELETE", collectionName: "tables", itemId: id, details: `Deleted table number ${name}`, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId } });
       await fetchTables();

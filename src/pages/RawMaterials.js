@@ -127,6 +127,20 @@ export default function RawMaterials() {
     try {
       const matDoc = await getDoc(doc(db, "raw_materials", id));
       const matName = matDoc.exists() ? matDoc.data().name : "Unknown";
+      // منع حذف خامة مستخدمة في وصفات أطباق — الحذف كان بييتّم الوصفات
+      // ويخلي البيع مجاني (تخطي صامت) أو ممنوع حسب الشاشة
+      const invSnap = await getDocs(getScopedQuery("inventory", userRole, userCompanyId, currentUser?.uid));
+      const usedBy = [];
+      invSnap.docs.forEach((d) => {
+        const data = d.data() || {};
+        if ((data.recipe || []).some((e) => e && e.materialId === id)) {
+          usedBy.push(data.name || d.id);
+        }
+      });
+      if (usedBy.length > 0) {
+        alert(t("rm.deleteBlockedUsed", { names: usedBy.slice(0, 3).join("، ") + (usedBy.length > 3 ? "..." : "") }));
+        return;
+      }
       await deleteDoc(doc(db, "raw_materials", id));
       await logActivity({
         actionType: "DELETE", collectionName: "raw_materials", itemId: id,
@@ -232,7 +246,7 @@ export default function RawMaterials() {
                 <LabelEl text={t("rm.name")} required />
                 <input
                   type="text"
-                  placeholder={lang === "ar" ? "مثال: دجاج مجمد" : "e.g. Frozen chicken"}
+                  placeholder={lang === "ar" ? "مثال: أرز، زيت، خضار..." : "e.g. Rice, oil, vegetables..."}
                   value={newMaterial.name}
                   onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
                   required

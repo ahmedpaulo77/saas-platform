@@ -1,7 +1,9 @@
 // src/hooks/useInvoices.js - extracted from src/pages/Invoices.js
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getDocs, doc, updateDoc, collection, query, where } from "firebase/firestore";
+import { getDocs, getDoc, doc, updateDoc, collection, query, where, runTransaction } from "firebase/firestore";
 import { db } from "../firebase/config.js";
+import { expandRecipeLines, planStockIn, readStockTx, stockTargetFor } from "../utils/stock.js";
+import { releaseTableIfFree } from "../utils/tableSync.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";
 import { getAvailableModules } from "../utils/modules.js";
@@ -150,7 +152,9 @@ export function useInvoices() {
   const stats = useMemo(() => {
     // Revenue counts only validated invoices (legacy docs without `approval` count as validated)
     const validated = filteredInvoices.filter((inv) => isInvoiceValidated(inv));
-    const totalRevenue = validated.reduce((sum, inv) => {
+    // الطلبات الملغية خارج الإيراد (اتلغت = مفيش بيع)
+    const activeValidated = validated.filter((inv) => inv.orderStatus !== "cancelled");
+    const totalRevenue = activeValidated.reduce((sum, inv) => {
       if (inv.status === "paid") return sum + (parseFloat(inv.amount) || 0);
       return sum + (parseFloat(inv.paidAmount) || 0);
     }, 0);
@@ -184,7 +188,39 @@ export function useInvoices() {
           : (parseFloat(inv.amount) || 0) + (parseFloat(inv.deliveryFee) || 0);
         if (curPaid <= 0 && curTotal > 0) updateData.paidAmount = round2(curTotal);
       }
+      // الإلغاء يرد المخزون المخصوم — بشرط: الفاتورة كانت معتمدة (اتخصم فعلاً)
+      // ومش ملغية أصلاً (منع الرد المكرر). اليدوية غير المعتمدة لم تخصم أصلاً.
+      if (newOrderStatus === "cancelled" && inv && isInvoiceValidated(inv) && inv.orderStatus !== "cancelled") {
+        try {
+          const target = stockTargetFor(userIndustry);
+          const srcLines = inv.products || inv.items || [];
+          let restockLines = [];
+          if (target === "raw_materials") {
+            const dishIds = [...new Set(srcLines.map((l) => l.productId).filter(Boolean))];
+            const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
+            const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
+            const { materialLines } = expandRecipeLines(
+              srcLines.map((l) => ({ productId: l.productId, quantity: l.quantity })), dishById
+            );
+            restockLines = materialLines;
+          } else if (hasInventory) {
+            restockLines = srcLines.map((l) => ({ productId: l.productId, quantity: l.quantity, unit: l.unit || "piece" }));
+          }
+          if (restockLines.length > 0) {
+            await runTransaction(db, async (tx) => {
+              const { refs, snaps } = await readStockTx(tx, target, restockLines.map((l) => l.productId));
+              const entries = snaps.map((snap, idx) => ({ ref: refs[idx], snap, line: restockLines[idx] }));
+              // planStockIn بلا unitCost → كمية فقط، لا يمس التكلفة
+              planStockIn(entries, { isTrader: isTrader }).forEach(({ ref, updates }) => tx.update(ref, updates));
+            });
+          }
+        } catch (revErr) { console.warn("cancel restock:", revErr?.message); }
+      }
       await updateDoc(doc(db, "invoices", invoiceId), updateData);
+      // حالة نهائية (اكتمال/توصيل/إلغاء) لطلب صالة → تحرير الطاولة لو مفيش طلبات نشطة عليها
+      if (["completed", "delivered", "cancelled"].includes(newOrderStatus) && inv && inv.tableNumber) {
+        releaseTableIfFree(userCompanyId, inv.tableNumber, invoiceId);
+      }
       await logActivity({
         actionType: "UPDATE",
         collectionName: "invoices",

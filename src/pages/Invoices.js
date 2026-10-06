@@ -10,7 +10,7 @@ import { exportInvoicePDF } from "../utils/pdfExport.js";
 import { logActivity } from "../utils/auditLogger.js";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { createReturn } from "../utils/returns.js";
-import { stockTargetFor, readStockTx, readStockCache, planStockOut, planStockIn, expandRecipeLines } from "../utils/stock.js";
+import { stockTargetFor, readStockTx, readStockCache, planStockOut, planStockIn, expandRecipeLines, convertQty } from "../utils/stock.js";
 import { isOffline, handleOfflineError } from "../utils/offline.js";
 import { canDelete } from "../utils/companyQuery.js";
 import { useInvoices } from "../hooks/useInvoices.js";
@@ -233,6 +233,8 @@ export default function Invoices() {
   async function openExchange(inv) {
     if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
     if (!inv) return;
+    // الاستبدال مفهوم ملابس (مقاس/لون) — للمطعم: إلغاء + طلب جديد بدلاً منه
+    if (isRestaurantOnly) { alert(t("ex.restaurantHint")); return; }
     // سياسة المدة: تُفحص عند الفتح وعند التأكيد
     if (!isWithinExchangeWindow(inv.date || inv.createdAt)) {
       alert(t("ex.windowReject", { days: EXCHANGE_WINDOW_DAYS }));
@@ -270,6 +272,8 @@ export default function Invoices() {
     if (!exchangingInvoice) return;
     // للأدمن فقط + أونلاين فقط (عملية مركبة: مرتجع ثم بيعة — الأوفلاين قد يجزّئها)
     if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
+    // الاستبدال للملابس — المطعم: إلغاء + طلب جديد
+    if (isRestaurantOnly) { alert(t("ex.restaurantHint")); return; }
     if (isOffline()) { alert(t("ex.offline")); return; }
     if (!isWithinExchangeWindow(exchangingInvoice.date || exchangingInvoice.createdAt)) {
       alert(t("ex.windowReject", { days: EXCHANGE_WINDOW_DAYS }));
@@ -761,7 +765,11 @@ export default function Invoices() {
 
   async function recordPayment(e) {
     e.preventDefault(); if (!payingInvoice) return;
-    const amount = parseFloat(payAmount) || 0; const cur = parseFloat(payingInvoice.paidAmount) || 0; const total = parseFloat(payingInvoice.amount) || 0; const newPaid = cur + amount;
+    const amount = parseFloat(payAmount) || 0; const cur = parseFloat(payingInvoice.paidAmount) || 0;
+    // الإجمالي الحقيقي يشمل الضريبة والتوصيل (كان amount فقط فيتجاهلهما ويرفض الدفع الكامل ظلمًا)
+    const total = parseFloat(payingInvoice.total) > 0 ? parseFloat(payingInvoice.total)
+      : (parseFloat(payingInvoice.amount) || 0) + (parseFloat(payingInvoice.deliveryFee) || 0);
+    const newPaid = cur + amount;
     if (amount <= 0) { alert(t("in.badAmount")); return; }
     if (newPaid > total) { alert(t("in.payOver", { paid: newPaid, total })); return; }
     setPaying(true);
@@ -833,7 +841,34 @@ export default function Invoices() {
         const dishIds = [...new Set(correctLines.map((l) => l.productId).filter(Boolean))];
         const menuSnaps = await Promise.all(dishIds.map((id) => getDoc(doc(db, "inventory", id))));
         const dishById = new Map(dishIds.map((id, i) => [id, menuSnaps[i]]));
-        stockLines = expandRecipeLines(correctLines, dishById).materialLines;
+        const expanded = expandRecipeLines(correctLines, dishById).materialLines;
+        // إضافات مربوطة بخامات: تُرد مع الطبق بنسبة الكمية المرتجعة فعلاً
+        const extraTotals = new Map();
+        correctLines.forEach((cl) => {
+          const src = sourceLines.find((p) => p.productId === cl.productId);
+          ((src && src.extras) || []).forEach((ex) => {
+            const eq = parseFloat(ex?.qty) || 0;
+            if (!ex?.materialId || !(eq > 0)) return;
+            const cur = extraTotals.get(ex.materialId) || { quantity: 0, unit: ex.unit || "" };
+            cur.quantity += eq * (parseFloat(cl.quantity) || 0);
+            if (ex.unit) cur.unit = ex.unit;
+            extraTotals.set(ex.materialId, cur);
+          });
+        });
+        stockLines = [...expanded];
+        extraTotals.forEach((v, materialId) => stockLines.push({ productId: materialId, quantity: v.quantity, unit: v.unit || "piece" }));
+        // وحّد سطور الرد على وحدات الخامات الفعلية (createReturn يجمع خامًا بدون تحويل)
+        try {
+          const matIds = [...new Set(stockLines.map((l) => l.productId).filter(Boolean))];
+          const matSnaps = await Promise.all(matIds.map((id) => getDoc(doc(db, "raw_materials", id))));
+          const matUnitOf = new Map(matSnaps.map((s, i) => [matIds[i], s.exists() ? (s.data()?.unit || "") : ""]));
+          stockLines = stockLines.map((l) => {
+            const mu = matUnitOf.get(l.productId) || "";
+            if (!mu) return l;
+            const c = convertQty(l.quantity, l.unit, mu);
+            return { ...l, quantity: c.qty, unit: mu };
+          });
+        } catch (e) { console.warn("return units normalize:", e?.message); }
         stockTarget = "raw_materials";
       }
       await createReturn({ kind: "sale", refId: returningInvoice.id, entityId: returningInvoice.clientId, entityName: clientName, lines: correctLines, stockLines, target: stockTarget, reason: returnReason, user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId }, isTrader });
@@ -933,7 +968,7 @@ export default function Invoices() {
             <button type="button" className="btn-primary btn-sm" onClick={() => openPieceMatch(inv)} style={{ marginInlineStart: "auto" }}>
               {t("in.openPieceReturn")}
             </button>
-            {isAdmin && (
+            {(isAdmin && !isRestaurantOnly) && (
               <button type="button" className="btn-secondary btn-sm" onClick={() => openExchange(inv)} title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}>
                 <i className="fas fa-right-left"></i> {t("ex.exchangeBtn")}
               </button>
@@ -956,7 +991,7 @@ export default function Invoices() {
           onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
           onReturn={isAdmin ? (inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); } : null}
-          onExchange={isAdmin ? (inv) => openExchange(inv) : null}
+          onExchange={(isAdmin && !isRestaurantOnly) ? (inv) => openExchange(inv) : null}
           onDelete={deleteInvoice}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}

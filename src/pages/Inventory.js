@@ -66,7 +66,7 @@ export default function Inventory() {
   });
 
   // إضافة extra مؤقت في النموذج
-  const [tempExtra, setTempExtra] = useState({ name: "", price: "" });
+  const [tempExtra, setTempExtra] = useState({ name: "", price: "", materialId: "", qty: "", unit: "" });
 
   // ── صور المنتجات (Firebase Storage: products/{companyId}/...) ──
   const [newImageFile, setNewImageFile] = useState(null);
@@ -264,7 +264,7 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "" });
+  const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "", materialId: "", qty: "", unit: "" });
 
   // ── خيارات ملابس ──
   const types = [
@@ -313,7 +313,23 @@ export default function Inventory() {
   // لو الشركة عاملة أكوادها → نستخدمها، غير كده الافتراضية
   const sizeOptions = customSizes.length > 0 ? customSizes : DEFAULT_SIZES;
   const colors = customColors.length > 0 ? customColors : DEFAULT_COLORS;
-  // نقطة لون رجالي نظيفة بدل الإيموجي
+
+  // ── أقسام المنيو (مطعم/كافيه): عشان فلتر POS يشتغل ──
+  // POS بيقارن product.category === cat.id — لو category فاضي الفلتر ميشتغلش
+  const [menuCategories, setMenuCategories] = useState([]);
+  const fetchMenuCategories = useCallback(async () => {
+    if (!isRestaurant || !userCompanyId) { setMenuCategories([]); return; }
+    try {
+      const snap = await getDocs(
+        getScopedQuery("menu_categories", userRole, userCompanyId, currentUser?.uid)
+      );
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setMenuCategories(data);
+    } catch (err) {
+      console.error("Error fetching menu categories:", err);
+    }
+  }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
   const colorDot = (hex) => (
     <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: "50%", background: hex, border: "1px solid #cbd5e1", flexShrink: 0 }} />
   );
@@ -346,16 +362,26 @@ export default function Inventory() {
     } else {
       setRawMaterials([]);
     }
-  }, [fetchProducts, fetchVariantCodes]);
+  }, [fetchProducts, fetchVariantCodes, fetchMenuCategories]);
 
-  // ── helpers للإضافات ──
+  useEffect(() => {
+    fetchMenuCategories();
+  }, [fetchMenuCategories]);
+
+  // ── helpers للإضافات (بربط اختياري بخامة عشان تُستهلك مخزنيًا مع الطبق) ──
   function addTempExtra() {
     if (!tempExtra.name.trim()) return;
     setNewProduct((prev) => ({
       ...prev,
-      extras: [...prev.extras, { name: tempExtra.name.trim(), price: parseFloat(tempExtra.price) || 0 }],
+      extras: [...prev.extras, {
+        name: tempExtra.name.trim(),
+        price: parseFloat(tempExtra.price) || 0,
+        materialId: tempExtra.materialId || "",
+        qty: parseFloat(tempExtra.qty) || 0,
+        unit: tempExtra.unit || "",
+      }],
     }));
-    setTempExtra({ name: "", price: "" });
+    setTempExtra({ name: "", price: "", materialId: "", qty: "", unit: "" });
   }
   function removeTempExtra(idx) {
     setNewProduct((prev) => ({ ...prev, extras: prev.extras.filter((_, i) => i !== idx) }));
@@ -364,9 +390,15 @@ export default function Inventory() {
     if (!tempEditExtra.name.trim()) return;
     setEditingProduct((prev) => ({
       ...prev,
-      extras: [...(prev.extras || []), { name: tempEditExtra.name.trim(), price: parseFloat(tempEditExtra.price) || 0 }],
+      extras: [...(prev.extras || []), {
+        name: tempEditExtra.name.trim(),
+        price: parseFloat(tempEditExtra.price) || 0,
+        materialId: tempEditExtra.materialId || "",
+        qty: parseFloat(tempEditExtra.qty) || 0,
+        unit: tempEditExtra.unit || "",
+      }],
     }));
-    setTempEditExtra({ name: "", price: "" });
+    setTempEditExtra({ name: "", price: "", materialId: "", qty: "", unit: "" });
   }
   function removeEditExtra(idx) {
     setEditingProduct((prev) => ({ ...prev, extras: (prev.extras || []).filter((_, i) => i !== idx) }));
@@ -413,8 +445,10 @@ export default function Inventory() {
         minQuantity: isPharmacy ? (parseFloat(newProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (newProduct.drugCategory || "") : "",
         activeIngredient: isPharmacy ? (newProduct.activeIngredient || "").trim() : "",
-        extras: isRestaurantOnly ? (newProduct.extras || []) : [],
+        extras: isRestaurant ? (newProduct.extras || []) : [],
         preparationNote: isRestaurant ? (newProduct.preparationNote || "") : "",
+        // القسم: للمطعم/الكافيه فقط — ده اللي POS بيفلتر عليه
+        category: isRestaurant ? (newProduct.category || "") : "",
         imageUrl,
         createdAt: new Date().toISOString(),
       });
@@ -423,7 +457,7 @@ export default function Inventory() {
         details: `Created product: ${newProduct.name}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setNewProduct({ name: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg" });
+      setNewProduct({ name: "", quantity: "", price: "", description: "", type: "", size: "", color: "", brand: "", model: "", code: "", expiryDate: "", barcode: "", purchasePrice: "", minQuantity: "", drugCategory: "", activeIngredient: "", extras: [], preparationNote: "", unit: "kg", category: "" });
       setTempExtra({ name: "", price: "" });
       setNewImageFile(null);
       setNewImagePreview("");
@@ -443,13 +477,18 @@ export default function Inventory() {
     if (!editingProduct.name || editingProduct.price === "" || editingProduct.price == null) {
       alert(t("common.fillRequired")); return;
     }
+    // طبق مطعم بلا وصفة = بيع بلا خصم خامات وبلا تكلفة — تأكيد صريح قبل الحفظ
+    if (isRestaurantOnly && ((editingProduct.recipe || []).filter((x) => x?.materialId && parseFloat(x?.qty) > 0).length === 0)) {
+      if (!window.confirm(t("recipe.requiredConfirm"))) return;
+    }
     setUploading(true);
     try {
       let imageUrl = editingProduct.imageUrl || "";
       if (editImageFile) imageUrl = await uploadProductImage(editImageFile);
       await updateDoc(doc(db, "inventory", editingProduct.id), {
         name: editingProduct.name,
-        category: "",
+        // القسم: يُحفظ للمطعم/الكافيه من الحقل الفعلي (مش فاضي ثابت)
+        category: isRestaurant ? (editingProduct.category || "") : "",
         // ⚠️ كان ثابت 0 — أي تعديل (حتى اسم) كان بيمسح رصيد الصنف.
         // دلوقتي بنحفظ القيمة الظاهرة في خانة الكمية بالمودال كما هي.
         quantity: parseFloat(editingProduct.quantity) || 0,
@@ -468,7 +507,7 @@ export default function Inventory() {
         minQuantity: isPharmacy ? (parseFloat(editingProduct.minQuantity) || 0) : 0,
         drugCategory: isPharmacy ? (editingProduct.drugCategory || "") : "",
         activeIngredient: isPharmacy ? (editingProduct.activeIngredient || "").trim() : "",
-        extras: isRestaurantOnly ? (editingProduct.extras || []) : [],
+        extras: isRestaurant ? (editingProduct.extras || []) : [],
         preparationNote: isRestaurant ? (editingProduct.preparationNote || "") : "",
         // وصفة الطبق (مطعم فقط): تُحفظ مضمّنة — باقي الأنشطة لا تُمس
         ...(isRestaurantOnly ? {
@@ -801,7 +840,7 @@ export default function Inventory() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <input
               type="text"
-              placeholder={isRealEstate ? "اسم العقار / الوحدة" : isRestaurant ? (isCafe ? "اسم الصنف (مثال: كابتشينو / لاتيه)" : "اسم الصنف (مثال: فراخ كرسبي)") : t("inv.phName")}
+              placeholder={isRealEstate ? "اسم العقار / الوحدة" : isRestaurant ? (isCafe ? "اسم الصنف (مثال: مشروب ساخن / بارد)" : "اسم الصنف (مثال: وجبة / ساندوتش / طبق)") : t("inv.phName")}
               value={newProduct.name}
               onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
               required
@@ -812,12 +851,28 @@ export default function Inventory() {
                 {/* ملاحظة تحضير */}
                 <input
                   type="text"
-                  placeholder="مثال: يُقدَّم ساخناً مع صلصة"
+                  placeholder="مثال: ملاحظة للشيف (بدون بصل، حار وسط...)"
                   value={newProduct.preparationNote || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, preparationNote: e.target.value })}
                 />
 
-                {isRestaurantOnly && ( <>
+                {/* قسم المنيو — الأساس الذي يشتغل عليه فلتر POS */}
+                {menuCategories.length > 0 && (
+                  <select
+                    value={newProduct.category || ""}
+                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                    style={{ padding: "9px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white" }}
+                  >
+                    <option value="">— {t("inv.phCategory")} —</option>
+                    {menuCategories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon ? `${cat.icon} ` : ""}{cat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {isRestaurant && ( <>
                 <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
                     🧩 الإضافات الاختيارية (Extras)
@@ -831,6 +886,7 @@ export default function Inventory() {
                           display: "flex", alignItems: "center", gap: 6,
                         }}>
                           {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
+                          {ex.materialId ? <span style={{ opacity: 0.8 }}>🧾{ex.qty || 0}</span> : null}
                           <button
                             type="button"
                             onClick={() => removeTempExtra(idx)}
@@ -843,7 +899,7 @@ export default function Inventory() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       type="text"
-                      placeholder="اسم الإضافة (مثال: صوص حار)"
+                      placeholder="اسم الإضافة (مثال: جبنة زيادة)"
                       value={tempExtra.name}
                       onChange={(e) => setTempExtra({ ...tempExtra, name: e.target.value })}
                       style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
@@ -861,6 +917,28 @@ export default function Inventory() {
                       + إضافة
                     </button>
                   </div>
+                  {isRestaurantOnly && rawMaterials.length > 0 && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <select
+                        value={tempExtra.materialId}
+                        onChange={(e) => {
+                          const m = rawMaterials.find((x) => x.id === e.target.value);
+                          setTempExtra({ ...tempExtra, materialId: e.target.value, unit: m?.unit || tempExtra.unit });
+                        }}
+                        style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}
+                      >
+                        <option value="">خامة مستهلكة (اختياري)</option>
+                        {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit || ""})</option>)}
+                      </select>
+                      <input
+                        type="number" step="0.001" min="0"
+                        placeholder="كمية/طبق"
+                        value={tempExtra.qty}
+                        onChange={(e) => setTempExtra({ ...tempExtra, qty: e.target.value })}
+                        style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
+                      />
+                    </div>
+                  )}
                 </div>
                 </>)}
               </>
@@ -1346,8 +1424,9 @@ export default function Inventory() {
                 <tr>
                   <th>#</th>
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
+                  {isRestaurant && <th>{isCafe ? "قسم منيو الكافيه" : "قسم المنيو"}</th>}
                   {isClothing && <><th>الموديل</th><th>الكود</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
-                  {isRestaurantOnly && <th>الإضافات</th>}
+                  {isRestaurant && <th>الإضافات</th>}
                   {isPharmacy && <th>التصنيف</th>}
                   {isMarket && <th>الباركود</th>}
                   {isTrader && <th>{t("trader.unit")}</th>}
@@ -1394,6 +1473,14 @@ export default function Inventory() {
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{product.description}</div>
                       )}
                     </td>
+                    {isRestaurant && (
+                      <td style={{ fontSize: 12, color: "#64748b" }}>
+                        {(() => {
+                          const found = menuCategories.find((c) => c.id === product.category || c.name === product.category);
+                          return found ? `${found.icon || ""} ${found.name}` : (product.category || "—");
+                        })()}
+                      </td>
+                    )}
                     {isClothing && (
                       <>
                         <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
@@ -1413,7 +1500,7 @@ export default function Inventory() {
                     {isMarket && (
                       <td style={{ fontFamily: "monospace", fontSize: 12, direction: "ltr" }}>{product.barcode || "—"}</td>
                     )}
-                    {isRestaurantOnly && (
+                    {isRestaurant && (
                       <td>
                         {(product.extras || []).length > 0 ? (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1512,12 +1599,31 @@ export default function Inventory() {
 
                 {/* ملاحظة التحضير للمطعم */}
                 {isRestaurant && (
+                  <>
                   <div style={styles.formGroup}>
                     <label>ملاحظة التحضير</label>
                     <input type="text" value={editingProduct.preparationNote || ""} style={styles.input}
-                      placeholder="مثال: يُقدَّم ساخناً مع صلصة"
+                      placeholder="مثال: ملاحظة للشيف (بدون بصل، حار وسط...)"
                       onChange={(e) => setEditingProduct({ ...editingProduct, preparationNote: e.target.value })} />
                   </div>
+                  {menuCategories.length > 0 && (
+                    <div style={styles.formGroup}>
+                      <label>{t("inv.phCategory")}</label>
+                      <select
+                        value={editingProduct.category || ""}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                        style={styles.input}
+                      >
+                        <option value="">— {t("inv.phCategory")} —</option>
+                        {menuCategories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.icon ? `${cat.icon} ` : ""}{cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  </>
                 )}
                 {/* وصفة الطبق — مطعم فقط: البيع يخصم هذه الخامات تلقائياً */}
                 {isRestaurantOnly && (
@@ -1690,6 +1796,7 @@ export default function Inventory() {
                           {(editingProduct.extras || []).map((ex, idx) => (
                             <span key={idx} style={{ background: "#ede9fe", color: "#6d28d9", padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                               {ex.name} {ex.price > 0 ? `(+${ex.price} ${t("currency")})` : ""}
+                              {ex.materialId ? <span style={{ opacity: 0.8 }}>🧾{ex.qty || 0}</span> : null}
                               <button type="button" onClick={() => removeEditExtra(idx)}
                                 style={{ background: "none", border: "none", cursor: "pointer", color: "#7c3aed", fontSize: 13, padding: 0 }}>×</button>
                             </span>
@@ -1713,6 +1820,28 @@ export default function Inventory() {
                           + إضافة
                         </button>
                       </div>
+                      {isRestaurantOnly && rawMaterials.length > 0 && (
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <select
+                            value={tempEditExtra.materialId}
+                            onChange={(e) => {
+                              const m = rawMaterials.find((x) => x.id === e.target.value);
+                              setTempEditExtra({ ...tempEditExtra, materialId: e.target.value, unit: m?.unit || tempEditExtra.unit });
+                            }}
+                            style={{ flex: 2, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13, background: "white" }}
+                          >
+                            <option value="">خامة مستهلكة (اختياري)</option>
+                            {rawMaterials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit || ""})</option>)}
+                          </select>
+                          <input
+                            type="number" step="0.001" min="0"
+                            placeholder="كمية/طبق"
+                            value={tempEditExtra.qty}
+                            onChange={(e) => setTempEditExtra({ ...tempEditExtra, qty: e.target.value })}
+                            style={{ flex: 1, padding: "8px 10px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 13 }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

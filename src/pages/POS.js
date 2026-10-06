@@ -1,5 +1,5 @@
 ﻿// src/pages/POS.js - نقطة البيع مع دعم المطعم: تيك أواي/ديليفري + إضافات + طباعة حرارية
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, where, orderBy, limit, runTransaction, writeBatch } from "firebase/firestore";
 import { isOffline } from "../utils/offline.js";
 import { readStockCache } from "../utils/stock.js";
@@ -11,7 +11,8 @@ import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
 import { fmtDateTime, moneyShort } from "../utils/fmt.js";
-import { planStockOut, expandRecipeLines } from "../utils/stock.js";
+import { planStockOut, expandRecipeLines, convertQty } from "../utils/stock.js";
+import { occupyTableByNumber } from "../utils/tableSync.js";
 
 // round2 بيقرّب فلوس عند حدّين عشان ما نتكسبش أخطاء 0.1+0.2.
 const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
@@ -111,6 +112,44 @@ export default function POS() {
     } catch (e) { console.error(e); }
   }, [isRestaurant, userRole, userCompanyId, currentUser?.uid]);
 
+  // خامات المطعم — لحساب إتاحة كل طبق من وصفته (بدل رقم quantity الوهمي للطبق)
+  const [rawMats, setRawMats] = useState([]);
+  const fetchRawMats = useCallback(async () => {
+    if (!isRestaurantStock || !userCompanyId) { setRawMats([]); return; }
+    try {
+      const snap = await getDocs(getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid));
+      setRawMats(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); }
+  }, [isRestaurantStock, userRole, userCompanyId, currentUser?.uid]);
+
+  const rawMatsById = useMemo(() => {
+    const m = new Map();
+    rawMats.forEach((x) => m.set(x.id, x));
+    return m;
+  }, [rawMats]);
+
+  // أقصى عدد أطباق يتعمل من الخامات الحالية (null = الطبق بلا وصفة → غير معروف)
+  function dishAvailability(product) {
+    if (!isRestaurantStock) return null;
+    const recipe = Array.isArray(product?.recipe)
+      ? product.recipe.filter((e) => e?.materialId && parseFloat(e?.qty) > 0)
+      : [];
+    if (recipe.length === 0) return null;
+    let max = Infinity;
+    for (const step of recipe) {
+      const mat = rawMatsById.get(step.materialId);
+      if (!mat) return 0;
+      const stockQty = parseFloat(mat.quantity) || 0;
+      const need = parseFloat(step.qty) || 0;
+      if (!(need > 0)) continue;
+      const conv = convertQty(need, step.unit, mat.unit);
+      if (!(conv.qty > 0)) return 0;
+      max = Math.min(max, Math.floor(stockQty / conv.qty));
+      if (max <= 0) return 0;
+    }
+    return max === Infinity ? null : max;
+  }
+
   // ── الوردية والتقفيل اليدوي ──
   const [shift, setShift] = useState(null); // التقفيلة المفتوحة
   const [closings, setClosings] = useState([]);
@@ -188,7 +227,8 @@ export default function POS() {
         const ts = new Date(inv.date || inv.createdAt || 0).getTime();
         if (ts >= from && ts <= now) {
           count++;
-          total += parseFloat(inv.amount) || 0;
+          // الإجمالي يشمل رسوم التوصيل (كانت ناقصة وbyMethod أكبر منها ظلمًا)
+          total += (parseFloat(inv.amount) || 0) + (parseFloat(inv.deliveryFee) || 0);
           const p = parseFloat(inv.paidAmount) || 0;
           paid += p;
           // ⚠️ ما ن fallbackش على `source` — ده *مصدر الطلب* (whatsapp/direct)
@@ -294,8 +334,8 @@ export default function POS() {
   }
 
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchClients(), fetchCategories(), fetchShift()]);
-  }, [fetchProducts, fetchClients, fetchCategories, fetchShift]);
+    Promise.all([fetchProducts(), fetchClients(), fetchCategories(), fetchRawMats(), fetchShift()]);
+  }, [fetchProducts, fetchClients, fetchCategories, fetchRawMats, fetchShift]);
 
   // ── عميل جديد سريع: حفظ في العملاء واختياره فوراً ──
   async function handleQuickAddClient() {
@@ -393,13 +433,16 @@ export default function POS() {
       const items = last.items || [];
       if (items.length === 0) { alert("آخر أوردر فاضي"); return; }
       // رجّع الأصناف للسلة لو المنتج لسه موجود ومتاح
+      // (مطعم: السقف من إتاحة الوصفة مش من رقم الطبق الوهمي)
       const restored = [];
       for (const it of items) {
         const prod = products.find((p) => p.id === it.productId);
         if (!prod) continue;
-        const qty = Math.min(it.quantity || 1, prod.quantity || 0);
+        const avail = isRestaurantStock ? dishAvailability(prod) : null;
+        const cap = avail === null ? (prod.quantity || 0) : avail;
+        const qty = Math.min(it.quantity || 1, cap);
         if (qty <= 0) continue;
-        restored.push({ ...prod, quantity: qty, stockQty: prod.quantity });
+        restored.push({ ...prod, quantity: qty, stockQty: cap });
       }
       if (restored.length === 0) { alert("أصناف آخر أوردر مش متاحة حالياً"); return; }
       setCart(restored);
@@ -467,14 +510,24 @@ export default function POS() {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       if (new Date(product.expiryDate) < today) { alert("هذا الدواء منتهي الصلاحية — البيع موقوف"); return; }
     }
+    // مطعم: السقف من إتاحة الوصفة (null = بلا وصفة → السماح مع تحذير الشارة)
+    const avail = isRestaurantStock ? dishAvailability(product) : null;
+    const cap = avail === null ? (product.quantity ?? Infinity) : avail;
+    // ملاحظة التحضير الافتراضية تتملي تلقائيًا لو الكاشير مكتبش واحدة
+    if (isRestaurant && product.preparationNote) {
+      setCartItemNotes((prevNotes) => {
+        if (prevNotes[product.id]) return prevNotes;
+        return { ...prevNotes, [product.id]: product.preparationNote };
+      });
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
-        if (existing.quantity + 1 > product.quantity) { alert(t("pos.qtyOver")); return prev; }
+        if (existing.quantity + 1 > cap) { alert(t("pos.qtyOver")); return prev; }
         return prev.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       } else {
-        if (product.quantity < 1) { alert(t("pos.notAvail")); return prev; }
-        return [...prev, { ...product, quantity: 1, stockQty: product.quantity }];
+        if (cap < 1) { alert(t("pos.notAvail")); return prev; }
+        return [...prev, { ...product, quantity: 1, stockQty: cap }];
       }
     });
   }
@@ -498,7 +551,7 @@ export default function POS() {
   // حساب سعر صنف مع الإضافات — للمطعم فقط (مخفي للكافيه)
   function getItemTotalPrice(item) {
     const basePrice = (item.price || 0) * item.quantity;
-    if (!isRestaurantOnly) return basePrice;
+    if (!isRestaurant) return basePrice;
     const extras = item.extras || [];
     const selectedExtraIdxs = cartItemExtras[item.id] || [];
     const extrasTotal = selectedExtraIdxs.reduce((sum, idx) => {
@@ -509,11 +562,20 @@ export default function POS() {
   }
 
   const subtotal = round2(cart.reduce((sum, item) => sum + getItemTotalPrice(item), 0));
+  // خصم المطعم (مبلغ أو نسبة) — الكافيه والمطعم فقط، وباقي الأنشطة بلا خصم كما كانت
+  const [discount, setDiscount] = useState("");
+  const [discountType, setDiscountType] = useState("amount");
+  const discountRaw = Math.max(0, parseFloat(discount) || 0);
+  const discountNum = (isRestaurant && discountRaw > 0)
+    ? (discountType === "percent"
+      ? round2(subtotal * Math.min(discountRaw, 100) / 100)
+      : round2(Math.min(discountRaw, subtotal)))
+    : 0;
   const deliveryFeeNum = parseFloat(deliveryFee) || 0;
   // ⚠️ رسوم التوصيل لازم تفضل بره amount. كل القارئات (InvoiceTable.jsx،
   //    utils/invoiceHelpers.js، Invoices.js) بتعمل totalWithFee = amount + deliveryFee.
   //    لو حطيناها جوّه amount كمان، الفاتورة كانت بتعرض 240 بدل 120.
-  const total = round2(subtotal + (orderType === "delivery" ? deliveryFeeNum : 0));
+  const total = round2(Math.max(0, subtotal - discountNum) + (orderType === "delivery" ? deliveryFeeNum : 0));
 
   // ── طباعة حرارية ──
   // ── الفاتورة ──
@@ -642,8 +704,24 @@ export default function POS() {
           cart.map((item) => ({ productId: item.id, quantity: item.quantity })), dishById
         );
         if (skipped.length > 0) console.warn("POS dishes without recipe (stock not consumed):", skipped);
-        const matSnaps = await Promise.all(materialLines.map((l) => getDoc(doc(db, "raw_materials", l.productId))));
-        recipeMats = materialLines.map((line, i) => ({
+        // إضافات مربوطة بخامات: تُستهلك مع الطبق (كمية الإضافة × عدد الأطباق)
+        const extraTotals = new Map();
+        cart.forEach((item) => {
+          const prodExtras = item.extras || [];
+          (cartItemExtras[item.id] || []).forEach((exIdx) => {
+            const ex = prodExtras[exIdx];
+            const eq = parseFloat(ex?.qty) || 0;
+            if (!ex?.materialId || !(eq > 0)) return;
+            const cur = extraTotals.get(ex.materialId) || { quantity: 0, unit: ex.unit || "" };
+            cur.quantity += eq * (parseFloat(item.quantity) || 0);
+            if (ex.unit) cur.unit = ex.unit;
+            extraTotals.set(ex.materialId, cur);
+          });
+        });
+        const allMatLines = [...materialLines];
+        extraTotals.forEach((v, materialId) => allMatLines.push({ productId: materialId, quantity: v.quantity, unit: v.unit || "piece" }));
+        const matSnaps = await Promise.all(allMatLines.map((l) => getDoc(doc(db, "raw_materials", l.productId))));
+        recipeMats = allMatLines.map((line, i) => ({
           line,
           ref: doc(db, "raw_materials", line.productId),
           name: matSnaps[i].data()?.name || line.productId,
@@ -764,7 +842,7 @@ export default function POS() {
             amount: round2(getItemTotalPrice(item)),
             quantity: item.quantity,
             price: item.price || 0,
-            extras: isRestaurantOnly ? selectedExtras : [],
+            extras: isRestaurant ? selectedExtras : [],
             note: cartItemNotes[item.id] || "",
             itemTotal: round2(getItemTotalPrice(item)),
             // حقول الملابس
@@ -774,7 +852,8 @@ export default function POS() {
           };
         }),
         subtotal,
-        discount: 0,
+        discount: discountNum,
+        discountType: isRestaurant ? discountType : "",
         deliveryFee: isRestaurant && orderType === "delivery" ? deliveryFeeNum : 0,
         total,
         // amount = قيمة البضاعة بس (بدون توصيل) — ده الـ contract اللي كل
@@ -901,6 +980,11 @@ export default function POS() {
       // مقاول بيبيع مبيطبعش حاجة وبيشوف alert "تم البيع" وخلاص.
       printSaleReceipt(invDoc, invoiceRef.id);
 
+      // طلب صالة برقم طاولة → إشغالها تلقائيًا (نار وهادئة — لا توقف البيع لو فشلت)
+      if (orderType === "dine_in" && tableNumber.trim()) {
+        occupyTableByNumber(userCompanyId, tableNumber.trim());
+      }
+
       // reset
       setCart([]);
       setSelectedClient("");
@@ -911,6 +995,8 @@ export default function POS() {
       setDeliveryAddress("");
       setDeliveryPhone("");
       setDeliveryFee("");
+      setDiscount("");
+      setDiscountType("amount");
       setTableNumber("");
       setCustomerNote("");
       setPhoneHint("");
@@ -924,7 +1010,8 @@ export default function POS() {
           ? { ...p, quantity: round2(Math.max(0, (parseFloat(p.quantity) || 0) - soldMap.get(p.id))) }
           : p));
       }
-      await Promise.all([fetchClients()]);
+      // تحديث الخامات بعد البيع عشان شارات الإتاحة تتظبط فورًا
+      await Promise.all([fetchClients(), fetchRawMats()]);
       // مفيش alert("تم البيع") بعد كند — الفاتورة اللي طالعة في نافذة الطباعة
       // هي التأكيد. alert كان بيغطي على نافذة الطباعة وبيزحلقها.
     } catch (e) {
@@ -1081,17 +1168,22 @@ export default function POS() {
                 filteredProducts.map((product) => {
                   const details = getProductDetails(product);
                   const inCart = cart.find((c) => c.id === product.id);
+                  // مطعم: الإتاحة من الوصفة والخامات (null = بلا وصفة → تنبيه فقط).
+                  // غير المطعم: نفس السلوك القديم (رصيد الصنف).
+                  const dishAvail = isRestaurantStock ? dishAvailability(product) : null;
+                  const noRecipe = isRestaurantStock && dishAvail === null;
+                  const soldOut = isRestaurantStock ? dishAvail === 0 : product.quantity < 1;
                   return (
                     <button
                       key={product.id}
                       onClick={() => addToCart(product)}
-                      disabled={product.quantity < 1}
+                      disabled={soldOut}
                       style={{
                         background: "white",
-                        border: `2px solid ${inCart ? "#f59e0b" : product.quantity < 1 ? "#e2e8f0" : "#e2e8f0"}`,
+                        border: `2px solid ${inCart ? "#f59e0b" : soldOut ? "#e2e8f0" : "#e2e8f0"}`,
                         borderRadius: 12, padding: "12px",
-                        cursor: product.quantity < 1 ? "not-allowed" : "pointer",
-                        opacity: product.quantity < 1 ? 0.5 : 1,
+                        cursor: soldOut ? "not-allowed" : "pointer",
+                        opacity: soldOut ? 0.5 : 1,
                         transition: "border-color 0.2s, transform 0.15s",
                         textAlign: "start",
                         fontFamily: "Cairo, sans-serif",
@@ -1099,7 +1191,7 @@ export default function POS() {
                         position: "relative",
                       }}
                       onMouseEnter={(e) => {
-                        if (product.quantity >= 1) {
+                        if (!soldOut) {
                           e.currentTarget.style.borderColor = "#10b981";
                           e.currentTarget.style.transform = "translateY(-2px)";
                         }
@@ -1124,6 +1216,16 @@ export default function POS() {
                         </div>
                       )}
                       <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{product.name}</div>
+                      {noRecipe && (
+                        <div style={{ fontSize: 10, color: "#b45309", background: "#fef3c7", borderRadius: 6, padding: "1px 6px", alignSelf: "flex-start", fontWeight: 700 }}>
+                          🧾 بلا وصفة — البيع لن يخصم خامات
+                        </div>
+                      )}
+                      {isRestaurantStock && !noRecipe && (
+                        <div style={{ fontSize: 10, color: dishAvail === 0 ? "#dc2626" : "#64748b", fontWeight: 700 }}>
+                          {dishAvail === 0 ? "خامات غير كافية" : `يكفي ~${dishAvail} طبق`}
+                        </div>
+                      )}
                       {!isRestaurant && product.barcode && (
                         <div style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace", direction: "ltr", textAlign: "right" }}>
                           {product.barcode}
@@ -1139,8 +1241,8 @@ export default function POS() {
                           {product.quantity} {t("pos.remaining")}
                         </span>
                       </div>
-                      {/* إضافات المنيو — للمطعم فقط */}
-                      {isRestaurantOnly && (product.extras || []).length > 0 && (
+                      {/* إضافات المنيو — مطعم وكافيه */}
+                      {isRestaurant && (product.extras || []).length > 0 && (
                         <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
                           {product.extras.slice(0, 3).map((ex, i) => (
                             <span key={i} style={{ fontSize: 9, background: "#ede9fe", color: "#6d28d9", padding: "1px 6px", borderRadius: 10 }}>
@@ -1334,7 +1436,7 @@ export default function POS() {
                           <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{item.name}</div>
                           <div style={{ fontSize: 11, color: "#94a3b8" }}>
                             {item.price} {t("currency")} × {item.quantity}
-                            {isRestaurantOnly && selectedExtraIdxs.length > 0 && (
+                            {isRestaurant && selectedExtraIdxs.length > 0 && (
                               <span style={{ color: "#6d28d9" }}>
                                 {" "}+ {selectedExtraIdxs.reduce((s, idx) => s + (item.extras?.[idx]?.price || 0), 0) * item.quantity} {t("currency")} إضافات
                               </span>
@@ -1350,8 +1452,8 @@ export default function POS() {
                         </button>
                       </div>
 
-                      {/* إضافات الصنف — للمطعم فقط */}
-                      {isRestaurantOnly && (item.extras || []).length > 0 && (
+                      {/* إضافات الصنف — مطعم وكافيه */}
+                      {isRestaurant && (item.extras || []).length > 0 && (
                         <div style={{ marginTop: 6, paddingRight: 4 }}>
                           <div style={{ fontSize: 11, color: "#64748b", marginBottom: 3 }}>الإضافات:</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1415,6 +1517,26 @@ export default function POS() {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ fontSize: 13, color: "#64748b" }}>🛵 رسوم التوصيل</span>
                   <span style={{ fontWeight: 700, color: "#f59e0b" }}>{deliveryFeeNum.toFixed(2)} {t("currency")}</span>
+                </div>
+              )}
+              {isRestaurant && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button type="button" onClick={() => setDiscountType("amount")}
+                      style={{ padding: "6px 10px", fontSize: 12, fontWeight: 700, borderRadius: 8, border: `1px solid ${discountType === "amount" ? "#6366f1" : "#e2e8f0"}`, background: discountType === "amount" ? "#eef2ff" : "white", color: discountType === "amount" ? "#4338ca" : "#64748b", cursor: "pointer" }}>
+                      ج.م
+                    </button>
+                    <button type="button" onClick={() => setDiscountType("percent")}
+                      style={{ padding: "6px 10px", fontSize: 12, fontWeight: 700, borderRadius: 8, border: `1px solid ${discountType === "percent" ? "#6366f1" : "#e2e8f0"}`, background: discountType === "percent" ? "#eef2ff" : "white", color: discountType === "percent" ? "#4338ca" : "#64748b", cursor: "pointer" }}>
+                      %
+                    </button>
+                  </div>
+                  <input type="number" min="0" step="0.5" placeholder="خصم"
+                    value={discount} onChange={(e) => setDiscount(e.target.value)}
+                    style={{ flex: 1, padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13 }} />
+                  {discountNum > 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#059669", whiteSpace: "nowrap" }}>−{discountNum.toFixed(2)}</span>
+                  )}
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px dashed #e2e8f0", paddingTop: 10 }}>
