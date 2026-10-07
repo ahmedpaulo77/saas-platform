@@ -1,7 +1,7 @@
 ﻿// src/pages/StorePOS.jsx - نقطة بيع محلات الملابس (منفصلة عن كاشير المطعم)
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction, writeBatch } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, runTransaction, writeBatch, query, where } from "firebase/firestore";
 import { isOffline, handleOfflineError } from "../utils/offline.js";
 import { readStockCache } from "../utils/stock.js";
 import { db } from "../firebase/config.js";
@@ -12,6 +12,7 @@ import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { EGYPT_PAYMENTS, getPaymentLabel } from "../utils/paymentMethods.js";
 import { moneyShort } from "../utils/fmt.js";
+import { promoForProduct, applyPromo, isPromoActive } from "./Promotions.jsx";
 
 const NAVY = "#1e3a8a";
 
@@ -26,6 +27,7 @@ export default function StorePOS() {
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
   const [variantCodes, setVariantCodes] = useState([]);
+  const [promotions, setPromotions] = useState([]); // العروض النشطة
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -39,7 +41,8 @@ export default function StorePOS() {
   const [discountType, setDiscountType] = useState("amount"); // "percent" | "amount"
   // ── الدفع المقسم ──
   const [splitPayment, setSplitPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  // طريقة الدفع بدون قيمة افتراضية — الكاشير لازم يختارها بإيده (إلزامية دايماً)
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [splitMethod1, setSplitMethod1] = useState("cash");
   const [splitAmount1, setSplitAmount1] = useState("");
   const [splitMethod2, setSplitMethod2] = useState("instapay");
@@ -50,6 +53,12 @@ export default function StorePOS() {
   const [storeLogo, setStoreLogo] = useState("");
   // نص سياسة الاستبدال الخاص بالمحل (undefined = الافتراضي القديم، "" = إخفاء)
   const [receiptPolicy, setReceiptPolicy] = useState(undefined);
+  // الحقول الإلزامية في نقطة البيع — من إعدادات الشركة (صفحة شركتي)
+  // الكاشير افتراضي إلزامي (توافق مع السلوك القديم)، والسيلز افتراضي اختياري
+  // اسم العميل ورقمه والمبلغ وطريقة الدفع إلزامية دايماً
+  const [posReq, setPosReq] = useState({ cashier: true, salesRep: false });
+  const cashierRequired = posReq.cashier !== false;
+  const salesRepRequired = posReq.salesRep === true;
   // اسم الكاشير الواقف — متسجل زي الشيفت وبيطلع في الفاتورة
   const [cashierName, setCashierName] = useState(() => {
     try {
@@ -106,6 +115,11 @@ export default function StorePOS() {
           setStoreName((snap.data().name || "").toString());
           if (snap.data().logoUrl) setStoreLogo(String(snap.data().logoUrl));
           setReceiptPolicy(snap.data().receiptPolicy !== undefined ? String(snap.data().receiptPolicy || "") : undefined);
+          const pr = snap.data().posRequirements || {};
+          setPosReq({
+            cashier: pr.cashier !== false,
+            salesRep: pr.salesRep === true,
+          });
         }
       } catch (e) {
         console.error(e);
@@ -141,6 +155,21 @@ export default function StorePOS() {
       console.error(e);
     }
   }, [userRole, userCompanyId, currentUser?.uid]);
+
+  // جلب العروض النشطة — بتتجدد مع كل تحميل
+  const fetchPromotions = useCallback(async () => {
+    if (!userCompanyId) return;
+    try {
+      const snap = await getDocs(
+        query(collection(db, "promotions"), where("companyId", "==", userCompanyId))
+      );
+      const now = new Date();
+      const active = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((p) => isPromoActive(p, now));
+      setPromotions(active);
+    } catch (e) { console.error(e); }
+  }, [userCompanyId]);
 
   const fetchShift = useCallback(async () => {
     if (!userCompanyId) return;
@@ -340,8 +369,8 @@ export default function StorePOS() {
   }
 
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchClients(), fetchVariantCodes(), fetchShift(), fetchSalesReps()]);
-  }, [fetchProducts, fetchClients, fetchVariantCodes, fetchShift, fetchSalesReps]);
+    Promise.all([fetchProducts(), fetchClients(), fetchVariantCodes(), fetchShift(), fetchSalesReps(), fetchPromotions()]);
+  }, [fetchProducts, fetchClients, fetchVariantCodes, fetchShift, fetchSalesReps, fetchPromotions]);
 
   // ── خيارات الفلاتر: من variant_codes لو موجودة وإلا من المنتجات ──
   const codeSizes = variantCodes.filter((c) => c.kind === "size").map((c) => c.name || c.code);
@@ -650,6 +679,36 @@ export default function StorePOS() {
     );
   }
 
+  // حفظ العميل الجديد (أو إعادة استخدام موجود بنفس الرقم) — يرجع id العميل أو null
+  // تُستخدم في زرار الحفظ السريع، وكمان تلقائياً عند إتمام البيع لو الاسم مكتوب ومش محفوظ
+  async function ensureClient() {
+    const name = newClientName.trim();
+    if (!name || !userCompanyId) return null;
+    const phoneToSave = (newClientPhone || "").trim();
+    if (phoneToSave) {
+      const existing = clients.find((c) => (c.phone || "").trim() === phoneToSave);
+      if (existing) {
+        setSelectedClient(existing.id);
+        setNewClientName("");
+        setNewClientPhone("");
+        return existing.id;
+      }
+    }
+    const docRef = await addDoc(collection(db, "clients"), {
+      name,
+      phone: phoneToSave,
+      companyId: userCompanyId,
+      createdBy: currentUser?.uid || null,
+      createdAt: new Date().toISOString(),
+    });
+    const newClient = { id: docRef.id, name, phone: phoneToSave };
+    setClients((prev) => [...prev, newClient]);
+    setSelectedClient(docRef.id);
+    setNewClientName("");
+    setNewClientPhone("");
+    return docRef.id;
+  }
+
   async function handleQuickAddClient() {
     if (!newClientName.trim()) {
       alert("اكتب اسم العميل الأول");
@@ -658,29 +717,7 @@ export default function StorePOS() {
     if (!userCompanyId) return;
     setAddingClient(true);
     try {
-      const phoneToSave = (newClientPhone || "").trim();
-      if (phoneToSave) {
-        const existing = clients.find((c) => (c.phone || "").trim() === phoneToSave);
-        if (existing) {
-          setSelectedClient(existing.id);
-          setNewClientName("");
-          setNewClientPhone("");
-          setAddingClient(false);
-          return;
-        }
-      }
-      const docRef = await addDoc(collection(db, "clients"), {
-        name: newClientName.trim(),
-        phone: phoneToSave,
-        companyId: userCompanyId,
-        createdBy: currentUser?.uid || null,
-        createdAt: new Date().toISOString(),
-      });
-      const newClient = { id: docRef.id, name: newClientName.trim(), phone: phoneToSave };
-      setClients((prev) => [...prev, newClient]);
-      setSelectedClient(docRef.id);
-      setNewClientName("");
-      setNewClientPhone("");
+      await ensureClient();
     } catch (e) {
       console.error(e);
       alert("تعذر حفظ العميل");
@@ -689,7 +726,36 @@ export default function StorePOS() {
   }
 
   const round2 = (n) => Math.round((parseFloat(n) || 0) * 100) / 100;
-  const subtotal = round2(cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * item.quantity, 0));
+
+  // ── تطبيق العروض على السلة ──
+  // كل صنف له عرض محتمل بناءً على category الصنف.
+  // لـ BOGO: نحسب index كل قطعة داخل مجموعة نفس الصنف+العرض.
+  const cartWithPromo = React.useMemo(() => {
+    // نبني map: categoryId → index مستمر (لتتبع BOGO عبر أصناف نفس القسم)
+    const catCount = {};
+    return cart.map((item) => {
+      const promo = promoForProduct(item, promotions);
+      if (!promo) return { ...item, promo: null, effectivePrice: parseFloat(item.price) || 0, savedPerUnit: 0, isFree: false };
+      const key = promo.id + "_" + (item.category || item.id);
+      const idx = catCount[key] ?? 0;
+      // للـ BOGO: كل قطعة تُحسب كـ index منفرد (item.quantity قطعة)
+      // نوزع القطع: idx, idx+1, ..., idx+qty-1
+      const results = [];
+      for (let q = 0; q < item.quantity; q++) {
+        results.push(applyPromo(promo, item, idx + q));
+      }
+      catCount[key] = idx + item.quantity;
+      const totalEffective = round2(results.reduce((s, r) => s + r.effectivePrice, 0));
+      const totalSaved     = round2(results.reduce((s, r) => s + r.savedPerUnit, 0));
+      const hasFree = results.some((r) => r.isFree);
+      const avgEffective = item.quantity > 0 ? round2(totalEffective / item.quantity) : 0;
+      return { ...item, promo, effectivePrice: avgEffective, savedPerUnit: round2(totalSaved / item.quantity), isFree: hasFree, freeCount: results.filter((r) => r.isFree).length };
+    });
+  }, [cart, promotions]);
+
+  const subtotal = round2(cartWithPromo.reduce((sum, item) => sum + item.effectivePrice * item.quantity, 0));
+  const subtotalBeforePromo = round2(cart.reduce((sum, item) => sum + (parseFloat(item.price) || 0) * item.quantity, 0));
+  const promoSavings = round2(subtotalBeforePromo - subtotal);
   // الخصم: نسبة أو مبلغ ثابت
   const discountRaw = Math.max(0, parseFloat(discount) || 0);
   const discountNum = discountType === "percent"
@@ -716,11 +782,20 @@ export default function StorePOS() {
     const rows = cartSnapshot
       .map((item) => {
         const variant = [item.size, item.color].filter(Boolean).join(" / ");
-        const line = (parseFloat(item.price) || 0) * item.quantity;
+        const effectiveP = item.effectivePrice ?? (parseFloat(item.price) || 0);
+        const line = round2(effectiveP * item.quantity);
+        const hasPromo = item.promo && item.savedPerUnit > 0;
+        const promoTag = hasPromo
+          ? (item.promo.type === "percent"
+              ? `<div style="font-size:10px;color:#059669;font-weight:800;">🏷️ خصم ${item.promo.value}% (وفّرت ${(item.savedPerUnit * item.quantity).toFixed(2)} ج.م)</div>`
+              : item.freeCount > 0
+                ? `<div style="font-size:10px;color:#7c3aed;font-weight:800;">🎁 ${item.freeCount} قطعة مجانية</div>`
+                : "")
+          : "";
         return `<tr>
-        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${escHtml(item.name)}${variant ? `<div style="font-size:10px;color:#555;">${escHtml(variant)}</div>` : ""}</td>
+        <td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${escHtml(item.name)}${variant ? `<div style="font-size:10px;color:#555;">${escHtml(variant)}</div>` : ""}${promoTag}</td>
         <td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${item.quantity}</td>
-        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${escHtml(String(item.price))}</td>
+        <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;">${hasPromo ? `<span style="text-decoration:line-through;color:#999;font-size:11px;">${escHtml(String(item.price))}</span><br/>${effectiveP.toFixed(2)}` : escHtml(String(item.price))}</td>
         <td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${line.toFixed(2)}</td>
       </tr>`;
       })
@@ -775,7 +850,7 @@ ${storeLogo ? `<div class="center"><img src="${storeLogo}" alt="logo" style="max
 
 <div style="font-size:13px;font-weight:700;line-height:2;">
   <span class="lbl">الكاشير:</span> ${escHtml(cashierName || "—")}<br/>
-  ${salesRep ? `<span class="lbl">المندوب:</span> ${escHtml(salesRep)}<br/>` : ""}
+  ${salesRep ? `<span class="lbl">السيلز:</span> ${escHtml(salesRep)}<br/>` : ""}
   <span class="lbl">العميل:</span> ${escHtml(clientName || "زبون نقدي")}${clientPhone ? `<br/><span class="lbl">الرقم:</span> ${escHtml(clientPhone)}` : ""}<br/>
   ${paymentLines}
 </div>
@@ -795,6 +870,7 @@ ${storeLogo ? `<div class="center"><img src="${storeLogo}" alt="logo" style="max
 <div style="font-size:14px;font-weight:700;line-height:1.9;text-align:right;padding-left:4px;">
   <div><span class="lbl">المجموع:</span> ${subtotal.toFixed(2)} ج.م</div>
   ${discountNum > 0 ? `<div><span class="lbl">الخصم${inv.discountType === "percent" && inv.discountRaw ? ` (${inv.discountRaw}%)` : ""}:</span> ${discountNum.toFixed(2)} ج.م</div>` : ""}
+  ${inv.promoSavings > 0 ? `<div style="color:#15803d;"><span class="lbl">🏷️ توفير العروض:</span> ${parseFloat(inv.promoSavings).toFixed(2)} ج.م</div>` : ""}
   <div class="total-row">
     <span class="lbl">✅ الإجمالي:</span> ${total.toFixed(2)} ج.م
   </div>
@@ -1005,8 +1081,36 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
       alert(t("pos.addFirst"));
       return;
     }
-    if (!cashierName.trim()) {
+    // ── الحقول الإلزامية — المنع يوقف البيع كله (مفيش فاتورة ولا خصم مخزون) ──
+    // اسم العميل: مختار من القائمة أو اسم جديد مكتوب (إلزامي دايماً)
+    const clientObj0 = clients.find((c) => c.id === selectedClient);
+    if (!(clientObj0?.name || newClientName.trim())) {
+      alert(t("storepos.clientRequired"));
+      return;
+    }
+    // رقم العميل: رقم العميل المختار أو الرقم الجديد المكتوب (إلزامي دايماً)
+    if (!((clientObj0?.phone || "").trim() || newClientPhone.trim())) {
+      alert(t("storepos.phoneRequired"));
+      return;
+    }
+    // المبلغ: لازم أكبر من صفر (إلزامي دايماً)
+    if (!(total > 0)) {
+      alert(t("storepos.amountRequired"));
+      return;
+    }
+    // طريقة الدفع: اختيار يدوي (أو دفع مقسم مكتمل) — إلزامية دايماً
+    if (!splitPayment && !paymentMethod) {
+      alert(t("storepos.paymentRequired"));
+      return;
+    }
+    // اسم الكاشير: حسب إعدادات الشركة (صفحة شركتي)
+    if (cashierRequired && !cashierName.trim()) {
       alert(t("storepos.cashierRequired"));
+      return;
+    }
+    // اسم السيلز: حسب إعدادات الشركة (صفحة شركتي)
+    if (salesRepRequired && !salesRepId) {
+      alert(t("storepos.salesRepRequired"));
       return;
     }
     if (discountExceedsSubtotal) {
@@ -1044,24 +1148,51 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
       const now = new Date().toISOString();
       const invoiceRef = doc(collection(db, "invoices"));
 
+      // لو اسم عميل جديد مكتوب ومش محفوظ — احفظه الأول عشان الفاتورة ترتبط بيه
+      let finalClientId = selectedClient || null;
+      if (!finalClientId && newClientName.trim()) {
+        try {
+          finalClientId = await ensureClient();
+        } catch (err) {
+          console.error(err);
+          alert("تعذر حفظ العميل");
+          setSubmitting(false);
+          return;
+        }
+        if (!finalClientId) {
+          alert(t("storepos.clientRequired"));
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const repObj = salesReps.find((r) => r.id === salesRepId) || null;
       const invoiceData = {
         companyId: userCompanyId,
         createdBy: currentUser?.uid || null,
         createdByEmail: currentUser?.email || "",
-        clientId: selectedClient || null,
+        clientId: finalClientId,
         salesRepId: repObj ? repObj.id : null,
         salesRepName: repObj ? (repObj.name || "") : "",
-        products: cart.map((item) => ({
+        products: cartWithPromo.map((item) => ({
           productId: item.id,
           productName: item.name,
           quantity: item.quantity,
-          amount: round2((parseFloat(item.price) || 0) * item.quantity),
-          price: parseFloat(item.price) || 0,
+          // الأصل قبل العرض
+          originalPrice: parseFloat(item.price) || 0,
+          // السعر الفعلي بعد العرض
+          price: item.effectivePrice,
+          amount: round2(item.effectivePrice * item.quantity),
           size: item.size || "",
           color: item.color || "",
+          // بيانات العرض للفاتورة
+          promoType: item.promo?.type || null,
+          promoValue: item.promo?.value || null,
+          promoSaved: item.savedPerUnit || 0,
+          freeCount: item.freeCount || 0,
         })),
         subtotal,
+        promoSavings,
         discount: discountNum,
         discountRaw: discountType === "percent" ? discountRaw : discountNum,
         discountType,
@@ -1129,7 +1260,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
       });
 
       const cartSnapshot = [...cart];
-      const clientObj   = clients.find((c) => c.id === selectedClient);
+      const clientObj   = finalClientId ? clients.find((c) => c.id === finalClientId) : null;
       const clientName  = clientObj?.name || newClientName.trim() || "";
       const clientPhone = clientObj?.phone || newClientPhone.trim() || "";
 
@@ -1149,7 +1280,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
       setNewClientPhone("");
       setDiscount("");
       setDiscountType("amount");
-      setPaymentMethod("cash");
+      setPaymentMethod("");
       setSplitPayment(false);
       setSplitAmount1("");
       setSplitAmount2("");
@@ -1384,6 +1515,14 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                 filteredProducts.map((product) => {
                   const inCart = cart.find((c) => c.id === product.id);
                   const out = (product.quantity || 0) < 1;
+                  const productPromo = promoForProduct(product, promotions);
+                  const promoLabel = productPromo
+                    ? productPromo.type === "percent"
+                      ? `${productPromo.value}% خصم`
+                      : productPromo.type === "bogo"
+                        ? "اشتري 1 هدية 1"
+                        : "اشتري 2 هدية 2"
+                    : null;
                   return (
                     <button
                       key={product.id}
@@ -1444,7 +1583,19 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                           {inCart.quantity}
                         </span>
                       )}
-                      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+                        {/* بادج العرض */}
+                        {promoLabel && (
+                          <div style={{
+                            background: productPromo.type === "percent" ? "#dcfce7" : "#fdf4ff",
+                            color: productPromo.type === "percent" ? "#15803d" : "#7c3aed",
+                            fontSize: 10, fontWeight: 800,
+                            padding: "2px 8px", borderRadius: 20,
+                            textAlign: "center", letterSpacing: 0.3,
+                          }}>
+                            🏷️ {promoLabel}
+                          </div>
+                        )}
                         <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {product.name}
                         </div>
@@ -1464,7 +1615,14 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                         )}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                           <span style={{ fontWeight: 800, color: "#1e3a8a", fontSize: 14 }}>
-                            {product.price} {t("currency")}
+                            {productPromo && productPromo.type === "percent" ? (
+                              <>
+                                <span style={{ textDecoration: "line-through", color: "#94a3b8", fontSize: 11, fontWeight: 600, marginLeft: 4 }}>{product.price}</span>
+                                {(parseFloat(product.price) * (1 - productPromo.value / 100)).toFixed(2)}
+                              </>
+                            ) : (
+                              product.price
+                            )} {t("currency")}
                           </span>
                           <span
                             className="badge"
@@ -1498,7 +1656,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
 
             {/* الكاشير الواقف — بيتسجل مرة واحدة ويفضل محفوظ */}
             <div className="form-group" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#64748b" }}>🧑‍💼 {t("storepos.cashierName")}</label>
+              <label style={{ fontSize: 12, color: "#64748b" }}>🧑‍💼 {t("storepos.cashierName")}{cashierRequired ? " *" : ""}</label>
               <input
                 type="text"
                 placeholder={t("storepos.cashierNamePh")}
@@ -1511,7 +1669,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
             {/* مندوب المبيعات — تحت اسم الكاشير، يُحفظ على الفاتورة للعمولة */}
             {salesReps.length > 0 && (
               <div className="form-group" style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: "#64748b" }}>🤝 {t("storepos.salesRep")}</label>
+                <label style={{ fontSize: 12, color: "#64748b" }}>🤝 {t("storepos.salesRep")}{salesRepRequired ? " *" : ""}</label>
                 <select
                   value={salesRepId}
                   onChange={(e) => setSalesRepId(e.target.value)}
@@ -1527,7 +1685,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
 
             {/* العميل */}
             <div className="form-group" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#64748b" }}>{t("pos.client")}</label>
+              <label style={{ fontSize: 12, color: "#64748b" }}>{t("pos.client")} *</label>
               <select
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
@@ -1589,7 +1747,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                   <p>{t("pos.emptyCart")}</p>
                 </div>
               ) : (
-                cart.map((item) => (
+                cartWithPromo.map((item) => (
                   <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 8, alignItems: "center" }}>
                     {item.imageUrl && (
                       <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0", flexShrink: 0 }} />
@@ -1603,8 +1761,25 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                           {[item.size, item.color].filter(Boolean).join(" / ")}
                         </div>
                       )}
+                      {/* عرض نشط على هذا الصنف */}
+                      {item.promo && (
+                        <div style={{ fontSize: 10, fontWeight: 800, color: item.promo.type === "percent" ? "#15803d" : "#7c3aed" }}>
+                          🏷️ {item.promo.type === "percent"
+                            ? `خصم ${item.promo.value}%`
+                            : item.freeCount > 0
+                              ? `${item.freeCount} قطعة مجانية`
+                              : item.promo.type === "bogo" ? "اشتري 1 هدية 1" : "اشتري 2 هدية 2"}
+                        </div>
+                      )}
                       <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                        {item.price} {t("currency")} × {item.quantity} = <strong style={{ color: "#1e293b" }}>{((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</strong>
+                        {item.promo && item.savedPerUnit > 0 ? (
+                          <>
+                            <span style={{ textDecoration: "line-through", marginLeft: 4 }}>{item.price}</span>
+                            {item.effectivePrice.toFixed(2)} {t("currency")} × {item.quantity} = <strong style={{ color: "#15803d" }}>{(item.effectivePrice * item.quantity).toFixed(2)}</strong>
+                          </>
+                        ) : (
+                          <>{item.price} {t("currency")} × {item.quantity} = <strong style={{ color: "#1e293b" }}>{((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</strong></>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1730,7 +1905,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
             {/* ── طريقة الدفع ── */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{t("pay.title")}</label>
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{t("pay.title")} *</label>
                 <button
                   type="button"
                   onClick={() => setSplitPayment((v) => !v)}
@@ -1752,6 +1927,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" }}
                 >
+                  <option value="">{t("storepos.selectPayment")}</option>
                   {EGYPT_PAYMENTS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
@@ -1827,6 +2003,13 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                 <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.subtotal")}</span>
                 <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} {t("currency")}</span>
               </div>
+              {/* توفير العروض */}
+              {promoSavings > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: "#15803d", fontWeight: 700 }}>🏷️ {t("promo.savings")}</span>
+                  <span style={{ fontWeight: 800, color: "#15803d" }}>− {promoSavings.toFixed(2)} {t("currency")}</span>
+                </div>
+              )}
               {discountNum > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ fontSize: 13, color: "#b45309" }}>

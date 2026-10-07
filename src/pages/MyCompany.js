@@ -4,12 +4,13 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
 import { useAuth } from '../context/AuthContext.js';
 import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery.js';
+import { hashPin, isValidPinFormat } from '../utils/pin.js';
 import Sidebar from '../components/common/Sidebar.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
 export default function MyCompany() {
   const { t } = useLanguage();
-  const { userCompanyId, userRole } = useAuth();
+  const { userCompanyId, userRole, currentUser } = useAuth();
   const [company, setCompany] = useState(null);
   const [codes, setCodes] = useState({ adminCode: '', userCode: '' });
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,12 @@ export default function MyCompany() {
   // نص سياسة الاستبدال على الريسيت — كل محل يكتب اللي يناسبه (فاضي = إخفاء)
   const [receiptPolicy, setReceiptPolicy] = useState('');
   const [savingPolicy, setSavingPolicy] = useState(false);
+  // الحقول الإلزامية في نقطة البيع (ملابس) — الكاشير والسيلز checkboxes، والباقي إلزامي دايماً
+  const [posReq, setPosReq] = useState({ cashier: true, salesRep: false });
+  const [savingPosReq, setSavingPosReq] = useState(false);
+  // البين كود بتاع الأدمن نفسه (للاستبدال والمرتجع) — يتخزن hash فقط
+  const [pinValue, setPinValue] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
 
   function fileToLogo(file) {
     return new Promise((resolve, reject) => {
@@ -84,6 +91,47 @@ export default function MyCompany() {
     }
   }
 
+  async function handleSavePosReq(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    setSavingPosReq(true);
+    setError('');
+    try {
+      const payload = { cashier: !!posReq.cashier, salesRep: !!posReq.salesRep };
+      await updateDoc(doc(db, 'companies', userCompanyId), { posRequirements: payload });
+      setCompany((c) => ({ ...c, posRequirements: payload }));
+      alert(t('mc.posReqSaved'));
+    } catch (err) {
+      console.error('Error saving POS requirements:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingPosReq(false);
+    }
+  }
+
+  async function handleSavePin(e) {
+    e.preventDefault();
+    if (!userCompanyId || !currentUser?.uid) return;
+    const value = pinValue.trim();
+    if (!isValidPinFormat(value)) {
+      alert(t('pin.invalid'));
+      return;
+    }
+    setSavingPin(true);
+    setError('');
+    try {
+      const pinHash = await hashPin(value, `${userCompanyId}|${currentUser.uid}`);
+      await updateDoc(doc(db, 'users', currentUser.uid), { pinHash });
+      setPinValue('');
+      alert(t('pin.saved'));
+    } catch (err) {
+      console.error('Error saving PIN:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingPin(false);
+    }
+  }
+
   async function handleLogoRemove() {
     if (!userCompanyId || !window.confirm(t('common.confirmDelete'))) return;
     setSavingLogo(true);
@@ -101,6 +149,7 @@ export default function MyCompany() {
 
   // ✅ التحقق من أن المستخدم Admin عشان يشوف قسم الأكواد
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const isClothingCompany = (company?.industry || '') === 'clothing';
 
   const fetchCompanyAndCodes = useCallback(async () => {
     if (!userCompanyId) return;
@@ -117,6 +166,11 @@ export default function MyCompany() {
       setCompany({ id: snap.id, ...snap.data() });
       setTaxRate(snap.data().taxRate != null ? String(snap.data().taxRate) : '');
       setReceiptPolicy(snap.data().receiptPolicy != null ? String(snap.data().receiptPolicy) : '');
+      const pr = snap.data().posRequirements || {};
+      setPosReq({
+        cashier: pr.cashier !== false,
+        salesRep: pr.salesRep === true,
+      });
 
       // الأكواد في السبل-كولكشن companies/{id}/codes/current
       // (المصدر الرسمي للتحقق هو invite_codes — انظر utils/companyQuery.js)
@@ -328,6 +382,72 @@ export default function MyCompany() {
                   </div>
                   <button type="submit" className="btn-primary btn-sm" disabled={savingPolicy}>
                     {savingPolicy ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* ✅ الحقول الإلزامية في نقطة البيع — أدمن + شركات الملابس فقط */}
+            {isAdmin && isClothingCompany && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-list-check" style={{ color: '#1e3a8a', marginLeft: 8 }}></i>
+                  {t('mc.posReqTitle')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  {t('mc.posReqHint')}
+                </p>
+                <form onSubmit={handleSavePosReq} style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#1e293b', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!posReq.cashier}
+                      onChange={(e) => setPosReq({ ...posReq, cashier: e.target.checked })}
+                      style={{ width: 18, height: 18, accentColor: '#1e3a8a' }}
+                    />
+                    🧑‍💼 {t('mc.reqCashier')}
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#1e293b', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!posReq.salesRep}
+                      onChange={(e) => setPosReq({ ...posReq, salesRep: e.target.checked })}
+                      style={{ width: 18, height: 18, accentColor: '#1e3a8a' }}
+                    />
+                    🤝 {t('mc.reqSalesRep')}
+                  </label>
+                  <button type="submit" className="btn-primary btn-sm" disabled={savingPosReq}>
+                    {savingPosReq ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* 🔑 البين كود بتاع الأدمن نفسه — يظهر فقط للأدمن */}
+            {isAdmin && userCompanyId && currentUser?.uid && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-key" style={{ color: '#1e3a8a', marginLeft: 8 }}></i>
+                  {t('mc.pinTitle')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  {t('mc.pinHint')}
+                </p>
+                <form onSubmit={handleSavePin} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ marginBottom: 0, minWidth: 220 }}>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={6}
+                      placeholder={t('pin.newPh')}
+                      value={pinValue}
+                      onChange={(e) => setPinValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      style={{ textAlign: 'center', fontSize: 18, letterSpacing: 6, fontFamily: 'monospace', direction: 'ltr' }}
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary btn-sm" disabled={savingPin}>
+                    {savingPin ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
                   </button>
                 </form>
               </div>

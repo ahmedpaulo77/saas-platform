@@ -2,10 +2,11 @@
 // المندوب بيانات تعريفية فقط (ليس حساب دخول). الفواتير تُنسب له عبر salesRepId
 // وتُحسب العمولة = إجمالي فواتير الشهر المعتمدة × نسبته.
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
-import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
+import { getScopedQuery } from "../utils/companyQuery.js";
+import { paymentLabelOf } from "../utils/paymentMethods.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { moneyShort } from "../utils/fmt.js";
@@ -17,7 +18,7 @@ function monthKey(d) {
 }
 
 export default function SalesReps() {
-  const { t, locale } = useLanguage();
+  const { t, lang, locale } = useLanguage();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [reps, setReps] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -26,10 +27,8 @@ export default function SalesReps() {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingRep, setEditingRep] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", code: "", commissionRate: "1" });
   const [saving, setSaving] = useState(false);
-  const userCanDelete = canDelete(userRole);
 
   const fetchAll = useCallback(async () => {
     if (!userCompanyId) { setLoading(false); return; }
@@ -73,24 +72,14 @@ export default function SalesReps() {
   }, [reps, invoices, curMonth]);
 
   const clientNameOf = (id) => clients.find((c) => c.id === id)?.name || "—";
+  const clientPhoneOf = (id) => clients.find((c) => c.id === id)?.phone || "";
 
   const openAdd = () => {
-    setEditingRep(null);
     setForm({ name: "", phone: "", code: "", commissionRate: "1" });
     setShowForm(true);
   };
 
-  const openEdit = (rep) => {
-    setEditingRep(rep);
-    setForm({
-      name: rep.name || "",
-      phone: rep.phone || "",
-      code: rep.code || "",
-      commissionRate: String(rep.commissionRate ?? 1),
-    });
-    setShowForm(true);
-  };
-
+  // إضافة فقط — التعديل والمسح متشالين من صفحة السيلز
   async function handleSave(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
@@ -102,35 +91,19 @@ export default function SalesReps() {
         code: form.code.trim(),
         commissionRate: parseFloat(form.commissionRate) || 0,
       };
-      if (editingRep) {
-        await updateDoc(doc(db, "sales_reps", editingRep.id), payload);
-      } else {
-        await addDoc(collection(db, "sales_reps"), {
-          ...payload,
-          companyId: userCompanyId,
-          createdBy: currentUser?.uid || null,
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await addDoc(collection(db, "sales_reps"), {
+        ...payload,
+        companyId: userCompanyId,
+        createdBy: currentUser?.uid || null,
+        createdAt: new Date().toISOString(),
+      });
       setShowForm(false);
-      setEditingRep(null);
       await fetchAll();
     } catch (err) {
       console.error(err);
       alert(t("common.errorGeneric"));
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete(id) {
-    if (!window.confirm(t("sr.confirmDelete"))) return;
-    try {
-      await deleteDoc(doc(db, "sales_reps", id));
-      await fetchAll();
-    } catch (err) {
-      console.error(err);
-      alert(t("common.errorGeneric"));
     }
   }
 
@@ -232,14 +205,6 @@ export default function SalesReps() {
                             >
                               <i className={`fas ${isOpen ? "fa-chevron-up" : "fa-chevron-down"}`}></i>
                             </button>
-                            <button onClick={() => openEdit(rep)} className="btn-secondary btn-sm">
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            {userCanDelete && (
-                              <button onClick={() => handleDelete(rep.id)} className="btn-danger btn-sm">
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -257,21 +222,62 @@ export default function SalesReps() {
                                 <table style={{ fontSize: 13, marginTop: 8 }}>
                                   <thead>
                                     <tr>
+                                      <th>{t("sr.invNo")}</th>
                                       <th>{t("common.date")}</th>
                                       <th>{t("pos.client")}</th>
+                                      <th>{t("sr.items")}</th>
+                                      <th>{t("sr.payMethod")}</th>
                                       <th>{t("common.amount")}</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {st.invoices.map((inv) => (
-                                      <tr key={inv.id}>
-                                        <td style={{ color: "var(--gray-500)", fontSize: 12 }}>
-                                          {String(inv.date || inv.createdAt || "").slice(0, 10)}
-                                        </td>
-                                        <td>{clientNameOf(inv.clientId)}</td>
-                                        <td style={{ fontWeight: 700 }}>{moneyShort(inv.amount || 0, locale)} {t("currency")}</td>
-                                      </tr>
-                                    ))}
+                                    {st.invoices.map((inv) => {
+                                      const items = inv.products || inv.items || [];
+                                      const discount = parseFloat(inv.discount) || 0;
+                                      const phone = clientPhoneOf(inv.clientId);
+                                      return (
+                                        <tr key={inv.id}>
+                                          <td style={{ fontFamily: "monospace", fontSize: 11, direction: "ltr" }}>
+                                            {String(inv.id || "").slice(0, 8)}
+                                          </td>
+                                          <td style={{ color: "var(--gray-500)", fontSize: 12, whiteSpace: "nowrap" }}>
+                                            {String(inv.date || inv.createdAt || "").slice(0, 16).replace("T", " ")}
+                                          </td>
+                                          <td>
+                                            <div style={{ fontWeight: 700 }}>{clientNameOf(inv.clientId)}</div>
+                                            {phone && <div style={{ fontSize: 11, color: "var(--gray-500)", direction: "ltr" }}>{phone}</div>}
+                                          </td>
+                                          <td>
+                                            {items.length === 0 ? (
+                                              <span style={{ color: "var(--gray-500)" }}>—</span>
+                                            ) : (
+                                              items.map((it, idx) => {
+                                                const variant = [it.size, it.color].filter(Boolean).join(" / ");
+                                                const line = parseFloat(it.amount) || (parseFloat(it.price) || 0) * (parseFloat(it.quantity) || 0);
+                                                return (
+                                                  <div key={idx} style={{ marginBottom: 4, lineHeight: 1.6 }}>
+                                                    <span style={{ fontWeight: 700 }}>{it.productName || it.name || "صنف"}</span>
+                                                    {" ×"}{it.quantity}
+                                                    {variant && <span style={{ color: "#6366f1" }}> ({variant})</span>}
+                                                    <span style={{ color: "var(--gray-500)" }}> — {moneyShort(it.price || 0, locale)}</span>
+                                                    {" = "}<span style={{ fontWeight: 700 }}>{moneyShort(line, locale)}</span>
+                                                  </div>
+                                                );
+                                              })
+                                            )}
+                                          </td>
+                                          <td style={{ fontSize: 12 }}>{paymentLabelOf(inv, lang)}</td>
+                                          <td style={{ whiteSpace: "nowrap" }}>
+                                            {discount > 0 && (
+                                              <div style={{ fontSize: 11, color: "#b45309" }}>
+                                                {t("sr.discount")}: {moneyShort(discount, locale)}
+                                              </div>
+                                            )}
+                                            <div style={{ fontWeight: 800 }}>{moneyShort(inv.amount || 0, locale)} {t("currency")}</div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               )}

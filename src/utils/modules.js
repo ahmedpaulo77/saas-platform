@@ -199,6 +199,7 @@ export const MODULE_MAP = {
   // أزياء (ملابس/أحذية/إكسسوارات) - مقاسات وألوان + سيلز وعمولات + مهام للموظفين (بدون رسائل)
   clothing: [
     "store-pos",
+    "promotions",
     "sales",
     "sales-reps",
     "clients",
@@ -207,6 +208,8 @@ export const MODULE_MAP = {
     "suppliers",
     "purchases",
     "variant-codes",
+    "types-categories",
+    "employees",
     "tasks",
     "aging",
     "attendance",
@@ -278,6 +281,11 @@ export function getAvailableModules(industry, userRole) {
     modules.delete("inventory");
   }
 
+  // الموظفين (رواتب وبطاقات — بيانات حساسة): مدير الشركة فقط
+  if (userRole !== "admin") {
+    modules.delete("employees");
+  }
+
   // صفحات ثابتة للجميع
   modules.add("notifications");
   modules.add("profile");
@@ -325,6 +333,7 @@ export const ROUTE_MODULE_MAP = {
   "/about": "about",
   "/pos": "pos",
   "/store-pos": "store-pos",
+  "/promotions": "promotions",
   "/vouchers": "vouchers",
   "/suppliers": "suppliers",
   "/purchases": "purchases",
@@ -333,6 +342,8 @@ export const ROUTE_MODULE_MAP = {
   "/buyers": "buyers",
   "/viewings": "viewings",
   "/variant-codes": "variant-codes",
+  "/types-categories": "types-categories",
+  "/employees": "employees",
   "/messages": "messages",
   "/patients": "patients",
   "/appointments": "appointments",
@@ -417,6 +428,8 @@ export const MODULE_LABEL_KEYS = {
   buyers: "modules.buyers",
   viewings: "modules.viewings",
   "variant-codes": "modules.variant_codes",
+  "types-categories": "modules.types_categories",
+  employees: "modules.employees",
   messages: "modules.messages",
   patients: "modules.patients",
   appointments: "modules.appointments",

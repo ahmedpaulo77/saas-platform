@@ -22,6 +22,7 @@ import { createUserSeated, moveUserSeat } from "../utils/seats.js";
 import { limitFor, isAdminRole } from "../utils/limits.js";
 import PasswordStrengthMeter, { validatePassword, PASSWORD_MISSING_LABEL_AR, PASSWORD_POLICY } from "../components/common/PasswordStrengthMeter.js";
 import { fmtDate } from "../utils/fmt.js";
+import { hashPin, isValidPinFormat } from "../utils/pin.js";
 
 export default function Users() {
   const { t, locale } = useLanguage();
@@ -41,6 +42,45 @@ export default function Users() {
     password: "",
     role: "user",
   });
+  // البين كود — الأدمن يعمله لأي يوزر في شركته (يتخزن hash فقط)
+  const [pinUser, setPinUser] = useState(null);
+  const [pinValue, setPinValue] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
+
+  async function handleSavePin(e) {
+    e.preventDefault();
+    if (!pinUser) return;
+    const value = pinValue.trim();
+    if (!isValidPinFormat(value)) {
+      alert(t("pin.invalid"));
+      return;
+    }
+    const targetCompanyId = pinUser.companyId || userCompanyId;
+    if (!targetCompanyId) {
+      alert(t("common.errorGeneric"));
+      return;
+    }
+    setSavingPin(true);
+    try {
+      const pinHash = await hashPin(value, `${targetCompanyId}|${pinUser.id}`);
+      await updateDoc(doc(db, "users", pinUser.id), { pinHash });
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "users",
+        itemId: pinUser.id,
+        details: `Set PIN for user ${pinUser.email || pinUser.id}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      setPinUser(null);
+      setPinValue("");
+      await fetchUsers();
+      alert(t("pin.saved"));
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+    setSavingPin(false);
+  }
 
   const fetchUsers = useCallback(async () => {
     if (!hasAccess) {
@@ -500,6 +540,7 @@ export default function Users() {
                   <th>{t("users.email")}</th>
                   <th>{t("users.role")}</th>
                   <th>{t("users.status")}</th>
+                  <th>{t("users.pin")}</th>
                   <th>{t("users.createdAt")}</th>
                   <th>{t("users.actions")}</th>
                 </tr>
@@ -520,6 +561,18 @@ export default function Users() {
                     <td>
                       <span className={`badge ${getStatusBadgeClass(user.isActive)}`}>
                         {getStatusLabel(user.isActive)}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className="badge"
+                        style={
+                          user.pinHash
+                            ? { background: "#f0fdf4", color: "#15803d" }
+                            : { background: "#f8fafc", color: "#94a3b8" }
+                        }
+                      >
+                        {user.pinHash ? t("pin.hasPin") : t("pin.noPin")}
                       </span>
                     </td>
                     <td>
@@ -596,6 +649,19 @@ export default function Users() {
                           }}
                         >
                           <i className="fas fa-trash"></i>
+                        </button>
+                      )}
+                      {user.role !== "super_admin" && (
+                        <button
+                          onClick={() => {
+                            setPinUser(user);
+                            setPinValue("");
+                          }}
+                          className="btn-secondary btn-sm"
+                          title={t("users.setPin")}
+                          style={{ marginRight: 6 }}
+                        >
+                          <i className="fas fa-key"></i>
                         </button>
                       )}
                     </td>
@@ -689,6 +755,45 @@ export default function Users() {
                   ) : (
                     <><i className="fas fa-save"></i> {t("users.addUserBtn")}</>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {pinUser && (
+        <div style={styles.modalOverlay} onClick={() => setPinUser(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h3>
+                <i className="fas fa-key"></i> {t("pin.setTitle")} — {pinUser.email}
+              </h3>
+              <button onClick={() => setPinUser(null)} style={styles.closeBtn}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleSavePin}>
+              <div style={styles.formGroup}>
+                <label>{t("pin.newPh")}</label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  autoFocus
+                  maxLength={6}
+                  placeholder="••••"
+                  value={pinValue}
+                  onChange={(e) => setPinValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                  style={{ ...styles.input, textAlign: "center", fontSize: 22, letterSpacing: 8, fontFamily: "monospace", direction: "ltr" }}
+                />
+              </div>
+              <div style={styles.modalFooter}>
+                <button type="button" className="btn-secondary" onClick={() => setPinUser(null)} style={{ marginLeft: 8 }}>
+                  {t("common.cancel")}
+                </button>
+                <button type="submit" className="btn-primary" disabled={savingPin}>
+                  {savingPin ? "..." : <><i className="fas fa-save"></i> {t("common.save")}</>}
                 </button>
               </div>
             </form>

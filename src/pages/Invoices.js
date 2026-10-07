@@ -17,6 +17,7 @@ import { useInvoices } from "../hooks/useInvoices.js";
 import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
 import InvoiceTable from "../components/invoices/InvoiceTable.jsx";
 import InvoiceModals from "../components/invoices/InvoiceModals.jsx";
+import PinModal from "../components/common/PinModal.jsx";
 import { EXCHANGE_WINDOW_DAYS, isWithinExchangeWindow, discountRatioOf, buildExchangeReturnLines, buildExchangeSaleLines, computeExchangeSummary } from "../utils/exchange.js";
 import { buildThermalPrintHTML, openThermalPrint } from "../utils/invoiceHelpers.js";
 import { moneyShort } from "../utils/fmt.js";
@@ -40,7 +41,29 @@ export default function Invoices() {
   const isRestaurant = (isRestaurantOnly || isCafe);
   const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
+  const isClothing = userIndustry === "clothing";
   const foodLabel = isCafe ? "الكافيه" : "المطعم";
+  // البين كود — في الملابس: الاستبدال والمرتجع يطلبان PIN المستخدم الحالي أولاً
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinAction, setPinAction] = useState(null);
+  function requirePinFor(action) {
+    if (!isClothing) {
+      action();
+      return;
+    }
+    setPinAction(() => action);
+    setPinOpen(true);
+  }
+  function openReturnWithPin(inv) {
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
+    requirePinFor(() => {
+      setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+    });
+  }
+  function openExchangeWithPin(inv) {
+    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
+    requirePinFor(() => openExchange(inv));
+  }
   // مخزنيًا: المطعم يستهلك خامات عبر الوصفات — الكافيه يبيع من المخزون كالمعتاد
   const isRestaurantStock = userIndustry === "restaurant";
 
@@ -121,9 +144,7 @@ export default function Invoices() {
       if (matches.length === 1) {
         setPieceMatches(null);
         setPieceScan("");
-        // التعديل 3: المرتجع للأدمن فقط
-        if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
-        setReturningInvoice(matches[0]); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+        openReturnWithPin(matches[0]);
         return;
       }
       setPieceMatches(matches);
@@ -135,9 +156,7 @@ export default function Invoices() {
   function openPieceMatch(inv) {
     setPieceMatches(null);
     setPieceScan("");
-    // التعديل 3: المرتجع للأدمن فقط
-    if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
-    setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+    openReturnWithPin(inv);
   }
 
   function pieceClientName(inv) {
@@ -163,8 +182,8 @@ export default function Invoices() {
         setBarcodeScan("");
         return;
       }
-      setReturningInvoice(found); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
       setBarcodeScan("");
+      openReturnWithPin(found);
     } catch (err) { console.error(err); alert(t("common.errorGeneric")); }
     setScanning(false);
   }
@@ -189,7 +208,7 @@ export default function Invoices() {
       try { sessionStorage.removeItem("aamalypro-return-invoice"); } catch { /* ignore */ }
       // التعديل 3: المرتجع للأدمن فقط — لو موظف، امسح الـ handoff وأوقف
       if (!isAdmin) { alert(t("in.returnAdminOnly")); return; }
-      setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true);
+      openReturnWithPin(inv);
     })();
   }, [invoices]);
 
@@ -912,7 +931,10 @@ export default function Invoices() {
           </div>
         ) : (<div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}><i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i><p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("in.statsAdminOnly")}</p></div>)}
 
-        <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} taxRate={taxRate} />
+        {/* الملابس: الفواتير عرض فقط — مفيش إضافة فاتورة من هنا (البيع من نقطة البيع) */}
+        {!isClothing && (
+          <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} taxRate={taxRate} />
+        )}
 
        {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة
 
@@ -964,7 +986,7 @@ export default function Invoices() {
               {t("in.openPieceReturn")}
             </button>
             {(isAdmin && !isRestaurantOnly) && (
-              <button type="button" className="btn-secondary btn-sm" onClick={() => openExchange(inv)} title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => openExchangeWithPin(inv)} title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}>
                 <i className="fas fa-right-left"></i> {t("ex.exchangeBtn")}
               </button>
             )}
@@ -983,14 +1005,20 @@ export default function Invoices() {
           onOrderStatusChange={handleOrderStatusChange}
           onSendToReview={isAdmin ? sendToReview : null}
           onValidate={isAdmin ? validateInvoice : null}
-          onEdit={(inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
+          onEdit={isClothing ? null : (inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
-          onReturn={isAdmin ? (inv) => { setReturningInvoice(inv); setReturnQtys({}); setReturnReason(""); setShowReturnModal(true); } : null}
-          onExchange={(isAdmin && !isRestaurantOnly) ? (inv) => openExchange(inv) : null}
-          onDelete={deleteInvoice}
+          onReturn={isAdmin ? (inv) => openReturnWithPin(inv) : null}
+          onExchange={(isAdmin && !isRestaurantOnly) ? (inv) => openExchangeWithPin(inv) : null}
+          onDelete={isClothing ? null : deleteInvoice}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}
           PAGE_SIZE={PAGE_SIZE}
+        />
+
+        <PinModal
+          show={pinOpen}
+          onClose={() => { setPinOpen(false); setPinAction(null); }}
+          onVerified={() => { setPinOpen(false); const a = pinAction; setPinAction(null); if (a) a(); }}
         />
 
         <InvoiceModals

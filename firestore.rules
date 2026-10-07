@@ -377,7 +377,7 @@
         //    نمسحه: isActive=false يمنع كل وصول فورًا + reset email.
         allow update: if fullyActive() &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode', 'deletedAt', 'status']) &&
+            .hasOnly(['role', 'companyId', 'isActive', 'email', '_joinCode', 'deletedAt', 'status', 'pinHash']) &&
           (
           // السوبر أدمن: هو الوحيد اللي يقدر يقبل (approved) أو يغيّر status عمومًا
           isSuperAdmin() ||
@@ -467,8 +467,8 @@
         // ⚠️ updatedAt لازم تكون هنا: SuperAdminDashboard بيكتبها مع isActive
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'posRequirements', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
           (
           isSuperAdmin() ||
           (
@@ -706,6 +706,46 @@
       }
 
       match /variant_codes/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /clothing_lookups/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /promotions/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /employees/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /employee_advances/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /employee_penalties/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
         allow create: if canCreateForCompany();

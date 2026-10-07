@@ -109,47 +109,32 @@ export default function Sales() {
     return m;
   }, [clients]);
 
-  // كل سطر = صنف داخل فاتورة
+  // كل سطر = فاتورة كاملة (مش صنف منفصل)
   const rows = useMemo(() => {
-    const out = [];
-    dayInvoices.forEach((inv) => {
-      const dt = toDate(inv.date || inv.createdAt);
-      const ts = dt ? dt.getTime() : 0;
-      const clientName = clientMap[inv.clientId] || t("sales.walkIn");
-      // المقسم يظهر بأجزائه (كاش 200 + انستاباي 200) بدل كلمة "split"
-      const method = paymentLabelOf(inv, lang);
-      const ref = inv.id.slice(0, 6).toUpperCase();
-      const items = inv.products || inv.items || [];
-      if (!Array.isArray(items)) return;
-      items.forEach((item, idx) => {
-        const prod = productMap[item.productId || item.id] || {};
-        const qty = parseFloat(item.quantity) || 0;
-        const lineAmount =
-          parseFloat(item.amount) ||
-          qty * (parseFloat(prod.price) || 0);
-        out.push({
-          key: `${inv.id}-${idx}`,
-          ts,
-          dt,
-          clientName,
-          productName: prod.name || item.name || t("common.unspecified"),
-          size:
-            (item.size ?? item.Size ?? prod.size ?? prod.Size ?? "")
-              .toString()
-              .trim() || "—",
-          color:
-            (item.color ?? item.Color ?? prod.color ?? prod.Color ?? "")
-              .toString()
-              .trim() || "—",
-          qty,
-          lineAmount,
-          method,
-          ref,
-        });
-      });
-    });
-    out.sort((a, b) => a.ts - b.ts);
-    return out;
+    return dayInvoices
+      .map((inv) => {
+        const dt = toDate(inv.date || inv.createdAt);
+        const ts = dt ? dt.getTime() : 0;
+        const clientName = clientMap[inv.clientId] || t("sales.walkIn");
+        const method = paymentLabelOf(inv, lang);
+        const ref = inv.id.slice(0, 6).toUpperCase();
+        const items = inv.products || inv.items || [];
+        const totalQtyInv = items.reduce((s, it) => s + (parseFloat(it.quantity) || 0), 0);
+        const itemsSummary = items
+          .map((it) => {
+            const prod = productMap[it.productId || it.id] || {};
+            const name = prod.name || it.name || t("common.unspecified");
+            const size = (it.size ?? prod.size ?? "").toString().trim();
+            const color = (it.color ?? prod.color ?? "").toString().trim();
+            const variant = [size, color].filter(Boolean).join(" / ");
+            const qty = parseFloat(it.quantity) || 0;
+            return variant ? `${name} (${variant}) ×${qty}` : `${name} ×${qty}`;
+          })
+          .join("، ");
+        const amount = invoiceRevenue(inv) || parseFloat(inv.amount) || 0;
+        return { key: inv.id, ts, dt, clientName, method, ref, itemsSummary, totalQtyInv, amount };
+      })
+      .sort((a, b) => a.ts - b.ts);
   }, [dayInvoices, productMap, clientMap, t, lang]);
 
   const revenue = useMemo(
@@ -173,7 +158,7 @@ export default function Sales() {
   );
 
   const totalQty = useMemo(
-    () => rows.reduce((s, r) => s + (r.qty || 0), 0),
+    () => rows.reduce((s, r) => s + (r.totalQtyInv || 0), 0),
     [rows]
   );
 
@@ -411,8 +396,6 @@ export default function Sales() {
                     <th>{t("sales.time")}</th>
                     <th>{t("sales.client")}</th>
                     <th>{t("sales.product")}</th>
-                    <th>{t("sales.size")}</th>
-                    <th>{t("sales.color")}</th>
                     <th>{t("sales.qty")}</th>
                     <th>{t("sales.amount")}</th>
                     <th>{t("sales.payment")}</th>
@@ -425,26 +408,15 @@ export default function Sales() {
                       <td style={{ color: "#94a3b8" }}>{start + i + 1}</td>
                       <td>{fmtTime(r.dt)}</td>
                       <td style={{ fontWeight: 600 }}>{r.clientName}</td>
-                      <td style={{ fontWeight: 600 }}>{r.productName}</td>
-                      <td>
-                        <span className="badge badge-pending">{r.size}</span>
+                      <td style={{ fontSize: 12, color: "#475569", maxWidth: 260, whiteSpace: "normal", lineHeight: 1.6 }}>
+                        {r.itemsSummary || "—"}
                       </td>
-                      <td>{r.color}</td>
-                      <td style={{ fontWeight: 800 }}>{r.qty}</td>
+                      <td style={{ fontWeight: 800 }}>{r.totalQtyInv}</td>
                       <td style={{ fontWeight: 700, color: "#059669" }}>
-                        {moneyShort(r.lineAmount, locale)}
+                        {moneyShort(r.amount, locale)}
                       </td>
                       <td>
-                        <span
-                          style={{
-                            background: "#f1f5f9",
-                            padding: "2px 10px",
-                            borderRadius: 12,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#334155",
-                          }}
-                        >
+                        <span style={{ background: "#f1f5f9", padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 700, color: "#334155" }}>
                           {getPaymentLabel(r.method, lang)}
                         </span>
                       </td>

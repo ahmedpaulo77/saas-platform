@@ -289,13 +289,48 @@ export default function Inventory() {
   const [tempEditExtra, setTempEditExtra] = useState({ name: "", price: "" });
 
   // ── خيارات ملابس ──
-  const types = [
+  // الأنواع الافتراضية الثابتة — تُدمج مع الأنواع المخصصة من صفحة النوع والفئة
+  const DEFAULT_TYPES = [
     { value: "men", label: t("inv.typeMen") },
     { value: "women", label: t("inv.typeWomen") },
     { value: "boys", label: t("inv.typeBoys") },
     { value: "girls", label: t("inv.typeGirls") },
     { value: "unisex", label: t("inv.typeUnisex") },
   ];
+  const [customTypes, setCustomTypes] = useState([]);
+  const [customCategories, setCustomCategories] = useState([]);
+  const fetchLookups = useCallback(async () => {
+    if (!isClothing || !userCompanyId) { setCustomTypes([]); setCustomCategories([]); return; }
+    try {
+      const snap = await getDocs(
+        getScopedQuery("clothing_lookups", userRole, userCompanyId, currentUser?.uid)
+      );
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const typeNames = [...new Set(
+        all.filter((v) => v.kind === "type" && String(v.name || "").trim()).map((v) => String(v.name).trim())
+      )].sort();
+      const catNames = [...new Set(
+        all.filter((v) => v.kind === "category" && String(v.name || "").trim()).map((v) => String(v.name).trim())
+      )].sort();
+      setCustomTypes(typeNames);
+      setCustomCategories(catNames);
+    } catch (err) {
+      console.error("Error fetching clothing lookups:", err);
+    }
+  }, [isClothing, userRole, userCompanyId, currentUser?.uid]);
+  // النوع = الافتراضية + المخصصة (من صفحة النوع والفئة) — بدون تكرار
+  const types = [
+    ...DEFAULT_TYPES,
+    ...customTypes
+      .filter((n) => !DEFAULT_TYPES.some((d) => d.value === n || d.label === n))
+      .map((n) => ({ value: n, label: n })),
+  ];
+  // اسم العرض للنوع: الافتراضية بالترجمة، والمخصصة كما هي
+  function typeLabel(value) {
+    if (!value) return "—";
+    const found = types.find((tp) => tp.value === value);
+    return found ? found.label : value;
+  }
   // القيم الافتراضية — تُستخدم فقط لو الشركة معملتش أكوادها الخاصة في صفحة الأكواد
   const DEFAULT_SIZES = [
     { value: "XS", label: "XS", category: "clothing" },
@@ -376,6 +411,7 @@ export default function Inventory() {
   useEffect(() => {
     fetchProducts();
     fetchVariantCodes();
+    fetchLookups();
     // الخامات للوصفات — مطعم فقط
     if (userIndustry === "restaurant" && userCompanyId) {
       getDocs(getScopedQuery("raw_materials", userRole, userCompanyId, currentUser?.uid))
@@ -384,7 +420,7 @@ export default function Inventory() {
     } else {
       setRawMaterials([]);
     }
-  }, [fetchProducts, fetchVariantCodes, fetchMenuCategories]);
+  }, [fetchProducts, fetchVariantCodes, fetchLookups, fetchMenuCategories]);
 
   useEffect(() => {
     fetchMenuCategories();
@@ -615,6 +651,8 @@ export default function Inventory() {
   // ── Filter + Sort ──
   const [filterModel, setFilterModel] = useState("all");
   const modelOptions = [...new Set(products.map((p) => (p.model || "").trim()).filter(Boolean))].sort();
+  // الفئات = فئات صفحة النوع والفئة + أي قيم موديل موجودة في المنتجات (اتحاد بدون تكرار)
+  const categoryOptions = [...new Set([...customCategories, ...modelOptions])].sort();
   // توحيد الأرقام العربية/الفارسية مع اللاتينية + trim — عشان السيرش بأي رقم يلقط أي منتج
   function normalizeSearch(v) {
     return String(v ?? "")
@@ -1113,8 +1151,11 @@ export default function Inventory() {
             {/* حقول الملابس */}
             {isClothing && (
               <>
-                <input type="text" placeholder={t("inv.phModel")} value={newProduct.model || ""}
-                  onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
+                <select value={newProduct.model || ""} onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })}
+                  style={{ padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}>
+                  <option value="">{t("inv.phModel")}</option>
+                  {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
                 <input type="text" placeholder={t("inv.phCode")} value={newProduct.code || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, code: e.target.value })} />
                 <select value={newProduct.type} onChange={(e) => setNewProduct({ ...newProduct, type: e.target.value })}
@@ -1168,7 +1209,7 @@ export default function Inventory() {
           <div className="form-card" style={{ border: "2px solid #1e3a8a55", marginTop: 20 }}>
             <h3>
               <i className="fas fa-shirt" style={{ color: "#1e3a8a" }}></i>
-              👔 توليد موديل — مقاسات × ألوان بضغطة واحدة
+              👔 توليد أصناف الفئة — مقاسات × ألوان بضغطة واحدة
             </h3>
             <form onSubmit={generateVariants}>
               <div style={{ marginBottom: 12 }}>
@@ -1181,10 +1222,12 @@ export default function Inventory() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                 <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>اسم الموديل *</label>
-                  <input type="text" placeholder="مثال: TS-2026"
-                    value={genModel} onChange={(e) => setGenModel(e.target.value)} required
-                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box" }} />
+                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الفئة *</label>
+                  <select value={genModel} onChange={(e) => setGenModel(e.target.value)} required
+                    style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", background: "white" }}>
+                    <option value="">— اختر الفئة —</option>
+                    {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
@@ -1205,7 +1248,7 @@ export default function Inventory() {
 
               <div style={{ marginBottom: 8 }}>
                 <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>الوصف (اختياري)</label>
-                <textarea rows="2" placeholder="وصف الموديل"
+                <textarea rows="2" placeholder="وصف الفئة"
                   value={genDescription} onChange={(e) => setGenDescription(e.target.value)}
                   style={{ width: "100%", padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, boxSizing: "border-box", resize: "vertical" }} />
               </div>
@@ -1476,7 +1519,7 @@ export default function Inventory() {
               onChange={(e) => setFilterModel(e.target.value)}
               style={{ padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: "10px", fontSize: "14px", background: "white" }}
             >
-              <option value="all">كل الموديلات</option>
+              <option value="all">كل الفئات</option>
               {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           )}
@@ -1523,7 +1566,7 @@ export default function Inventory() {
                   <th>#</th>
                   <th>{isRealEstate ? "اسم العقار" : isRestaurant ? "الصنف" : t("inv.name")}</th>
                   {isRestaurant && <th>{isCafe ? "قسم منيو الكافيه" : "قسم المنيو"}</th>}
-                  {isClothing && <><th>الموديل</th><th>الكود</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
+                  {isClothing && <><th>الفئة</th><th>الكود</th><th>النوع</th><th>المقاس</th><th>اللون</th><th>الماركة</th></>}
                   {isRestaurant && <th>الإضافات</th>}
                   {isPharmacy && <th>التصنيف</th>}
                   {isMarket && <th>الباركود</th>}
@@ -1583,7 +1626,7 @@ export default function Inventory() {
                       <>
                         <td style={{ fontWeight: 700, color: "#1e3a8a" }}>{product.model || "—"}</td>
                         <td style={{ fontWeight: 700, fontFamily: "monospace", direction: "ltr" }}>{product.code || "—"}</td>
-                        <td>{product.type === "men" ? t("inv.typeMen") : product.type === "women" ? t("inv.typeWomen") : product.type === "boys" ? t("inv.typeBoys") : product.type === "girls" ? t("inv.typeGirls") : product.type === "unisex" ? t("inv.typeUnisex") : "—"}</td>
+                        <td>{typeLabel(product.type)}</td>
                         <td style={{ fontWeight: 600 }}>{product.size || "—"}</td>
                         <td>{product.color || "—"}</td>
                         <td>{product.brand || "—"}</td>
@@ -1842,9 +1885,12 @@ export default function Inventory() {
                 {isClothing && (
                   <>
                     <div style={styles.formGroup}>
-                      <label>اسم الموديل</label>
-                      <input type="text" value={editingProduct.model || ""} style={styles.input}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, model: e.target.value })} />
+                      <label>الفئة</label>
+                      <select value={editingProduct.model || ""} style={styles.input}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, model: e.target.value })}>
+                        <option value="">{t("common.select")}</option>
+                        {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
                     </div>
                     <div style={styles.formGroup}>
                       <label>الكود</label>

@@ -53,8 +53,8 @@ export default function Sidebar() {
   // نفس الـ modules بدون أي تغيير — التجميع بصري فقط
   function moduleGroup(module) {
     if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
-    if (["inventory", "variant-codes", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
-    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages"].includes(module)) return "people";
+    if (["inventory", "variant-codes", "types-categories", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
+    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages", "employees"].includes(module)) return "people";
     return "ops";
   }
 
@@ -102,6 +102,12 @@ export default function Sidebar() {
       icon: `fas ${storePosIcon}`,
       label: t("nav.storePos"),
       module: "store-pos",
+    },
+    {
+      to: "/promotions",
+      icon: "fas fa-percent",
+      label: t("nav.promotions"),
+      module: "promotions",
     },
     {
       to: "/sales",
@@ -190,6 +196,18 @@ export default function Sidebar() {
       icon: "fas fa-barcode",
       label: t("vc.title"),
       module: "variant-codes",
+    },
+    {
+      to: "/types-categories",
+      icon: "fas fa-shirt",
+      label: t("tc.title"),
+      module: "types-categories",
+    },
+    {
+      to: "/employees",
+      icon: "fas fa-users",
+      label: t("emp.title"),
+      module: "employees",
     },
         {
       to: "/daily-prices",

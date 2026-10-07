@@ -24,9 +24,10 @@ export default function VariantCodes() {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [kindFilter, setKindFilter] = useState("all");
 
-  const [newEntry, setNewEntry] = useState({ kind: "color", name: "", code: "" });
+  // نموذج مستقل لكل جدول عشان اللون والمقاس ما يتلخبطوش على بعض
+  const [newColor, setNewColor] = useState({ name: "", code: "" });
+  const [newSize, setNewSize] = useState({ name: "", code: "" });
   const [editingEntry, setEditingEntry] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -61,21 +62,24 @@ export default function VariantCodes() {
     );
   }
 
-  async function addEntry(e) {
+  // إضافة عنصر لنوع محدد (color أو size) — كل جدول بيناديها بالنوع بتاعه
+  async function addEntry(e, kind) {
     e.preventDefault();
-    const name = (newEntry.name || "").trim();
-    const code = (newEntry.code || "").trim();
-    if (!name || !code || !newEntry.kind) {
+    const entry = kind === "color" ? newColor : newSize;
+    const reset = kind === "color" ? setNewColor : setNewSize;
+    const name = (entry.name || "").trim();
+    const code = (entry.code || "").trim();
+    if (!name || !code || !kind) {
       alert(t("common.fillRequired"));
       return;
     }
-    if (isDuplicate(newEntry.kind, code, null)) {
+    if (isDuplicate(kind, code, null)) {
       alert(t("vc.codeExists"));
       return;
     }
     try {
       const docRef = await addDoc(collection(db, "variant_codes"), {
-        kind: newEntry.kind,
+        kind,
         name,
         code,
         companyId: userCompanyId,
@@ -86,7 +90,7 @@ export default function VariantCodes() {
         actionType: "CREATE",
         collectionName: "variant_codes",
         itemId: docRef.id,
-        details: `Created variant code: [${newEntry.kind}] ${name} = ${code}`,
+        details: `Created variant code: [${kind}] ${name} = ${code}`,
         user: {
           uid: currentUser?.uid,
           email: currentUser?.email,
@@ -94,7 +98,7 @@ export default function VariantCodes() {
           companyId: userCompanyId,
         },
       });
-      setNewEntry({ kind: "color", name: "", code: "" });
+      reset({ name: "", code: "" });
       await fetchCodes();
     } catch (err) {
       console.error(err);
@@ -164,15 +168,69 @@ export default function VariantCodes() {
     }
   }
 
-  const filtered = codes.filter((x) => {
+  // فلترة مشتركة بالبحث فقط — الفصل بين اللون والمقاس بالنوع
+  function matchesSearch(x) {
     const s = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      !s ||
+    if (!s) return true;
+    return (
       (x.name || "").toLowerCase().includes(s) ||
-      (x.code || "").toLowerCase().includes(s);
-    const matchesKind = kindFilter === "all" || x.kind === kindFilter;
-    return matchesSearch && matchesKind;
-  });
+      (x.code || "").toLowerCase().includes(s)
+    );
+  }
+
+  const colorCodes = codes
+    .filter((x) => x.kind === "color" && matchesSearch(x))
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+  const sizeCodes = codes
+    .filter((x) => x.kind === "size" && matchesSearch(x))
+    .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+
+  function renderRows(pageItems, start, accent) {
+    return (
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{t("vc.name")}</th>
+            <th>{t("vc.code")}</th>
+            <th>{t("common.actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pageItems.map((x, i) => (
+            <tr key={x.id}>
+              <td>{start + i + 1}</td>
+              <td style={{ fontWeight: 700 }}>{x.name}</td>
+              <td style={{ fontWeight: 700, color: accent, direction: "ltr" }}>{x.code}</td>
+              <td>
+                <div className="table-actions">
+                  <button
+                    onClick={() => {
+                      setEditingEntry({ ...x });
+                      setShowEditModal(true);
+                    }}
+                    className="btn-sm btn-secondary"
+                    title={t("common.edit")}
+                  >
+                    <i className="fas fa-edit"></i>
+                  </button>
+                  {userCanDelete && (
+                    <button
+                      onClick={() => deleteEntry(x.id, `${x.name} (${x.code})`)}
+                      className="btn-danger btn-sm"
+                      title={t("common.delete")}
+                    >
+                      <i className="fas fa-trash"></i>
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   if (loading) {
     return (
@@ -202,69 +260,6 @@ export default function VariantCodes() {
           </div>
         </div>
 
-        <div className="form-card">
-          <h3>
-            <i className="fas fa-plus-circle" style={{ color: "#8b5cf6" }}></i>
-            {t("vc.add")}
-          </h3>
-          <form onSubmit={addEntry}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 16,
-                alignItems: "end",
-              }}
-            >
-              <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                  {t("vc.kind")} <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <select
-                  value={newEntry.kind}
-                  onChange={(e) => setNewEntry({ ...newEntry, kind: e.target.value })}
-                  required
-                  style={{ width: "100%", boxSizing: "border-box" }}
-                >
-                  <option value="color">{t("vc.color")}</option>
-                  <option value="size">{t("vc.size")}</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                  {t("vc.name")} <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder={t("vc.name")}
-                  value={newEntry.name}
-                  onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
-                  required
-                  style={{ width: "100%", boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                  {t("vc.code")} <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder={t("vc.code")}
-                  value={newEntry.code}
-                  onChange={(e) => setNewEntry({ ...newEntry, code: e.target.value })}
-                  required
-                  style={{ width: "100%", boxSizing: "border-box" }}
-                />
-              </div>
-            </div>
-            <div style={{ marginTop: 16 }}>
-              <button type="submit" className="btn-primary">
-                <i className="fas fa-plus"></i> {t("vc.add")}
-              </button>
-            </div>
-          </form>
-        </div>
-
         <div className="filter-bar">
           <div className="search-wrapper" style={{ flex: 1 }}>
             <i className="fas fa-search search-icon"></i>
@@ -275,89 +270,166 @@ export default function VariantCodes() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)}>
-            <option value="all">{t("vc.allKinds")}</option>
-            <option value="color">{t("vc.color")}</option>
-            <option value="size">{t("vc.size")}</option>
-          </select>
         </div>
 
-        <div className="table-container">
-          <div className="table-header">
-            <h3>
-              <i className="fas fa-list"></i> {t("vc.list")}
-            </h3>
-            <span className="table-count">{filtered.length}</span>
-          </div>
-          <div className="table-wrapper">
-            <Pagination
-              data={filtered}
-              pageSize={20}
-              resetKey={`${searchTerm}-${kindFilter}`}
-              empty={
-                <div className="table-empty">
-                  <i className="fas fa-barcode"></i>
-                  <p>{t("vc.empty")}</p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+            gap: 20,
+            alignItems: "start",
+          }}
+        >
+          {/* ── جدول الألوان لوحده ── */}
+          <div>
+            <div className="form-card" style={{ borderTop: "4px solid #8b5cf6" }}>
+              <h3>
+                <i className="fas fa-palette" style={{ color: "#8b5cf6" }}></i>
+                {" "}{t("vc.addColor")}
+              </h3>
+              <form onSubmit={(e) => addEntry(e, "color")}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 12,
+                    alignItems: "end",
+                  }}
+                >
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                      {t("vc.name")} <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t("vc.color")}
+                      value={newColor.name}
+                      onChange={(e) => setNewColor({ ...newColor, name: e.target.value })}
+                      required
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                      {t("vc.code")} <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t("vc.code")}
+                      value={newColor.code}
+                      onChange={(e) => setNewColor({ ...newColor, code: e.target.value })}
+                      required
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
                 </div>
-              }
-              render={(pageItems, total, start) => (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>{t("vc.kind")}</th>
-                      <th>{t("vc.name")}</th>
-                      <th>{t("vc.code")}</th>
-                      <th>{t("common.actions")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageItems.map((x, i) => (
-                      <tr key={x.id}>
-                        <td>{start + i + 1}</td>
-                        <td>
-                          <span
-                            className="badge"
-                            style={
-                              x.kind === "color"
-                                ? { background: "#ede9fe", color: "#6d28d9" }
-                                : { background: "#dbeafe", color: "#1d4ed8" }
-                            }
-                          >
-                            {x.kind === "color" ? t("vc.color") : t("vc.size")}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 700 }}>{x.name}</td>
-                        <td style={{ fontWeight: 700, color: "#6d28d9", direction: "ltr" }}>{x.code}</td>
-                        <td>
-                          <div className="table-actions">
-                            <button
-                              onClick={() => {
-                                setEditingEntry({ ...x });
-                                setShowEditModal(true);
-                              }}
-                              className="btn-sm btn-secondary"
-                              title={t("common.edit")}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </button>
-                            {userCanDelete && (
-                              <button
-                                onClick={() => deleteEntry(x.id, `${x.name} (${x.code})`)}
-                                className="btn-danger btn-sm"
-                                title={t("common.delete")}
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            />
+                <div style={{ marginTop: 12 }}>
+                  <button type="submit" className="btn-primary">
+                    <i className="fas fa-plus"></i> {t("vc.addColor")}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="table-container">
+              <div className="table-header">
+                <h3>
+                  <i className="fas fa-palette" style={{ color: "#8b5cf6" }}></i>
+                  {" "}{t("vc.colorsTitle")} — {t("vc.colorsList")}
+                </h3>
+                <span className="table-count">{colorCodes.length}</span>
+              </div>
+              <div className="table-wrapper">
+                <Pagination
+                  data={colorCodes}
+                  pageSize={10}
+                  resetKey={`color-${searchTerm}`}
+                  empty={
+                    <div className="table-empty">
+                      <i className="fas fa-palette"></i>
+                      <p>{t("vc.colorsEmpty")}</p>
+                    </div>
+                  }
+                  render={(pageItems, total, start) => renderRows(pageItems, start, "#6d28d9")}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── جدول المقاسات لوحده ── */}
+          <div>
+            <div className="form-card" style={{ borderTop: "4px solid #2563eb" }}>
+              <h3>
+                <i className="fas fa-ruler" style={{ color: "#2563eb" }}></i>
+                {" "}{t("vc.addSize")}
+              </h3>
+              <form onSubmit={(e) => addEntry(e, "size")}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 12,
+                    alignItems: "end",
+                  }}
+                >
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                      {t("vc.name")} <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t("vc.size")}
+                      value={newSize.name}
+                      onChange={(e) => setNewSize({ ...newSize, name: e.target.value })}
+                      required
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                      {t("vc.code")} <span style={{ color: "#ef4444" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={t("vc.code")}
+                      value={newSize.code}
+                      onChange={(e) => setNewSize({ ...newSize, code: e.target.value })}
+                      required
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button type="submit" className="btn-primary">
+                    <i className="fas fa-plus"></i> {t("vc.addSize")}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="table-container">
+              <div className="table-header">
+                <h3>
+                  <i className="fas fa-ruler" style={{ color: "#2563eb" }}></i>
+                  {" "}{t("vc.sizesTitle")} — {t("vc.sizesList")}
+                </h3>
+                <span className="table-count">{sizeCodes.length}</span>
+              </div>
+              <div className="table-wrapper">
+                <Pagination
+                  data={sizeCodes}
+                  pageSize={10}
+                  resetKey={`size-${searchTerm}`}
+                  empty={
+                    <div className="table-empty">
+                      <i className="fas fa-ruler"></i>
+                      <p>{t("vc.sizesEmpty")}</p>
+                    </div>
+                  }
+                  render={(pageItems, total, start) => renderRows(pageItems, start, "#1d4ed8")}
+                />
+              </div>
+            </div>
           </div>
         </div>
 

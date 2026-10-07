@@ -30,6 +30,7 @@ import PurchasesStatsCards from "./PurchasesStatsCards.jsx";
 import PurchasePayModal from "./PurchasePayModal.jsx";
 import PurchaseReturnModal from "./PurchaseReturnModal.jsx";
 import PurchaseEditModal from "./PurchaseEditModal.jsx";
+import PinModal from "../components/common/PinModal.jsx";
 import PurchasesQuickSupplier from "./PurchasesQuickSupplier.jsx";
 import PurchasesQuickProduct from "./PurchasesQuickProduct.jsx";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
@@ -927,6 +928,44 @@ ${labelDivs}
 
   const userCanDelete = canDelete(userRole);
 
+  // ── الاعتماد على مرحلتين + البين كود (ملابس) ──
+  // المرحلة: "new" (ناقصة) → "approved1" → "approved2" (نهائية — المسح يختفي)
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinAction, setPinAction] = useState(null);
+  function requirePinFor(action) {
+    if (!isClothing) {
+      action();
+      return;
+    }
+    setPinAction(() => action);
+    setPinOpen(true);
+  }
+  const purchaseStage = (p) => p?.approval || "new";
+
+  async function approvePurchase(p, stage) {
+    if (!isAdmin) return;
+    if (!window.confirm(stage === "approved1" ? t("pur.approve1") + "؟" : t("pur.approve2") + "؟")) return;
+    try {
+      await updateDoc(doc(db, "purchases", p.id), {
+        approval: stage,
+        ...(stage === "approved2"
+          ? { validatedBy: currentUser?.uid || null, validatedAt: new Date().toISOString() }
+          : {}),
+      });
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "purchases",
+        itemId: p.id,
+        details: `Purchase ${stage === "approved1" ? "first" : "final"} approval`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      await resetPagination();
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+  }
+
   // إجمالي المصروفات = المدفوع فعلياً بس (زي منطق الإيرادات في الفواتير)
   const totalSpent = filteredPurchases.reduce((sum, p) => {
     if (p.status === "paid") return sum + (parseFloat(p.amount) || 0);
@@ -1488,6 +1527,19 @@ ${labelDivs}
                                 ? t("in.statusWait")
                                 : t("in.statusOver")}
                             </span>
+                            {isClothing && (
+                              <div style={{
+                                fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+                                whiteSpace: "nowrap", marginTop: 4, display: "inline-block",
+                                ...(purchaseStage(p) === "approved2"
+                                  ? { background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" }
+                                  : purchaseStage(p) === "approved1"
+                                    ? { background: "#fffbeb", color: "#b45309", border: "1px solid #fcd34d" }
+                                    : { background: "#eef2ff", color: "#4338ca", border: "1px solid #c7d2fe" }),
+                              }}>
+                                {purchaseStage(p) === "approved2" ? t("pur.stageApproved2") : purchaseStage(p) === "approved1" ? t("pur.stageApproved1") : t("pur.stageNew")}
+                              </div>
+                            )}
                           </td>
                           <td style={{ color: "var(--gray-500)", fontSize: 13 }}>
                             {p.date ? fmtDate(p.date, locale) : "-"}
@@ -1525,7 +1577,8 @@ ${labelDivs}
                                   <i className="fas fa-money-bill-wave"></i>
                                 </button>
                               )}
-                              {isAdmin && (
+                              {/* الملابس: مفيش تعديل على فواتير الشراء */}
+                              {isAdmin && !isClothing && (
                                 <button
                                   onClick={() => {
                                     setEditingPurchase(p);
@@ -1537,15 +1590,35 @@ ${labelDivs}
                                   <i className="fas fa-edit"></i>
                                 </button>
                               )}
-                              {/* المرتجع للأدمن فقط — نفس قاعدة مرتجع البيع (واجهة بس) */}
+                              {/* الاعتماد على مرحلتين (ملابس) — للأدمن فقط */}
+                              {isAdmin && isClothing && purchaseStage(p) === "new" && (
+                                <button
+                                  onClick={() => approvePurchase(p, "approved1")}
+                                  className="btn-secondary btn-sm"
+                                  title={t("pur.approve1")}
+                                  style={{ borderColor: "#4338ca", color: "#4338ca" }}
+                                >
+                                  <i className="fas fa-check"></i> 1
+                                </button>
+                              )}
+                              {isAdmin && isClothing && purchaseStage(p) === "approved1" && (
+                                <button
+                                  onClick={() => approvePurchase(p, "approved2")}
+                                  className="btn-success btn-sm"
+                                  title={t("pur.approve2")}
+                                >
+                                  <i className="fas fa-check-double"></i> 2
+                                </button>
+                              )}
+                              {/* المرتجع للأدمن فقط — في الملابس يطلب البين كود الأول */}
                               {isAdmin && (
                                 <button
-                                  onClick={() => {
+                                  onClick={() => requirePinFor(() => {
                                     setReturningPurchase(p);
                                     setReturnQtys({});
                                     setReturnReason("");
                                     setShowReturnModal(true);
-                                  }}
+                                  })}
                                   className="btn-secondary btn-sm"
                                   title="مرتجع شراء"
                                   style={{ borderColor: "#f59e0b", color: "#d97706" }}
@@ -1553,7 +1626,8 @@ ${labelDivs}
                                   <i className="fas fa-undo"></i>
                                 </button>
                               )}
-                              {userCanDelete && (
+                              {/* المسح يختفي بعد الاعتماد الثاني (ملابس) */}
+                              {userCanDelete && (!isClothing || purchaseStage(p) !== "approved2") && (
                                 <button
                                   onClick={() => deletePurchase(p)}
                                   className="btn-danger btn-sm"
@@ -1612,6 +1686,12 @@ ${labelDivs}
           getPurchaseItems={getPurchaseItems}
           products={products}
           variantLabel={variantLabel}
+        />
+
+        <PinModal
+          show={pinOpen}
+          onClose={() => { setPinOpen(false); setPinAction(null); }}
+          onVerified={() => { setPinOpen(false); const a = pinAction; setPinAction(null); if (a) a(); }}
         />
       </div>
     );

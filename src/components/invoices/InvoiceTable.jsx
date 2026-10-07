@@ -193,10 +193,10 @@ export default function InvoiceTable({
                             {isRestaurant && <button onClick={() => onThermalPrint(inv)} className="btn-primary btn-sm" title="طباعة فاتورة"><i className="fas fa-print"></i></button>}
                             {!isRestaurant && <button onClick={() => onExportPDF(inv)} className="btn-primary btn-sm" title={t("in.pdf")}><i className="fas fa-file-pdf"></i> PDF</button>}
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}
-                            <button onClick={() => onEdit(inv)} className="btn-secondary btn-sm" title={t("common.edit")}><i className="fas fa-edit"></i></button>
+                            {onEdit && <button onClick={() => onEdit(inv)} className="btn-secondary btn-sm" title={t("common.edit")}><i className="fas fa-edit"></i></button>}
                             {onReturn && <button onClick={() => onReturn(inv)} className="btn-secondary btn-sm" title="مرتجع" style={{ borderColor: "#f59e0b", color: "#d97706" }}><i className="fas fa-undo"></i></button>}
                             {onExchange && <button onClick={() => onExchange(inv)} className="btn-secondary btn-sm" title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}><i className="fas fa-right-left"></i></button>}
-                            {userCanDelete && <button onClick={() => onDelete(inv.id, inv)} className="btn-danger btn-sm" title={t("common.delete")}><i className="fas fa-trash"></i></button>}
+                            {userCanDelete && onDelete && <button onClick={() => onDelete(inv.id, inv)} className="btn-danger btn-sm" title={t("common.delete")}><i className="fas fa-trash"></i></button>}
                           </div>
                         </td>
                       </tr>
