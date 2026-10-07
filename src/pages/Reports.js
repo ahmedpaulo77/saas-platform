@@ -157,7 +157,7 @@ export default function Reports() {
       // index ناقص) كان بيرمي الاستثناء، ومفيش setState بيحصل، والصفحة بتطلع
       // "صفر" نضيف في 17 كارت إحصائي من غير أي رسالة. allSettled بيحمّل اللي نجح
       // وبيقول للمستخدم بالظبط إيه اللي فشل.
-      const SRC_NAMES = ["clients", "sellers", "buyers", "invoices", "inventory", "tasks", "users", "returns"];
+      const SRC_NAMES = ["clients", "sellers", "buyers", "invoices", "inventory", "tasks", "users", "returns", "sales_reps"];
       const settled = await Promise.allSettled(
         SRC_NAMES.map((name) =>
           superAdmin
@@ -188,6 +188,7 @@ export default function Reports() {
       const tasksData = src.tasks;
       const usersData = src.users;
       const returnsData = src.returns;
+      const repsData = src.sales_reps || [];
 
       const cMap = {};
       clientsData.forEach((c) => {
@@ -200,6 +201,12 @@ export default function Reports() {
         uMap[u.id] = u.name || u.displayName || u.email || t('rep.sellerFallback');
       });
       setUsersMap(uMap);
+
+      // أسماء السيلز من صفحة السيلز (sales_reps) — تُستخدم في "أكتر سيلز باع"
+      const repMap = {};
+      repsData.forEach((r) => {
+        if (r.name) repMap[r.id] = r.name;
+      });
 
       let revenue = 0,
         paid = 0,
@@ -368,16 +375,20 @@ export default function Reports() {
 
       invoicesData.forEach((inv) => {
         if (inv.approval && inv.approval !== "validated") return;
-        // --- top sellers by createdBy (all industries) ---
-        const sellerKey = inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown";
+        // --- top sellers: السيلز أولاً (بالاسم المسجل في صفحة السيلز)، وإلا حسب المنشئ ---
+        const repId = inv.salesRepId || null;
+        const sellerKey = repId ? `rep:${repId}` : (inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown");
         const sellerEmail = inv.createdByEmail || "";
+        const repName = repId ? (inv.salesRepName || repMap[repId] || "") : "";
         const invAmount = parseFloat(inv.amount) || 0;
         if (!sellerMap[sellerKey]) {
-          sellerMap[sellerKey] = { key: sellerKey, email: sellerEmail, revenue: 0, count: 0 };
+          sellerMap[sellerKey] = { key: sellerKey, email: sellerEmail, repId, repName, revenue: 0, count: 0 };
         }
         sellerMap[sellerKey].revenue += invAmount;
         sellerMap[sellerKey].count += 1;
         if (sellerEmail && !sellerMap[sellerKey].email) sellerMap[sellerKey].email = sellerEmail;
+        if (repName && !sellerMap[sellerKey].repName) sellerMap[sellerKey].repName = repName;
+        if (repId && repMap[repId]) sellerMap[sellerKey].repName = repMap[repId];
 
         // --- top clients by clientId (all industries) ---
         const cliKey = inv.clientId || "unknown";
@@ -469,11 +480,11 @@ export default function Reports() {
         setProductSales([]);
       }
 
-      // --- top 5 sellers: resolve display name via users collection ---
+      // --- top 5 sellers: اسم السيلز من صفحة السيلز أولاً، ثم المستخدمين، ثم الإيميل ---
       const sellersArr = Object.values(sellerMap)
         .map((s) => ({
           ...s,
-          name: uMap[s.key] || s.email || t('rep.sellerFallback'),
+          name: (s.repId && (repMap[s.repId] || s.repName)) || uMap[s.key] || s.email || t('rep.sellerFallback'),
         }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
