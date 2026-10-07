@@ -12,14 +12,14 @@ import { LanguageContext } from "../../i18n/LanguageContext.js";
 
 const COPY = {
   ar: {
-    title: "حصل خطأ غير متوقع",
-    hint: "الصفحة دي وقعت أثناء العرض. بياناتك محفوظة في السيرفر ومش ضاعت. جرّب إعادة المحاولة، ولو المشكلة فضلت ابعت لنا تفاصيل الخطأ.",
+    title: "عطل مؤقت",
+    hint: "تعذر عرض هذه الصفحة. بياناتك محفوظة، يرجى إعادة المحاولة.",
     retry: "إعادة المحاولة",
     reload: "تحديث الصفحة",
   },
   en: {
-    title: "Something went wrong",
-    hint: "This screen crashed while rendering. Your data is safe on the server. Try again — if it keeps happening, send us the error details.",
+    title: "Temporary issue",
+    hint: "This page couldn't be displayed. Your data is safe — please try again.",
     retry: "Try again",
     reload: "Reload page",
   },
