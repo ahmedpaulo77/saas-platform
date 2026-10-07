@@ -116,53 +116,6 @@ export default function Invoices() {
   } = useInvoices();
   const [barcodeScan, setBarcodeScan] = useState("");
   const [scanning, setScanning] = useState(false);
-  // مرتجع بمسح باركود القطعة: قطعة → صنف → فواتير البيع اللي فيها الصنف
-  const [pieceScan, setPieceScan] = useState("");
-  const [pieceScanning, setPieceScanning] = useState(false);
-  const [pieceMatches, setPieceMatches] = useState(null);
-
-  function invoiceLinesOf(inv) {
-    return inv.products || inv.items || [];
-  }
-
-  async function handlePieceReturn(e) {
-    e.preventDefault();
-    const term = pieceScan.trim().toLowerCase();
-    if (!term) return;
-    setPieceScanning(true);
-    try {
-      // 1) الباركود → الصنف
-      const product = (products || []).find((p) => (p.barcode || "").trim().toLowerCase() === term);
-      if (!product) { alert(t("in.pieceNoProduct")); return; }
-      // 2) الصنف → فواتير البيع اللي اتباع فيها (الأحدث أولاً)
-      const matches = (invoices || [])
-        .filter((inv) => invoiceLinesOf(inv).some((l) => l.productId === product.id))
-        .slice()
-        .sort((a, b) => String(b.date || b.createdAt || "").localeCompare(String(a.date || a.createdAt || "")));
-      if (matches.length === 0) { alert(t("in.pieceNoInvoice")); setPieceMatches([]); return; }
-      // فاتورة واحدة → افتح المرتجع على طول. أكتر من واحدة → اختار من القايمة
-      if (matches.length === 1) {
-        setPieceMatches(null);
-        setPieceScan("");
-        openReturnWithPin(matches[0]);
-        return;
-      }
-      setPieceMatches(matches);
-    } finally {
-      setPieceScanning(false);
-    }
-  }
-
-  function openPieceMatch(inv) {
-    setPieceMatches(null);
-    setPieceScan("");
-    openReturnWithPin(inv);
-  }
-
-  function pieceClientName(inv) {
-    return (clients || []).find((c) => c.id === inv.clientId)?.name || "—";
-  }
-
   // امسح باركود الفاتورة بالسكانر → تتفتح شاشة المرتجع على طول
   async function handleBarcodeReturn(e) {
     e.preventDefault();
@@ -959,45 +912,6 @@ export default function Invoices() {
     />
     <button type="submit" className="btn-primary btn-sm" disabled={scanning || !barcodeScan.trim()}>{scanning ? "..." : t("in.openReturn")}</button>
   </form>
-)}
-
-{/* مرتجع بمسح باركود القطعة: العميل راجع بقطعة (من غير فاتورة) → نلاقي فاتورة بيعها */}
-{BARCODE_RETURN_INDUSTRIES.has(userIndustry) && (
-  <div className="form-card" style={{ marginTop: 12 }}>
-    <form onSubmit={handlePieceReturn} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-      <div style={{ fontWeight: 800, fontSize: 14 }}><i className="fas fa-barcode" style={{ color: "#1e3a8a", marginLeft: 6 }}></i>{t("in.pieceReturnTitle")}</div>
-      <input
-        type="text"
-        placeholder={t("in.scanPiecePh")}
-        value={pieceScan}
-        onChange={(e) => { setPieceScan(e.target.value); if (pieceMatches && pieceMatches.length) setPieceMatches(null); }}
-        style={{ flex: 1, minWidth: 220, padding: "10px 14px", border: "2px solid #e2e8f0", borderRadius: 10, fontSize: 14, fontFamily: "monospace", direction: "ltr", textAlign: "left" }}
-      />
-      <button type="submit" className="btn-primary btn-sm" disabled={pieceScanning || !pieceScan.trim()}>{pieceScanning ? "..." : t("in.findInvoices")}</button>
-    </form>
-    {pieceMatches && pieceMatches.length > 0 && (
-      <div style={{ marginTop: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
-          {t("in.pieceSoldIn", { n: pieceMatches.length })}
-        </div>
-        {pieceMatches.map((inv) => (
-          <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 6, fontSize: 13, flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 700 }}>{pieceClientName(inv)}</span>
-            <span style={{ color: "#64748b" }}>{String(inv.date || inv.createdAt || "").slice(0, 10)}</span>
-            <span style={{ fontWeight: 800, color: "#1e3a8a" }}>{moneyShort(inv.amount || 0, locale)} {t("currency")}</span>
-            <button type="button" className="btn-primary btn-sm" onClick={() => openPieceMatch(inv)} style={{ marginInlineStart: "auto" }}>
-              {t("in.openPieceReturn")}
-            </button>
-            {(isAdmin && !isRestaurantOnly) && (
-              <button type="button" className="btn-secondary btn-sm" onClick={() => openExchangeWithPin(inv)} title={t("ex.exchangeBtn")} style={{ borderColor: "#1e3a8a", color: "#1e3a8a" }}>
-                <i className="fas fa-right-left"></i> {t("ex.exchangeBtn")}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
 )}
 
         <InvoiceTable
