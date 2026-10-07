@@ -1669,22 +1669,27 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
               />
             </div>
 
-            {/* مندوب المبيعات — تحت اسم الكاشير، يُحفظ على الفاتورة للعمولة */}
-            {salesReps.length > 0 && (
-              <div className="form-group" style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, color: "#64748b" }}>🤝 {t("storepos.salesRep")}{salesRepRequired ? " *" : ""}</label>
-                <select
-                  value={salesRepId}
-                  onChange={(e) => setSalesRepId(e.target.value)}
-                  style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
-                >
-                  <option value="">{t("storepos.noRep")}</option>
-                  {salesReps.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}{r.code ? ` (${r.code})` : ""}{r.phone ? ` — ${r.phone}` : ""}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* السيلز — تحت اسم الكاشير، يُحفظ على الفاتورة للعمولة */}
+            {/* يظهر دائماً (حتى لو مفيش سيلز) عشان لو إلزامي والكاشير ميلاقيش نفسه مقفول من غير تفسير */}
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: "#64748b" }}>🤝 {t("storepos.salesRep")}{salesRepRequired ? " *" : ""}</label>
+              <select
+                value={salesRepId}
+                onChange={(e) => setSalesRepId(e.target.value)}
+                disabled={salesReps.length === 0}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "white", boxSizing: "border-box" }}
+              >
+                <option value="">{t("storepos.noRep")}</option>
+                {salesReps.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}{r.code ? ` (${r.code})` : ""}{r.phone ? ` — ${r.phone}` : ""}</option>
+                ))}
+              </select>
+              {salesReps.length === 0 && (
+                <div style={{ fontSize: 11, color: salesRepRequired ? "#dc2626" : "#94a3b8", fontWeight: 700, marginTop: 4 }}>
+                  {t("storepos.noRepsHint")}
+                </div>
+              )}
+            </div>
 
             {/* العميل */}
             <div className="form-group" style={{ marginBottom: 12 }}>

@@ -349,7 +349,7 @@ export default function MyCompany() {
                           <input type="file" accept="image/*" onChange={handleLogoChange} disabled={savingLogo} style={{ display: 'none' }} />
                         </label>
                         {company.logoUrl && (
-                          <button onClick={handleLogoRemove} className="btn-danger btn-sm" disabled={savingLogo}>
+                          <button onClick={handleLogoRemove} className="btn-danger btn-sm" disabled={savingLogo} title={t("common.delete")}>
                             <i className="fas fa-trash"></i>
                           </button>
                         )}

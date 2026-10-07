@@ -338,6 +338,9 @@ export default function Invoices() {
         createdBy: currentUser?.uid || null,
         createdByEmail: currentUser?.email || "",
         clientId: inv.clientId || null,
+        // السيلز ينتقل من الفاتورة الأصلية — عشان البيعة البديلة تتحسب في عمولته وتقاريره
+        salesRepId: inv.salesRepId || null,
+        salesRepName: inv.salesRepName || "",
         products: saleLines,
         subtotal: summary.newTotal,
         discount: 0,

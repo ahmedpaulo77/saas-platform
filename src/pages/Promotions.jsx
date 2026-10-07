@@ -133,20 +133,27 @@ export default function Promotions() {
   }, [userCompanyId, userRole, currentUser?.uid]);
 
   // الفئات من clothing_lookups (kind="category") — زي "بنطلون"، "جاكيت"، إلخ
+  // + اتحاد مع قيم الموديل الموجودة في المنتجات (عشان القائمة متفضاش لو صفحة الفئات متفتحتش)
   const [invTypes, setInvTypes] = useState([]);
   const fetchInvTypes = useCallback(async () => {
     if (!userCompanyId) return;
     try {
-      const snap = await getDocs(
-        query(collection(db, "clothing_lookups"), where("companyId", "==", userCompanyId))
-      );
-      const cats = [...new Set(
-        snap.docs
-          .map((d) => d.data())
-          .filter((v) => v.kind === "category" && String(v.name || "").trim())
-          .map((v) => String(v.name).trim())
-      )].sort();
-      setInvTypes(cats);
+      const [lookSnap, invSnap] = await Promise.all([
+        getDocs(
+          query(collection(db, "clothing_lookups"), where("companyId", "==", userCompanyId))
+        ),
+        getDocs(
+          query(collection(db, "inventory"), where("companyId", "==", userCompanyId))
+        ),
+      ]);
+      const fromLookups = lookSnap.docs
+        .map((d) => d.data())
+        .filter((v) => v.kind === "category" && String(v.name || "").trim())
+        .map((v) => String(v.name).trim());
+      const fromProducts = invSnap.docs
+        .map((d) => String(d.data()?.model ?? "").trim())
+        .filter(Boolean);
+      setInvTypes([...new Set([...fromLookups, ...fromProducts])].sort());
     } catch (e) { console.error(e); }
   }, [userCompanyId]);
 

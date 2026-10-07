@@ -375,14 +375,16 @@ export default function Reports() {
 
       invoicesData.forEach((inv) => {
         if (inv.approval && inv.approval !== "validated") return;
-        // --- top sellers: السيلز أولاً (بالاسم المسجل في صفحة السيلز)، وإلا حسب المنشئ ---
+        // --- top sellers: السيلز أولاً (بالاسم المسجل في صفحة السيلز) ---
+        // فاتورة من غير سيلز في الملابس → بند واحد "مبيعات بدون سيلز" (بدل الإيميلات)
         const repId = inv.salesRepId || null;
-        const sellerKey = repId ? `rep:${repId}` : (inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown");
+        const noRep = !repId && userIndustry === "clothing";
+        const sellerKey = repId ? `rep:${repId}` : noRep ? "no-rep" : (inv.createdBy || inv.createdByEmail || inv.sellerId || "unknown");
         const sellerEmail = inv.createdByEmail || "";
         const repName = repId ? (inv.salesRepName || repMap[repId] || "") : "";
         const invAmount = parseFloat(inv.amount) || 0;
         if (!sellerMap[sellerKey]) {
-          sellerMap[sellerKey] = { key: sellerKey, email: sellerEmail, repId, repName, revenue: 0, count: 0 };
+          sellerMap[sellerKey] = { key: sellerKey, email: sellerEmail, repId, repName, noRep: !!noRep, revenue: 0, count: 0 };
         }
         sellerMap[sellerKey].revenue += invAmount;
         sellerMap[sellerKey].count += 1;
@@ -484,7 +486,7 @@ export default function Reports() {
       const sellersArr = Object.values(sellerMap)
         .map((s) => ({
           ...s,
-          name: (s.repId && (repMap[s.repId] || s.repName)) || uMap[s.key] || s.email || t('rep.sellerFallback'),
+          name: s.noRep ? t('rep.noRepSales') : (s.repId && (repMap[s.repId] || s.repName)) || uMap[s.key] || s.email || t('rep.sellerFallback'),
         }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5);
