@@ -270,15 +270,7 @@ export default function TypesCategories() {
                   >
                     <i className="fas fa-edit"></i>
                   </button>
-                  {userCanDelete && (
-                    <button
-                      onClick={() => deleteEntry(x.id, `${x.kind}:${x.name}`)}
-                      className="btn-danger btn-sm"
-                      title={t("common.delete")}
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  )}
+                  {/* المسح متشال نهائياً — حتى للأدمن */}
                 </div>
               </td>
             </tr>

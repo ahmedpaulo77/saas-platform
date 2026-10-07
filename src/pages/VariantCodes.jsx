@@ -214,15 +214,7 @@ export default function VariantCodes() {
                   >
                     <i className="fas fa-edit"></i>
                   </button>
-                  {userCanDelete && (
-                    <button
-                      onClick={() => deleteEntry(x.id, `${x.name} (${x.code})`)}
-                      className="btn-danger btn-sm"
-                      title={t("common.delete")}
-                    >
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  )}
+                  {/* المسح متشال نهائياً — حتى للأدمن */}
                 </div>
               </td>
             </tr>

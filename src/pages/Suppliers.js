@@ -356,12 +356,7 @@ export default function Suppliers() {
                       >
                         <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
-                      <button
-                        onClick={() => deleteSupplier(supplier.id)}
-                        className="btn-danger"
-                      >
-                        <i className="fas fa-trash"></i> {t("common.delete")}
-                      </button>
+                      {/* المسح متشال نهائياً — حتى للأدمن */}
                     </td>
                   </tr>
                   );

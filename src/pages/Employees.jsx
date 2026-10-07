@@ -446,11 +446,7 @@ export default function Employees() {
                                 <button onClick={() => openEditEmp(e)} className="btn-sm btn-secondary" title={t("common.edit")}>
                                   <i className="fas fa-edit"></i>
                                 </button>
-                                {userCanDelete && (
-                                  <button onClick={() => handleDeleteEmp(e)} className="btn-danger btn-sm" title={t("common.delete")}>
-                                    <i className="fas fa-trash"></i>
-                                  </button>
-                                )}
+                                {/* المسح متشال نهائياً — حتى للأدمن */}
                               </div>
                             </td>
                           </tr>
@@ -575,7 +571,6 @@ export default function Employees() {
                                 <th>{t("emp.amount")}</th>
                                 <th>{t("emp.date")}</th>
                                 <th>{t("emp.reason")}</th>
-                                <th></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -584,13 +579,7 @@ export default function Employees() {
                                   <td style={{ fontWeight: 800 }}>{moneyShort(parseFloat(a.amount) || 0, locale)}</td>
                                   <td>{a.date ? new Date(a.date).toLocaleDateString(locale) : "—"}</td>
                                   <td>{a.reason || "—"}</td>
-                                  <td>
-                                    {userCanDelete && (
-                                      <button onClick={() => handleDeleteRecord("employee_advances", a.id, `advance ${a.amount}`)} className="btn-danger btn-sm" title={t("common.delete")}>
-                                        <i className="fas fa-trash"></i>
-                                      </button>
-                                    )}
-                                  </td>
+                                  {/* المسح متشال نهائياً — حتى للأدمن */}
                                 </tr>
                               ))}
                             </tbody>
@@ -669,7 +658,6 @@ export default function Employees() {
                                 <th>{t("emp.amount")}</th>
                                 <th>{t("emp.date")}</th>
                                 <th>{t("emp.reason")}</th>
-                                <th></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -678,13 +666,7 @@ export default function Employees() {
                                   <td style={{ fontWeight: 800, color: "#dc2626" }}>{moneyShort(parseFloat(p.amount) || 0, locale)}</td>
                                   <td>{p.date ? new Date(p.date).toLocaleDateString(locale) : "—"}</td>
                                   <td>{p.reason || "—"}</td>
-                                  <td>
-                                    {userCanDelete && (
-                                      <button onClick={() => handleDeleteRecord("employee_penalties", p.id, `penalty ${p.amount}`)} className="btn-danger btn-sm" title={t("common.delete")}>
-                                        <i className="fas fa-trash"></i>
-                                      </button>
-                                    )}
-                                  </td>
+                                  {/* المسح متشال نهائياً — حتى للأدمن */}
                                 </tr>
                               ))}
                             </tbody>

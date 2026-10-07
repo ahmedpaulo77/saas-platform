@@ -412,15 +412,7 @@ export default function Clients() {
                           >
                             <i className="fas fa-edit"></i> {t("common.edit")}
                           </button>
-                          {userCanDelete && (
-                            <button
-                              onClick={() => deleteClient(client.id)}
-                              className="btn-danger"
-                            >
-                              <i className="fas fa-trash"></i>{" "}
-                              {t("common.delete")}
-                            </button>
-                          )}
+                          {/* المسح متشال نهائياً — حتى للأدمن */}
                         </td>
                       </tr>
                     );

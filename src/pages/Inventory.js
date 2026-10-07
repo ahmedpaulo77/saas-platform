@@ -1674,11 +1674,7 @@ export default function Inventory() {
                         className="btn-primary" style={{ marginLeft: "8px", padding: "6px 14px", fontSize: "13px" }}>
                         <i className="fas fa-edit"></i> {t("common.edit")}
                       </button>
-                      {userCanDelete && (
-                        <button onClick={() => deleteProduct(product.id)} className="btn-danger">
-                          <i className="fas fa-trash"></i> {t("common.delete")}
-                        </button>
-                      )}
+                      {/* المسح متشال نهائياً — حتى للأدمن */}
                     </td>
                   </tr>
                 ))}

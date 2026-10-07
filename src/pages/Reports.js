@@ -566,9 +566,7 @@ export default function Reports() {
         fileName = t('rep.file.clients');
         headers = {
           name: t('rep.col.client'),
-          email: t('rep.col.email'),
           phone: t('rep.col.phone'),
-          companyId: t('rep.col.companyId'),
         };
         break;
       case "sellers":

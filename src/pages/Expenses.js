@@ -512,15 +512,7 @@ export default function Expenses() {
                             >
                               <i className="fas fa-edit"></i>
                             </button>
-                            {userCanDelete && (
-                              <button
-                                onClick={() => deleteExpense(exp.id)}
-                                className="btn-danger btn-sm"
-                                title={t("common.delete")}
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            )}
+                            {/* المسح متشال نهائياً — حتى للأدمن */}
                           </div>
                         </td>
                       </tr>

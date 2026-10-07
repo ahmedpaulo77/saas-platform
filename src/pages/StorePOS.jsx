@@ -1259,7 +1259,10 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
 
-      const cartSnapshot = [...cart];
+      // لقطة الطباعة من الأصناف بعد تطبيق العروض — عشان السطور (سعر فعّال/مجاني)
+      // تطابق المجموع والإجمالي. النسخة الخام `cart` مفيهاش effectivePrice
+      // فكانت السطور تطلع بالسعر الكامل والإجمالي بالسعر بعد العرض.
+      const cartSnapshot = cartWithPromo.map((item) => ({ ...item }));
       const clientObj   = finalClientId ? clients.find((c) => c.id === finalClientId) : null;
       const clientName  = clientObj?.name || newClientName.trim() || "";
       const clientPhone = clientObj?.phone || newClientPhone.trim() || "";
@@ -1293,7 +1296,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
         : p));
       await Promise.all([fetchClients(), fetchShift()]);
       handleThermalPrint(
-        { id: invoiceRef.id, paymentMethod: finalPaymentMethod, discountType, discountRaw },
+        { id: invoiceRef.id, paymentMethod: finalPaymentMethod, discountType, discountRaw, promoSavings },
         cartSnapshot, clientName, clientPhone,
         cashierName.trim() || "—",
         splitInfoForPrint,
