@@ -1337,13 +1337,59 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content" style={{ fontFamily: "Cairo, sans-serif" }}>
-        <div className="header">
-          <div>
-            <h1 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <i className="fas fa-shirt" style={{ fontSize: 26, color: NAVY }}></i>
-              {t("storepos.title")}
-            </h1>
-            <p className="subtitle">{t("storepos.subtitle")}</p>
+        {/* Store hero banner */}
+        <div
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: 20,
+            padding: "22px 26px",
+            marginBottom: 20,
+            color: "white",
+            background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #6d28d9 100%)",
+            boxShadow: "0 12px 32px rgba(30, 58, 138, 0.35)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 14,
+          }}
+        >
+          <div aria-hidden="true" style={{ position: "absolute", top: -60, insetInlineEnd: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)" }} />
+          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 14 }}>
+            {storeLogo ? (
+              <img src={storeLogo} alt="logo" style={{ width: 56, height: 56, objectFit: "contain", borderRadius: 14, background: "rgba(255,255,255,0.95)", padding: 5, boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }} />
+            ) : (
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
+                <i className="fas fa-shirt"></i>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1.3 }}>
+                {storeName || t("storepos.title")}
+              </div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", marginTop: 3, fontWeight: 600 }}>
+                {t("storepos.subtitle")}
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: shift ? "rgba(22,163,74,0.25)" : "rgba(255,255,255,0.12)",
+              border: shift ? "1px solid rgba(134,239,172,0.5)" : "1px solid rgba(255,255,255,0.25)",
+              padding: "8px 18px",
+              borderRadius: 60,
+              fontSize: 13,
+              fontWeight: 800,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: shift ? "#4ade80" : "#fcd34d", boxShadow: shift ? "0 0 8px #4ade80" : "none" }}></span>
+            {shift ? `#${shift.number}` : t("shift.noShift")}
           </div>
         </div>
 
@@ -1534,7 +1580,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                       style={{
                         background: "white",
                         border: `2px solid ${inCart ? "#1e3a8a" : "#e2e8f0"}`,
-                        borderRadius: 14,
+                        borderRadius: 16,
                         padding: 0,
                         cursor: out ? "not-allowed" : "pointer",
                         opacity: out ? 0.55 : 1,
@@ -1543,25 +1589,26 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                         fontFamily: "Cairo, sans-serif",
                         overflow: "hidden",
                         position: "relative",
+                        boxShadow: inCart ? "0 8px 22px rgba(30,58,138,0.22)" : "0 2px 8px rgba(15,23,42,0.06)",
                       }}
                       onMouseEnter={(e) => {
                         if (!out) {
                           e.currentTarget.style.borderColor = "#1e3a8a";
                           e.currentTarget.style.transform = "translateY(-3px)";
-                          e.currentTarget.style.boxShadow = "0 8px 20px rgba(30,58,138,0.15)";
+                          e.currentTarget.style.boxShadow = "0 12px 26px rgba(30,58,138,0.22)";
                         }
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = inCart ? "#1e3a8a" : "#e2e8f0";
                         e.currentTarget.style.transform = "none";
-                        e.currentTarget.style.boxShadow = "none";
+                        e.currentTarget.style.boxShadow = inCart ? "0 8px 22px rgba(30,58,138,0.22)" : "0 2px 8px rgba(15,23,42,0.06)";
                       }}
                     >
                       {/* صورة المنتج — مفيش placeholder. الصنف من غير صورة
                           بيعرض اسمه بس؛ أيقونة قميص كانت بتوهم إن كل
                           المنتجين قمصان. */}
                       {product.imageUrl && (
-                        <div style={{ height: 120, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ height: 120, background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                         </div>
                       )}
@@ -1570,31 +1617,34 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                           style={{
                             position: "absolute",
                             top: 8,
-                            left: 8,
-                            background: "#1e3a8a",
+                            insetInlineStart: 8,
+                            background: "linear-gradient(135deg, #1e3a8a, #6d28d9)",
                             color: "white",
-                            borderRadius: "50%",
-                            width: 22,
-                            height: 22,
+                            borderRadius: 20,
+                            minWidth: 24,
+                            height: 24,
+                            padding: "0 6px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontSize: 12,
-                            fontWeight: 700,
+                            fontWeight: 800,
+                            boxShadow: "0 4px 10px rgba(30,58,138,0.4)",
                           }}
                         >
-                          {inCart.quantity}
+                          ×{inCart.quantity}
                         </span>
                       )}
                         <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
                         {/* بادج العرض */}
                         {promoLabel && (
                           <div style={{
-                            background: productPromo.type === "percent" ? "#dcfce7" : "#fdf4ff",
-                            color: productPromo.type === "percent" ? "#15803d" : "#7c3aed",
+                            background: productPromo.type === "percent" ? "linear-gradient(135deg, #059669, #34d399)" : "linear-gradient(135deg, #7c3aed, #c084fc)",
+                            color: "white",
                             fontSize: 10, fontWeight: 800,
-                            padding: "2px 8px", borderRadius: 20,
+                            padding: "3px 10px", borderRadius: 20,
                             textAlign: "center", letterSpacing: 0.3,
+                            boxShadow: "0 3px 8px rgba(15,23,42,0.18)",
                           }}>
                             🏷️ {promoLabel}
                           </div>
@@ -1617,10 +1667,10 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                           </div>
                         )}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                          <span style={{ fontWeight: 800, color: "#1e3a8a", fontSize: 14 }}>
+                          <span style={{ fontWeight: 800, fontSize: 12, color: "white", background: "linear-gradient(135deg, #1e3a8a, #6d28d9)", padding: "4px 12px", borderRadius: 20, boxShadow: "0 3px 8px rgba(30,58,138,0.3)" }}>
                             {productPromo && productPromo.type === "percent" ? (
                               <>
-                                <span style={{ textDecoration: "line-through", color: "#94a3b8", fontSize: 11, fontWeight: 600, marginLeft: 4 }}>{product.price}</span>
+                                <span style={{ textDecoration: "line-through", color: "rgba(255,255,255,0.65)", fontSize: 10, fontWeight: 600, marginInlineEnd: 4 }}>{product.price}</span>
                                 {(parseFloat(product.price) * (1 - productPromo.value / 100)).toFixed(2)}
                               </>
                             ) : (
@@ -1647,15 +1697,20 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
           </div>
 
           {/* ── سلة البيع ── */}
-          <div className="card" style={{ position: "sticky", top: 16 }}>
-            <h3 style={{ marginBottom: 14 }}>
-              <i className="fas fa-shopping-bag" style={{ color: "#1e3a8a" }}></i> {t("storepos.cart")}
-              {cart.length > 0 && (
-                <span className="badge" style={{ marginRight: 8, background: "#1e3a8a", color: "white" }}>
-                  {cart.length}
-                </span>
-              )}
-            </h3>
+          <div className="card" style={{ position: "sticky", top: 16, overflow: "hidden", borderRadius: 18, boxShadow: "0 10px 28px rgba(30,58,138,0.14)" }}>
+            <div style={{ margin: "-24px -24px 14px", padding: "14px 24px", background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #6d28d9 100%)", color: "white", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 36, height: 36, borderRadius: 12, background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+                <i className="fas fa-shopping-bag"></i>
+              </span>
+              <h3 style={{ margin: 0, color: "white", fontSize: 16 }}>
+                {t("storepos.cart")}
+                {cart.length > 0 && (
+                  <span className="badge" style={{ marginInlineStart: 8, background: "#fcd34d", color: "#0f172a" }}>
+                    {cart.length}
+                  </span>
+                )}
+              </h3>
+            </div>
 
             {/* الكاشير الواقف — بيتسجل مرة واحدة ويفضل محفوظ */}
             <div className="form-group" style={{ marginBottom: 12 }}>
@@ -2006,7 +2061,7 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
             </div>
 
             {/* الإجمالي */}
-            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%)", border: "1px solid #c7d2fe", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 13, color: "#64748b" }}>{t("pos.subtotal")}</span>
                 <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} {t("currency")}</span>
@@ -2039,9 +2094,12 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
               className="btn-primary btn-block"
               disabled={cart.length === 0 || submitting}
               style={{
-                background: cart.length === 0 ? "#cbd5e1" : "linear-gradient(135deg,#1e3a8a,#1e3a8a)",
-                fontSize: 16,
-                padding: "14px",
+                background: cart.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                fontSize: 17,
+                fontWeight: 900,
+                padding: "15px",
+                borderRadius: 14,
+                boxShadow: cart.length === 0 ? "none" : "0 8px 20px rgba(5,150,105,0.4)",
               }}
             >
               {submitting ? (
