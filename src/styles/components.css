@@ -72,21 +72,14 @@
   line-height: 1;
 }
 
-/* Color variants */
-.stat-card.indigo .stat-icon { background: var(--primary-bg); color: var(--primary); }
-.stat-card.indigo .stat-value { color: var(--primary-dark); }
-.stat-card.green .stat-icon { background: var(--success-bg); color: var(--success); }
-.stat-card.green .stat-value { color: #047857; }
-.stat-card.amber .stat-icon { background: var(--warning-bg); color: var(--warning); }
-.stat-card.amber .stat-value { color: #b45309; }
-.stat-card.purple .stat-icon { background: #f3e8ff; color: #7c3aed; }
-.stat-card.purple .stat-value { color: #6d28d9; }
-.stat-card.pink .stat-icon { background: #fdf2f8; color: #db2777; }
-.stat-card.pink .stat-value { color: #be185d; }
-.stat-card.cyan .stat-icon { background: #ecfeff; color: #0891b2; }
-.stat-card.cyan .stat-value { color: #0e7490; }
-.stat-card.red .stat-icon { background: var(--danger-bg); color: var(--danger); }
-.stat-card.red .stat-value { color: #dc2626; }
+/* Color variants — gradient pairs drive the icon chip + top bar */
+.stat-card.indigo { --sc-from: #4f46e5; --sc-to: #8b5cf6; }
+.stat-card.green { --sc-from: #059669; --sc-to: #34d399; }
+.stat-card.amber { --sc-from: #d97706; --sc-to: #fbbf24; }
+.stat-card.purple { --sc-from: #7c3aed; --sc-to: #c084fc; }
+.stat-card.pink { --sc-from: #db2777; --sc-to: #f9a8d4; }
+.stat-card.cyan { --sc-from: #0891b2; --sc-to: #67e8f9; }
+.stat-card.red { --sc-from: #dc2626; --sc-to: #f87171; }
 
 /* ==================
    Cards Grid
