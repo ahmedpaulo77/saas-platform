@@ -2320,6 +2320,11 @@
     // ----- سجل النشاط (سوبر أدمن — خصوصية قصوى: نوع الإجراء والوقت فقط) -----
     "sa.tabCompanies": "الشركات",
     "sa.tabActivity": "سجل النشاط",
+    "sa.tabModules": "التحكم في الصفحات",
+    "sa.modHint": "علم الصح على الصفحات اللي تبان لكل حساب في الشركة — لو شلت الصح الصفحة تختفي من عندهم كلهم (أدمن ويوزر وكاشير) حتى بالرابط المباشر. الشركة الجديدة كل صفحاتها مفعلة.",
+    "sa.modSearchPh": "ابحث باسم الشركة...",
+    "sa.modEnabled": "مفعلة",
+    "sa.modEmpty": "لا توجد شركات مطابقة",
     "sa.actHint": "يعرض نوع الإجراء والوقت فقط — بدون مبالغ أو أسماء عملاء أو تفاصيل (آخر 200 حدث).",
     "sa.filterCompany": "كل الشركات",
     "sa.filterAction": "كل الإجراءات",
@@ -4672,6 +4677,11 @@
     // ----- Activity log (super admin — max privacy: action type and time only) -----
     "sa.tabCompanies": "Companies",
     "sa.tabActivity": "Activity Log",
+    "sa.tabModules": "Page Control",
+    "sa.modHint": "Check the pages visible to every account in the company — unchecked pages disappear for all of them (admin, user, cashier), even via direct link. New companies start with everything enabled.",
+    "sa.modSearchPh": "Search by company name...",
+    "sa.modEnabled": "enabled",
+    "sa.modEmpty": "No matching companies",
     "sa.actHint": "Shows action type and time only — no amounts, client names or details (last 200 events).",
     "sa.filterCompany": "All companies",
     "sa.filterAction": "All actions",

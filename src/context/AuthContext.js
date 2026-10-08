@@ -36,6 +36,9 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [userCompanyId, setUserCompanyId] = useState(null);
   const [userIndustry, setUserIndustry] = useState('general');
+  // الوحدات المقفولة من السوبر أدمن لهذه الشركة (companies/{id}.disabledModules)
+  const [userDisabledModules, setUserDisabledModules] = useState([]);
+  const normDisabled = (v) => (Array.isArray(v) ? v.filter((m) => typeof m === "string") : []);
   const [loading, setLoading] = useState(true);
 
   /**
@@ -168,6 +171,7 @@ export function AuthProvider({ children }) {
       // تكون فيها صلاحيات قديمة نافذة على الحساب الجديد
       setUserRole(null);
       setUserCompanyId(null);
+      setUserDisabledModules([]);
 
       if (user) {
         // ✅ استماع لحظي لتغييرات مستند المستخدم (Role و CompanyId)
@@ -216,21 +220,25 @@ export function AuthProvider({ children }) {
                 if (companySnap.exists()) {
                   const companyData = companySnap.data();
                   setUserIndustry(companyData.industry || 'general');
+                  setUserDisabledModules(normDisabled(companyData.disabledModules));
                   if (userData.role !== "super_admin" && !isMarkedActive(companyData)) {
                     rememberAuthBlock("company-disabled");
                     signOut(auth);
                   }
                 } else {
                   setUserIndustry('general');
+                  setUserDisabledModules([]);
                 }
                 companyFirstDone();
               }, (e) => {
                 console.warn("Error fetching company industry:", e.message);
                 setUserIndustry('general');
+                setUserDisabledModules([]);
                 companyFirstDone();
               });
             } else {
               setUserIndustry('general');
+              setUserDisabledModules([]);
               finish();
             }
             
@@ -244,6 +252,7 @@ export function AuthProvider({ children }) {
             setUserRole('user');
             setUserCompanyId(null);
             setUserIndustry('general');
+            setUserDisabledModules([]);
             finish();
           }
         }, (error) => {
@@ -254,6 +263,7 @@ export function AuthProvider({ children }) {
           if (listeningUid === user.uid) {
             setUserRole("user");
             setUserCompanyId(null);
+            setUserDisabledModules([]);
             setLoading(false);
           }
         });
@@ -263,6 +273,7 @@ export function AuthProvider({ children }) {
         setUserRole(null);
         setUserCompanyId(null);
         setUserIndustry('general');
+        setUserDisabledModules([]);
         pushInitialized = false;
         setLoading(false);
       }
@@ -280,6 +291,7 @@ export function AuthProvider({ children }) {
     userRole,
     userCompanyId,
     userIndustry,
+    userDisabledModules,
     loading,
     signup,
     signupAuth,

@@ -231,7 +231,17 @@ export const MODULE_MAP = {
 };
 
 // الوحدات المتاحة لكل مستخدم
-export function getAvailableModules(industry, userRole) {
+// disabledModules: وحدات قفلها السوبر أدمن لهذه الشركة (companies/{id}.disabledModules)
+// — تُخصم من الكل (أدمن ويوزر وكاشير)، والسوبر أدمن نفسه مستثنى.
+export function getAvailableModules(industry, userRole, disabledModules = []) {
+  const stripDisabled = (set) => {
+    if (Array.isArray(disabledModules)) {
+      disabledModules.forEach((m) => {
+        if (typeof m === "string") set.delete(m);
+      });
+    }
+    return set;
+  };
   // السوبر أدمن يشوف بس أدوات إدارة النظام (الشركات والمستخدمين والتقارير)
   // من غير الوحدات التشغيلية الخاصة بالشركات المشتركين
   if (userRole === "super_admin") {
@@ -249,22 +259,24 @@ export function getAvailableModules(industry, userRole) {
 
   // 🔥 المطبخ: شاشة المطبخ فقط (لا بيع ولا أسعار ولا بيانات)
   if (userRole === "kitchen") {
-    return new Set(["kitchen", "notifications", "profile", "about"]);
+    return stripDisabled(new Set(["kitchen", "notifications", "profile", "about"]));
   }
 
   // 💰 الكاشير: بيع + عملاء + طلبات فقط (لا مخزون ولا تقارير ولا إعدادات)
   if (userRole === "cashier") {
-    return new Set([
-      "dashboard",
-      "pos",
-      "store-pos",
-      "clients",
-      "invoices",
-      "sales",
-      "notifications",
-      "profile",
-      "about",
-    ]);
+    return stripDisabled(
+      new Set([
+        "dashboard",
+        "pos",
+        "store-pos",
+        "clients",
+        "invoices",
+        "sales",
+        "notifications",
+        "profile",
+        "about",
+      ])
+    );
   }
 
   const modules = new Set([...MODULE_MAP._base]);
@@ -297,12 +309,12 @@ export function getAvailableModules(industry, userRole) {
     modules.add("statements");
   }
 
-  return modules;
+  return stripDisabled(modules);
 }
 
 // التحقق من صلاحية الوصول لصفحة
-export function canAccess(moduleKey, industry, userRole) {
-  const available = getAvailableModules(industry, userRole);
+export function canAccess(moduleKey, industry, userRole, disabledModules = []) {
+  const available = getAvailableModules(industry, userRole, disabledModules);
   return available.has(moduleKey);
 }
 

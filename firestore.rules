@@ -468,7 +468,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
           request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'posRequirements', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'posRequirements', 'disabledModules', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
           (
           isSuperAdmin() ||
           (
@@ -483,6 +483,9 @@
             //    ومش فوق السقف.
             (!('maxAdmins' in request.resource.data) || request.resource.data.maxAdmins == resource.data.maxAdmins) &&
             (!('maxUsers' in request.resource.data) || request.resource.data.maxUsers == resource.data.maxUsers) &&
+            // 🔒 صفحات الشركة (disabledModules) للسوبر أدمن فقط — مدير الشركة
+            //    لا يلمسها (وإلا رجّع لنفسه الصفحات المقفولة من الكونسول)
+            (!('disabledModules' in request.resource.data) || isSuperAdmin()) &&
             counterChangeIsSane(request.resource.data, resource.data) &&
             // 🆕 لوجو المحل: الأدمن يغيّره فقط لو الميزة مفعّلة له من السوبر أدمن
             // (features.customLogo == true على المستند الحالي)

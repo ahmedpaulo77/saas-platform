@@ -13,7 +13,7 @@ import { moneyShort } from "../../utils/fmt.js";
 
 export default function InvoiceForm({ clients, products, newInvoice, setNewInvoice, onSubmit, submitting, fetchClients, taxRate = 0 }) {
   const { t, locale } = useLanguage();
-  const { userCompanyId, currentUser, userIndustry, userRole } = useAuth();
+  const { userCompanyId, currentUser, userIndustry, userRole, userDisabledModules } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
   const isRestaurant = (isRestaurantOnly || isCafe);
@@ -22,7 +22,7 @@ export default function InvoiceForm({ clients, products, newInvoice, setNewInvoi
   const isClinic = userIndustry === "clinic";
   const isClothing = userIndustry === "clothing";
   // الملابس: اسم الصنف لوحده لا يكفي — المقاس/اللون يظهران جنبه (زي المشتريات)
-  const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
+  const hasInventory = getAvailableModules(userIndustry, userRole, userDisabledModules).has("inventory");
 
   // وضع المبلغ الحر: العيادة بس (كشف حر، مش بيع أصناف).
   // لما يكون فيه بنود، المبلغ بيتحسب منهم وبيتقفل — زي باقي المهن.

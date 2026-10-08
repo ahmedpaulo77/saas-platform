@@ -28,8 +28,8 @@ export function getInvoiceApproval(inv) {
 
 export function useInvoices() {
   const { t } = useLanguage();
-  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
+  const { userRole, userCompanyId, currentUser, userIndustry, userDisabledModules } = useAuth();
+  const hasInventory = getAvailableModules(userIndustry, userRole, userDisabledModules).has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isClinic = userIndustry === "clinic";
   const isCafe = userIndustry === "cafe";

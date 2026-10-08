@@ -75,8 +75,8 @@ const Demo = lazy(() => import("./pages/Demo"));
 
 // مكون لحماية المسارات حسب مجال العمل
 function IndustryRoute({ moduleKey, children }) {
-  const { userRole, userIndustry } = useAuth();
-  const available = getAvailableModules(userIndustry, userRole);
+  const { userRole, userIndustry, userDisabledModules } = useAuth();
+  const available = getAvailableModules(userIndustry, userRole, userDisabledModules);
 
   if (!available.has(moduleKey)) {
     return <Navigate to="/dashboard" />;

@@ -231,14 +231,14 @@ const ALL_FEATURE_CARDS = [
 
 export default function Dashboard() {
   const { t, locale } = useLanguage();
-  const { currentUser, userRole, userCompanyId, userIndustry, logout } =
+  const { currentUser, userRole, userCompanyId, userIndustry, userDisabledModules, logout } =
     useAuth();
   const navigate = useNavigate();
 
   // ✅ التحقق من أن المستخدم Admin أو Super Admin
   const isAdmin = userRole === "admin" || userRole === "super_admin";
 
-  const availableModules = getAvailableModules(userIndustry, userRole);
+  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules);
   // 🆕 الأيقونة بتتبع المهنة زي العنوان والوصف.
   // الكارت بيبقى "fas fa-..." جاهز، وبنستبدل الجزء terakhir باللي يناسب المهنة.
   const featureCards = ALL_FEATURE_CARDS.filter((card) =>
@@ -579,32 +579,92 @@ export default function Dashboard() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <div className="main-content">
-        <div className="header">
-          <div>
-            <h1 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              {companyLogo && (
-                <img src={companyLogo} alt="logo" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 10, border: "1px solid #e2e8f0", background: "white" }} />
-              )}
-              <span>
+        {/* Hero banner */}
+        <div
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: 20,
+            padding: "28px 30px",
+            marginBottom: 28,
+            color: "white",
+            background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #6d28d9 100%)",
+            boxShadow: "0 12px 32px rgba(30, 58, 138, 0.35)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 18,
+          }}
+        >
+          {/* decorative glows */}
+          <div aria-hidden="true" style={{ position: "absolute", top: -70, insetInlineEnd: -50, width: 230, height: 230, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 70%)" }} />
+          <div aria-hidden="true" style={{ position: "absolute", bottom: -90, insetInlineStart: "30%", width: 280, height: 280, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.35) 0%, rgba(139,92,246,0) 70%)" }} />
+          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            {companyLogo ? (
+              <img src={companyLogo} alt="logo" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 16, background: "rgba(255,255,255,0.95)", padding: 6, boxShadow: "0 4px 14px rgba(0,0,0,0.25)" }} />
+            ) : (
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>
+                <i className="fas fa-store"></i>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1.3 }}>
                 {t("dash.welcome")}
-                {companyName && (
-                  <span style={{ fontSize: "inherit", fontWeight: "inherit" }}>
-                    {" "}
-                    ({companyName})
-                  </span>
-                )}
-              </span>
-            </h1>
-            <p className="subtitle">{t("dash.subtitle")}</p>
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fcd34d", marginTop: 2 }}>
+                {companyName || t("dash.subtitle")}
+              </div>
+              <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", marginTop: 4, fontWeight: 600 }}>
+                <i className="fas fa-calendar-day" style={{ marginInlineEnd: 6 }}></i>
+                {new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </div>
+            </div>
           </div>
-          <div className="user-info">
-            <div className="avatar">
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              background: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.25)",
+              padding: "8px 18px 8px 10px",
+              borderRadius: 60,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #fcd34d, #f59e0b)",
+                color: "#0f172a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: 16,
+              }}
+            >
               {currentUser?.email?.charAt(0).toUpperCase() || "A"}
             </div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {currentUser?.email}
             </span>
-            <span className="role-badge">
+            <span
+              style={{
+                background: "rgba(252,211,77,0.2)",
+                color: "#fcd34d",
+                border: "1px solid rgba(252,211,77,0.4)",
+                padding: "3px 12px",
+                borderRadius: 60,
+                fontSize: 11,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+              }}
+            >
               {userRole === "super_admin"
                 ? `👑 ${t("role.superAdmin")}`
                 : userRole === "admin"

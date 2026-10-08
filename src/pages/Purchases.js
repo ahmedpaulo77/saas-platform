@@ -42,8 +42,8 @@ const PAGE_SIZE = 25;
 
 export default function Purchases() {
   const { t, locale } = useLanguage();
-  const { userRole, userCompanyId, currentUser, userIndustry } = useAuth();
-  const availableModules = getAvailableModules(userIndustry, userRole);
+  const { userRole, userCompanyId, currentUser, userIndustry, userDisabledModules } = useAuth();
+  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules);
   const hasInventory = availableModules.has("inventory");
   const isAdmin = userRole === "admin" || userRole === "super_admin";
   const isTrader = userIndustry === "trader";

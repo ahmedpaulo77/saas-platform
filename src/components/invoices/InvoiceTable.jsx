@@ -39,13 +39,13 @@ export default function InvoiceTable({
   PAGE_SIZE = 25,
 }) {
   const { t, locale } = useLanguage();
-  const { userRole, userIndustry } = useAuth();
+  const { userRole, userIndustry, userDisabledModules } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
   const isRestaurant = (isRestaurantOnly || isCafe);
   const isFood = isRestaurant;
   const isClinic = userIndustry === "clinic";
-  const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
+  const hasInventory = getAvailableModules(userIndustry, userRole, userDisabledModules).has("inventory");
   const userCanDelete = canDelete(userRole);
   const getApproval = (inv) => inv.approval || "validated";
   const approvalStyle = (ap) => ap === "validated"

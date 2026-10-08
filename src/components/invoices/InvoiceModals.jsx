@@ -22,14 +22,14 @@ export default function InvoiceModals({
   clients, products,
 }) {
   const { t, locale } = useLanguage();
-  const { userIndustry, userRole } = useAuth();
+  const { userIndustry, userRole, userDisabledModules } = useAuth();
   const isCafe = userIndustry === "cafe";
   const isRestaurantOnly = userIndustry === "restaurant";
   const isRestaurant = (isRestaurantOnly || isCafe);
   const isFood = isRestaurant;
   const isTrader = userIndustry === "trader";
   const isClinic = userIndustry === "clinic";
-  const hasInventory = getAvailableModules(userIndustry, userRole).has("inventory");
+  const hasInventory = getAvailableModules(userIndustry, userRole, userDisabledModules).has("inventory");
   const entityColumnLabel = isClinic ? t("in.patientColumn") : t("in.client");
   const chooseEntityPlaceholder = isClinic ? t("in.choosePatient") : t("in.chooseClient");
 

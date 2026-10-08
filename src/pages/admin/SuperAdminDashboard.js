@@ -18,6 +18,7 @@ import { useLanguage } from "../../i18n/LanguageContext.js";
 import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits.js";
 import { logActivity } from "../../utils/auditLogger.js";
 import { fmtDate, fmtDateTime } from "../../utils/fmt.js";
+import { getAvailableModules, getModuleLabel, getIndustryLabel } from "../../utils/modules.js";
 
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState([]);
@@ -44,6 +45,53 @@ export default function SuperAdminDashboard() {
   const [logAction, setLogAction] = useState("all");
   const [logEntity, setLogEntity] = useState("all");
   const [logSearch, setLogSearch] = useState("");
+
+  // ── التحكم في الصفحات لكل شركة (disabledModules على مستند الشركة) ──
+  const [modExpanded, setModExpanded] = useState(null);
+  const [modSearch, setModSearch] = useState("");
+
+  // كل وحدات المجال (كما يراها أدمن الشركة) — مرتبة: الأساسية ثم التشغيلية
+  function companyModules(company) {
+    return [...getAvailableModules(company.industry || "general", "admin")];
+  }
+
+  function isModuleOff(company, moduleKey) {
+    return Array.isArray(company.disabledModules) && company.disabledModules.includes(moduleKey);
+  }
+
+  async function toggleModule(company, moduleKey) {
+    const key = `${company.id}:module`;
+    if (saving[key]) return;
+    const current = Array.isArray(company.disabledModules) ? company.disabledModules : [];
+    const off = current.includes(moduleKey);
+    const next = off ? current.filter((m) => m !== moduleKey) : [...current, moduleKey];
+    setSaving((s) => ({ ...s, [key]: true }));
+    try {
+      await updateDoc(doc(db, "companies", company.id), { disabledModules: next });
+      setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, disabledModules: next } : c)));
+      await logActivity({
+        actionType: "UPDATE",
+        collectionName: "companies",
+        itemId: company.id,
+        details: `${off ? "Enabled" : "Disabled"} module ${moduleKey} for company`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole },
+      });
+    } catch (e) {
+      console.error("toggle module failed:", e);
+      alert(t("common.errorGeneric"));
+    } finally {
+      setSaving((s) => ({ ...s, [key]: false }));
+    }
+  }
+
+  const modCompanies = companies
+    .filter((c) => {
+      const q = modSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (c.name || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+    })
+    .slice()
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ar"));
 
   async function fetchActivity() {
     setLogsLoading(true);
@@ -453,6 +501,7 @@ export default function SuperAdminDashboard() {
           {[
             { id: "companies", label: t("sa.tabCompanies"), icon: "fas fa-building" },
             { id: "activity", label: t("sa.tabActivity"), icon: "fas fa-clock-rotate-left" },
+            { id: "modules", label: t("sa.tabModules"), icon: "fas fa-list-check" },
           ].map((tab) => {
             const active = activeTab === tab.id;
             return (
@@ -984,6 +1033,98 @@ export default function SuperAdminDashboard() {
             )}
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === "modules" && (
+        <>
+        <p style={{ margin: "0 0 16px", color: "#64748b", fontSize: 13 }}>
+          <i className="fas fa-circle-info" style={{ marginLeft: 6, color: "#0f172a" }}></i>
+          {t("sa.modHint")}
+        </p>
+
+        <div className="filter-bar">
+          <div className="search-wrapper" style={{ flex: 1 }}>
+            <i className="fas fa-search search-icon"></i>
+            <input
+              type="text"
+              placeholder={t("sa.modSearchPh")}
+              value={modSearch}
+              onChange={(e) => setModSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {modCompanies.length === 0 ? (
+          <div className="table-empty">
+            <i className="fas fa-building"></i>
+            <p>{t("sa.modEmpty")}</p>
+          </div>
+        ) : (
+          modCompanies.map((c) => {
+            const all = companyModules(c);
+            const offCount = all.filter((m) => isModuleOff(c, m)).length;
+            const onCount = all.length - offCount;
+            const open = modExpanded === c.id;
+            const busy = !!saving[`${c.id}:module`];
+            return (
+              <div key={c.id} className="table-container" style={{ marginBottom: 12 }}>
+                <div
+                  className="table-header"
+                  onClick={() => setModExpanded(open ? null : c.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <h3>
+                    <i className={`fas ${open ? "fa-chevron-down" : "fa-chevron-left"}`} style={{ marginLeft: 8, fontSize: 12, color: "#94a3b8" }}></i>
+                    {c.name || t("common.unspecified")}
+                    <span style={{ fontWeight: 400, fontSize: 12, color: "#64748b", marginRight: 8 }}>
+                      {getIndustryLabel(c.industry || "general", t)}
+                    </span>
+                  </h3>
+                  <span className="table-count">
+                    {onCount}/{all.length} {t("sa.modEnabled")}
+                    {busy ? " ..." : ""}
+                  </span>
+                </div>
+                {open && (
+                  <div style={{ padding: "16px 20px", display: "flex", flexWrap: "wrap", gap: 10, opacity: busy ? 0.6 : 1 }}>
+                    {all.map((m) => {
+                      const off = isModuleOff(c, m);
+                      return (
+                        <label
+                          key={m}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: off ? "#94a3b8" : "#1e293b",
+                            background: off ? "#f8fafc" : "#f0fdf4",
+                            border: off ? "1px solid #e2e8f0" : "1px solid #86efac",
+                            borderRadius: 10,
+                            padding: "8px 14px",
+                            cursor: busy ? "wait" : "pointer",
+                            textDecoration: off ? "line-through" : "none",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!off}
+                            disabled={busy}
+                            onChange={() => toggleModule(c, m)}
+                            style={{ width: 16, height: 16, accentColor: "#059669" }}
+                          />
+                          {getModuleLabel(m, t)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
         </>
         )}
       </div>
