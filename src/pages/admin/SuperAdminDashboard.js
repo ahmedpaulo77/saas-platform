@@ -6,10 +6,14 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../../firebase/config.js";
 import { useAuth } from "../../context/AuthContext.js";
 import Sidebar from "../../components/common/Sidebar.js";
+import Pagination from "../../components/common/Pagination.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits.js";
 import { logActivity } from "../../utils/auditLogger.js";
@@ -30,6 +34,78 @@ export default function SuperAdminDashboard() {
   });
   const { currentUser, userRole } = useAuth();
   const { t, locale } = useLanguage();
+
+  // ── سجل النشاط (خصوصية قصوى: نوع الإجراء + الكيان + المستخدم + الشركة + الوقت فقط) ──
+  const [activeTab, setActiveTab] = useState("companies");
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsLoaded, setLogsLoaded] = useState(false);
+  const [logCompany, setLogCompany] = useState("all");
+  const [logAction, setLogAction] = useState("all");
+  const [logEntity, setLogEntity] = useState("all");
+  const [logSearch, setLogSearch] = useState("");
+
+  async function fetchActivity() {
+    setLogsLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "auditLogs"), orderBy("timestamp", "desc"), limit(200))
+      );
+      setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLogsLoaded(true);
+    } catch (e) {
+      console.error("Error fetching activity:", e);
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
+  function openTab(tab) {
+    setActiveTab(tab);
+    if (tab === "activity" && !logsLoaded && !logsLoading) fetchActivity();
+  }
+
+  // اسم الكيان بالعربي — أي كولكشن جديد يظهر باسمه الخام تلقائياً
+  function entityLabel(collectionName) {
+    const key = `sa.ent.${collectionName}`;
+    const v = t(key);
+    return v === key ? (collectionName || "—") : v;
+  }
+
+  const ENTITY_OPTIONS = [
+    "invoices", "purchases", "returns", "expenses", "vouchers", "inventory",
+    "clients", "suppliers", "employees", "employee_advances", "employee_penalties",
+    "sales_reps", "users", "companies", "tasks", "promotions", "projects",
+    "certificates", "closings", "attendance", "clothing_lookups", "variant_codes",
+    "invite_codes", "messages",
+  ];
+
+  const filteredLogs = logs.filter((l) => {
+    if (logCompany !== "all" && (l.companyId || "") !== logCompany) return false;
+    if (logAction !== "all" && (l.actionType || "") !== logAction) return false;
+    if (logEntity !== "all" && (l.collectionName || "") !== logEntity) return false;
+    const q = logSearch.trim().toLowerCase();
+    if (q) {
+      const actor = l.performedBy || l.user || {};
+      const hay = `${actor.email || ""} ${actor.uid || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  function actionBadge(actionType) {
+    const style =
+      actionType === "CREATE"
+        ? { background: "#f0fdf4", color: "#15803d", border: "1px solid #86efac" }
+        : actionType === "DELETE"
+          ? { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }
+          : { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #93c5fd" };
+    return (
+      <span className="badge" style={style}>
+        {t(`sa.act${actionType}`) === `sa.act${actionType}` ? actionType : t(`sa.act${actionType}`)}
+      </span>
+    );
+  }
 
   useEffect(() => {
     fetchCompanies();
@@ -372,6 +448,38 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+          {[
+            { id: "companies", label: t("sa.tabCompanies"), icon: "fas fa-building" },
+            { id: "activity", label: t("sa.tabActivity"), icon: "fas fa-clock-rotate-left" },
+          ].map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => openTab(tab.id)}
+                style={{
+                  padding: "10px 28px",
+                  fontSize: 15,
+                  fontWeight: 800,
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  border: active ? "2px solid #0f172a" : "2px solid #e2e8f0",
+                  background: active ? "#0f172a" : "white",
+                  color: active ? "white" : "#64748b",
+                }}
+              >
+                <i className={tab.icon} style={{ marginLeft: 8 }}></i>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTab === "companies" && (
+        <>
         {/* ⏳ طلبات الانضمام المعلقة — حسابات جديدة مستنية قبولك */}
         <div className="table-container" style={{ border: pendingUsers.length > 0 ? "2px solid #f59e0b" : undefined, marginBottom: 28 }}>
           <div className="table-header">
@@ -772,6 +880,112 @@ export default function SuperAdminDashboard() {
             )}
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === "activity" && (
+        <>
+        <p style={{ margin: "0 0 16px", color: "#64748b", fontSize: 13 }}>
+          <i className="fas fa-shield-halved" style={{ marginLeft: 6, color: "#059669" }}></i>
+          {t("sa.actHint")}
+        </p>
+
+        <div className="filter-bar">
+          <div className="search-wrapper" style={{ flex: 1 }}>
+            <i className="fas fa-search search-icon"></i>
+            <input
+              type="text"
+              placeholder={t("sa.actSearchPh")}
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+            />
+          </div>
+          <select value={logCompany} onChange={(e) => setLogCompany(e.target.value)}>
+            <option value="all">{t("sa.filterCompany")}</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name || c.id}</option>
+            ))}
+          </select>
+          <select value={logAction} onChange={(e) => setLogAction(e.target.value)}>
+            <option value="all">{t("sa.filterAction")}</option>
+            <option value="CREATE">{t("sa.actCREATE")}</option>
+            <option value="UPDATE">{t("sa.actUPDATE")}</option>
+            <option value="DELETE">{t("sa.actDELETE")}</option>
+          </select>
+          <select value={logEntity} onChange={(e) => setLogEntity(e.target.value)}>
+            <option value="all">{t("sa.filterEntity")}</option>
+            {ENTITY_OPTIONS.map((col) => (
+              <option key={col} value={col}>{entityLabel(col)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="table-container">
+          <div className="table-header">
+            <h3>
+              <i className="fas fa-clock-rotate-left"></i> {t("sa.tabActivity")}
+            </h3>
+            <span className="table-count">{filteredLogs.length}</span>
+          </div>
+          <div className="table-wrapper">
+            {logsLoading ? (
+              <div className="loading">
+                <div className="spinner"></div>
+                {t("common.loading")}
+              </div>
+            ) : (
+              <Pagination
+                data={filteredLogs}
+                pageSize={20}
+                resetKey={`${logCompany}-${logAction}-${logEntity}-${logSearch}`}
+                empty={
+                  <div className="table-empty">
+                    <i className="fas fa-clock-rotate-left"></i>
+                    <p>{t("sa.actEmpty")}</p>
+                  </div>
+                }
+                render={(pageItems, total, start) => (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>{t("sa.colTime")}</th>
+                        <th>{t("sa.colUser")}</th>
+                        <th>{t("sa.colCompany")}</th>
+                        <th>{t("sa.colAction")}</th>
+                        <th>{t("sa.colEntity")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((l, i) => {
+                        const actor = l.performedBy || l.user || {};
+                        return (
+                          <tr key={l.id}>
+                            <td>{start + i + 1}</td>
+                            <td style={{ color: "var(--gray-500)", fontSize: 12, whiteSpace: "nowrap" }}>
+                              {l.timestamp ? fmtDate(l.timestamp, locale) : "—"}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 700, fontSize: 13 }}>{actor.email || "—"}</div>
+                              <div style={{ fontSize: 11, color: "#64748b" }}>{actor.role || ""}</div>
+                            </td>
+                            <td style={{ fontWeight: 600, fontSize: 13 }}>
+                              {companyNameOf(l.companyId)}
+                            </td>
+                            <td>{actionBadge(l.actionType)}</td>
+                            <td style={{ fontWeight: 700 }}>{entityLabel(l.collectionName)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              />
+            )}
+          </div>
+        </div>
+        </>
+        )}
       </div>
     </div>
   );
