@@ -17,7 +17,7 @@ import Pagination from "../../components/common/Pagination.js";
 import { useLanguage } from "../../i18n/LanguageContext.js";
 import { seatStatus, tallyCompany, parseLimitInput } from "../../utils/limits.js";
 import { logActivity } from "../../utils/auditLogger.js";
-import { fmtDate } from "../../utils/fmt.js";
+import { fmtDate, fmtDateTime } from "../../utils/fmt.js";
 
 export default function SuperAdminDashboard() {
   const [companies, setCompanies] = useState([]);
@@ -963,7 +963,7 @@ export default function SuperAdminDashboard() {
                           <tr key={l.id}>
                             <td>{start + i + 1}</td>
                             <td style={{ color: "var(--gray-500)", fontSize: 12, whiteSpace: "nowrap" }}>
-                              {l.timestamp ? fmtDate(l.timestamp, locale) : "—"}
+                              {l.timestamp ? fmtDateTime(l.timestamp, locale) : "—"}
                             </td>
                             <td>
                               <div style={{ fontWeight: 700, fontSize: 13 }}>{actor.email || "—"}</div>
