@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/common/Sidebar.js";
 import { getAvailableModules } from "../utils/modules.js";
+import { isCardHidden, normHiddenCards } from "../utils/dashCards.js";
 import { round2 } from "../utils/traderUnits.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { moneyShort, num } from "../utils/fmt.js";
@@ -273,6 +274,8 @@ export default function Dashboard() {
   const [companyName, setCompanyName] = useState("");
   // ✅ لوجو المحل — نفس الصورة المرفوعة للفاتورة (من شركتي)، تظهر جنب الاسم
   const [companyLogo, setCompanyLogo] = useState("");
+  // الكروت المخفية من صفحة شركتي (companies/{id}.hiddenDashCards)
+  const [hiddenCards, setHiddenCards] = useState([]);
 
   // ✅ رسم الإيراد اليومي (آخر 30 يوم) + مقارنة الشهر الحالي بالسابق
   const [dailyRevenue, setDailyRevenue] = useState([]);
@@ -286,6 +289,7 @@ export default function Dashboard() {
         if (snap.exists()) {
           setCompanyName(snap.data().name || "");
           if (snap.data().logoUrl) setCompanyLogo(String(snap.data().logoUrl));
+          setHiddenCards(normHiddenCards(snap.data().hiddenDashCards));
         }
       } catch (e) {
         console.error("Failed to fetch company name", e);
@@ -709,7 +713,7 @@ export default function Dashboard() {
         {isAdmin ? (
           <>
           <div className="stats-row anim-stagger">
-            {availableModules.has("companies") && (
+            {availableModules.has("companies") && !isCardHidden(hiddenCards, "companies") && (
               <div className="stat-card indigo">
                 <div className="stat-icon">
                   <i className="fas fa-building"></i>
@@ -720,7 +724,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.companies")}</div>
               </div>
             )}
-            {availableModules.has("clients") && (
+            {availableModules.has("clients") && !isCardHidden(hiddenCards, "clients") && (
               <div className="stat-card green">
                 <div className="stat-icon">
                   <i className="fas fa-user-friends"></i>
@@ -731,7 +735,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.clients")}</div>
               </div>
             )}
-            {availableModules.has("sellers") && (
+            {availableModules.has("sellers") && !isCardHidden(hiddenCards, "sellers") && (
               <div className="stat-card amber">
                 <div className="stat-icon">
                   <i className="fas fa-store"></i>
@@ -742,7 +746,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.sellers")}</div>
               </div>
             )}
-            {availableModules.has("buyers") && (
+            {availableModules.has("buyers") && !isCardHidden(hiddenCards, "buyers") && (
               <div className="stat-card pink">
                 <div className="stat-icon">
                   <i className="fas fa-user-plus"></i>
@@ -753,7 +757,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.buyers")}</div>
               </div>
             )}
-            {availableModules.has("invoices") && (
+            {availableModules.has("invoices") && !isCardHidden(hiddenCards, "invoices") && (
               <div className="stat-card amber">
                 <div className="stat-icon">
                   <i className="fas fa-file-invoice"></i>
@@ -764,7 +768,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.invoices")}</div>
               </div>
             )}
-            {availableModules.has("tasks") && (
+            {availableModules.has("tasks") && !isCardHidden(hiddenCards, "tasks") && (
               <div className="stat-card pink">
                 <div className="stat-icon">
                   <i className="fas fa-tasks"></i>
@@ -775,7 +779,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.tasks")}</div>
               </div>
             )}
-            {availableModules.has("projects") && (
+            {availableModules.has("projects") && !isCardHidden(hiddenCards, "projects") && (
               <div className="stat-card red">
                 <div className="stat-icon">
                   <i className="fas fa-project-diagram"></i>
@@ -786,7 +790,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.projects")}</div>
               </div>
             )}
-            {availableModules.has("users") && (
+            {availableModules.has("users") && !isCardHidden(hiddenCards, "users") && (
               <div className="stat-card purple">
                 <div className="stat-icon">
                   <i className="fas fa-users"></i>
@@ -797,7 +801,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.users")}</div>
               </div>
             )}
-            {availableModules.has("suppliers") && (
+            {availableModules.has("suppliers") && !isCardHidden(hiddenCards, "suppliers") && (
               <div className="stat-card cyan">
                 <div className="stat-icon">
                   <i className="fas fa-truck"></i>
@@ -808,7 +812,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("nav.suppliers")}</div>
               </div>
             )}
-            {availableModules.has("purchases") && (
+            {availableModules.has("purchases") && !isCardHidden(hiddenCards, "purchases") && (
               <div className="stat-card amber">
                 <div className="stat-icon">
                   <i className="fas fa-cart-arrow-down"></i>
@@ -819,7 +823,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("dash.purchases")}</div>{" "}
               </div>
             )}
-            {availableModules.has("appointments") && (
+            {availableModules.has("appointments") && !isCardHidden(hiddenCards, "appointments") && (
               <div className="stat-card indigo">
                 <div className="stat-icon">
                   <i className="fas fa-calendar-alt"></i>
@@ -830,7 +834,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("modules.appointments")}</div>
               </div>
             )}
-            {availableModules.has("patients") && (
+            {availableModules.has("patients") && !isCardHidden(hiddenCards, "patients") && (
               <div className="stat-card green">
                 <div className="stat-icon">
                   <i className="fas fa-hospital-user"></i>
@@ -841,7 +845,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("modules.patients")}</div>
               </div>
             )}
-            {availableModules.has("prescriptions") && (
+            {availableModules.has("prescriptions") && !isCardHidden(hiddenCards, "prescriptions") && (
               <div className="stat-card pink">
                 <div className="stat-icon">
                   <i className="fas fa-prescription"></i>
@@ -852,7 +856,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("modules.prescriptions")}</div>
               </div>
             )}
-            {availableModules.has("messages") && (
+            {availableModules.has("messages") && !isCardHidden(hiddenCards, "messages") && (
               <div className="stat-card purple">
                 <div className="stat-icon">
                   <i className="fas fa-envelope"></i>
@@ -863,7 +867,7 @@ export default function Dashboard() {
                 <div className="stat-label">{t("modules.messages")}</div>
               </div>
             )}
-            {availableModules.has("invoices") && (
+            {availableModules.has("invoices") && !isCardHidden(hiddenCards, "revenue") && (
               <div className="stat-card cyan">
                 <div className="stat-icon">
                   <i className="fas fa-money-bill-wave"></i>
@@ -876,7 +880,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {availableModules.has("invoices") && (
+          {availableModules.has("invoices") && !isCardHidden(hiddenCards, "revenueChart") && (
             <Suspense fallback={<div className="card" style={{padding: "40px 20px", textAlign: "center"}}><div className="spinner" aria-hidden="true"></div><div>جاري تحميل الرسم البياني...</div></div>}>
               <RevenueChartCard t={t} locale={locale} loading={loading} dailyRevenue={dailyRevenue} mom={mom} currencyLabel={t("currency")} />
             </Suspense>

@@ -775,6 +775,20 @@ export default function StorePOS() {
   const splitTotal = round2(split1 + split2);
   const splitRemaining = round2(total - split1);
 
+  // ── بيانات العميل الحالية + جاهزية البيع (نفس شروط إتمام البيع بالظبط) ──
+  const cartClientObj = clients.find((c) => c.id === selectedClient) || null;
+  const cartClientName = cartClientObj?.name || newClientName.trim();
+  const cartClientPhone = ((cartClientObj?.phone || "").trim() || newClientPhone.trim());
+  const splitOk = split1 > 0 && split2 > 0 && splitMethod1 !== splitMethod2 && Math.abs(splitTotal - total) < 0.01;
+  const readinessChecks = [
+    { ok: !!cartClientName, label: t("pos.client") },
+    { ok: !!cartClientPhone, label: t("emp.phone") },
+    { ok: total > 0, label: t("pos.total") },
+    { ok: splitPayment ? splitOk : !!paymentMethod, label: t("pay.title") },
+    ...(cashierRequired ? [{ ok: !!cashierName.trim(), label: t("storepos.cashierName") }] : []),
+    ...(salesRepRequired ? [{ ok: !!salesRepId, label: t("storepos.salesRep") }] : []),
+  ];
+
   // ── طباعة فاتورة حرارية 80mm ──
   function handleThermalPrint(inv, cartSnapshot, clientName, clientPhone, cashierName, splitInfo, salesRep = "") {
     const escHtml = (s) =>
@@ -1083,13 +1097,12 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
     }
     // ── الحقول الإلزامية — المنع يوقف البيع كله (مفيش فاتورة ولا خصم مخزون) ──
     // اسم العميل: مختار من القائمة أو اسم جديد مكتوب (إلزامي دايماً)
-    const clientObj0 = clients.find((c) => c.id === selectedClient);
-    if (!(clientObj0?.name || newClientName.trim())) {
+    if (!cartClientName) {
       alert(t("storepos.clientRequired"));
       return;
     }
     // رقم العميل: رقم العميل المختار أو الرقم الجديد المكتوب (إلزامي دايماً)
-    if (!((clientObj0?.phone || "").trim() || newClientPhone.trim())) {
+    if (!cartClientPhone) {
       alert(t("storepos.phoneRequired"));
       return;
     }
@@ -1801,69 +1814,84 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
             </div>
 
             {/* أصناف السلة */}
-            <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
+            <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12, display: "flex", flexDirection: "column", gap: 8, padding: "2px" }}>
               {cart.length === 0 ? (
-                <div className="empty-state" style={{ padding: "24px 0" }}>
-                  <div className="empty-icon">
+                <div style={{ textAlign: "center", padding: "28px 12px", background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%)", border: "2px dashed #c7d2fe", borderRadius: 14 }}>
+                  <div style={{ width: 56, height: 56, margin: "0 auto 10px", borderRadius: "50%", background: "linear-gradient(135deg, #1e3a8a, #6d28d9)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "0 6px 16px rgba(30,58,138,0.3)" }}>
                     <i className="fas fa-cart-plus"></i>
                   </div>
-                  <p>{t("pos.emptyCart")}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#1e3a8a" }}>{t("pos.emptyCart")}</p>
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748b" }}>{t("storepos.search")}</p>
                 </div>
               ) : (
-                cartWithPromo.map((item) => (
-                  <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 8, alignItems: "center" }}>
-                    {item.imageUrl && (
-                      <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0", flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {item.name}
-                      </div>
-                      {(item.size || item.color) && (
-                        <div style={{ fontSize: 11, color: "#6366f1" }}>
-                          {[item.size, item.color].filter(Boolean).join(" / ")}
+                cartWithPromo.map((item) => {
+                  const lineTotal = round2((item.promo && item.savedPerUnit > 0 ? item.effectivePrice : (parseFloat(item.price) || 0)) * item.quantity);
+                  const variant = [item.size, item.color].filter(Boolean).join(" / ");
+                  return (
+                    <div key={item.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 12, padding: 10, display: "flex", gap: 10, alignItems: "center", boxShadow: "0 2px 8px rgba(15,23,42,0.05)" }}>
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 10, border: "1px solid #e2e8f0", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 48, height: 48, borderRadius: 10, background: "linear-gradient(135deg, #eef2ff, #f5f3ff)", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#1e3a8a", flexShrink: 0 }}>
+                          {(item.name || "?").trim().charAt(0)}
                         </div>
                       )}
-                      {/* عرض نشط على هذا الصنف */}
-                      {item.promo && (
-                        <div style={{ fontSize: 10, fontWeight: 800, color: item.promo.type === "percent" ? "#15803d" : "#7c3aed" }}>
-                          🏷️ {item.promo.type === "percent"
-                            ? `خصم ${item.promo.value}%`
-                            : item.freeCount > 0
-                              ? `${item.freeCount} قطعة مجانية`
-                              : item.promo.type === "bogo" ? "اشتري 1 هدية 1" : "اشتري 2 هدية 2"}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.name}
                         </div>
-                      )}
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                        {item.promo && item.savedPerUnit > 0 ? (
-                          <>
-                            <span style={{ textDecoration: "line-through", marginLeft: 4 }}>{item.price}</span>
-                            {item.effectivePrice.toFixed(2)} {t("currency")} × {item.quantity} = <strong style={{ color: "#15803d" }}>{(item.effectivePrice * item.quantity).toFixed(2)}</strong>
-                          </>
-                        ) : (
-                          <>{item.price} {t("currency")} × {item.quantity} = <strong style={{ color: "#1e293b" }}>{((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</strong></>
+                        {variant && (
+                          <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {variant.split(" / ").map((v, vi) => (
+                              <span key={vi} style={{ fontSize: 10, background: "#eef2ff", color: "#4338ca", padding: "1px 8px", borderRadius: 10, fontWeight: 700 }}>
+                                {v}
+                              </span>
+                            ))}
+                          </div>
                         )}
+                        {/* عرض نشط على هذا الصنف */}
+                        {item.promo && (
+                          <div style={{ marginTop: 3, display: "inline-block", fontSize: 10, fontWeight: 800, color: "white", background: item.promo.type === "percent" ? "linear-gradient(135deg, #059669, #34d399)" : "linear-gradient(135deg, #7c3aed, #c084fc)", padding: "2px 9px", borderRadius: 20 }}>
+                            🏷️ {item.promo.type === "percent"
+                              ? `خصم ${item.promo.value}%`
+                              : item.freeCount > 0
+                                ? `${item.freeCount} قطعة مجانية`
+                                : item.promo.type === "bogo" ? "اشتري 1 هدية 1" : "اشتري 2 هدية 2"}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                          {item.promo && item.savedPerUnit > 0 ? (
+                            <>
+                              <span style={{ textDecoration: "line-through", marginInlineEnd: 4 }}>{item.price}</span>
+                              {item.effectivePrice.toFixed(2)} {t("currency")} × {item.quantity} = <strong style={{ color: "#15803d", fontSize: 12.5 }}>{lineTotal.toFixed(2)}</strong>
+                            </>
+                          ) : (
+                            <>{item.price} {t("currency")} × {item.quantity} = <strong style={{ color: "#1e3a8a", fontSize: 12.5 }}>{lineTotal.toFixed(2)}</strong></>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 2, background: "#f1f5f9", borderRadius: 20, padding: 2 }}>
+                          <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} title="−" style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "white", color: "#dc2626", fontWeight: 900, fontSize: 14, cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", lineHeight: 1 }}>
+                            −
+                          </button>
+                          <span style={{ fontWeight: 900, minWidth: 22, textAlign: "center", fontSize: 13 }}>{item.quantity}</span>
+                          <button
+                            onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                            title="+"
+                            disabled={item.quantity >= (item.stockQty ?? item.quantity)}
+                            style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: item.quantity >= (item.stockQty ?? item.quantity) ? "#e2e8f0" : "#16a34a", color: "white", fontWeight: 900, fontSize: 14, cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", lineHeight: 1 }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button onClick={() => removeFromCart(item.id)} title={t("common.delete")} style={{ border: "none", background: "none", color: "#cbd5e1", fontSize: 12, cursor: "pointer", padding: 2 }}>
+                          <i className="fas fa-trash"></i>
+                        </button>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>
-                        −
-                      </button>
-                      <span style={{ fontWeight: 700, minWidth: 22, textAlign: "center" }}>{item.quantity}</span>
-                      <button
-                        onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                        className="btn-success btn-sm"
-                        style={{ padding: "2px 8px", fontSize: 12 }}
-                        disabled={item.quantity >= (item.stockQty ?? item.quantity)}
-                      >
-                        +
-                      </button>
-                      <button onClick={() => removeFromCart(item.id)} className="btn-danger btn-sm" style={{ padding: "2px 8px", fontSize: 12 }}>
-                        <i className="fas fa-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -2059,6 +2087,33 @@ ${receiptPolicy === undefined ? `<div class="policy-title">📋 سياسة ال�
                 </div>
               )}
             </div>
+
+            {/* جاهزية البيع — تشيك-ليست حية بنفس شروط إتمام البيع */}
+            {cart.length > 0 && (
+              <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 14, padding: "10px 14px", marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", marginBottom: 8 }}>
+                  ✅ {t("storepos.readiness")}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {readinessChecks.map((c, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        padding: "4px 11px",
+                        borderRadius: 20,
+                        background: c.ok ? "linear-gradient(135deg, #059669, #34d399)" : "#f1f5f9",
+                        color: c.ok ? "white" : "#94a3b8",
+                        boxShadow: c.ok ? "0 2px 6px rgba(5,150,105,0.3)" : "none",
+                      }}
+                    >
+                      {c.ok ? "✓ " : "○ "}{c.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* الإجمالي */}
             <div style={{ background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 100%)", border: "1px solid #c7d2fe", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>

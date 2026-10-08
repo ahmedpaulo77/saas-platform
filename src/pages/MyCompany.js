@@ -5,6 +5,8 @@ import { db } from '../firebase/config.js';
 import { useAuth } from '../context/AuthContext.js';
 import { getCompanyInviteCodes, regenerateCompanyInviteCode } from '../utils/companyQuery.js';
 import { hashPin, isValidPinFormat } from '../utils/pin.js';
+import { DASH_CARDS, normHiddenCards } from '../utils/dashCards.js';
+import { getAvailableModules } from '../utils/modules.js';
 import Sidebar from '../components/common/Sidebar.js';
 import { useLanguage } from '../i18n/LanguageContext.js';
 
@@ -32,6 +34,9 @@ export default function MyCompany() {
   // البين كود بتاع الأدمن نفسه (للاستبدال والمرتجع) — يتخزن hash فقط
   const [pinValue, setPinValue] = useState('');
   const [savingPin, setSavingPin] = useState(false);
+  // كروت الداشبورد الظاهرة — checkboxes جنب بعض (flex-wrap)
+  const [dashHidden, setDashHidden] = useState([]);
+  const [savingDash, setSavingDash] = useState(false);
 
   function fileToLogo(file) {
     return new Promise((resolve, reject) => {
@@ -132,6 +137,33 @@ export default function MyCompany() {
     }
   }
 
+  // كروت الداشبورد الخاصة بمجال الشركة — من نفس مصدر العرض (DASH_CARDS)
+  const companyDashCards = DASH_CARDS.filter((c) =>
+    getAvailableModules(company?.industry || 'general', 'admin').has(c.module)
+  );
+
+  function toggleDashCard(key) {
+    setDashHidden((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  async function handleSaveDashCards(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    setSavingDash(true);
+    setError('');
+    try {
+      const payload = normHiddenCards(dashHidden);
+      await updateDoc(doc(db, 'companies', userCompanyId), { hiddenDashCards: payload });
+      setCompany((c) => ({ ...c, hiddenDashCards: payload }));
+      alert(t('mc.dashCardsSaved'));
+    } catch (err) {
+      console.error('Error saving dashboard cards:', err);
+      setError(t('common.errorGeneric'));
+    } finally {
+      setSavingDash(false);
+    }
+  }
+
   async function handleLogoRemove() {
     if (!userCompanyId || !window.confirm(t('common.confirmDelete'))) return;
     setSavingLogo(true);
@@ -171,6 +203,7 @@ export default function MyCompany() {
         cashier: pr.cashier !== false,
         salesRep: pr.salesRep === true,
       });
+      setDashHidden(normHiddenCards(snap.data().hiddenDashCards));
 
       // الأكواد في السبل-كولكشن companies/{id}/codes/current
       // (المصدر الرسمي للتحقق هو invite_codes — انظر utils/companyQuery.js)
@@ -418,6 +451,57 @@ export default function MyCompany() {
                   </label>
                   <button type="submit" className="btn-primary btn-sm" disabled={savingPosReq}>
                     {savingPosReq ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* 📊 كروت الداشبورد الظاهرة — checkboxes جنب بعض — يظهر فقط للأدمن */}
+            {isAdmin && (
+              <div className="card" style={{ padding: '24px 28px' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-th-large" style={{ color: '#1e3a8a', marginLeft: 8 }}></i>
+                  {t('mc.dashCardsTitle')}
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  {t('mc.dashCardsHint')}
+                </p>
+                <form onSubmit={handleSaveDashCards}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                    {companyDashCards.map((c) => {
+                      const off = dashHidden.includes(c.key);
+                      return (
+                        <label
+                          key={c.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: off ? '#94a3b8' : '#1e293b',
+                            background: off ? '#f8fafc' : '#f0fdf4',
+                            border: off ? '1px solid #e2e8f0' : '1px solid #86efac',
+                            borderRadius: 10,
+                            padding: '8px 14px',
+                            cursor: 'pointer',
+                            textDecoration: off ? 'line-through' : 'none',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!off}
+                            onChange={() => toggleDashCard(c.key)}
+                            style={{ width: 16, height: 16, accentColor: '#059669' }}
+                          />
+                          {t(c.labelKey)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <button type="submit" className="btn-primary btn-sm" disabled={savingDash}>
+                    {savingDash ? <><i className="fas fa-spinner fa-spin"></i> {t('common.saving')}</> : <><i className="fas fa-save"></i> {t('common.save')}</>}
                   </button>
                 </form>
               </div>
