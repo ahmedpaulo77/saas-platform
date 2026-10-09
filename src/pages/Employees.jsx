@@ -49,8 +49,10 @@ export default function Employees() {
   const [editingEmp, setEditingEmp] = useState(null);
   const [empForm, setEmpForm] = useState({
     name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "",
+    bioCode: "", shiftId: "",
   });
   const [savingEmp, setSavingEmp] = useState(false);
+  const [shifts, setShifts] = useState([]);
 
   // نموذج سلفة / جزاء
   const [advForm, setAdvForm] = useState({ amount: "", date: todayISO(), reason: "" });
@@ -62,18 +64,20 @@ export default function Employees() {
       return;
     }
     try {
-      const [empSnap, advSnap, penSnap, repSnap, invSnap] = await Promise.all([
+      const [empSnap, advSnap, penSnap, repSnap, invSnap, shiftSnap] = await Promise.all([
         getDocs(getScopedQuery("employees", userRole, userCompanyId, currentUser?.uid)),
         getDocs(getScopedQuery("employee_advances", userRole, userCompanyId, currentUser?.uid)),
         getDocs(getScopedQuery("employee_penalties", userRole, userCompanyId, currentUser?.uid)),
         getDocs(getScopedQuery("sales_reps", userRole, userCompanyId, currentUser?.uid)),
         getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid)),
+        getDocs(getScopedQuery("shifts", userRole, userCompanyId, currentUser?.uid)).catch(() => ({ docs: [] })),
       ]);
       setEmployees(empSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setAdvances(advSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setPenalties(penSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setReps(repSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setInvoices(invSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setShifts(shiftSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error("employees fetch:", e?.message);
     } finally {
@@ -146,7 +150,7 @@ export default function Employees() {
 
   function openAddEmp() {
     setEditingEmp(null);
-    setEmpForm({ name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "" });
+    setEmpForm({ name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "", bioCode: "", shiftId: "" });
     setShowEmpForm(true);
   }
 
@@ -160,6 +164,8 @@ export default function Employees() {
       jobCode: emp.jobCode || "",
       salary: String(emp.salary ?? ""),
       salesRepId: emp.salesRepId || "",
+      bioCode: emp.bioCode || "",
+      shiftId: emp.shiftId || "",
     });
     setShowEmpForm(true);
   }
@@ -185,6 +191,8 @@ export default function Employees() {
         jobCode: code,
         salary: parseFloat(empForm.salary) || 0,
         salesRepId: empForm.salesRepId || null,
+        bioCode: empForm.bioCode.trim(),
+        shiftId: empForm.shiftId || null,
       };
       if (editingEmp) {
         await updateDoc(doc(db, "employees", editingEmp.id), payload);
@@ -426,6 +434,7 @@ export default function Employees() {
                           <th>{t("emp.nationalId")}</th>
                           <th>{t("emp.jobCode")}</th>
                           <th>{t("emp.salary")}</th>
+                          <th>{t("emp.bioCode")}</th>
                           <th>{t("emp.salesRep")}</th>
                           <th>{t("common.actions")}</th>
                         </tr>
@@ -440,6 +449,7 @@ export default function Employees() {
                             <td style={{ direction: "ltr" }}>{e.nationalId || "—"}</td>
                             <td style={{ fontFamily: "monospace" }}>{e.jobCode || "—"}</td>
                             <td style={{ fontWeight: 700 }}>{moneyShort(parseFloat(e.salary) || 0, locale)} {t("currency")}</td>
+                            <td style={{ fontFamily: "monospace", direction: "ltr" }}>{e.bioCode || "—"}</td>
                             <td>{e.salesRepId ? repNameOf(e.salesRepId) : <span style={{ color: "#94a3b8" }}>{t("emp.noRep")}</span>}</td>
                             <td>
                               <div className="table-actions">
@@ -760,6 +770,32 @@ export default function Employees() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div className="form-group">
+                      <label>{t("emp.bioCode")}</label>
+                      <input
+                        type="text"
+                        placeholder={t("emp.bioCodePh")}
+                        value={empForm.bioCode}
+                        onChange={(e) => setEmpForm({ ...empForm, bioCode: e.target.value })}
+                        style={{ direction: "ltr", fontFamily: "monospace" }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>{t("emp.shift")}</label>
+                      <select
+                        value={empForm.shiftId}
+                        onChange={(e) => setEmpForm({ ...empForm, shiftId: e.target.value })}
+                      >
+                        <option value="">—</option>
+                        {shifts.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.startTime || ""} - {s.endTime || ""})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <div className="modal-footer">

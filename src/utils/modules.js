@@ -63,6 +63,12 @@ export const INDUSTRIES = [
     descKey: "industries.clinic.desc",
     icon: "🩺",
   },
+  {
+    id: "hr",
+    labelKey: "industries.hr.label",
+    descKey: "industries.hr.desc",
+    icon: "💼",
+  },
 ];
 
 // للتوافق مع الكود القديم (مباشر)
@@ -77,6 +83,7 @@ export const INDUSTRY_LABELS = {
   cafe: "☕ كافيه",
     clothing: "👔 أزياء",
   clinic: "🩺 طبيب / عيادة",
+  hr: "💼 موارد بشرية",
 };
 
 // خريطة الوحدات: كل مجال → الوحدات المسموح بها
@@ -228,6 +235,19 @@ export const MODULE_MAP = {
     "search",
     "aging",
   ],
+
+  // موارد بشرية - موظفين وحضور وإجازات ومرتبات وورديات وبصمة (بدون مخزون)
+  hr: [
+    "employees",
+    "attendance",
+    "leaves",
+    "payroll",
+    "shifts",
+    "biometric",
+    "expenses",
+    "tasks",
+    "messages",
+  ],
 };
 
 // الوحدات المتاحة لكل مستخدم
@@ -289,6 +309,11 @@ export function getAvailableModules(industry, userRole, disabledModules = []) {
 
   // العيادة بدون مخزون: الفواتير ببنود حرة تُكتب يدوياً (لا بيع أدوية من العيادة)
   if (industry === "clinic") {
+    modules.delete("inventory");
+  }
+
+  // الموارد البشرية بدون مخزون
+  if (industry === "hr") {
     modules.delete("inventory");
   }
 
@@ -355,6 +380,10 @@ export const ROUTE_MODULE_MAP = {
   "/variant-codes": "variant-codes",
   "/types-categories": "types-categories",
   "/employees": "employees",
+  "/leaves": "leaves",
+  "/payroll": "payroll",
+  "/shifts": "shifts",
+  "/biometric": "biometric",
   "/messages": "messages",
   "/patients": "patients",
   "/appointments": "appointments",
@@ -376,6 +405,7 @@ export function getIndustryShortLabel(industry) {
     cafe: "☕ كافيه",
   clothing: "👔 أزياء",
     clinic: "🩺 عيادة",
+    hr: "💼 موارد بشرية",
   };
   return labels[industry] || "🏢 أعمال عامة";
 }
@@ -441,6 +471,10 @@ export const MODULE_LABEL_KEYS = {
   "variant-codes": "modules.variant_codes",
   "types-categories": "modules.types_categories",
   employees: "modules.employees",
+  leaves: "modules.leaves",
+  payroll: "modules.payroll",
+  shifts: "modules.shifts",
+  biometric: "modules.biometric",
   messages: "modules.messages",
   patients: "modules.patients",
   appointments: "modules.appointments",

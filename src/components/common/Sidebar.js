@@ -54,7 +54,7 @@ export default function Sidebar() {
   function moduleGroup(module) {
     if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
     if (["inventory", "variant-codes", "types-categories", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
-    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages", "employees"].includes(module)) return "people";
+    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
     return "ops";
   }
 
@@ -208,6 +208,30 @@ export default function Sidebar() {
       icon: "fas fa-users",
       label: t("emp.title"),
       module: "employees",
+    },
+    {
+      to: "/leaves",
+      icon: "fas fa-umbrella-beach",
+      label: t("nav.leaves"),
+      module: "leaves",
+    },
+    {
+      to: "/payroll",
+      icon: "fas fa-money-check-dollar",
+      label: t("nav.payroll"),
+      module: "payroll",
+    },
+    {
+      to: "/shifts",
+      icon: "fas fa-clock",
+      label: t("nav.shifts"),
+      module: "shifts",
+    },
+    {
+      to: "/biometric",
+      icon: "fas fa-fingerprint",
+      label: t("nav.biometric"),
+      module: "biometric",
     },
         {
       to: "/daily-prices",

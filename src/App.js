@@ -67,6 +67,10 @@ const Viewings = lazy(() => import("./pages/Viewings"));
 const VariantCodes = lazy(() => import("./pages/VariantCodes"));
 const TypesCategories = lazy(() => import("./pages/TypesCategories"));
 const Employees = lazy(() => import("./pages/Employees"));
+const Leaves = lazy(() => import("./pages/Leaves"));
+const Payroll = lazy(() => import("./pages/Payroll"));
+const Shifts = lazy(() => import("./pages/Shifts"));
+const Biometric = lazy(() => import("./pages/Biometric"));
 const Tables = lazy(() => import("./pages/Tables"));
 const StorePOS = lazy(() => import("./pages/StorePOS"));
 const Promotions = lazy(() => import("./pages/Promotions"));
@@ -294,6 +298,46 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="employees">
               <Employees />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leaves"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="leaves">
+              <Leaves />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payroll"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="payroll">
+              <Payroll />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/shifts"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="shifts">
+              <Shifts />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/biometric"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="biometric">
+              <Biometric />
             </IndustryRoute>
           </ProtectedRoute>
         }
