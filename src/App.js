@@ -71,6 +71,12 @@ const Leaves = lazy(() => import("./pages/Leaves"));
 const Payroll = lazy(() => import("./pages/Payroll"));
 const Shifts = lazy(() => import("./pages/Shifts"));
 const Biometric = lazy(() => import("./pages/Biometric"));
+const Requests = lazy(() => import("./pages/Requests"));
+const Holidays = lazy(() => import("./pages/Holidays"));
+const MyHr = lazy(() => import("./pages/MyHr"));
+const EmployeeDocs = lazy(() => import("./pages/EmployeeDocs"));
+const HrLog = lazy(() => import("./pages/HrLog"));
+const HrSettings = lazy(() => import("./pages/HrSettings"));
 const Tables = lazy(() => import("./pages/Tables"));
 const StorePOS = lazy(() => import("./pages/StorePOS"));
 const Promotions = lazy(() => import("./pages/Promotions"));
@@ -338,6 +344,66 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="biometric">
               <Biometric />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/requests"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="requests">
+              <Requests />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/holidays"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="holidays">
+              <Holidays />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-hr"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="my-hr">
+              <MyHr />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/emp-docs"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="emp-docs">
+              <EmployeeDocs />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr-log"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="hr-log">
+              <HrLog />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr-settings"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="hr-settings">
+              <HrSettings />
             </IndustryRoute>
           </ProtectedRoute>
         }

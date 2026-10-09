@@ -12,6 +12,7 @@ import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";
 import { logActivity } from "../utils/auditLogger.js";
+import { logHr } from "../utils/hrAudit.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { moneyShort } from "../utils/fmt.js";
@@ -86,11 +87,12 @@ export default function Payroll() {
       );
       const saved = slipsByEmp[e.id] || null;
       const edit = edits[e.id] || {};
-      const overtime = saved ? parseFloat(saved.overtime) || 0 : parseFloat(edit.overtime) || 0;
-      const absenceDays = saved ? parseFloat(saved.absenceDays) || 0 : parseFloat(edit.absenceDays) || 0;
+      const overtime = parseFloat(edit.overtime ?? saved?.overtime) || 0;
+      const allowances = parseFloat(edit.allowances ?? saved?.allowances) || 0;
+      const absenceDays = parseFloat(edit.absenceDays ?? saved?.absenceDays) || 0;
       const absenceDeduction = round2((salary / 30) * absenceDays);
-      const net = round2(salary + overtime - advTotal - penTotal - absenceDeduction);
-      return { emp: e, salary, advTotal, penTotal, overtime, absenceDays, absenceDeduction, net, saved };
+      const net = round2(salary + overtime + allowances - advTotal - penTotal - absenceDeduction);
+      return { emp: e, salary, advTotal, penTotal, overtime, allowances, absenceDays, absenceDeduction, net, saved };
     });
   }, [employees, advances, penalties, slips, edits, month, inMonth]);
 
@@ -99,12 +101,13 @@ export default function Payroll() {
       (s, r) => ({
         salary: round2(s.salary + r.salary),
         overtime: round2(s.overtime + r.overtime),
+        allow: round2(s.allow + r.allowances),
         adv: round2(s.adv + r.advTotal),
         pen: round2(s.pen + r.penTotal),
         abs: round2(s.abs + r.absenceDeduction),
         net: round2(s.net + r.net),
       }),
-      { salary: 0, overtime: 0, adv: 0, pen: 0, abs: 0, net: 0 }
+      { salary: 0, overtime: 0, allow: 0, adv: 0, pen: 0, abs: 0, net: 0 }
     ),
     [rows]
   );
@@ -122,6 +125,7 @@ export default function Payroll() {
         month,
         salary: row.salary,
         overtime: row.overtime,
+        allowances: row.allowances,
         advances: row.advTotal,
         penalties: row.penTotal,
         absenceDays: row.absenceDays,
@@ -131,6 +135,7 @@ export default function Payroll() {
         createdBy: currentUser?.uid || null,
         createdAt: new Date().toISOString(),
       };
+      let slipId = row.saved?.id || null;
       if (row.saved) {
         await updateDoc(doc(db, "payrolls", row.saved.id), payload);
         await logActivity({
@@ -140,12 +145,17 @@ export default function Payroll() {
         });
       } else {
         const docRef = await addDoc(collection(db, "payrolls"), payload);
+        slipId = docRef.id;
         await logActivity({
           actionType: "CREATE", collectionName: "payrolls", itemId: docRef.id,
           details: `Created payroll slip for ${row.emp.name} (${month})`,
           user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
         });
       }
+      await logHr({
+        action: "save", entity: "payroll", employeeId: row.emp.id, employeeName: row.emp.name, refId: slipId,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
       await fetchAll();
     } catch (err) {
       console.error(err);
@@ -165,6 +175,7 @@ export default function Payroll() {
 <div class="sub">${esc(row.emp.name)} • ${esc(month)} • ${esc(new Date().toLocaleDateString(locale))}</div>
 ${line(esc(t("emp.salary")), row.salary)}
 ${line(esc(t("pay.overtime")) + " (+)", row.overtime, false, "#059669")}
+${line(esc(t("pay.allowances")) + " (+)", row.allowances || 0, false, "#7c3aed")}
 ${line(esc(t("emp.totalAdvances")) + " (−)", row.advTotal, false, "#b45309")}
 ${line(esc(t("emp.totalPenalties")) + " (−)", row.penTotal, false, "#dc2626")}
 ${line(`${esc(t("pay.absence"))} (${row.absenceDays} ${esc(t("pay.days"))}) (−)`, row.absenceDeduction, false, "#dc2626")}
@@ -224,6 +235,7 @@ ${line("✅ " + esc(t("emp.net")), row.net, true, "#1d4ed8")}
           {[
             { label: t("emp.salary"), val: totals.salary, color: "#0f172a" },
             { label: t("pay.overtime"), val: totals.overtime, color: "#059669" },
+            { label: t("pay.allowances"), val: totals.allow, color: "#7c3aed" },
             { label: t("emp.totalAdvances"), val: totals.adv, color: "#b45309" },
             { label: t("emp.totalPenalties"), val: totals.pen, color: "#dc2626" },
             { label: t("emp.net"), val: totals.net, color: "#1d4ed8" },
@@ -255,6 +267,7 @@ ${line("✅ " + esc(t("emp.net")), row.net, true, "#1d4ed8")}
                     <th>{t("emp.name")}</th>
                     <th>{t("emp.salary")}</th>
                     <th>{t("pay.overtime")}</th>
+                    <th>{t("pay.allowances")}</th>
                     <th>{t("pay.absenceDays")}</th>
                     <th>{t("emp.totalAdvances")}</th>
                     <th>{t("emp.totalPenalties")}</th>
@@ -278,6 +291,17 @@ ${line("✅ " + esc(t("emp.net")), row.net, true, "#1d4ed8")}
                           value={edits[r.emp.id]?.overtime ?? r.overtime ?? ""}
                           placeholder="0"
                           onChange={(e) => setEdit(r.emp.id, "overtime", e.target.value)}
+                          style={{ width: 90, padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, textAlign: "center" }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={edits[r.emp.id]?.allowances ?? r.allowances ?? ""}
+                          placeholder="0"
+                          onChange={(e) => setEdit(r.emp.id, "allowances", e.target.value)}
                           style={{ width: 90, padding: "6px 8px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, textAlign: "center" }}
                         />
                       </td>

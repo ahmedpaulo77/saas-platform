@@ -756,6 +756,34 @@
         allow delete: if canDeleteCompanyDoc();
       }
 
+      match /biometric_devices/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // 🔒 أسرار الاتصال (هوست/بورت/مفتاح) — منفصلة عن بيانات الجهاز:
+      // القراءة والكتابة للأدمن فقط (أي موظف يقدر يقرا الجهاز لكن مش سره).
+      // الدالة الخلفية تقرا من هنا بالـ Admin SDK.
+      match /biometric_secrets/{deviceId} {
+        allow get, list: if fullyActive() && isAdmin() &&
+          (isSuperAdmin() || resource.data.companyId == userCompanyId());
+        allow create, update: if fullyActive() && isAdmin() &&
+          (isSuperAdmin() || request.resource.data.companyId == userCompanyId());
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // السجل الخام للبصمات — ثابت لا يتعدل ولا يتمسح (منع التكرار بمفتاح dedupeKey)
+      match /biometric_logs/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if false;
+        allow delete: if false;
+      }
+
       match /shifts/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
@@ -780,12 +808,45 @@
         allow delete: if canDeleteCompanyDoc();
       }
 
-      match /biometric_devices/{docId} {
+      match /hr_requests/{docId} {
         allow get:    if canAccessCompanyDoc();
         allow list:   if canAccessCompanyDoc();
         allow create: if canCreateForCompany();
         allow update: if canUpdateCompanyDoc();
         allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /holidays/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      match /employee_docs/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if canUpdateCompanyDoc();
+        allow delete: if canDeleteCompanyDoc();
+      }
+
+      // سجل عمليات الـ HR — للقراءة والإنشاء لأفراد الشركة، وبلا تعديل/حذف (سجل ثابت)
+      match /hr_audit/{docId} {
+        allow get:    if canAccessCompanyDoc();
+        allow list:   if canAccessCompanyDoc();
+        allow create: if canCreateForCompany();
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // إعدادات الحضور — مستند واحد لكل شركة (id = companyId)
+      match /hr_settings/{companyId} {
+        allow get:    if fullyActive() && (isSuperAdmin() || userCompanyId() == companyId);
+        allow list:   if fullyActive() && isSuperAdmin();
+        allow create, update: if fullyActive() && isAdmin() && (isSuperAdmin() || userCompanyId() == companyId);
+        allow delete: if fullyActive() && isSuperAdmin();
       }
 
       match /raw_materials/{docId} {

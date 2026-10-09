@@ -42,16 +42,27 @@ export default function Sidebar() {
     return v === key ? fallback : v;
   }
 
-  const NAV_GROUPS = useMemo(() => ([
+  const isHrIndustry = userIndustry === "hr";
+  const NAV_GROUPS = useMemo(() => (isHrIndustry ? [
+    { id: "staff", label: groupLabel("nav.groups.staff", "الموظفين") },
+    { id: "leavepay", label: groupLabel("nav.groups.leavepay", "الإجازات والرواتب") },
+    { id: "system", label: groupLabel("nav.groups.system", "النظام") },
+  ] : [
     { id: "sales", label: groupLabel("nav.groups.sales", "المبيعات والفواتير") },
     { id: "stock", label: groupLabel("nav.groups.stock", "المخزون والمشتريات") },
     { id: "people", label: groupLabel("nav.groups.people", "العملاء والخدمات") },
     { id: "ops", label: groupLabel("nav.groups.ops", "التشغيل والمشاريع") },
   ]), // eslint-disable-next-line react-hooks/exhaustive-deps
-  [t]);
+  [t, userIndustry]);
 
   // نفس الـ modules بدون أي تغيير — التجميع بصري فقط
+  // (للموارد البشرية: 3 مجموعات مخصصة، باقي المجالات زي ما هي)
   function moduleGroup(module) {
+    if (isHrIndustry) {
+      if (["employees", "attendance", "shifts", "biometric", "emp-docs", "my-hr"].includes(module)) return "staff";
+      if (["leaves", "payroll", "requests", "holidays"].includes(module)) return "leavepay";
+      return "system";
+    }
     if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
     if (["inventory", "variant-codes", "types-categories", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
     if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
@@ -232,6 +243,42 @@ export default function Sidebar() {
       icon: "fas fa-fingerprint",
       label: t("nav.biometric"),
       module: "biometric",
+    },
+    {
+      to: "/requests",
+      icon: "fas fa-inbox",
+      label: t("nav.requests"),
+      module: "requests",
+    },
+    {
+      to: "/holidays",
+      icon: "fas fa-flag",
+      label: t("nav.holidays"),
+      module: "holidays",
+    },
+    {
+      to: "/my-hr",
+      icon: "fas fa-id-card",
+      label: t("nav.myhr"),
+      module: "my-hr",
+    },
+    {
+      to: "/emp-docs",
+      icon: "fas fa-file-contract",
+      label: t("nav.empdocs"),
+      module: "emp-docs",
+    },
+    {
+      to: "/hr-log",
+      icon: "fas fa-clock-rotate-left",
+      label: t("nav.hrlog"),
+      module: "hr-log",
+    },
+    {
+      to: "/hr-settings",
+      icon: "fas fa-gear",
+      label: t("nav.hrsettings"),
+      module: "hr-settings",
     },
         {
       to: "/daily-prices",

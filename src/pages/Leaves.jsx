@@ -13,6 +13,7 @@ import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
 import { logActivity } from "../utils/auditLogger.js";
+import { logHr } from "../utils/hrAudit.js";
 import Sidebar from "../components/common/Sidebar.js";
 import Pagination from "../components/common/Pagination.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
@@ -158,6 +159,11 @@ export default function Leaves() {
         collectionName: "leaves",
         itemId: l.id,
         details: `Leave ${status} for employee ${l.employeeId}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      await logHr({
+        action: status === "approved" ? "approve" : "reject", entity: "leaves",
+        employeeId: l.employeeId, employeeName: empNameOf(l.employeeId), refId: l.id,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       await fetchAll();

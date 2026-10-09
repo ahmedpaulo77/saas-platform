@@ -16,6 +16,7 @@ import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
 import { logActivity } from "../utils/auditLogger.js";
+import { logHr } from "../utils/hrAudit.js";
 import Sidebar from "../components/common/Sidebar.js";
 import Pagination from "../components/common/Pagination.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
@@ -49,10 +50,12 @@ export default function Employees() {
   const [editingEmp, setEditingEmp] = useState(null);
   const [empForm, setEmpForm] = useState({
     name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "",
-    bioCode: "", shiftId: "",
+    bioCode: "", shiftId: "", userId: "",
   });
   const [savingEmp, setSavingEmp] = useState(false);
   const [shifts, setShifts] = useState([]);
+  const [companyUsers, setCompanyUsers] = useState([]);
+  const isEmpAdmin = userRole === "admin" || userRole === "super_admin";
 
   // نموذج سلفة / جزاء
   const [advForm, setAdvForm] = useState({ amount: "", date: todayISO(), reason: "" });
@@ -78,6 +81,20 @@ export default function Employees() {
       setReps(repSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setInvoices(invSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setShifts(shiftSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // حسابات الدخول للربط بالموظف (الأدمن فقط — list مقفولة عليه في القواعد)
+      if (isEmpAdmin) {
+        try {
+          const uSnap = await getDocs(getScopedQuery("users", userRole, userCompanyId, currentUser?.uid));
+          setCompanyUsers(
+            uSnap.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((u) => u.role !== "super_admin")
+              .sort((a, b) => String(a.email || "").localeCompare(String(b.email || "")))
+          );
+        } catch { /* ignore — غير مصرح */ }
+      } else {
+        setCompanyUsers([]);
+      }
     } catch (e) {
       console.error("employees fetch:", e?.message);
     } finally {
@@ -150,7 +167,7 @@ export default function Employees() {
 
   function openAddEmp() {
     setEditingEmp(null);
-    setEmpForm({ name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "", bioCode: "", shiftId: "" });
+    setEmpForm({ name: "", phone: "", address: "", nationalId: "", jobCode: "", salary: "", salesRepId: "", bioCode: "", shiftId: "", userId: "" });
     setShowEmpForm(true);
   }
 
@@ -166,6 +183,7 @@ export default function Employees() {
       salesRepId: emp.salesRepId || "",
       bioCode: emp.bioCode || "",
       shiftId: emp.shiftId || "",
+      userId: emp.userId || "",
     });
     setShowEmpForm(true);
   }
@@ -193,6 +211,7 @@ export default function Employees() {
         salesRepId: empForm.salesRepId || null,
         bioCode: empForm.bioCode.trim(),
         shiftId: empForm.shiftId || null,
+        userId: empForm.userId || null,
       };
       if (editingEmp) {
         await updateDoc(doc(db, "employees", editingEmp.id), payload);
@@ -274,6 +293,11 @@ export default function Employees() {
         details: `Advance ${advForm.amount} for employee ${selectedEmp?.name || selectedEmpId}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
+      await logHr({
+        action: "create", entity: "advances",
+        employeeId: selectedEmpId, employeeName: selectedEmp?.name || "", refId: docRef.id,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
       setAdvForm({ amount: "", date: todayISO(), reason: "" });
       await fetchAll();
     } catch (err) {
@@ -303,6 +327,11 @@ export default function Employees() {
         collectionName: "employee_penalties",
         itemId: docRef.id,
         details: `Penalty ${penForm.amount} for employee ${selectedEmp?.name || selectedEmpId}: ${penForm.reason.trim()}`,
+        user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+      });
+      await logHr({
+        action: "create", entity: "penalties",
+        employeeId: selectedEmpId, employeeName: selectedEmp?.name || "", refId: docRef.id,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
       setPenForm({ amount: "", date: todayISO(), reason: "" });
@@ -771,6 +800,22 @@ export default function Employees() {
                       ))}
                     </select>
                   </div>
+                  {isEmpAdmin && companyUsers.length > 0 && (
+                    <div className="form-group">
+                      <label>{t("emp.linkUser")}</label>
+                      <select
+                        value={empForm.userId}
+                        onChange={(e) => setEmpForm({ ...empForm, userId: e.target.value })}
+                      >
+                        <option value="">— {t("emp.noLink")} —</option>
+                        {companyUsers.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.email} ({u.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <div className="form-group">
                       <label>{t("emp.bioCode")}</label>

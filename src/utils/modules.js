@@ -236,17 +236,21 @@ export const MODULE_MAP = {
     "aging",
   ],
 
-  // موارد بشرية - موظفين وحضور وإجازات ومرتبات وورديات وبصمة (بدون مخزون)
+  // موارد بشرية - منظومة HR كاملة (بدون مخزون/أرباح/مصروفات/مهام/كشف حساب)
   hr: [
     "employees",
     "attendance",
-    "leaves",
-    "payroll",
     "shifts",
     "biometric",
-    "expenses",
-    "tasks",
+    "emp-docs",
+    "my-hr",
+    "leaves",
+    "payroll",
+    "requests",
+    "holidays",
     "messages",
+    "hr-settings",
+    "hr-log",
   ],
 };
 
@@ -312,9 +316,10 @@ export function getAvailableModules(industry, userRole, disabledModules = []) {
     modules.delete("inventory");
   }
 
-  // الموارد البشرية بدون مخزون
+  // الموارد البشرية: بدون مخزون وأرباح (الأرباح للمبيعات والمخزون فقط)
   if (industry === "hr") {
     modules.delete("inventory");
+    modules.delete("profits");
   }
 
   // الموظفين (رواتب وبطاقات — بيانات حساسة): مدير الشركة فقط
@@ -332,6 +337,11 @@ export function getAvailableModules(industry, userRole, disabledModules = []) {
   if (userRole === "admin") {
     modules.add("users");
     modules.add("statements");
+  }
+
+  // الموارد البشرية: كشف الحساب لحسابات العملاء والموردين — لا معنى له هنا
+  if (industry === "hr") {
+    modules.delete("statements");
   }
 
   return stripDisabled(modules);
@@ -384,6 +394,12 @@ export const ROUTE_MODULE_MAP = {
   "/payroll": "payroll",
   "/shifts": "shifts",
   "/biometric": "biometric",
+  "/requests": "requests",
+  "/holidays": "holidays",
+  "/my-hr": "my-hr",
+  "/emp-docs": "emp-docs",
+  "/hr-log": "hr-log",
+  "/hr-settings": "hr-settings",
   "/messages": "messages",
   "/patients": "patients",
   "/appointments": "appointments",
@@ -475,6 +491,12 @@ export const MODULE_LABEL_KEYS = {
   payroll: "modules.payroll",
   shifts: "modules.shifts",
   biometric: "modules.biometric",
+  requests: "modules.requests",
+  holidays: "modules.holidays",
+  "my-hr": "modules.my_hr",
+  "emp-docs": "modules.emp_docs",
+  "hr-log": "modules.hr_log",
+  "hr-settings": "modules.hr_settings",
   messages: "modules.messages",
   patients: "modules.patients",
   appointments: "modules.appointments",

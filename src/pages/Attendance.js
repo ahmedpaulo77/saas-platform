@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, canDelete } from "../utils/companyQuery.js";
 import { logActivity } from "../utils/auditLogger.js";
 import Sidebar from "../components/common/Sidebar.js";
+import { logHr } from "../utils/hrAudit.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 
 function todayStr() {
@@ -107,11 +108,19 @@ export default function Attendance() {
           details: `Check-in: ${name} at ${time}`,
           user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
         });
+        await logHr({
+          action: "checkin", entity: "attendance", employeeId: uid, employeeName: name, refId: docRef.id,
+          user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        });
       } else if (!existing.checkOut) {
         await updateDoc(doc(db, "attendance", existing.id), { checkOut: time });
         await logActivity({
           actionType: "UPDATE", collectionName: "attendance", itemId: existing.id,
           details: `Check-out: ${name} at ${time}`,
+          user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
+        });
+        await logHr({
+          action: "checkout", entity: "attendance", employeeId: uid, employeeName: name, refId: existing.id,
           user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
         });
       } else {
