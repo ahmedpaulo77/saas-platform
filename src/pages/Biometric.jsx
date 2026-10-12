@@ -62,7 +62,7 @@ export default function Biometric() {
   const [recentLogs, setRecentLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ name: "", host: "", port: "4370", commKey: "" });
+  const [form, setForm] = useState({ name: "", host: "", port: "4370" });
   const [editing, setEditing] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [pullingId, setPullingId] = useState(null);
@@ -171,14 +171,13 @@ export default function Biometric() {
   }, [recentLogs]);
 
   function secretOf(d) {
-    return secrets[d.id] || { host: d.host || "", port: d.port || "4370", commKey: d.commKey || "" };
+    return secrets[d.id] || { host: d.host || "", port: d.port || "4370" };
   }
 
-  async function saveSecrets(deviceId, { host, port, commKey }) {
+  async function saveSecrets(deviceId, { host, port }) {
     await setDoc(doc(db, "biometric_secrets", deviceId), {
       host: (host || "").trim(),
       port: String(parseInt(port) || 4370),
-      commKey: (commKey || "").trim(),
       companyId: userCompanyId,
       updatedAt: new Date().toISOString(),
     });
@@ -206,7 +205,7 @@ export default function Biometric() {
         details: `Added biometric device: ${form.name.trim()}`,
         user: { uid: currentUser?.uid, email: currentUser?.email, role: userRole, companyId: userCompanyId },
       });
-      setForm({ name: "", host: "", port: "4370", commKey: "" });
+      setForm({ name: "", host: "", port: "4370" });
       await fetchAll();
     } catch (err) {
       console.error(err);
@@ -757,17 +756,6 @@ export default function Biometric() {
                     style={{ width: "100%", boxSizing: "border-box", direction: "ltr" }}
                   />
                 </div>
-                <div>
-                  <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                    {t("bio.commKey")}
-                  </label>
-                  <input
-                    type="text"
-                    value={form.commKey}
-                    onChange={(e) => setForm({ ...form, commKey: e.target.value })}
-                    style={{ width: "100%", boxSizing: "border-box", direction: "ltr" }}
-                  />
-                </div>
               </div>
               <div style={{ marginTop: 12 }}>
                 <button type="submit" className="btn-primary">
@@ -846,7 +834,7 @@ export default function Biometric() {
                               <button
                                 onClick={() => {
                                   const s = secretOf(d);
-                                  setEditing({ ...d, host: s.host, port: s.port, commKey: s.commKey });
+                                  setEditing({ ...d, host: s.host, port: s.port });
                                   setShowEditModal(true);
                                 }}
                                 className="btn-sm btn-secondary"
@@ -907,27 +895,16 @@ export default function Biometric() {
                       style={{ direction: "ltr" }}
                     />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div className="form-group">
-                      <label>{t("bio.port")}</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="65535"
-                        value={editing.port || "4370"}
-                        onChange={(e) => setEditing({ ...editing, port: e.target.value })}
-                        style={{ direction: "ltr" }}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>{t("bio.commKey")}</label>
-                      <input
-                        type="text"
-                        value={editing.commKey || ""}
-                        onChange={(e) => setEditing({ ...editing, commKey: e.target.value })}
-                        style={{ direction: "ltr" }}
-                      />
-                    </div>
+                  <div className="form-group">
+                    <label>{t("bio.port")}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="65535"
+                      value={editing.port || "4370"}
+                      onChange={(e) => setEditing({ ...editing, port: e.target.value })}
+                      style={{ direction: "ltr" }}
+                    />
                   </div>
                 </div>
                 <div className="modal-footer">
