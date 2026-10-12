@@ -65,7 +65,7 @@ export default function Sidebar() {
     }
     if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
     if (["inventory", "variant-codes", "types-categories", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
-    if (["clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
+    if (["reception", "clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "medical-attachments", "dental", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
     return "ops";
   }
 
@@ -151,6 +151,24 @@ export default function Sidebar() {
       icon: "fas fa-prescription",
       label: t("nav.prescriptions"),
       module: "prescriptions",
+    },
+    {
+      to: "/reception",
+      icon: "fas fa-cash-register",
+      label: t("nav.reception") === "nav.reception" ? "الاستقبال السريع" : t("nav.reception"),
+      module: "reception",
+    },
+    {
+      to: "/medical-attachments",
+      icon: "fas fa-x-ray",
+      label: t("nav.medicalAttachments") === "nav.medicalAttachments" ? "التحاليل والأشعة" : t("nav.medicalAttachments"),
+      module: "medical-attachments",
+    },
+    {
+      to: "/dental",
+      icon: "fas fa-tooth",
+      label: t("nav.dental") === "nav.dental" ? "🦷 الأسنان" : t("nav.dental"),
+      module: "dental",
     },
     {
       to: "/clients",

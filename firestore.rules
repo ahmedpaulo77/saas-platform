@@ -468,7 +468,7 @@
         //    (تفعيل/إيقاف الشركة). من غيرها الـ write بيرجع permission-denied
         //    والزرار بيعمل حاجة وبيبان إنه نجح. لو ضفت تاريخ جديد، ضيفه هنا.
           request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'posRequirements', 'disabledModules', 'hiddenDashCards', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate']) &&
+          .hasOnly(['name', 'email', 'industry', 'isActive', 'plan', 'subscription', 'logo', 'logoUrl', 'features', 'receiptPolicy', 'posRequirements', 'disabledModules', 'hiddenDashCards', 'address', 'phone', 'updatedAt', 'maxAdmins', 'maxUsers', 'adminsCount', 'usersCount', 'taxRate', 'doctorName', 'specialty', 'rxFooter', 'clinicSpecialty']) &&
           (
           isSuperAdmin() ||
           (
@@ -920,6 +920,23 @@
 
     // التحاليل والأشعة والسونار (الملف الطبي)
     match /medical_attachments/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
+    // 🦷 خريطة الأسنان وخطط العلاج (تخصص الأسنان)
+    match /dental_charts/{docId} {
+      allow get:    if canAccessCompanyDoc();
+      allow list:   if canAccessCompanyDoc();
+      allow create: if canCreateForCompany();
+      allow update: if canUpdateCompanyDoc();
+      allow delete: if canDeleteCompanyDoc();
+    }
+
+    match /dental_plans/{docId} {
       allow get:    if canAccessCompanyDoc();
       allow list:   if canAccessCompanyDoc();
       allow create: if canCreateForCompany();

@@ -58,6 +58,9 @@ const Messages = lazy(() => import("./pages/Messages"));
 const Patients = lazy(() => import("./pages/Patients"));
 const Appointments = lazy(() => import("./pages/Appointments"));
 const Prescriptions = lazy(() => import("./pages/Prescriptions"));
+const MedicalAttachments = lazy(() => import("./pages/MedicalAttachments"));
+const Reception = lazy(() => import("./pages/Reception"));
+const Dental = lazy(() => import("./pages/Dental"));
 const MenuCategories = lazy(() => import("./pages/MenuCategories"));
 const RawMaterials = lazy(() => import("./pages/RawMaterials"));
 const Statements = lazy(() => import("./pages/Statements"));
@@ -598,6 +601,36 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="prescriptions">
               <Prescriptions />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/medical-attachments"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="medical-attachments">
+              <MedicalAttachments />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reception"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="reception">
+              <Reception />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dental"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="dental">
+              <Dental />
             </IndustryRoute>
           </ProtectedRoute>
         }

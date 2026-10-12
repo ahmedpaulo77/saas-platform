@@ -225,9 +225,12 @@ export const MODULE_MAP = {
   // (بدون مخزون: الفواتير ببنود حرة — وبدون صلاحية. أعمار الديون موجودة: العيادة
   //  بتبيع بفاتورة وبتقبض بعدين، فمفيش سبب يشيل الصفحة عنها)
   clinic: [
+    "reception",
     "patients",
     "appointments",
     "prescriptions",
+    "medical-attachments",
+    "dental",
     "invoices",
     "expenses",
     "tasks",
@@ -404,6 +407,9 @@ export const ROUTE_MODULE_MAP = {
   "/patients": "patients",
   "/appointments": "appointments",
   "/prescriptions": "prescriptions",
+  "/medical-attachments": "medical-attachments",
+  "/reception": "reception",
+  "/dental": "dental",
   "/kitchen": "kitchen",
   "/tables": "tables",
 };
@@ -501,6 +507,9 @@ export const MODULE_LABEL_KEYS = {
   patients: "modules.patients",
   appointments: "modules.appointments",
   prescriptions: "modules.prescriptions",
+  "medical-attachments": "modules.medical_attachments",
+  reception: "modules.reception",
+  dental: "modules.dental",
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
   attendance: "modules.attendance",

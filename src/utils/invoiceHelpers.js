@@ -54,6 +54,24 @@ export function buildThermalPrintHTML({ invoice, clientName, products, isTrader,
   const totalWithFee = (parseFloat(invoice.amount) || 0) + (parseFloat(invoice.deliveryFee) || 0);
   return `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:13px;width:80mm;padding:8px}h2{text-align:center;font-size:16px;margin-bottom:4px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f0f0f0;padding:4px 6px;font-size:11px}.total-row{font-weight:bold;font-size:14px}@media print{body{width:80mm}@page{size:80mm auto;margin:0}}</style></head><body><h2>${foodIcon} فاتورة ${foodLabel}</h2><div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div><div class="divider"></div><div style="font-size:12px;margin-bottom:4px;"><strong>الزبون:</strong> ${clientName}<br/><strong>نوع الطلب:</strong> ${orderTypeLabel}</div>${deliveryInfo}${invoice.customerNote ? `<div style="font-size:11px;color:#555;margin:4px 0;"><strong>ملاحظة:</strong> ${invoice.customerNote}</div>` : ""}<div class="divider"></div><table><thead><tr><th style="text-align:right;">الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>${itemsRows}</tbody></table><div class="divider"></div><div style="text-align:left;font-size:13px;"><div>المجموع: ${(parseFloat(invoice.amount) || 0).toFixed(2)} ج.م</div>${invoice.deliveryFee > 0 ? `<div>رسوم التوصيل: ${invoice.deliveryFee} ج.م</div>` : ""}<div class="total-row" style="margin-top:4px;font-size:15px;border-top:2px solid #000;padding-top:4px;">الإجمالي: ${totalWithFee.toFixed(2)} ج.م</div></div><div class="divider"></div><div class="center" style="font-size:11px;margin-top:6px;">شكراً لزيارتكم 🙏</div></body></html>`;
 }
+export function buildClinicThermalHTML({ invoice, patientName, company, t }) {
+  const lines = (invoice.products || [])
+    .map((p) => {
+      const name = p.productName || "كشف";
+      const price = parseFloat(p.amount) || 0;
+      const qty = parseFloat(p.quantity) || 1;
+      return `<tr><td style="padding:3px 6px;border-bottom:1px dashed #ccc;">${name}</td><td style="padding:3px 6px;text-align:center;border-bottom:1px dashed #ccc;">${qty}</td><td style="padding:3px 6px;text-align:left;border-bottom:1px dashed #ccc;font-weight:bold;">${price.toFixed(2)}</td></tr>`;
+    })
+    .join("");
+  const total = parseFloat(invoice.total ?? invoice.amount) || 0;
+  const paid = parseFloat(invoice.paidAmount) || 0;
+  const remain = Math.max(0, total - paid);
+  const cName = company?.name || "العيادة";
+  const cPhone = company?.phone || "";
+  const cAddr = company?.address || "";
+  const doc = company?.doctorName || invoice.doctorName || "";
+  return `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:13px;width:80mm;padding:8px}h2{text-align:center;font-size:16px;margin-bottom:2px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f0f0f0;padding:4px 6px;font-size:11px}.total-row{font-weight:bold;font-size:15px}@media print{body{width:80mm}@page{size:80mm auto;margin:0}}</style></head><body><h2>🩺 ${cName}</h2>${doc ? `<div class="center" style="font-size:12px;">${doc}</div>` : ""}${cPhone || cAddr ? `<div class="center" style="font-size:11px;color:#555;">${cPhone}${cPhone && cAddr ? " • " : ""}${cAddr}</div>` : ""}<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div><div class="divider"></div><div style="font-size:12px;margin-bottom:4px;"><strong>المريض:</strong> ${patientName || "—"}<br/><strong>رقم الفاتورة:</strong> ${invoice.id ? String(invoice.id).slice(0, 8) : "—"}</div><div class="divider"></div><table><thead><tr><th style="text-align:right;">الخدمة</th><th>العدد</th><th>المبلغ</th></tr></thead><tbody>${lines}</tbody></table><div class="divider"></div><div style="text-align:left;font-size:13px;"><div>الإجمالي: ${total.toFixed(2)} ج.م</div><div>المدفوع: ${paid.toFixed(2)} ج.م</div>${remain > 0 ? `<div><strong>المتبقي: ${remain.toFixed(2)} ج.م</strong></div>` : `<div>مدفوعة بالكامل ✅</div>`}</div><div class="divider"></div><div class="center" style="font-size:11px;margin-top:6px;">نتمنى لكم الشفاء العاجل 🙏</div></body></html>`;
+}
 export function openThermalPrint(html) {
   const win = window.open("", "_blank", "width=400,height=600");
   if (!win) { alert("السماح بالـ popups مطلوب للطباعة"); return; }

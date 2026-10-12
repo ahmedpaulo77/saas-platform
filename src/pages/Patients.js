@@ -41,25 +41,31 @@ export default function Patients() {
 
   // الملف الطبي
   const [filePatient, setFilePatient] = useState(null);
-  const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [] });
+  const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
   const [fileLoading, setFileLoading] = useState(false);
 
   async function openFile(patient) {
     setFilePatient(patient);
     setFileLoading(true);
-    setFileData({ appointments: [], prescriptions: [], invoices: [] });
+    setFileData({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
     try {
       const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
-      const [aSnap, rSnap, iSnap] = await Promise.all([
+      const [aSnap, rSnap, iSnap, mSnap, dSnap, pSnap] = await Promise.all([
         getDocs(q("appointments")),
         getDocs(q("prescriptions")),
         getDocs(q("invoices")),
+        getDocs(q("medical_attachments")),
+        getDocs(q("dental_charts")),
+        getDocs(q("dental_plans")),
       ]);
       const byPatient = (docs) => docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => x.patientId === patient.id || x.clientId === patient.id);
       const appointments = byPatient(aSnap.docs).sort((a, b) => new Date((b.date || "") + "T" + (b.time || "00:00")) - new Date((a.date || "") + "T" + (a.time || "00:00")));
       const prescriptions = byPatient(rSnap.docs).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const invoices = byPatient(iSnap.docs).sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
-      setFileData({ appointments, prescriptions, invoices });
+      const attachments = byPatient(mSnap.docs).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      const dentalList = byPatient(dSnap.docs);
+      const planList = byPatient(pSnap.docs);
+      setFileData({ appointments, prescriptions, invoices, attachments, dental: dentalList[0] || null, dentalPlan: planList[0] || null });
     } catch (e) {
       console.error(e);
     }
@@ -533,6 +539,30 @@ export default function Patients() {
                           <strong>{inv.date ? fmtDate(inv.date, locale) : "—"}</strong>
                           <span>الإجمالي: {moneyShort(Number(inv.amount || 0), locale)}</span>
                           <span style={{ color: "#16a34a" }}>المدفوع: {moneyShort(Number(inv.paidAmount || 0), locale)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {fileData.dental && (
+                    <>
+                      <h4 style={{ fontSize: 14, margin: "14px 0 8px" }}>🦷 حالة الأسنان</h4>
+                      <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 10, padding: "8px 12px", fontSize: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span>🦷 {Object.keys(fileData.dental.teeth || {}).length} ضرس مسجل</span>
+                        {fileData.dentalPlan && <span>• 📋 الخطة: {fileData.dentalPlan.items?.length || 0} بند</span>}
+                        <a href="/dental" style={{ marginInlineStart: "auto", color: "#0e7490", fontWeight: 800 }}>فتح ملف الأسنان ←</a>
+                      </div>
+                    </>
+                  )}
+                  <h4 style={{ fontSize: 14, margin: "14px 0 8px" }}>📎 التحاليل والأشعة ({(fileData.attachments || []).length})</h4>
+                  {(fileData.attachments || []).length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مرفقات — <a href="/medical-attachments" style={{ color: "#059669", fontWeight: 700 }}>أضف من صفحة التحاليل</a></p> : (
+                    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+                      {(fileData.attachments || []).map((m) => (
+                        <div key={m.id} style={{ minWidth: 120, background: "white", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                          {m.fileData ? <img src={m.fileData} alt={m.title} style={{ width: "100%", height: 80, objectFit: "cover" }} /> : <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, background: "#f1f5f9" }}>📎</div>}
+                          <div style={{ padding: "6px 8px", fontSize: 11 }}>
+                            <div style={{ fontWeight: 800 }}>{m.title}</div>
+                            <div style={{ color: "#64748b" }}>{m.date || ""}</div>
+                          </div>
                         </div>
                       ))}
                     </div>

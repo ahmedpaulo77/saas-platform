@@ -37,6 +37,9 @@ export default function MyCompany() {
   // كروت الداشبورد الظاهرة — checkboxes جنب بعض (flex-wrap)
   const [dashHidden, setDashHidden] = useState([]);
   const [savingDash, setSavingDash] = useState(false);
+  // 🏥 بروفايل العيادة للروشتة (اسم الدكتور + التخصص + تليفون + عنوان + تذييل + تخصص العيادة)
+  const [clinicForm, setClinicForm] = useState({ doctorName: '', specialty: '', phone: '', address: '', rxFooter: '', clinicSpecialty: 'general' });
+  const [savingClinic, setSavingClinic] = useState(false);
 
   function fileToLogo(file) {
     return new Promise((resolve, reject) => {
@@ -198,6 +201,14 @@ export default function MyCompany() {
       setCompany({ id: snap.id, ...snap.data() });
       setTaxRate(snap.data().taxRate != null ? String(snap.data().taxRate) : '');
       setReceiptPolicy(snap.data().receiptPolicy != null ? String(snap.data().receiptPolicy) : '');
+      setClinicForm({
+        doctorName: snap.data().doctorName || '',
+        specialty: snap.data().specialty || '',
+        phone: snap.data().phone || '',
+        address: snap.data().address || '',
+        rxFooter: snap.data().rxFooter || '',
+        clinicSpecialty: snap.data().clinicSpecialty || 'general',
+      });
       const pr = snap.data().posRequirements || {};
       setPosReq({
         cashier: pr.cashier !== false,
@@ -287,6 +298,31 @@ export default function MyCompany() {
     setSavingTax(false);
   }
 
+  async function handleSaveClinic(e) {
+    e.preventDefault();
+    if (!userCompanyId) return;
+    setSavingClinic(true);
+    setError('');
+    try {
+      const payload = {
+        doctorName: clinicForm.doctorName.trim(),
+        specialty: clinicForm.specialty.trim(),
+        phone: clinicForm.phone.trim(),
+        address: clinicForm.address.trim(),
+        rxFooter: clinicForm.rxFooter.trim(),
+        clinicSpecialty: clinicForm.clinicSpecialty || 'general',
+        updatedAt: new Date().toISOString(),
+      };
+      await updateDoc(doc(db, 'companies', userCompanyId), payload);
+      setCompany((c) => ({ ...c, ...payload }));
+      alert("✅ تم حفظ بيانات العيادة للروشتة");
+    } catch (err) {
+      console.error('Error saving clinic profile:', err);
+      setError(t('common.errorGeneric'));
+    }
+    setSavingClinic(false);
+  }
+
   return (
     <div className="app-layout">
       <Sidebar />
@@ -356,6 +392,42 @@ export default function MyCompany() {
                 </div>
               </div>
             </div>
+
+            {/* 🏥 بروفايل العيادة للروشتة — يظهر فقط لشركات العيادات */}
+            {isAdmin && (company?.industry === 'clinic') && (
+              <div className="card" style={{ padding: '24px 28px', border: '2px solid #7c3aed33', background: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(5,150,105,0.04) 100%)' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#475569' }}>
+                  <i className="fas fa-stethoscope" style={{ color: '#7c3aed', marginLeft: 8 }}></i>
+                  🩺 بيانات العيادة للروشتة
+                </h3>
+                <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 13 }}>
+                  الاسم والتخصص والعنوان والتليفون بيظهروا في ترويسة الروشتة المطبوعة — املاها عشان تبهر المرضى
+                </p>
+                <form onSubmit={handleSaveClinic} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                  <label style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, alignItems: 'center', background: 'white', border: '2px solid #7c3aed55', borderRadius: 10, padding: '8px 14px', fontWeight: 800, fontSize: 14 }}>
+                    🦷 تخصص العيادة:
+                    <select value={clinicForm.clinicSpecialty} onChange={(e) => setClinicForm({ ...clinicForm, clinicSpecialty: e.target.value })} style={{ flex: 1, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', fontWeight: 700 }}>
+                      <option value="general">🩺 عام</option>
+                      <option value="dental">🦷 أسنان (يفتح خريطة الضروس + خطة العلاج)</option>
+                      <option value="eyes">👁️ عيون (قريباً)</option>
+                      <option value="peds">👶 أطفال (قريباً)</option>
+                      <option value="derma">✨ جلدية وتجميل (قريباً)</option>
+                      <option value="ortho">🦴 عظام (قريباً)</option>
+                    </select>
+                  </label>
+                  <input placeholder="اسم الدكتور (مثال: د. أحمد محمود)" value={clinicForm.doctorName} onChange={(e) => setClinicForm({ ...clinicForm, doctorName: e.target.value })} style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit' }} />
+                  <input placeholder="التخصص (مثال: باطنة وأطفال)" value={clinicForm.specialty} onChange={(e) => setClinicForm({ ...clinicForm, specialty: e.target.value })} style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit' }} />
+                  <input placeholder="تليفون العيادة" value={clinicForm.phone} onChange={(e) => setClinicForm({ ...clinicForm, phone: e.target.value })} style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit' }} dir="ltr" />
+                  <input placeholder="عنوان العيادة" value={clinicForm.address} onChange={(e) => setClinicForm({ ...clinicForm, address: e.target.value })} style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit' }} />
+                  <textarea placeholder="سطر الشفاء أسفل الروشتة (مثال: نتمنى لكم الشفاء العاجل...)" value={clinicForm.rxFooter} onChange={(e) => setClinicForm({ ...clinicForm, rxFooter: e.target.value })} rows={2} style={{ gridColumn: '1 / -1', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, fontFamily: 'inherit' }} />
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <button type="submit" className="btn-primary btn-sm" disabled={savingClinic}>
+                      {savingClinic ? <><i className="fas fa-spinner fa-spin"></i> جاري الحفظ...</> : <><i className="fas fa-save"></i> حفظ بيانات العيادة</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* 🖼️ لوجو المحل — يظهر فقط لو السوبر أدمن فعّل الميزة */}
             {isAdmin && (

@@ -44,6 +44,13 @@ export default function Appointments() {
   const [editingAppt, setEditingAppt] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 🩺 عرض اليوم (Timeline) + فاتورة الكشف من الموعد
+  const [viewMode, setViewMode] = useState("list");
+  const [selectedDay, setSelectedDay] = useState(new Date().toISOString().split("T")[0]);
+  const [invoicingAppt, setInvoicingAppt] = useState(null);
+  const [invoiceFee, setInvoiceFee] = useState("");
+  const [invoicePaid, setInvoicePaid] = useState(true);
+  const [invoicing, setInvoicing] = useState(false);
 
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -206,6 +213,56 @@ export default function Appointments() {
       console.error(e);
       alert(t("appt.delFail"));
     }
+  }
+
+  // 🧾 إنشاء فاتورة كشف من الموعد مباشرة (مبلغ حر — نفس نمط العيادة في الفواتير)
+  async function createInvoiceForAppt(e) {
+    e.preventDefault();
+    if (!invoicingAppt) return;
+    const fee = parseFloat(invoiceFee) || 0;
+    if (!(fee > 0)) { alert("أدخل قيمة الكشف أولاً"); return; }
+    const companyId = invoicingAppt.companyId || userCompanyId;
+    if (!invoicingAppt.patientId || !companyId) { alert(t("appt.fillRequired")); return; }
+    setInvoicing(true);
+    try {
+      const label = invoicingAppt.type === "first_visit" ? "كشف أول" : invoicingAppt.type === "follow_up" ? "متابعة" : invoicingAppt.type === "emergency" ? "طوارئ" : "فحص";
+      const invRef = await addDoc(collection(db, "invoices"), {
+        clientId: invoicingAppt.patientId,
+        patientId: invoicingAppt.patientId,
+        patientName: invoicingAppt.patientName || "",
+        appointmentId: invoicingAppt.id,
+        products: [{ productId: "", productName: `كشف (${label}) — ${invoicingAppt.date} ${invoicingAppt.time || ""}`, quantity: 1, amount: fee, paidAmount: 0, isManual: true }],
+        manualAmount: true,
+        amount: fee,
+        total: fee,
+        paidAmount: invoicePaid ? fee : 0,
+        status: invoicePaid ? "paid" : "pending",
+        approval: "new",
+        type: "invoice",
+        description: `فاتورة كشف من موعد ${invoicingAppt.date} ${invoicingAppt.time || ""}`,
+        paymentMethod: "cash",
+        companyId,
+        createdBy: currentUser?.uid,
+        date: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        dueDate: invoicePaid ? null : new Date().toISOString(),
+      });
+      // علّم الموعد أنه تم + اربطه بالفاتورة
+      await updateDoc(doc(db, "appointments", invoicingAppt.id), {
+        status: "done",
+        invoiceId: invRef.id,
+        fee,
+        updatedAt: new Date().toISOString(),
+      });
+      setInvoicingAppt(null);
+      setInvoiceFee("");
+      await fetchAppointments();
+      alert("✅ تم إنشاء فاتورة الكشف بنجاح");
+    } catch (err) {
+      console.error(err);
+      alert(t("common.errorGeneric"));
+    }
+    setInvoicing(false);
   }
 
   // ── تذكير واتساب: wa.me برابط جاهز (الموبايل/الكمبيوتر يفتح المحادثة) ──
@@ -399,7 +456,57 @@ export default function Appointments() {
             <option value="done">{t("appt.filterDone")}</option>
             <option value="cancelled">{t("appt.filterCancelled")}</option>
           </select>
+          <div style={{ display: "flex", gap: 6, background: "#f1f5f9", borderRadius: 10, padding: 4 }}>
+            <button type="button" onClick={() => setViewMode("list")} style={{ border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit", background: viewMode === "list" ? "white" : "transparent", color: viewMode === "list" ? "#0f172a" : "#64748b", boxShadow: viewMode === "list" ? "0 1px 4px rgba(0,0,0,0.12)" : "none" }}>
+              <i className="fas fa-list"></i> قائمة
+            </button>
+            <button type="button" onClick={() => setViewMode("day")} style={{ border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit", background: viewMode === "day" ? "white" : "transparent", color: viewMode === "day" ? "#0f172a" : "#64748b", boxShadow: viewMode === "day" ? "0 1px 4px rgba(0,0,0,0.12)" : "none" }}>
+              <i className="fas fa-calendar-day"></i> جدول اليوم
+            </button>
+          </div>
         </div>
+
+        {/* 🩺 جدول اليوم — Timeline بصري يبهر الدكتور */}
+        {viewMode === "day" && (
+          <div className="card" style={{ marginBottom: 20, padding: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", background: "linear-gradient(135deg,#2563eb,#7c3aed)", color: "white", flexWrap: "wrap" }}>
+              <strong><i className="fas fa-calendar-day" style={{ marginInlineEnd: 8 }}></i>جدول العيادة اليومي</strong>
+              <input type="date" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.4)", padding: "6px 10px", fontFamily: "inherit", fontSize: 13 }} />
+              <span style={{ fontSize: 12, background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "2px 12px", fontWeight: 700 }}>
+                {appointments.filter((a) => a.date === selectedDay && a.status !== "cancelled").length} موعد
+              </span>
+            </div>
+            <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8, maxHeight: 520, overflowY: "auto" }}>
+              {(() => {
+                const dayAppts = appointments.filter((a) => a.date === selectedDay).sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+                if (dayAppts.length === 0) return <div style={{ textAlign: "center", color: "#94a3b8", padding: 30 }}>لا توجد مواعيد في هذا اليوم — <button onClick={() => setViewMode("list")} style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", fontWeight: 700 }}>احجز الآن</button></div>;
+                return dayAppts.map((a, idx) => (
+                  <div key={a.id} style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 56 }}>
+                      <div style={{ background: a.status === "done" ? "#16a34a" : a.status === "cancelled" ? "#dc2626" : "#2563eb", color: "white", borderRadius: 10, padding: "6px 8px", fontWeight: 800, fontSize: 13, textAlign: "center", width: "100%" }}>{a.time || "--:--"}</div>
+                      {idx < dayAppts.length - 1 && <div style={{ width: 2, flex: 1, background: "#e2e8f0", marginTop: 4, minHeight: 12 }}></div>}
+                    </div>
+                    <div style={{ flex: 1, background: a.status === "cancelled" ? "#fef2f2" : "#f8fafc", border: `1px solid ${a.status === "done" ? "#bbf7d0" : "#e2e8f0"}`, borderInlineStart: `4px solid ${a.status === "done" ? "#16a34a" : a.status === "confirmed" ? "#2563eb" : a.status === "cancelled" ? "#dc2626" : "#f59e0b"}`, borderRadius: 10, padding: "8px 12px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>{a.patientName}{a.invoiceId ? <span title="تم إصدار فاتورة" style={{ marginInlineStart: 6, fontSize: 11, background: "#dcfce7", color: "#15803d", borderRadius: 12, padding: "1px 8px" }}>🧾 مفوترة</span> : null}</div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>{a.type === "first_visit" ? "🩺 كشف أول" : a.type === "follow_up" ? "🔁 متابعة" : a.type === "emergency" ? "🚨 طوارئ" : "📋 فحص"}{a.doctor ? ` • ${a.doctor}` : ""}{a.notes ? ` • ${a.notes}` : ""}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => remindWhatsApp(a)} title="تذكير واتساب" style={{ background: "#25D366", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}><i className="fab fa-whatsapp"></i></button>
+                        {(a.status === "scheduled" || a.status === "confirmed") && (
+                          <button onClick={() => { setInvoicingAppt(a); setInvoiceFee(a.fee ? String(a.fee) : ""); setInvoicePaid(true); }} title="إصدار فاتورة كشف" style={{ background: "#059669", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit" }}><i className="fas fa-file-invoice-dollar"></i> فوترة</button>
+                        )}
+                        {a.status !== "done" && a.status !== "cancelled" && (
+                          <button onClick={() => setStatus(a.id, "done")} title={t("appt.markDone")} className="btn-sm btn-secondary"><i className="fas fa-check-double"></i></button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* تذكير مواعيد الغد */}
         {tomorrowAppts.length > 0 && (
@@ -477,6 +584,11 @@ export default function Appointments() {
                                 <i className="fas fa-check-double"></i>
                               </button>
                             )}
+                            {(a.status === "scheduled" || a.status === "confirmed") && !a.invoiceId && (
+                              <button onClick={() => { setInvoicingAppt(a); setInvoiceFee(a.fee ? String(a.fee) : ""); setInvoicePaid(true); }} title="فاتورة كشف" style={{ background: "#059669", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>
+                                <i className="fas fa-file-invoice-dollar"></i>
+                              </button>
+                            )}
                             <button onClick={() => openEdit(a)} className="btn-sm btn-secondary">
                               <i className="fas fa-edit"></i>
                             </button>
@@ -542,6 +654,33 @@ export default function Appointments() {
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
                   <button type="button" className="btn-secondary" onClick={closeEdit}>{t("common.cancel")}</button>
                   <button type="submit" className="btn-primary">{t("common.saveEdits")}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 🧾 مودال فاتورة الكشف */}
+        {invoicingAppt && (
+          <div className="modal-backdrop" onClick={() => setInvoicingAppt(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-header">
+                <h3><i className="fas fa-file-invoice-dollar" style={{ color: "#059669" }}></i> فاتورة كشف — {invoicingAppt.patientName}</h3>
+                <button className="modal-close" onClick={() => setInvoicingAppt(null)}>&times;</button>
+              </div>
+              <form onSubmit={createInvoiceForAppt}>
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13 }}>
+                  📅 {invoicingAppt.date} • 🕐 {invoicingAppt.time} {invoicingAppt.doctor ? `• 👨‍⚕️ ${invoicingAppt.doctor}` : ""}
+                </div>
+                <label style={{ fontSize: 13, fontWeight: 700 }}>قيمة الكشف (ج.م) *</label>
+                <input type="number" min="0" step="0.01" value={invoiceFee} onChange={(e) => setInvoiceFee(e.target.value)} style={styles.input} placeholder="مثال: 300" required autoFocus />
+                <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                  <input type="checkbox" checked={invoicePaid} onChange={(e) => setInvoicePaid(e.target.checked)} style={{ width: 18, height: 18, accentColor: "#059669" }} />
+                  تم التحصيل نقداً (مدفوعة)
+                </label>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+                  <button type="button" className="btn-secondary" onClick={() => setInvoicingAppt(null)}>{t("common.cancel")}</button>
+                  <button type="submit" className="btn-primary" disabled={invoicing}>{invoicing ? "جاري الإصدار..." : "🧾 إصدار الفاتورة"}</button>
                 </div>
               </form>
             </div>

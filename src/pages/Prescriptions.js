@@ -33,6 +33,7 @@ export default function Prescriptions() {
     doctor: "",
     diagnosis: "",
     notes: "",
+    followUpDate: "",
     medicines: [{ name: "", dose: "", frequency: "", duration: "", notes: "" }],
     companyId: "",
   });
@@ -41,6 +42,8 @@ export default function Prescriptions() {
   const [viewingRx, setViewingRx] = useState(null);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(null);
+  // 🏥 بيانات العيادة للطباعة الاحترافية (لوجو + عنوان + تليفون + تخصص)
+  const [companyInfo, setCompanyInfo] = useState(null);
 
   const stats = {
     total: prescriptions.length,
@@ -102,6 +105,19 @@ export default function Prescriptions() {
     fetchPatients();
     fetchCompanies();
   }, [fetchPrescriptions, fetchPatients, fetchCompanies]);
+
+  // جلب بيانات العيادة للطباعة (لوجو + اسم + عنوان + تليفون + تخصص الدكتور)
+  useEffect(() => {
+    if (!userCompanyId) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "companies", userCompanyId));
+        if (snap.exists()) setCompanyInfo({ id: snap.id, ...snap.data() });
+      } catch (e) {
+        console.warn("company info:", e?.message);
+      }
+    })();
+  }, [userCompanyId]);
 
   async function getNextRxNumber() {
     // ⚠️ الكويري ده كان **من غير where('companyId')** — يعني بيبقى تسلسل
@@ -170,6 +186,7 @@ export default function Prescriptions() {
         doctor: newRx.doctor || "",
         diagnosis: newRx.diagnosis || "",
         notes: newRx.notes || "",
+        followUpDate: newRx.followUpDate || "",
         medicines: cleanMeds,
         companyId,
         createdBy: currentUser?.uid,
@@ -180,6 +197,7 @@ export default function Prescriptions() {
         doctor: "",
         diagnosis: "",
         notes: "",
+        followUpDate: "",
         medicines: [{ name: "", dose: "", frequency: "", duration: "", notes: "" }],
         companyId: superAdmin ? "" : userCompanyId,
       });
@@ -221,6 +239,7 @@ export default function Prescriptions() {
         doctor: editingRx.doctor || "",
         diagnosis: editingRx.diagnosis || "",
         notes: editingRx.notes || "",
+        followUpDate: editingRx.followUpDate || "",
         medicines: cleanMeds,
         updatedAt: new Date().toISOString(),
       });
@@ -411,6 +430,11 @@ export default function Prescriptions() {
                 onChange={(e) => setNewRx({ ...newRx, diagnosis: e.target.value })}
                 style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
               />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px" }}>
+                <i className="fas fa-calendar-check" style={{ color: "#059669" }}></i>
+                <label style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>🔁 ميعاد المتابعة:</label>
+                <input type="date" value={newRx.followUpDate} onChange={(e) => setNewRx({ ...newRx, followUpDate: e.target.value })} style={{ ...styles.input, maxWidth: 200 }} />
+              </div>
             </div>
 
             <div style={{ marginTop: 20, marginBottom: 12 }}>
@@ -612,17 +636,31 @@ export default function Prescriptions() {
                 <button className="modal-close" onClick={() => setViewingRx(null)}>&times;</button>
               </div>
               <div style={styles.rxPaper}>
-                <div style={styles.rxHeader}>
-                  <div>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: "#7c3aed" }}>℞</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{t("rx.number")}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "monospace" }}>{viewingRx.rxNumber}</div>
-                  </div>
-                  <div style={{ textAlign: lang === "ar" ? "right" : "left" }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{viewingRx.doctor || "—"}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                      {viewingRx.createdAt ? fmtDate(viewingRx.createdAt, locale) : ""}
+                {/* 🏥 ترويسة العيادة — لوجو + اسم + تخصص + تواصل */}
+                <div style={{ display: "flex", gap: 14, alignItems: "center", paddingBottom: 14, borderBottom: "3px double #7c3aed" }}>
+                  {companyInfo?.logoUrl ? (
+                    <img src={companyInfo.logoUrl} alt="logo" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 12, border: "1px solid #e2e8f0", background: "white" }} />
+                  ) : (
+                    <div style={{ width: 64, height: 64, borderRadius: 12, background: "linear-gradient(135deg,#7c3aed,#c026d3)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🩺</div>
+                  )}
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: "#0f172a" }}>{companyInfo?.name || viewingRx.doctor || "العيادة"}</div>
+                    {(companyInfo?.specialty || viewingRx.doctor) && <div style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed" }}>{companyInfo?.specialty || viewingRx.doctor}</div>}
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                      {[companyInfo?.address, companyInfo?.phone].filter(Boolean).join(" • ") || " "}
                     </div>
+                  </div>
+                  <div style={{ textAlign: "center", minWidth: 86 }}>
+                    <div style={{ fontSize: 30, fontWeight: 900, color: "#7c3aed", lineHeight: 1 }}>℞</div>
+                    <div style={{ fontSize: 10, color: "#64748b" }}>{t("rx.number")}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", direction: "ltr" }}>{viewingRx.rxNumber}</div>
+                    <div style={{ fontSize: 10, color: "#64748b" }}>{viewingRx.createdAt ? fmtDate(viewingRx.createdAt, locale) : ""}</div>
+                  </div>
+                </div>
+                <div style={styles.rxHeader}>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>👨‍⚕️ الطبيب المعالج: <strong style={{ color: "#0f172a", fontSize: 14 }}>{viewingRx.doctor || companyInfo?.doctorName || "—"}</strong></div>
+                  <div style={{ textAlign: lang === "ar" ? "left" : "right", fontSize: 12, color: "#64748b" }}>
+                    📅 {viewingRx.createdAt ? fmtDate(viewingRx.createdAt, locale) : ""}
                   </div>
                 </div>
                 <div style={styles.rxSection}>
@@ -669,9 +707,20 @@ export default function Prescriptions() {
                     <div style={{ fontSize: 14, color: "#334155", whiteSpace: "pre-wrap" }}>{viewingRx.notes}</div>
                   </div>
                 )}
+                {viewingRx.followUpDate && (
+                  <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginTop: 14, fontSize: 13, fontWeight: 800, color: "#15803d" }}>
+                    🔁 ميعاد المتابعة: {viewingRx.followUpDate}
+                  </div>
+                )}
                 <div style={styles.rxFooter}>
-                  <div style={{ textAlign: "center", color: "#64748b", fontSize: 12, fontStyle: "italic" }}>
-                    — {t("rx.print")} —
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: "#64748b", maxWidth: "60%" }}>
+                      {companyInfo?.rxFooter || "نتمنى لكم الشفاء العاجل — التزم بالجرعات ومواعيد المتابعة"}
+                      <div style={{ marginTop: 4 }}>📞 {companyInfo?.phone || ""} {companyInfo?.address ? `• 📍 ${companyInfo.address}` : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 12, color: "#0f172a", fontWeight: 800, borderTop: "1px solid #0f172a", paddingTop: 4, minWidth: 130 }}>توقيع الطبيب / ختم العيادة</div>
+                    </div>
                   </div>
                 </div>
               </div>

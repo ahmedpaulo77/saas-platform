@@ -28,6 +28,7 @@ import { invoiceRevenue } from "../utils/revenue.js";
 
 // Lazy load chart component (contains recharts ~430kB)
 const RevenueChartCard = lazy(() => import("../components/dashboard/RevenueChartCard.jsx"));
+const ClinicDashboard = lazy(() => import("../components/dashboard/ClinicDashboard.jsx"));
 
 // كل الكروت المتاحة مع الوحدة المرتبطة بكل كارت
 const ALL_FEATURE_CARDS = [
@@ -883,6 +884,13 @@ export default function Dashboard() {
           {availableModules.has("invoices") && !isCardHidden(hiddenCards, "revenueChart") && (
             <Suspense fallback={<div className="card" style={{padding: "40px 20px", textAlign: "center"}}><div className="spinner" aria-hidden="true"></div><div>جاري تحميل الرسم البياني...</div></div>}>
               <RevenueChartCard t={t} locale={locale} loading={loading} dailyRevenue={dailyRevenue} mom={mom} currencyLabel={t("currency")} />
+            </Suspense>
+          )}
+
+          {/* 🩺 لوحة العيادة اليومية — تظهر فقط لشركات العيادات */}
+          {userIndustry === "clinic" && (
+            <Suspense fallback={<div className="card" style={{padding: "24px", textAlign: "center"}}><div className="spinner" aria-hidden="true"></div><div>جاري تحميل لوحة العيادة...</div></div>}>
+              <ClinicDashboard />
             </Suspense>
           )}
           </>
