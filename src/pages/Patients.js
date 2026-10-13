@@ -39,13 +39,31 @@ export default function Patients() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // الملف الطبي
+  // الملف الطبي — كورسل: تقليب بين ملفات المرضى بزرار يمين/شمال
+  // fileList لقطة ثابتة من القائمة وقت الفتح — عشان البحث لو اتغير والملف مفتوح
+  // التقليب مينطش لمريض تاني فجأة
   const [filePatient, setFilePatient] = useState(null);
+  const [fileIdx, setFileIdx] = useState(null);
+  const [fileList, setFileList] = useState([]);
   const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
   const [fileLoading, setFileLoading] = useState(false);
 
-  async function openFile(patient) {
+  function closeFile() {
+    setFilePatient(null);
+    setFileIdx(null);
+    setFileList([]);
+  }
+
+  function goFile(delta) {
+    if (fileIdx == null || fileList.length === 0) return;
+    const next = (fileIdx + delta + fileList.length) % fileList.length;
+    openFile(fileList[next], next, fileList);
+  }
+
+  async function openFile(patient, idx = null, list = null) {
     setFilePatient(patient);
+    if (idx != null) setFileIdx(idx);
+    if (list != null) setFileList(list);
     setFileLoading(true);
     setFileData({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
     try {
@@ -223,6 +241,18 @@ export default function Patients() {
       (p.phone || "").includes(s) ||
       (p.email || "").toLowerCase().includes(s)
     );
+  });
+
+  // أسهم الكيبورد للتقليب بين الملفات (يمين/شمال) زي عارض الصور
+  useEffect(() => {
+    if (filePatient == null || fileIdx == null) return;
+    function onKey(e) {
+      if (e.key === "ArrowLeft") goFile(1);
+      else if (e.key === "ArrowRight") goFile(-1);
+      else if (e.key === "Escape") closeFile();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   });
 
   if (loading)
@@ -425,7 +455,7 @@ export default function Patients() {
                       <td>{p.totalVisits || 0}</td>
                       <td>
                         <div className="table-actions">
-                          <button onClick={() => openFile(p)} className="btn-primary btn-sm" title="الملف الطبي">
+                          <button onClick={() => openFile(p, i, filtered)} className="btn-primary btn-sm" title="الملف الطبي">
                             <i className="fas fa-folder-open"></i> الملف
                           </button>
                           <button onClick={() => openEdit(p)} className="btn-secondary btn-sm">
@@ -486,13 +516,22 @@ export default function Patients() {
           </div>
         )}
 
-        {/* ── الملف الطبي ── */}
+        {/* ── الملف الطبي (كورسل: تقليب يمين/شمال بين المرضى) ── */}
         {filePatient && (
-          <div className="modal-backdrop" onClick={() => setFilePatient(null)}>
+          <div className="modal-backdrop" onClick={closeFile}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
-              <div className="modal-header">
-                <h3><i className="fas fa-folder-open" style={{ color: "#2563eb" }}></i> الملف الطبي — {filePatient.name}</h3>
-                <button className="modal-close" onClick={() => setFilePatient(null)}>&times;</button>
+              <div className="modal-header" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button className="btn-secondary btn-sm" onClick={() => goFile(-1)} disabled={fileList.length < 2} title="المريض السابق (←)">
+                  <i className="fas fa-chevron-right"></i>
+                </button>
+                <h3 style={{ flex: 1, margin: 0 }}><i className="fas fa-folder-open" style={{ color: "#2563eb" }}></i> الملف الطبي — {filePatient.name}</h3>
+                {fileIdx != null && fileList.length > 0 && (
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#64748b", whiteSpace: "nowrap" }}>{fileIdx + 1} / {fileList.length}</span>
+                )}
+                <button className="btn-secondary btn-sm" onClick={() => goFile(1)} disabled={fileList.length < 2} title="المريض التالي (→)">
+                  <i className="fas fa-chevron-left"></i>
+                </button>
+                <button className="modal-close" onClick={closeFile}>&times;</button>
               </div>
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
                 <div>🩸 الفصيلة: <strong>{filePatient.bloodType || "—"}</strong></div>

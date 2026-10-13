@@ -276,20 +276,29 @@ export default function Prescriptions() {
     try {
       const invoiceData = {
         clientId: clientId,
+        patientId: clientId,
+        patientName: rx.patientName || "",
         products: (rx.medicines || []).map((m) => ({
-          productId: m.name || m.id || "unknown",
+          productId: "",
+          productName: m.name || "دواء",
           quantity: 1,
           amount: 0,
+          paidAmount: 0,
+          isManual: true,
         })),
+        manualAmount: true,
         amount: 0,
+        total: 0,
         quantity: (rx.medicines || []).length,
         status: "pending",
-        description: `من روشتة ${rx.rxNumber || rx.id}`,
+        approval: "new",
+        type: "invoice",
+        description: `من روشتة ${rx.rxNumber || rx.id} — تُسعّر من الاستقبال`,
         companyId: rx.companyId || userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
         date: new Date().toISOString(),
-        dueDate: null,
+        dueDate: new Date().toISOString(),
         paidAmount: 0,
         fromPrescriptionId: rx.id,
       };
@@ -583,6 +592,11 @@ export default function Prescriptions() {
                   onChange={(e) => setEditingRx({ ...editingRx, diagnosis: e.target.value })}
                   style={{ ...styles.input, minHeight: 60, marginTop: 12 }}
                 />
+                <div style={{ display: "flex", gap: 8, alignItems: "center", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px", marginTop: 10 }}>
+                  <i className="fas fa-calendar-check" style={{ color: "#059669" }}></i>
+                  <label style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>🔁 ميعاد المتابعة:</label>
+                  <input type="date" value={editingRx.followUpDate || ""} onChange={(e) => setEditingRx({ ...editingRx, followUpDate: e.target.value })} style={{ ...styles.input, maxWidth: 200 }} />
+                </div>
 
                 <div style={{ marginTop: 20, marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

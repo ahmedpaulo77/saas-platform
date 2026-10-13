@@ -924,8 +924,8 @@ export default function Invoices() {
           onValidate={isAdmin ? validateInvoice : null}
           onEdit={isClothing ? null : (inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
-          onReturn={isAdmin ? (inv) => openReturnWithPin(inv) : null}
-          onExchange={(isAdmin && !isRestaurantOnly) ? (inv) => openExchangeWithPin(inv) : null}
+          onReturn={(isAdmin && !isClinic) ? (inv) => openReturnWithPin(inv) : null}
+          onExchange={(isAdmin && !isRestaurantOnly && !isClinic) ? (inv) => openExchangeWithPin(inv) : null}
           onDelete={isClothing ? null : deleteInvoice}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}

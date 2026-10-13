@@ -204,7 +204,7 @@ export default function Reception() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 380px) 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, alignItems: "start" }}>
           {/* الشمال: مواعيد اليوم */}
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #e2e8f0", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

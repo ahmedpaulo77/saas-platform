@@ -1,7 +1,7 @@
 // src/pages/Dental.js — تخصص الأسنان 🦷
 // Dental Chart (FDI) + خطة علاج + تحويل الخطة لفاتورة — اللي يبهر دكتور السنان
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";

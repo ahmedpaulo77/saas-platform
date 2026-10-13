@@ -116,11 +116,38 @@ export default function Appointments() {
     fetchCompanies();
   }, [fetchAppointments, fetchPatients, fetchCompanies]);
 
+  // ⛔ منع الحجز المزدوج: نفس اليوم + نفس الساعة = محجوز (ما عدا الملغي).
+  // لو الدكتورين مكتوبين ومختلفين صراحة بنسمح — عيادة فيها أكتر من دكتور.
+  function findConflict(date, time, doctor, excludeId = null) {
+    const d = String(doctor || "").trim();
+    return appointments.find((a) => {
+      if (excludeId && a.id === excludeId) return false;
+      if (a.status === "cancelled") return false;
+      if (a.date !== date || String(a.time || "") !== String(time || "")) return false;
+      const ad = String(a.doctor || "").trim();
+      if (d && ad && d !== ad) return false;
+      return true;
+    });
+  }
+
+  // المواعيد المحجوزة في يوم معين (تُعرض في الفورم عشان الدكتور يشوف الفاضي/المحجوز)
+  function takenSlots(date, excludeId = null) {
+    if (!date) return [];
+    return appointments
+      .filter((a) => a.date === date && a.status !== "cancelled" && (!excludeId || a.id !== excludeId))
+      .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+  }
+
   async function addAppt(e) {
     e.preventDefault();
     const companyId = superAdmin ? newAppt.companyId : userCompanyId;
     if (!newAppt.patientId || !newAppt.date || !newAppt.time || !companyId) {
       alert(t("appt.fillRequired"));
+      return;
+    }
+    const conflict = findConflict(newAppt.date, newAppt.time, newAppt.doctor);
+    if (conflict) {
+      alert(`⛔ المعاد محجوز بالفعل — ${conflict.patientName || "مريض آخر"} الساعة ${conflict.time}. اختار ساعة تانية.`);
       return;
     }
     try {
@@ -168,6 +195,11 @@ export default function Appointments() {
     e.preventDefault();
     if (!editingAppt.patientId || !editingAppt.date || !editingAppt.time) {
       alert(t("appt.fillRequired"));
+      return;
+    }
+    const conflict = findConflict(editingAppt.date, editingAppt.time, editingAppt.doctor, editingAppt.id);
+    if (conflict) {
+      alert(`⛔ المعاد محجوز بالفعل — ${conflict.patientName || "مريض آخر"} الساعة ${conflict.time}. اختار ساعة تانية.`);
       return;
     }
     try {
@@ -437,6 +469,38 @@ export default function Appointments() {
                 style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
               />
             </div>
+            {/* 📌 المحجوز والفاضي في اليوم المختار — الدكتور يشوف قبل ما يحجز */}
+            {newAppt.date && (() => {
+              const taken = takenSlots(newAppt.date);
+              const clash = newAppt.time ? findConflict(newAppt.date, newAppt.time, newAppt.doctor) : null;
+              return (
+                <div style={{ marginTop: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
+                    📌 المحجوز يوم {newAppt.date} ({taken.length}):
+                  </div>
+                  {taken.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "#15803d", fontWeight: 700 }}>✅ اليوم فاضي تماماً — أي ساعة متاحة</div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {taken.map((a) => {
+                        const isPicked = newAppt.time && String(a.time) === String(newAppt.time);
+                        return (
+                          <span key={a.id} title={`${a.patientName || ""}${a.doctor ? ` • ${a.doctor}` : ""}`}
+                            style={{ fontSize: 12, fontWeight: 800, borderRadius: 20, padding: "3px 12px", background: isPicked ? "#fee2e2" : "#ede9fe", color: isPicked ? "#b91c1c" : "#6d28d9", border: `1px solid ${isPicked ? "#fca5a5" : "#c4b5fd"}` }}>
+                            🔒 {a.time} • {a.patientName}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {clash && (
+                    <div style={{ marginTop: 8, fontSize: 13, fontWeight: 800, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "6px 12px" }}>
+                      ⛔ الساعة {newAppt.time} محجوزة ({clash.patientName}) — غيّر الساعة
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <button type="submit" className="btn-primary" style={{ marginTop: 16 }}>
               <i className="fas fa-plus"></i> {t("appt.add")}
             </button>
@@ -651,6 +715,31 @@ export default function Appointments() {
                     style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
                   />
                 </div>
+                {editingAppt.date && (() => {
+                  const taken = takenSlots(editingAppt.date, editingAppt.id);
+                  const clash = editingAppt.time ? findConflict(editingAppt.date, editingAppt.time, editingAppt.doctor, editingAppt.id) : null;
+                  return (
+                    <div style={{ marginTop: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>📌 المحجوز يوم {editingAppt.date} ({taken.length}):</div>
+                      {taken.length === 0 ? (
+                        <div style={{ fontSize: 13, color: "#15803d", fontWeight: 700 }}>✅ اليوم فاضي تماماً</div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {taken.map((a) => (
+                            <span key={a.id} style={{ fontSize: 12, fontWeight: 800, borderRadius: 20, padding: "3px 12px", background: "#ede9fe", color: "#6d28d9", border: "1px solid #c4b5fd" }}>
+                              🔒 {a.time} • {a.patientName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {clash && (
+                        <div style={{ marginTop: 8, fontSize: 13, fontWeight: 800, color: "#b91c1c", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "6px 12px" }}>
+                          ⛔ الساعة {editingAppt.time} محجوزة ({clash.patientName}) — غيّر الساعة
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
                   <button type="button" className="btn-secondary" onClick={closeEdit}>{t("common.cancel")}</button>
                   <button type="submit" className="btn-primary">{t("common.saveEdits")}</button>
