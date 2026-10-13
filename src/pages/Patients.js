@@ -47,11 +47,18 @@ export default function Patients() {
   const [fileList, setFileList] = useState([]);
   const [fileData, setFileData] = useState({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
   const [fileLoading, setFileLoading] = useState(false);
+  // تبويب القسم المعروض جوه الملف — المحتوى بيتبدل قدامك من غير سكرول لتحت
+  const [fileTab, setFileTab] = useState("appointments");
+  // نوافذ منبثقة فوق الملف: تفاصيل فاتورة + عرض صورة تحليل مكبرة
+  const [fileInv, setFileInv] = useState(null);
+  const [fileImg, setFileImg] = useState(null);
 
   function closeFile() {
     setFilePatient(null);
     setFileIdx(null);
     setFileList([]);
+    setFileInv(null);
+    setFileImg(null);
   }
 
   function goFile(delta) {
@@ -64,6 +71,9 @@ export default function Patients() {
     setFilePatient(patient);
     if (idx != null) setFileIdx(idx);
     if (list != null) setFileList(list);
+    setFileTab("appointments");
+    setFileInv(null);
+    setFileImg(null);
     setFileLoading(true);
     setFileData({ appointments: [], prescriptions: [], invoices: [], attachments: [], dental: null, dentalPlan: null });
     try {
@@ -545,70 +555,154 @@ export default function Patients() {
                 <div className="loading"><div className="spinner"></div>{t("common.loading")}</div>
               ) : (
                 <>
-                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>📅 المواعيد ({fileData.appointments.length})</h4>
-                  {fileData.appointments.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مواعيد</p> : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, maxHeight: 180, overflowY: "auto" }}>
-                      {fileData.appointments.map((a) => (
-                        <div key={a.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
-                          <strong>{a.date} {a.time}</strong>
-                          <span style={{ color: "#64748b" }}>{a.type === "first_visit" ? "كشف" : a.type === "follow_up" ? "متابعة" : a.type || ""}</span>
-                          <span style={{ marginInlineEnd: "auto", background: a.status === "done" ? "#f0fdf4" : "#eff6ff", color: a.status === "done" ? "#16a34a" : "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>{a.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>💊 الروشتات ({fileData.prescriptions.length})</h4>
-                  {fileData.prescriptions.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد روشتات</p> : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14, maxHeight: 180, overflowY: "auto" }}>
-                      {fileData.prescriptions.map((r) => (
-                        <div key={r.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
-                          <div style={{ display: "flex", gap: 8 }}><strong>{r.createdAt ? fmtDate(r.createdAt, locale) : "—"}</strong><span style={{ color: "#7c3aed" }}>{r.diagnosis || ""}</span></div>
-                          {(r.medicines || []).map((m, i) => (
-                            <div key={i} style={{ color: "#475569" }}>• {m.name} — {m.dose} — {m.frequency} — {m.duration}</div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <h4 style={{ fontSize: 14, margin: "0 0 8px" }}>🧾 الفواتير ({fileData.invoices.length})</h4>
-                  {fileData.invoices.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد فواتير</p> : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto" }}>
-                      {fileData.invoices.map((inv) => (
-                        <div key={inv.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8 }}>
-                          <strong>{inv.date ? fmtDate(inv.date, locale) : "—"}</strong>
-                          <span>الإجمالي: {moneyShort(Number(inv.amount || 0), locale)}</span>
-                          <span style={{ color: "#16a34a" }}>المدفوع: {moneyShort(Number(inv.paidAmount || 0), locale)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {fileData.dental && (
-                    <>
-                      <h4 style={{ fontSize: 14, margin: "14px 0 8px" }}>🦷 حالة الأسنان</h4>
-                      <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 10, padding: "8px 12px", fontSize: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <span>🦷 {Object.keys(fileData.dental.teeth || {}).length} ضرس مسجل</span>
-                        {fileData.dentalPlan && <span>• 📋 الخطة: {fileData.dentalPlan.items?.length || 0} بند</span>}
-                        <a href="/dental" style={{ marginInlineStart: "auto", color: "#0e7490", fontWeight: 800 }}>فتح ملف الأسنان ←</a>
-                      </div>
-                    </>
-                  )}
-                  <h4 style={{ fontSize: 14, margin: "14px 0 8px" }}>📎 التحاليل والأشعة ({(fileData.attachments || []).length})</h4>
-                  {(fileData.attachments || []).length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مرفقات — <a href="/medical-attachments" style={{ color: "#059669", fontWeight: 700 }}>أضف من صفحة التحاليل</a></p> : (
-                    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                      {(fileData.attachments || []).map((m) => (
-                        <div key={m.id} style={{ minWidth: 120, background: "white", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-                          {m.fileData ? <img src={m.fileData} alt={m.title} style={{ width: "100%", height: 80, objectFit: "cover" }} /> : <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, background: "#f1f5f9" }}>📎</div>}
-                          <div style={{ padding: "6px 8px", fontSize: 11 }}>
-                            <div style={{ fontWeight: 800 }}>{m.title}</div>
-                            <div style={{ color: "#64748b" }}>{m.date || ""}</div>
+                  {/* تبويبات الملف — دوس على أي قسم يتبدل قدامك من غير ما تنزل تحت */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                    {[
+                      { id: "appointments", label: "📅 المواعيد", count: fileData.appointments.length },
+                      { id: "prescriptions", label: "💊 الروشتات", count: fileData.prescriptions.length },
+                      { id: "invoices", label: "🧾 الفواتير", count: fileData.invoices.length },
+                      { id: "attachments", label: "📎 تحاليل", count: (fileData.attachments || []).length },
+                      { id: "dental", label: "🦷 الأسنان", count: fileData.dental ? Object.keys(fileData.dental.teeth || {}).length : 0 },
+                    ].map((tb) => (
+                      <button key={tb.id} type="button" onClick={() => setFileTab(tb.id)}
+                        style={{ border: fileTab === tb.id ? "2px solid #2563eb" : "1px solid #e2e8f0", background: fileTab === tb.id ? "#eff6ff" : "white", color: fileTab === tb.id ? "#1d4ed8" : "#475569", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit" }}>
+                        {tb.label} ({tb.count})
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ maxHeight: 340, overflowY: "auto", paddingInlineEnd: 4 }}>
+                  {fileTab === "appointments" && (
+                    fileData.appointments.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مواعيد</p> : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {fileData.appointments.map((a) => (
+                          <div key={a.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
+                            <strong>{a.date} {a.time}</strong>
+                            <span style={{ color: "#64748b" }}>{a.type === "first_visit" ? "كشف" : a.type === "follow_up" ? "متابعة" : a.type || ""}</span>
+                            <span style={{ marginInlineEnd: "auto", background: a.status === "done" ? "#f0fdf4" : "#eff6ff", color: a.status === "done" ? "#16a34a" : "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>{a.status}</span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )
                   )}
+                  {fileTab === "prescriptions" && (
+                    fileData.prescriptions.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد روشتات</p> : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {fileData.prescriptions.map((r) => (
+                          <div key={r.id} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 12 }}>
+                            <div style={{ display: "flex", gap: 8 }}><strong>{r.createdAt ? fmtDate(r.createdAt, locale) : "—"}</strong><span style={{ color: "#7c3aed" }}>{r.diagnosis || ""}</span></div>
+                            {(r.medicines || []).map((m, i) => (
+                              <div key={i} style={{ color: "#475569" }}>• {m.name} — {m.dose} — {m.frequency} — {m.duration}</div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+                  {fileTab === "invoices" && (
+                    fileData.invoices.length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد فواتير</p> : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {fileData.invoices.map((inv) => (
+                          <button key={inv.id} type="button" onClick={() => setFileInv(inv)} title="دوس لعرض تفاصيل الفاتورة"
+                            style={{ textAlign: "start", cursor: "pointer", background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 12, display: "flex", gap: 8, alignItems: "center", fontFamily: "inherit" }}>
+                            <strong>{inv.date ? fmtDate(inv.date, locale) : "—"}</strong>
+                            <span>الإجمالي: {moneyShort(Number(inv.total ?? inv.amount ?? 0), locale)}</span>
+                            <span style={{ color: "#16a34a" }}>المدفوع: {moneyShort(Number(inv.paidAmount || 0), locale)}</span>
+                            <span style={{ marginInlineStart: "auto", color: "#2563eb", fontWeight: 800 }}>التفاصيل ←</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+                  {fileTab === "attachments" && (
+                    (fileData.attachments || []).length === 0 ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد مرفقات — <a href="/medical-attachments" style={{ color: "#059669", fontWeight: 700 }}>أضف من صفحة التحاليل</a></p> : (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8 }}>
+                        {(fileData.attachments || []).map((m) => (
+                          <button key={m.id} type="button" onClick={() => m.fileData && setFileImg(m)} title={m.fileData ? "دوس للعرض مكبر" : m.title}
+                            style={{ cursor: m.fileData ? "zoom-in" : "default", background: "white", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden", padding: 0, fontFamily: "inherit" }}>
+                            {m.fileData ? <img src={m.fileData} alt={m.title} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} /> : <div style={{ height: 70, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, background: "#f1f5f9" }}>📎</div>}
+                            <div style={{ padding: "6px 8px", fontSize: 11, textAlign: "start" }}>
+                              <div style={{ fontWeight: 800 }}>{m.title}</div>
+                              <div style={{ color: "#64748b" }}>{m.date || ""}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+                  {fileTab === "dental" && (
+                    !fileData.dental ? <p style={{ color: "#94a3b8", fontSize: 12 }}>لا توجد خريطة أسنان — <a href="/dental" style={{ color: "#0e7490", fontWeight: 700 }}>افتح ملف الأسنان</a></p> : (
+                      <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 10, padding: "10px 14px", fontSize: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <span>🦷 {Object.keys(fileData.dental.teeth || {}).length} ضرس مسجل</span>
+                          {fileData.dentalPlan && <span>• 📋 الخطة: {fileData.dentalPlan.items?.length || 0} بند</span>}
+                          <a href="/dental" style={{ marginInlineStart: "auto", color: "#0e7490", fontWeight: 800 }}>فتح ملف الأسنان ←</a>
+                        </div>
+                        {(fileData.dentalPlan?.items || []).length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {fileData.dentalPlan.items.map((it, i) => (
+                              <div key={i} style={{ background: "white", borderRadius: 8, padding: "4px 10px", display: "flex", gap: 8 }}>
+                                <span>🦷 {it.tooth}</span><span>{it.procedure}</span>
+                                <strong style={{ marginInlineStart: "auto" }}>{moneyShort(Number(it.price) || 0, locale)}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {fileData.dental.notes && <div style={{ color: "#475569" }}>📝 {fileData.dental.notes}</div>}
+                      </div>
+                    )
+                  )}
+                  </div>
                 </>
               )}
             </div>
+
+            {/* 🧾 تفاصيل الفاتورة — نافذة قدامك فوق الملف */}
+            {fileInv && (
+              <div className="modal-backdrop" onClick={() => setFileInv(null)} style={{ zIndex: 60 }}>
+                <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                  <div className="modal-header">
+                    <h3>🧾 فاتورة — {filePatient.name}</h3>
+                    <button className="modal-close" onClick={() => setFileInv(null)}>&times;</button>
+                  </div>
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 12, fontSize: 13, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <span>📅 <strong>{fileInv.date ? fmtDate(fileInv.date, locale) : "—"}</strong></span>
+                    <span>الحالة: <strong>{fileInv.status === "paid" ? "مدفوعة ✅" : "معلقة ⏳"}</strong></span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                    {(fileInv.products || []).map((p, i) => (
+                      <div key={i} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, display: "flex", gap: 8 }}>
+                        <span style={{ flex: 1, fontWeight: 700 }}>{p.productName || "خدمة"}</span>
+                        <span style={{ color: "#64748b" }}>×{p.quantity || 1}</span>
+                        <strong>{moneyShort(Number(p.amount) || 0, locale)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {fileInv.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>{fileInv.description}</div>}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, borderTop: "2px solid #e2e8f0", paddingTop: 10 }}>
+                    <span>الإجمالي: {moneyShort(Number(fileInv.total ?? fileInv.amount ?? 0), locale)}</span>
+                    <span style={{ color: "#16a34a" }}>المدفوع: {moneyShort(Number(fileInv.paidAmount || 0), locale)}</span>
+                    <span style={{ color: "#d97706" }}>المتبقي: {moneyShort(Math.max(0, Number(fileInv.total ?? fileInv.amount ?? 0) - Number(fileInv.paidAmount || 0)), locale)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 🖼️ صورة التحليل مكبرة — قدامك فوق الملف */}
+            {fileImg && (
+              <div className="modal-backdrop" onClick={() => setFileImg(null)} style={{ zIndex: 60 }}>
+                <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, textAlign: "center" }}>
+                  <div className="modal-header">
+                    <h3>📎 {fileImg.title} — {filePatient.name}</h3>
+                    <button className="modal-close" onClick={() => setFileImg(null)}>&times;</button>
+                  </div>
+                  <img src={fileImg.fileData} alt={fileImg.title} style={{ maxWidth: "100%", borderRadius: 12, border: "1px solid #e2e8f0" }} />
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 10, fontSize: 12, color: "#64748b" }}>
+                    <span>{fileImg.date || ""}</span>
+                    {fileImg.notes && <span>• {fileImg.notes}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
