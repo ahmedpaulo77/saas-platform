@@ -1,6 +1,7 @@
 // src/pages/Dental.js — تخصص الأسنان 🦷
 // Dental Chart (FDI) + خطة علاج + تحويل الخطة لفاتورة — اللي يبهر دكتور السنان
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { collection, addDoc, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
@@ -34,6 +35,7 @@ const statusMeta = (id) => STATUSES.find((s) => s.id === id) || STATUSES[0];
 
 export default function Dental() {
   const { locale } = useLanguage();
+  const navigate = useNavigate();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const [patients, setPatients] = useState([]);
   const [patientId, setPatientId] = useState("");
@@ -200,10 +202,17 @@ export default function Dental() {
 
         <div className="card" style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 13, fontWeight: 800 }}>👤 المريض</label>
-          <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={styles.input}>
-            <option value="">اختار المريض...</option>
-            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.phone ? ` (${p.phone})` : ""}</option>)}
-          </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={{ ...styles.input, flex: 1, minWidth: 200 }}>
+              <option value="">اختار المريض...</option>
+              {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.phone ? ` (${p.phone})` : ""}</option>)}
+            </select>
+            {patientId && (
+              <button type="button" onClick={() => navigate("/prescriptions", { state: { patientId } })} title="كتابة روشتة للمريض — مربوطة بيه وتظهر في ورقة المريض" style={{ background: "#7c3aed", color: "white", border: "none", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                💊 روشتة للمريض
+              </button>
+            )}
+          </div>
         </div>
 
         {!patientId ? (

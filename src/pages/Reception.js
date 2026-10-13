@@ -7,7 +7,8 @@ import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
-import { buildClinicThermalHTML, openThermalPrint } from "../utils/invoiceHelpers.js";
+import { useNavigate } from "react-router-dom";
+import { buildClinicThermalHTML, openThermalPrint, buildVisitSummaryHTML, openSheetPrint } from "../utils/invoiceHelpers.js";
 import { exportInvoicePDF } from "../utils/pdfExport.js";
 import { moneyShort } from "../utils/fmt.js";
 
@@ -32,12 +33,17 @@ const DENTAL_PRESETS = [
 
 export default function Reception() {
   const { t, locale } = useLanguage();
+  const navigate = useNavigate();
   const { userRole, userCompanyId, currentUser } = useAuth();
   const todayStr = new Date().toISOString().split("T")[0];
   const [day, setDay] = useState(todayStr);
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
   const [invoicesToday, setInvoicesToday] = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [dentalPlans, setDentalPlans] = useState([]);
+  const [fullPatients, setFullPatients] = useState({});
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // appointment or walk-in {walkIn:true, patientId, patientName}
@@ -58,10 +64,12 @@ export default function Reception() {
     setLoading(true);
     try {
       const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
-      const [aSnap, pSnap, iSnap, cSnap] = await Promise.all([
+      const [aSnap, pSnap, iSnap, rSnap, dSnap, cSnap] = await Promise.all([
         getDocs(q("appointments")),
         getDocs(q("patients")),
         getDocs(q("invoices")),
+        getDocs(q("prescriptions")),
+        getDocs(q("dental_plans")),
         getDoc(doc(db, "companies", userCompanyId)),
       ]);
       const appts = [];
@@ -69,11 +77,21 @@ export default function Reception() {
       appts.sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
       setAppointments(appts);
       const plist = [];
-      pSnap.forEach((d) => plist.push({ id: d.id, name: d.data().name, phone: d.data().phone || "" }));
+      const pmap = {};
+      pSnap.forEach((d) => { const p = { id: d.id, ...d.data() }; plist.push({ id: p.id, name: p.name, phone: p.phone || "" }); pmap[p.id] = p; });
       setPatients(plist);
+      setFullPatients(pmap);
       const invs = [];
       iSnap.forEach((d) => invs.push({ id: d.id, ...d.data() }));
+      setAllInvoices(invs);
       setInvoicesToday(invs.filter((v) => String(v.date || v.createdAt || "").split("T")[0] === todayStr));
+      const rxs = [];
+      rSnap.forEach((d) => rxs.push({ id: d.id, ...d.data() }));
+      rxs.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      setPrescriptions(rxs);
+      const plans = [];
+      dSnap.forEach((d) => plans.push({ id: d.id, ...d.data() }));
+      setDentalPlans(plans);
       if (cSnap.exists()) setCompany({ id: cSnap.id, ...cSnap.data() });
     } catch (e) {
       console.error(e);
@@ -93,6 +111,59 @@ export default function Reception() {
   const remain = Math.max(0, total - paid);
 
   const dayCash = useMemo(() => invoicesToday.reduce((s, v) => s + (parseFloat(v.paidAmount) || 0), 0), [invoicesToday]);
+
+  // 🔗 الروشتة المربوطة بالمريض/الموعد المختار (الأحدث أولاً)
+  function linkedRx() {
+    if (!selected?.patientId) return null;
+    if (!selected.walkIn && selected.id) {
+      const byAppt = prescriptions.find((r) => r.appointmentId === selected.id);
+      if (byAppt) return byAppt;
+    }
+    return prescriptions.find((r) => (r.patientId || r.clientId) === selected.patientId) || null;
+  }
+
+  // 🧾 فاتورة الزيارة المختارة (المحفوظة حالاً أو الأحدث للمريض)
+  function selectedInvoice() {
+    if (lastInvoice) return lastInvoice;
+    if (!selected?.patientId) return null;
+    if (!selected.walkIn && selected.invoiceId) {
+      const f = allInvoices.find((v) => v.id === selected.invoiceId);
+      if (f) return f;
+    }
+    const mine = allInvoices
+      .filter((v) => (v.patientId || v.clientId) === selected.patientId)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    return mine[0] || null;
+  }
+
+  // 💊 فتح روشتة مربوطة بالمريض/الموعد المختار
+  function newRxForSelected() {
+    if (!selected?.patientId) return;
+    navigate("/prescriptions", {
+      state: {
+        patientId: selected.patientId,
+        appointmentId: selected.walkIn ? "" : selected.id,
+        doctor: selected.doctor || "",
+        apptLabel: `${selected.date || day} ${selected.time || ""}`.trim(),
+      },
+    });
+  }
+
+  // 🖨️ ورقة المريض وهو ماشي: روشتة + حساب + خطة أسنان في ورقة واحدة (A4)
+  function printSheet() {
+    if (!selected) return;
+    const rx = linkedRx();
+    const inv = selectedInvoice();
+    const plan = dentalPlans.find((p) => p.patientId === selected.patientId) || null;
+    openSheetPrint(buildVisitSummaryHTML({
+      company,
+      patient: fullPatients[selected.patientId] || { name: selected.patientName },
+      appointment: selected.walkIn ? { date: day, time: selected.time || "", patientName: selected.patientName } : selected,
+      prescription: rx,
+      invoice: inv,
+      dentalPlan: plan,
+    }));
+  }
 
   function pickAppt(a) {
     setSelected(a);
@@ -252,6 +323,24 @@ export default function Reception() {
                   <h3 style={{ margin: 0 }}>👤 {selected.patientName} <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{selected.date} {selected.time || ""}</span></h3>
                   {selected.invoiceId && <span style={{ fontSize: 12, fontWeight: 800, background: "#dcfce7", color: "#15803d", borderRadius: 20, padding: "2px 12px" }}>تمت الفوترة ✅</span>}
                 </div>
+
+                {/* 🔗 حالة الربط + الروشتة + ورقة المريض */}
+                {(() => {
+                  const rx = linkedRx();
+                  return (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: rx ? "#f5f3ff" : "#fffbeb", border: rx ? "1px solid #c4b5fd" : "1px solid #fcd34d", borderRadius: 10, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
+                      {rx ? (
+                        <span style={{ fontWeight: 800, color: "#6d28d9" }}>💊 روشتة موجودة {rx.rxNumber ? `(${rx.rxNumber})` : ""} ✅</span>
+                      ) : (
+                        <span style={{ fontWeight: 700, color: "#b45309" }}>💊 لا توجد روشتة لهذه الزيارة بعد</span>
+                      )}
+                      <button type="button" className="btn-secondary btn-sm" onClick={newRxForSelected} style={{ marginInlineStart: "auto" }}>💊 {rx ? "روشتة أخرى" : "كتابة الروشتة"}</button>
+                      <button type="button" onClick={printSheet} title="ورقة المريض وهو ماشي: روشتة + حساب + خطة أسنان" style={{ background: "#0d9488", color: "white", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: "inherit" }}>
+                        🖨️ ورقة المريض
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                   {PRESETS.map((p) => (

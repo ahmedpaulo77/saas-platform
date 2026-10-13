@@ -8,6 +8,7 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
+import { useNavigate } from "react-router-dom";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
@@ -24,7 +25,19 @@ const STATUS_BADGES = {
 
 export default function Appointments() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const { userRole, userCompanyId, currentUser } = useAuth();
+  // 💊 روشتة مربوطة بالموعد: تفتح الروشتات والمريض والموعد جاهزين
+  function newLinkedRx(a) {
+    navigate("/prescriptions", {
+      state: {
+        patientId: a.patientId,
+        appointmentId: a.id,
+        doctor: a.doctor || "",
+        apptLabel: `${a.date} ${a.time || ""}`,
+      },
+    });
+  }
   const superAdmin = isSuperAdmin(userRole);
   const [appointments, setAppointments] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -560,6 +573,9 @@ export default function Appointments() {
                         {(a.status === "scheduled" || a.status === "confirmed") && (
                           <button onClick={() => { setInvoicingAppt(a); setInvoiceFee(a.fee ? String(a.fee) : ""); setInvoicePaid(true); }} title="إصدار فاتورة كشف" style={{ background: "#059669", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit" }}><i className="fas fa-file-invoice-dollar"></i> فوترة</button>
                         )}
+                        {a.status !== "cancelled" && (
+                          <button onClick={() => newLinkedRx(a)} title="روشتة مربوطة بالموعد" style={{ background: "#7c3aed", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit" }}><i className="fas fa-prescription"></i> روشتة</button>
+                        )}
                         {a.status !== "done" && a.status !== "cancelled" && (
                           <button onClick={() => setStatus(a.id, "done")} title={t("appt.markDone")} className="btn-sm btn-secondary"><i className="fas fa-check-double"></i></button>
                         )}
@@ -651,6 +667,11 @@ export default function Appointments() {
                             {(a.status === "scheduled" || a.status === "confirmed") && !a.invoiceId && (
                               <button onClick={() => { setInvoicingAppt(a); setInvoiceFee(a.fee ? String(a.fee) : ""); setInvoicePaid(true); }} title="فاتورة كشف" style={{ background: "#059669", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>
                                 <i className="fas fa-file-invoice-dollar"></i>
+                              </button>
+                            )}
+                            {a.status !== "cancelled" && (
+                              <button onClick={() => newLinkedRx(a)} title="روشتة مربوطة بالموعد" style={{ background: "#7c3aed", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer" }}>
+                                <i className="fas fa-prescription"></i>
                               </button>
                             )}
                             <button onClick={() => openEdit(a)} className="btn-sm btn-secondary">

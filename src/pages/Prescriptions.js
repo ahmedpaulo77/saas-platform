@@ -13,6 +13,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "../firebase/config.js";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
@@ -28,12 +29,15 @@ export default function Prescriptions() {
   const [patients, setPatients] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const location = useLocation();
   const [newRx, setNewRx] = useState({
     patientId: "",
     doctor: "",
     diagnosis: "",
     notes: "",
     followUpDate: "",
+    appointmentId: "",
+    apptLabel: "",
     medicines: [{ name: "", dose: "", frequency: "", duration: "", notes: "" }],
     companyId: "",
   });
@@ -105,6 +109,21 @@ export default function Prescriptions() {
     fetchPatients();
     fetchCompanies();
   }, [fetchPrescriptions, fetchPatients, fetchCompanies]);
+
+  // 🔗 بريفيل من زرار "روشتة جديدة" في المواعيد/الاستقبال/الأسنان (patientId + appointmentId)
+  useEffect(() => {
+    const st = location.state;
+    if (st && st.patientId) {
+      setNewRx((prev) => ({
+        ...prev,
+        patientId: st.patientId,
+        appointmentId: st.appointmentId || "",
+        apptLabel: st.apptLabel || "",
+        doctor: st.doctor || prev.doctor,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // جلب بيانات العيادة للطباعة (لوجو + اسم + عنوان + تليفون + تخصص الدكتور)
   useEffect(() => {
@@ -187,6 +206,7 @@ export default function Prescriptions() {
         diagnosis: newRx.diagnosis || "",
         notes: newRx.notes || "",
         followUpDate: newRx.followUpDate || "",
+        appointmentId: newRx.appointmentId || "",
         medicines: cleanMeds,
         companyId,
         createdBy: currentUser?.uid,
@@ -198,6 +218,8 @@ export default function Prescriptions() {
         diagnosis: "",
         notes: "",
         followUpDate: "",
+        appointmentId: "",
+        apptLabel: "",
         medicines: [{ name: "", dose: "", frequency: "", duration: "", notes: "" }],
         companyId: superAdmin ? "" : userCompanyId,
       });
@@ -439,6 +461,11 @@ export default function Prescriptions() {
                 onChange={(e) => setNewRx({ ...newRx, diagnosis: e.target.value })}
                 style={{ ...styles.input, gridColumn: "1 / -1", minHeight: 60 }}
               />
+              {newRx.appointmentId && (
+                <div style={{ gridColumn: "1 / -1", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, padding: "8px 12px", fontSize: 13, fontWeight: 800, color: "#1d4ed8" }}>
+                  🔗 مربوطة بموعد {newRx.apptLabel || ""} — هتظهر في ورقة المريض بتاعت الزيارة دي
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "8px 12px" }}>
                 <i className="fas fa-calendar-check" style={{ color: "#059669" }}></i>
                 <label style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>🔁 ميعاد المتابعة:</label>
@@ -521,7 +548,7 @@ export default function Prescriptions() {
                   {filtered.map((r, i) => (
                     <tr key={r.id}>
                       <td>{i + 1}</td>
-                      <td style={{ fontWeight: 700, color: "#7c3aed", fontFamily: "monospace" }}>{r.rxNumber}</td>
+                      <td style={{ fontWeight: 700, color: "#7c3aed", fontFamily: "monospace" }}>{r.rxNumber}{r.appointmentId && <span title="مربوطة بموعد" style={{ marginInlineStart: 4 }}>🔗</span>}</td>
                       <td style={{ fontWeight: 700 }}>{r.patientName}</td>
                       <td>{r.doctor || "—"}</td>
                       <td>
