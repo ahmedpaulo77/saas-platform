@@ -528,6 +528,7 @@ export default function Patients() {
 
         {/* ── الملف الطبي (كورسل: تقليب يمين/شمال بين المرضى) ── */}
         {filePatient && (
+          <>
           <div className="modal-backdrop" onClick={closeFile}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
               <div className="modal-header" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -655,10 +656,11 @@ export default function Patients() {
                 </>
               )}
             </div>
+          </div>
 
             {/* 🧾 تفاصيل الفاتورة — نافذة قدامك فوق الملف */}
             {fileInv && (
-              <div className="modal-backdrop" onClick={() => setFileInv(null)} style={{ zIndex: 60 }}>
+              <div className="modal-backdrop" onClick={() => setFileInv(null)} style={{ zIndex: 1100 }}>
                 <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
                   <div className="modal-header">
                     <h3>🧾 فاتورة — {filePatient.name}</h3>
@@ -689,7 +691,7 @@ export default function Patients() {
 
             {/* 🖼️ صورة التحليل مكبرة — قدامك فوق الملف */}
             {fileImg && (
-              <div className="modal-backdrop" onClick={() => setFileImg(null)} style={{ zIndex: 60 }}>
+              <div className="modal-backdrop" onClick={() => setFileImg(null)} style={{ zIndex: 1100 }}>
                 <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, textAlign: "center" }}>
                   <div className="modal-header">
                     <h3>📎 {fileImg.title} — {filePatient.name}</h3>
@@ -703,7 +705,7 @@ export default function Patients() {
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>

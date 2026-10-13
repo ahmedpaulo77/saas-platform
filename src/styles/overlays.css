@@ -30,6 +30,46 @@
   max-width: 700px;
 }
 
+/* ==================
+   Legacy modal (modal-backdrop + modal)
+   ==================
+   صفحات العيادة (Patients/Appointments/Prescriptions/MedicalAttachments/...)
+   بتستخدم الكلاسين دول. من غير التعريف ده كانوا بيترسموا كعناصر عادية
+   في سياق الصفحة (يظهروا تحت الجدول). التعريف ده يخليهم Lightbox ثابت
+   في نص الشاشة فوق كل حاجة — زي الضغط على صورة تماماً. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  direction: rtl;
+  padding: 20px 24px;
+}
+
+/* الهيدر يلزق فوق مع سكرول المحتوى — مع تعويض بادنج المودال */
+.modal .modal-header {
+  margin: -20px -24px 16px;
+  position: sticky;
+  top: -20px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
