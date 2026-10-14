@@ -72,7 +72,20 @@ export function buildClinicThermalHTML({ invoice, patientName, company, t }) {
   const doc = company?.doctorName || invoice.doctorName || "";
   return `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:13px;width:80mm;padding:8px}h2{text-align:center;font-size:16px;margin-bottom:2px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f0f0f0;padding:4px 6px;font-size:11px}.total-row{font-weight:bold;font-size:15px}@media print{body{width:80mm}@page{size:80mm auto;margin:0}}</style></head><body><h2>🩺 ${cName}</h2>${doc ? `<div class="center" style="font-size:12px;">${doc}</div>` : ""}${cPhone || cAddr ? `<div class="center" style="font-size:11px;color:#555;">${cPhone}${cPhone && cAddr ? " • " : ""}${cAddr}</div>` : ""}<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div><div class="divider"></div><div style="font-size:12px;margin-bottom:4px;"><strong>المريض:</strong> ${patientName || "—"}<br/><strong>رقم الفاتورة:</strong> ${invoice.id ? String(invoice.id).slice(0, 8) : "—"}</div><div class="divider"></div><table><thead><tr><th style="text-align:right;">الخدمة</th><th>العدد</th><th>المبلغ</th></tr></thead><tbody>${lines}</tbody></table><div class="divider"></div><div style="text-align:left;font-size:13px;"><div>الإجمالي: ${total.toFixed(2)} ج.م</div><div>المدفوع: ${paid.toFixed(2)} ج.م</div>${remain > 0 ? `<div><strong>المتبقي: ${remain.toFixed(2)} ج.م</strong></div>` : `<div>مدفوعة بالكامل ✅</div>`}</div><div class="divider"></div><div class="center" style="font-size:11px;margin-top:6px;">نتمنى لكم الشفاء العاجل 🙏</div></body></html>`;
 }
-export function buildVisitSummaryHTML({ company, patient, appointment, prescription, invoice, dentalPlan, attachments = [] }) {
+export function buildVisitQRText({ company, patient, appointment, prescription, invoice }) {
+  // بيانات مضغوطة جوه الـ QR — المريض يمسحها وتفضل معاه من غير سيرفر ولا لينكات
+  const lines = [
+    company?.name || "العيادة",
+    `المريض: ${patient?.name || "—"}`,
+    `الزيارة: ${appointment?.date || ""} ${appointment?.time || ""}`.trim(),
+    prescription?.diagnosis ? `التشخيص: ${String(prescription.diagnosis).slice(0, 60)}` : "",
+    prescription?.followUpDate ? `المتابعة: ${prescription.followUpDate}` : "",
+    invoice ? `الحساب: إجمالي ${Number(invoice.total ?? invoice.amount ?? 0)} / مدفوع ${Number(invoice.paidAmount ?? 0)} / متبقي ${Math.max(0, Number(invoice.total ?? invoice.amount ?? 0) - Number(invoice.paidAmount ?? 0))}` : "",
+    company?.phone ? `ت: ${company.phone}` : "",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+export function buildVisitSummaryHTML({ company, patient, appointment, prescription, invoice, dentalPlan, attachments = [], qrDataUrl = "" }) {
   // ورقة المريض وهو ماشي (A4): التشخيص + الأدوية + المتابعة + خطة الأسنان + الحساب
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const cName = company?.name || "العيادة";
@@ -97,7 +110,7 @@ export function buildVisitSummaryHTML({ company, patient, appointment, prescript
   return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>ملخص الزيارة — ${esc(patient?.name || "")}</title>
   <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo','Segoe UI',Tahoma,sans-serif;padding:28px;color:#0f172a}h1{font-size:22px}h2{font-size:15px;margin:18px 0 8px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}th{background:#f1f5f9;padding:7px 10px;text-align:right;border:1px solid #e2e8f0}td{padding:7px 10px;border:1px solid #e2e8f0}.hdr{display:flex;gap:14px;align-items:center;border-bottom:3px double #059669;padding-bottom:12px}.hdr img{width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:13px;margin-top:8px}.follow{background:#f0fdf4;border:1px solid #6ee7b7;border-radius:10px;padding:10px 14px;font-size:14px;font-weight:800;color:#15803d;margin-top:10px}.totals{display:flex;gap:18px;font-size:15px;font-weight:900;margin-top:8px}.footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;font-size:12px;color:#64748b}.sign{border-top:1px solid #0f172a;padding-top:4px;min-width:150px;text-align:center;color:#0f172a;font-weight:800}@media print{@page{size:A4;margin:14mm}.noprint{display:none}}</style></head><body>
   <div class="hdr">${company?.logoUrl ? `<img src="${company.logoUrl}" alt="logo"/>` : `<div style="font-size:40px">🩺</div>`}
-  <div style="flex:1;text-align:center"><h1>${esc(cName)}</h1>${specialty ? `<div style="color:#059669;font-weight:800;font-size:14px">${esc(specialty)}</div>` : ""}<div style="font-size:12px;color:#64748b">${esc(company?.address || "")}${company?.address && company?.phone ? " • " : ""}${esc(company?.phone || "")}</div></div>
+  <div style="flex:1;text-align:center"><h1>${esc(cName)}</h1>${specialty ? `<div style="color:#059669;font-weight:800;font-size:14px">${esc(specialty)}</div>` : ""}<div style="font-size:12px;color:#64748b">${esc(company?.address || "")}${company?.address && company?.phone ? " • " : ""}${esc(company?.phone || "")}</div></div>${qrDataUrl ? `<div style="text-align:center"><img src="${qrDataUrl}" alt="QR" style="width:92px;height:92px"/><div style="font-size:10px;color:#64748b">امسح للاحتفاظ<br/>ببيانات زيارتك</div></div>` : ""}
   <div style="text-align:center;font-size:12px;color:#64748b">ملخص الزيارة<br/><strong>${esc(appointment?.date || new Date().toISOString().split("T")[0])}</strong></div></div>
   <div class="box">👤 <strong style="font-size:15px">${esc(patient?.name || "—")}</strong>${patient?.age ? ` • السن: ${esc(patient.age)}` : ""}${patient?.phone ? ` • <span dir="ltr">${esc(patient.phone)}</span>` : ""}${doctor ? `<br/>👨‍⚕️ الطبيب: <strong>${esc(doctor)}</strong>` : ""}${appointment?.time ? ` • 🕐 ${esc(appointment.time)}` : ""}</div>
   ${prescription?.diagnosis ? `<h2>التشخيص</h2><div class="box">${esc(prescription.diagnosis)}</div>` : ""}
@@ -108,6 +121,30 @@ export function buildVisitSummaryHTML({ company, patient, appointment, prescript
   ${attBlocks ? `<h2>📎 التحاليل والأشعة</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${attBlocks}</div>` : ""}
   ${invLines ? `<h2>🧾 الحساب</h2><table><thead><tr><th>الخدمة</th><th>العدد</th><th>المبلغ</th></tr></thead><tbody>${invLines}</tbody></table><div class="totals"><span>الإجمالي: ${total} ج.م</span><span style="color:#16a34a">المدفوع: ${paid} ج.م</span><span style="color:#d97706">المتبقي: ${remain} ج.م</span></div>` : ""}
   <div class="footer"><div>${esc(company?.rxFooter || "نتمنى لكم الشفاء العاجل")}<br/>${esc(company?.phone || "")}</div><div class="sign">توقيع الطبيب / ختم العيادة</div></div>
+  <div class="noprint" style="text-align:center;margin-top:18px"><button onclick="window.print()" style="background:#059669;color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">🖨️ طباعة</button></div>
+  </body></html>`;
+}
+export function buildInvoiceSheetHTML({ company, patientName, patientPhone, invoice }) {
+  // 🧾 فاتورة الكشف بشكل شيك (A4) — نفس روح طباعة الروشتة: ترويسة + خدمات + حساب + توقيع
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const lines = (invoice?.products || []).map((p, i) =>
+    `<tr><td>${i + 1}</td><td><strong>${esc(p.productName || "خدمة")}</strong></td><td>${p.quantity || 1}</td><td>${Number(p.amount) || 0} ج.م</td></tr>`
+  ).join("");
+  const total = Number(invoice?.total ?? invoice?.amount ?? 0) || 0;
+  const paid = Number(invoice?.paidAmount ?? 0) || 0;
+  const remain = Math.max(0, total - paid);
+  const method = { cash: "💵 كاش", visa: "💳 فيزا", transfer: "🏦 تحويل" }[invoice?.paymentMethod] || esc(invoice?.paymentMethod || "💵 كاش");
+  const status = invoice?.status === "paid" ? "مدفوعة بالكامل ✅" : "متبقي عليها ⏳";
+  return `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>فاتورة كشف — ${esc(patientName || "")}</title>
+  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo','Segoe UI',Tahoma,sans-serif;padding:28px;color:#0f172a}h1{font-size:22px}h2{font-size:15px;margin:18px 0 8px;color:#0f172a;border-bottom:2px solid #e2e8f0;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}th{background:#f1f5f9;padding:8px 10px;text-align:right;border:1px solid #e2e8f0}td{padding:8px 10px;border:1px solid #e2e8f0}.hdr{display:flex;gap:14px;align-items:center;border-bottom:3px double #059669;padding-bottom:12px}.hdr img{width:64px;height:64px;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0}.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:13px;margin-top:8px}.totals{display:flex;gap:18px;font-size:16px;font-weight:900;margin-top:10px;flex-wrap:wrap}.badge{display:inline-block;border-radius:20px;padding:3px 14px;font-size:13px;font-weight:800}.footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:30px;font-size:12px;color:#64748b}.sign{border-top:1px solid #0f172a;padding-top:4px;min-width:150px;text-align:center;color:#0f172a;font-weight:800}@media print{@page{size:A4;margin:14mm}.noprint{display:none}}</style></head><body>
+  <div class="hdr">${company?.logoUrl ? `<img src="${company.logoUrl}" alt="logo"/>` : `<div style="font-size:40px">🩺</div>`}
+  <div style="flex:1;text-align:center"><h1>${esc(company?.name || "العيادة")}</h1>${company?.specialty ? `<div style="color:#059669;font-weight:800;font-size:14px">${esc(company.specialty)}</div>` : ""}<div style="font-size:12px;color:#64748b">${esc(company?.address || "")}${company?.address && company?.phone ? " • " : ""}${esc(company?.phone || "")}</div></div>
+  <div style="text-align:center"><div style="font-size:15px;font-weight:900;color:#059669">فاتورة كشف</div><div style="font-size:11px;color:#64748b;font-family:monospace" dir="ltr">#${esc(String(invoice?.id || "").slice(0, 8))}</div></div></div>
+  <div class="box">👤 <strong style="font-size:15px">${esc(patientName || "—")}</strong>${patientPhone ? ` • <span dir="ltr">${esc(patientPhone)}</span>` : ""}${invoice?.doctorName ? `<br/>👨‍⚕️ الطبيب: <strong>${esc(invoice.doctorName)}</strong>` : ""}<br/>📅 التاريخ: <strong>${esc(String(invoice?.date || invoice?.createdAt || "").split("T")[0])}</strong> • الدفع: <strong>${method}</strong> • <span class="badge" style="background:${invoice?.status === "paid" ? "#dcfce7;color:#15803d" : "#fef3c7;color:#b45309"}">${status}</span></div>
+  <h2>الخدمات</h2><table><thead><tr><th>#</th><th>الخدمة</th><th>العدد</th><th>المبلغ</th></tr></thead><tbody>${lines || `<tr><td colspan="4" style="text-align:center;color:#94a3b8">لا توجد بنود</td></tr>`}</tbody></table>
+  ${invoice?.description ? `<div class="box">📝 ${esc(invoice.description)}</div>` : ""}
+  <div class="totals"><span>الإجمالي: ${total} ج.م</span><span style="color:#16a34a">المدفوع: ${paid} ج.م</span><span style="color:#d97706">المتبقي: ${remain} ج.م</span></div>
+  <div class="footer"><div>${esc(company?.rxFooter || "نتمنى لكم الشفاء العاجل")}<br/>${esc(company?.phone || "")}</div><div class="sign">توقيع الاستقبال / ختم العيادة</div></div>
   <div class="noprint" style="text-align:center;margin-top:18px"><button onclick="window.print()" style="background:#059669;color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">🖨️ طباعة</button></div>
   </body></html>`;
 }

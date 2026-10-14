@@ -36,6 +36,7 @@ export default function InvoiceTable({
   onDelete,
   onThermalPrint,
   onExportPDF,
+  onPrintSheet = null,
   PAGE_SIZE = 25,
 }) {
   const { t, locale } = useLanguage();
@@ -192,6 +193,7 @@ export default function InvoiceTable({
                             {onValidate && getApproval(inv) !== "validated" && <button onClick={() => onValidate(inv)} className="btn-success btn-sm" title={t("in.confirm")}><i className="fas fa-check"></i> {t("in.confirm")}</button>}
                             {isRestaurant && <button onClick={() => onThermalPrint(inv)} className="btn-primary btn-sm" title="طباعة فاتورة"><i className="fas fa-print"></i></button>}
                             {!isRestaurant && <button onClick={() => onExportPDF(inv)} className="btn-primary btn-sm" title={t("in.pdf")}><i className="fas fa-file-pdf"></i> PDF</button>}
+                            {isClinic && onPrintSheet && <button onClick={() => onPrintSheet(inv)} className="btn-primary btn-sm" title="طباعة فاتورة شيك (A4)" style={{ background: "#059669", borderColor: "#059669" }}><i className="fas fa-print"></i> طباعة</button>}
                             {inv.status !== "paid" && !isRestaurant && <button onClick={() => onPay(inv)} className="btn-success btn-sm" title={t("in.pay")}><i className="fas fa-money-bill-wave"></i></button>}
                             {onEdit && <button onClick={() => onEdit(inv)} className="btn-secondary btn-sm" title={t("common.edit")}><i className="fas fa-edit"></i></button>}
                             {onReturn && <button onClick={() => onReturn(inv)} className="btn-secondary btn-sm" title="مرتجع" style={{ borderColor: "#f59e0b", color: "#d97706" }}><i className="fas fa-undo"></i></button>}

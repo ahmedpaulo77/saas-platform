@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { exportInvoicePDF } from "../utils/pdfExport.js";
+import { buildInvoiceSheetHTML, openSheetPrint } from "../utils/invoiceHelpers.js";
 import { logActivity } from "../utils/auditLogger.js";
 import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } from "../utils/traderUnits.js";
 import { createReturn } from "../utils/returns.js";
@@ -174,6 +175,29 @@ export default function Invoices() {
   function afterClinic(p) {
     if (isClinic && p && typeof p.then === "function") p.then(() => fetchClinicAll(), () => fetchClinicAll());
     return p;
+  }
+
+  // 🖨️ طباعة فاتورة الكشف بشكل شيك (A4) — بيانات العيادة تتجاب مرة واحدة وتتكاش
+  const [sheetCompany, setSheetCompany] = useState(null);
+  async function handlePrintSheet(inv) {
+    try {
+      let comp = sheetCompany;
+      if (!comp && userCompanyId) {
+        const snap = await getDoc(doc(db, "companies", userCompanyId));
+        comp = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        setSheetCompany(comp);
+      }
+      const c = clients.find((x) => x.id === inv.clientId) || {};
+      openSheetPrint(buildInvoiceSheetHTML({
+        company: comp,
+        patientName: c.name || inv.patientName || "",
+        patientPhone: c.phone || "",
+        invoice: inv,
+      }));
+    } catch (e) {
+      console.error(e);
+      alert(t("common.errorGeneric"));
+    }
   }
   // امسح باركود الفاتورة بالسكانر → تتفتح شاشة المرتجع على طول
   async function handleBarcodeReturn(e) {
@@ -1001,6 +1025,7 @@ export default function Invoices() {
           onDelete={isClothing ? null : (id, inv) => afterClinic(deleteInvoice(id, inv))}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}
+          onPrintSheet={isClinic ? handlePrintSheet : null}
           PAGE_SIZE={PAGE_SIZE}
         />
 

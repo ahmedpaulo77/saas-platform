@@ -65,7 +65,7 @@ export default function Sidebar() {
     }
     if (["pos", "store-pos", "sales", "sales-reps", "invoices", "purchases", "expenses", "profits", "vouchers"].includes(module)) return "sales";
     if (["inventory", "variant-codes", "types-categories", "daily-prices", "menu-categories", "raw-materials", "suppliers", "expiry"].includes(module)) return "stock";
-    if (["reception", "clients", "sellers", "buyers", "viewings", "patients", "appointments", "prescriptions", "medical-attachments", "dental", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
+    if (["reception", "clients", "sellers", "buyers", "viewings", "patients", "appointments", "recall", "prescriptions", "medical-attachments", "dental", "messages", "employees", "leaves", "payroll", "shifts", "biometric"].includes(module)) return "people";
     return "ops";
   }
 
@@ -145,6 +145,12 @@ export default function Sidebar() {
       icon: `fas ${apptIcon}`,
       label: t("nav.appointments"),
       module: "appointments",
+    },
+    {
+      to: "/recall",
+      icon: "fas fa-sack-dollar",
+      label: t("nav.recall") === "nav.recall" ? "💰 رجّع فلوسك" : t("nav.recall"),
+      module: "recall",
     },
     {
       to: "/prescriptions",

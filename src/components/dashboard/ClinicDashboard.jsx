@@ -22,6 +22,7 @@ export default function ClinicDashboard() {
     pendingCount: 0,
     pendingAmount: 0,
     followUps: [],
+    overdueCount: 0,
   });
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -81,6 +82,12 @@ export default function ClinicDashboard() {
 
         const newPatients = patients.filter((p) => isThisMonth(p.createdAt)).length;
 
+        // 💰 غايبين (للتنبيه): متابعات فائتة + لم يحضروا
+        const overdueCount = appts.filter((a) =>
+          (a.type === "follow_up" && a.date < todayStr && (a.status === "scheduled" || a.status === "confirmed")) ||
+          a.status === "no_show"
+        ).length;
+
         // متابعات مستحقة: مواعيد follow_up قادمة خلال 7 أيام
         const in7 = new Date();
         in7.setDate(in7.getDate() + 7);
@@ -96,7 +103,7 @@ export default function ClinicDashboard() {
           .sort((a, b) => String(a.date).localeCompare(String(b.date)))
           .slice(0, 5);
 
-        setData({ todayAppts, revenueToday, revenueMonth, newPatients, pendingCount, pendingAmount, followUps });
+        setData({ todayAppts, revenueToday, revenueMonth, newPatients, pendingCount, pendingAmount, followUps, overdueCount });
       } catch (e) {
         console.warn("clinic dashboard:", e?.message);
       } finally {
@@ -168,6 +175,14 @@ export default function ClinicDashboard() {
 
         {/* المتابعات + المديونية */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {!loading && data.overdueCount > 0 && (
+            <div className="card" onClick={() => navigate("/recall")} style={{ border: "2px solid #dc2626", background: "linear-gradient(135deg,#fef2f2,#fff7ed)", padding: "12px 18px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <strong style={{ fontSize: 14, color: "#b91c1c" }}>💰 {data.overdueCount} مريض غايب مستني مكالمة</strong>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#dc2626" }}>افتح رجّع فلوسك ←</span>
+              </div>
+            </div>
+          )}
           <div className="card" style={{ border: "2px solid #f59e0b44", padding: "14px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <strong style={{ fontSize: 14 }}>💰 مبالغ مستحقة على المرضى</strong>

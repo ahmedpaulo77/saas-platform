@@ -61,6 +61,7 @@ const Prescriptions = lazy(() => import("./pages/Prescriptions"));
 const MedicalAttachments = lazy(() => import("./pages/MedicalAttachments"));
 const Reception = lazy(() => import("./pages/Reception"));
 const Dental = lazy(() => import("./pages/Dental"));
+const Recall = lazy(() => import("./pages/Recall"));
 const MenuCategories = lazy(() => import("./pages/MenuCategories"));
 const RawMaterials = lazy(() => import("./pages/RawMaterials"));
 const Statements = lazy(() => import("./pages/Statements"));
@@ -631,6 +632,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <IndustryRoute moduleKey="dental">
               <Dental />
+            </IndustryRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/recall"
+        element={
+          <ProtectedRoute>
+            <IndustryRoute moduleKey="recall">
+              <Recall />
             </IndustryRoute>
           </ProtectedRoute>
         }

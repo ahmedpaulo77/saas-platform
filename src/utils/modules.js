@@ -228,6 +228,7 @@ export const MODULE_MAP = {
     "reception",
     "patients",
     "appointments",
+    "recall",
     "prescriptions",
     "medical-attachments",
     "dental",
@@ -415,6 +416,7 @@ export const ROUTE_MODULE_MAP = {
   "/medical-attachments": "medical-attachments",
   "/reception": "reception",
   "/dental": "dental",
+  "/recall": "recall",
   "/kitchen": "kitchen",
   "/tables": "tables",
 };
@@ -515,6 +517,7 @@ export const MODULE_LABEL_KEYS = {
   "medical-attachments": "modules.medical_attachments",
   reception: "modules.reception",
   dental: "modules.dental",
+  recall: "modules.recall",
   subscriptions: "modules.subscriptions",
   tickets: "modules.tickets",
   attendance: "modules.attendance",

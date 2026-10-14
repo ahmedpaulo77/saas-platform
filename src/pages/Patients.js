@@ -14,7 +14,8 @@ import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { fmtDate, moneyShort } from "../utils/fmt.js";
-import { buildVisitSummaryHTML, openSheetPrint } from "../utils/invoiceHelpers.js";
+import QRCode from "qrcode";
+import { buildVisitSummaryHTML, buildVisitQRText, openSheetPrint } from "../utils/invoiceHelpers.js";
 
 export default function Patients() {
   const { t, locale } = useLanguage();
@@ -73,28 +74,39 @@ export default function Patients() {
     setFileImg(null);
   }
 
-  // 🖨️ ورقة المريض من ملفه: أحدث روشتة + أحدث فاتورة + خطة الأسنان في ورقة واحدة
+  // 🖨️ ورقة المريض من ملفه: أحدث روشتة + أحدث فاتورة + خطة الأسنان + QR في ورقة واحدة
+  const [printingSheet, setPrintingSheet] = useState(false);
   async function printFileSheet() {
-    if (!filePatient) return;
-    let comp = null;
+    if (!filePatient || printingSheet) return;
+    setPrintingSheet(true);
     try {
-      if (userCompanyId) {
-        const cs = await getDoc(doc(db, "companies", userCompanyId));
-        if (cs.exists()) comp = { id: cs.id, ...cs.data() };
-      }
-    } catch (e) { console.warn(e); }
-    const rx = fileData.prescriptions[0] || null;
-    const inv = fileData.invoices[0] || null;
-    const appt = (rx?.appointmentId && fileData.appointments.find((a) => a.id === rx.appointmentId)) || fileData.appointments[0] || null;
-    openSheetPrint(buildVisitSummaryHTML({
-      company: comp,
-      patient: filePatient,
-      appointment: appt,
-      prescription: rx,
-      invoice: inv,
-      dentalPlan: fileData.dentalPlan,
-      attachments: fileData.attachments || [],
-    }));
+      let comp = null;
+      try {
+        if (userCompanyId) {
+          const cs = await getDoc(doc(db, "companies", userCompanyId));
+          if (cs.exists()) comp = { id: cs.id, ...cs.data() };
+        }
+      } catch (e) { console.warn(e); }
+      const rx = fileData.prescriptions[0] || null;
+      const inv = fileData.invoices[0] || null;
+      const appt = (rx?.appointmentId && fileData.appointments.find((a) => a.id === rx.appointmentId)) || fileData.appointments[0] || null;
+      let qr = "";
+      try {
+        qr = await QRCode.toDataURL(buildVisitQRText({ company: comp, patient: filePatient, appointment: appt, prescription: rx, invoice: inv }), { width: 200, margin: 1 });
+      } catch (e) { console.warn("qr:", e?.message); }
+      openSheetPrint(buildVisitSummaryHTML({
+        company: comp,
+        patient: filePatient,
+        appointment: appt,
+        prescription: rx,
+        invoice: inv,
+        dentalPlan: fileData.dentalPlan,
+        attachments: fileData.attachments || [],
+        qrDataUrl: qr,
+      }));
+    } finally {
+      setPrintingSheet(false);
+    }
   }
 
   function goFile(delta) {

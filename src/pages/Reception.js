@@ -8,7 +8,8 @@ import { getScopedQuery } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
 import { useNavigate } from "react-router-dom";
-import { buildClinicThermalHTML, openThermalPrint, buildVisitSummaryHTML, openSheetPrint } from "../utils/invoiceHelpers.js";
+import QRCode from "qrcode";
+import { buildClinicThermalHTML, openThermalPrint, buildVisitSummaryHTML, buildVisitQRText, openSheetPrint } from "../utils/invoiceHelpers.js";
 import { exportInvoicePDF } from "../utils/pdfExport.js";
 import { moneyShort } from "../utils/fmt.js";
 
@@ -156,22 +157,35 @@ export default function Reception() {
     });
   }
 
-  // 🖨️ ورقة المريض وهو ماشي: روشتة + حساب + خطة أسنان في ورقة واحدة (A4)
-  function printSheet() {
-    if (!selected) return;
-    const rx = linkedRx();
-    const inv = selectedInvoice();
-    const plan = dentalPlans.find((p) => p.patientId === selected.patientId) || null;
-    const atts = attachments.filter((a) => a.patientId === selected.patientId);
-    openSheetPrint(buildVisitSummaryHTML({
-      company,
-      patient: fullPatients[selected.patientId] || { name: selected.patientName },
-      appointment: selected.walkIn ? { date: day, time: selected.time || "", patientName: selected.patientName } : selected,
-      prescription: rx,
-      invoice: inv,
-      dentalPlan: plan,
-      attachments: atts,
-    }));
+  // 🖨️ ورقة المريض وهو ماشي: روشتة + حساب + خطة أسنان + QR في ورقة واحدة (A4)
+  const [printingSheet, setPrintingSheet] = useState(false);
+  async function printSheet() {
+    if (!selected || printingSheet) return;
+    setPrintingSheet(true);
+    try {
+      const rx = linkedRx();
+      const inv = selectedInvoice();
+      const plan = dentalPlans.find((p) => p.patientId === selected.patientId) || null;
+      const atts = attachments.filter((a) => a.patientId === selected.patientId);
+      const appt = selected.walkIn ? { date: day, time: selected.time || "", patientName: selected.patientName } : selected;
+      const pat = fullPatients[selected.patientId] || { name: selected.patientName };
+      let qr = "";
+      try {
+        qr = await QRCode.toDataURL(buildVisitQRText({ company, patient: pat, appointment: appt, prescription: rx, invoice: inv }), { width: 200, margin: 1 });
+      } catch (e) { console.warn("qr:", e?.message); }
+      openSheetPrint(buildVisitSummaryHTML({
+        company,
+        patient: pat,
+        appointment: appt,
+        prescription: rx,
+        invoice: inv,
+        dentalPlan: plan,
+        attachments: atts,
+        qrDataUrl: qr,
+      }));
+    } finally {
+      setPrintingSheet(false);
+    }
   }
 
   function pickAppt(a) {
