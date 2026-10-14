@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
   addDoc,
@@ -7,6 +7,7 @@ import {
   doc,
   updateDoc,
   getDoc,
+  increment,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase/config.js";
@@ -60,6 +61,19 @@ export default function Appointments() {
   // 🩺 عرض اليوم (Timeline) + فاتورة الكشف من الموعد
   const [viewMode, setViewMode] = useState("list");
   const [selectedDay, setSelectedDay] = useState(new Date().toISOString().split("T")[0]);
+  // 🗓️ التقويم الأسبوعي (يبدأ السبت)
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const sinceSat = (now.getDay() + 1) % 7;
+    const sat = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceSat + weekOffset * 7);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const names = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+      return { iso, dayNum: d.getDate(), weekName: names[d.getDay()] };
+    });
+  }, [weekOffset]);
   const [invoicingAppt, setInvoicingAppt] = useState(null);
   const [invoiceFee, setInvoiceFee] = useState("");
   const [invoicePaid, setInvoicePaid] = useState(true);
@@ -238,10 +252,27 @@ export default function Appointments() {
 
   async function setStatus(id, status) {
     try {
+      // 🔢 عداد الزيارات: أول ما الموعد يتقفل done (و مكنش done قبل كده) نزود زيارة للمريض
+      let countVisit = status === "done";
+      let visitPatientId = null;
+      if (countVisit) {
+        try {
+          const snap = await getDoc(doc(db, "appointments", id));
+          if (snap.exists()) {
+            visitPatientId = snap.data().patientId || null;
+            if (snap.data().status === "done") countVisit = false;
+          }
+        } catch (e) { console.warn(e); }
+      }
       await updateDoc(doc(db, "appointments", id), {
         status,
         updatedAt: new Date().toISOString(),
       });
+      if (countVisit && visitPatientId) {
+        try {
+          await updateDoc(doc(db, "patients", visitPatientId), { totalVisits: increment(1) });
+        } catch (e) { console.warn(e); }
+      }
       await fetchAppointments();
     } catch (e) {
       console.error(e);
@@ -299,6 +330,12 @@ export default function Appointments() {
         fee,
         updatedAt: new Date().toISOString(),
       });
+      // 🔢 زيارة جديدة للمريض (الزرار بيظهر بس للمواعيد غير المنجزة)
+      if (invoicingAppt.status !== "done") {
+        try {
+          await updateDoc(doc(db, "patients", invoicingAppt.patientId), { totalVisits: increment(1) });
+        } catch (e) { console.warn(e); }
+      }
       setInvoicingAppt(null);
       setInvoiceFee("");
       await fetchAppointments();
@@ -540,8 +577,51 @@ export default function Appointments() {
             <button type="button" onClick={() => setViewMode("day")} style={{ border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit", background: viewMode === "day" ? "white" : "transparent", color: viewMode === "day" ? "#0f172a" : "#64748b", boxShadow: viewMode === "day" ? "0 1px 4px rgba(0,0,0,0.12)" : "none" }}>
               <i className="fas fa-calendar-day"></i> جدول اليوم
             </button>
+            <button type="button" onClick={() => setViewMode("week")} style={{ border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit", background: viewMode === "week" ? "white" : "transparent", color: viewMode === "week" ? "#0f172a" : "#64748b", boxShadow: viewMode === "week" ? "0 1px 4px rgba(0,0,0,0.12)" : "none" }}>
+              <i className="fas fa-calendar-week"></i> الأسبوع
+            </button>
           </div>
         </div>
+
+        {/* 🗓️ التقويم الأسبوعي — نظرة العيادة الكاملة + الدخول على أي يوم */}
+        {viewMode === "week" && (
+          <div className="card" style={{ marginBottom: 20, padding: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "linear-gradient(135deg,#0f766e,#2563eb)", color: "white", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setWeekOffset((o) => o - 1)} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "white", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>→ السابق</button>
+              <strong style={{ flex: 1, textAlign: "center" }}>أسبوع {weekDays[0].iso} — {weekDays[6].iso}</strong>
+              <button type="button" onClick={() => setWeekOffset(0)} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "white", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>الأسبوع الحالي</button>
+              <button type="button" onClick={() => setWeekOffset((o) => o + 1)} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "white", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontWeight: 800, fontFamily: "inherit" }}>التالي ←</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, padding: 14 }}>
+              {weekDays.map((wd) => {
+                const dayList = appointments
+                  .filter((a) => a.date === wd.iso && a.status !== "cancelled")
+                  .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+                const isToday = wd.iso === todayStr;
+                return (
+                  <button key={wd.iso} type="button" onClick={() => { setSelectedDay(wd.iso); setViewMode("day"); }}
+                    style={{ cursor: "pointer", textAlign: "start", background: isToday ? "#ecfdf5" : "#f8fafc", border: isToday ? "2px solid #059669" : "1px solid #e2e8f0", borderRadius: 12, padding: 10, fontFamily: "inherit" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#64748b" }}>{wd.weekName}</span>
+                      <span style={{ fontSize: 18, fontWeight: 900, color: isToday ? "#059669" : "#0f172a" }}>{wd.dayNum}</span>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: dayList.length ? "#6d28d9" : "#94a3b8", marginBottom: 6 }}>
+                      {dayList.length === 0 ? "فاضي ✅" : `🔒 ${dayList.length} محجوز`}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {dayList.slice(0, 3).map((a) => (
+                        <div key={a.id} style={{ fontSize: 11, background: "white", border: "1px solid #e2e8f0", borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <strong>{a.time}</strong> {a.patientName}
+                        </div>
+                      ))}
+                      {dayList.length > 3 && <div style={{ fontSize: 11, color: "#64748b" }}>+ {dayList.length - 3} — دوس للجدول الكامل</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 🩺 جدول اليوم — Timeline بصري يبهر الدكتور */}
         {viewMode === "day" && (

@@ -1,7 +1,7 @@
 // src/pages/Reception.js — شاشة الاستقبال السريعة للعيادة
 // الشمال: مواعيد النهاردة | اليمين: فوترة فورية + طباعة حرارية — من غير تنقل بين صفحات
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, increment } from "firebase/firestore";
 import { db } from "../firebase/config.js";
 import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery } from "../utils/companyQuery.js";
@@ -183,7 +183,8 @@ export default function Reception() {
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
-        totalVisits: 0,
+        // مريض جديد داخل كشف حالاً = أول زيارة
+        totalVisits: 1,
       });
       const np = { id: ref.id, name: walkName.trim(), phone: walkPhone.trim() };
       setPatients((p) => [...p, np]);
@@ -228,7 +229,7 @@ export default function Reception() {
       };
       const ref = await addDoc(collection(db, "invoices"), data);
       const saved = { ...data, id: ref.id };
-      // اقفل الموعد لو جاي من حجز
+      // اقفل الموعد لو جاي من حجز + 🔢 زيارة جديدة (لو مكنش مقفول قبل كده)
       if (!selected.walkIn && selected.id) {
         try {
           await updateDoc(doc(db, "appointments", selected.id), {
@@ -238,6 +239,11 @@ export default function Reception() {
             updatedAt: new Date().toISOString(),
           });
           setAppointments((prev) => prev.map((a) => (a.id === selected.id ? { ...a, status: "done", invoiceId: ref.id } : a)));
+          if (selected.status !== "done") {
+            try {
+              await updateDoc(doc(db, "patients", patientId), { totalVisits: increment(1) });
+            } catch (e) { console.warn(e); }
+          }
         } catch (err) { console.warn(err); }
       }
       setInvoicesToday((prev) => [...prev, saved]);

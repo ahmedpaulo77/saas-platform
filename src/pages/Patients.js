@@ -22,11 +22,22 @@ export default function Patients() {
   const superAdmin = isSuperAdmin(userRole);
   const [patients, setPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  // 🎂 حساب السن من تاريخ الميلاد (عشان السن الثابت بيقدم ويبقى غلط)
+  function calcAge(birthDate) {
+    if (!birthDate) return "";
+    const b = new Date(birthDate + "T00:00:00");
+    if (isNaN(b.getTime())) return "";
+    const now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+    return age >= 0 ? String(age) : "";
+  }
   const [newPatient, setNewPatient] = useState({
     name: "",
     phone: "",
     email: "",
     age: "",
+    birthDate: "",
     gender: "male",
     address: "",
     bloodType: "",
@@ -184,7 +195,9 @@ export default function Patients() {
         name: newPatient.name,
         phone: newPatient.phone,
         email: newPatient.email || "",
-        age: newPatient.age || "",
+        // السن محسوب من تاريخ الميلاد لو موجود (وإلا اليدوي)
+        age: newPatient.birthDate ? calcAge(newPatient.birthDate) : newPatient.age || "",
+        birthDate: newPatient.birthDate || "",
         gender: newPatient.gender,
         address: newPatient.address || "",
         bloodType: newPatient.bloodType || "",
@@ -201,6 +214,7 @@ export default function Patients() {
         phone: "",
         email: "",
         age: "",
+        birthDate: "",
         gender: "male",
         address: "",
         bloodType: "",
@@ -238,7 +252,8 @@ export default function Patients() {
         name: editingPatient.name,
         phone: editingPatient.phone,
         email: editingPatient.email || "",
-        age: editingPatient.age || "",
+        age: editingPatient.birthDate ? calcAge(editingPatient.birthDate) : editingPatient.age || "",
+        birthDate: editingPatient.birthDate || "",
         gender: editingPatient.gender,
         address: editingPatient.address || "",
         bloodType: editingPatient.bloodType || "",
@@ -370,11 +385,25 @@ export default function Patients() {
               />
               <input
                 type="number"
-                placeholder={t("pat.phAge")}
+                placeholder={newPatient.birthDate ? `السن محسوب: ${calcAge(newPatient.birthDate) || "—"}` : t("pat.phAge")}
                 value={newPatient.age}
                 onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
                 style={styles.input}
+                disabled={!!newPatient.birthDate}
+                title="لو دخلت تاريخ الميلاد السن بيتحسب لوحده"
               />
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>🎂 الميلاد:</label>
+                <input
+                  type="date"
+                  value={newPatient.birthDate}
+                  onChange={(e) => {
+                    const bd = e.target.value;
+                    setNewPatient({ ...newPatient, birthDate: bd, age: bd ? calcAge(bd) : newPatient.age });
+                  }}
+                  style={styles.input}
+                />
+              </div>
               <select
                 value={newPatient.gender}
                 onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
@@ -478,7 +507,7 @@ export default function Patients() {
                     <tr key={p.id}>
                       <td>{i + 1}</td>
                       <td style={{ fontWeight: 700 }}>{p.name}</td>
-                      <td>{p.age || "—"}</td>
+                      <td>{p.birthDate ? calcAge(p.birthDate) : p.age || "—"}</td>
                       <td>
                         <span className={`badge ${p.gender === "male" ? "badge-active" : ""}`} style={p.gender === "female" ? { background: "#fce7f3", color: "#db2777", border: "1px solid #f9a8d4" } : {}}>
                           {p.gender === "male" ? "♂ " + t("pat.male") : "♀ " + t("pat.female")}
@@ -520,7 +549,14 @@ export default function Patients() {
                   <input placeholder={t("pat.phName")} value={editingPatient.name} onChange={(e) => setEditingPatient({ ...editingPatient, name: e.target.value })} style={styles.input} required />
                   <input placeholder={t("pat.phPhone")} value={editingPatient.phone} onChange={(e) => setEditingPatient({ ...editingPatient, phone: e.target.value })} style={styles.input} required />
                   <input type="email" placeholder={t("pat.phEmail")} value={editingPatient.email || ""} onChange={(e) => setEditingPatient({ ...editingPatient, email: e.target.value })} style={styles.input} />
-                  <input type="number" placeholder={t("pat.phAge")} value={editingPatient.age || ""} onChange={(e) => setEditingPatient({ ...editingPatient, age: e.target.value })} style={styles.input} />
+                  <input type="number" placeholder={editingPatient.birthDate ? `السن محسوب: ${calcAge(editingPatient.birthDate) || "—"}` : t("pat.phAge")} value={editingPatient.age || ""} onChange={(e) => setEditingPatient({ ...editingPatient, age: e.target.value })} style={styles.input} disabled={!!editingPatient.birthDate} />
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>🎂 الميلاد:</label>
+                    <input type="date" value={editingPatient.birthDate || ""} onChange={(e) => {
+                      const bd = e.target.value;
+                      setEditingPatient({ ...editingPatient, birthDate: bd, age: bd ? calcAge(bd) : editingPatient.age });
+                    }} style={styles.input} />
+                  </div>
                   <select value={editingPatient.gender} onChange={(e) => setEditingPatient({ ...editingPatient, gender: e.target.value })} style={styles.input}>
                     <option value="male">{t("pat.male")}</option>
                     <option value="female">{t("pat.female")}</option>
@@ -574,7 +610,7 @@ export default function Patients() {
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8 }}>
                 <div>🩸 الفصيلة: <strong>{filePatient.bloodType || "—"}</strong></div>
                 <div>📞 الهاتف: <strong style={{ direction: "ltr" }}>{filePatient.phone || "—"}</strong></div>
-                <div>🎂 السن: <strong>{filePatient.age || "—"}</strong></div>
+                <div>🎂 السن: <strong>{filePatient.birthDate ? calcAge(filePatient.birthDate) : filePatient.age || "—"}</strong>{filePatient.birthDate ? <span style={{ color: "#64748b", fontSize: 11 }}> ({filePatient.birthDate})</span> : null}</div>
                 <div>📋 التاريخ المرضي: <strong>{filePatient.medicalHistory || "—"}</strong></div>
                 <div>⚠️ الحساسية: <strong>{filePatient.allergies || "—"}</strong></div>
                 <div>💰 إجمالي المدفوع: <strong>{moneyShort(fileData.invoices.reduce((s, i) => s + (parseFloat(i.paidAmount) || 0), 0), locale)} {t("currency")}</strong></div>
