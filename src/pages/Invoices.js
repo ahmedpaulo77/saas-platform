@@ -12,7 +12,7 @@ import { getProductUnit, lineAmount, stockDelta, isKgUnit, roundQty, round2 } fr
 import { createReturn } from "../utils/returns.js";
 import { stockTargetFor, readStockTx, readStockCache, planStockOut, planStockIn, expandRecipeLines, convertQty } from "../utils/stock.js";
 import { isOffline, handleOfflineError } from "../utils/offline.js";
-import { canDelete } from "../utils/companyQuery.js";
+import { canDelete, getScopedQuery } from "../utils/companyQuery.js";
 import { useInvoices } from "../hooks/useInvoices.js";
 import InvoiceForm from "../components/invoices/InvoiceForm.jsx";
 import InvoiceTable from "../components/invoices/InvoiceTable.jsx";
@@ -116,6 +116,65 @@ export default function Invoices() {
   } = useInvoices();
   const [barcodeScan, setBarcodeScan] = useState("");
   const [scanning, setScanning] = useState(false);
+
+  // 🩺 يومية العيادة: عرض فقط بدون إنشاء — فواتير اليوم المختار + بحث باسم المريض
+  // (حجم العيادة صغير، فالتحميل مرة واحدة والفلترة محلياً أدق من الـ pagination)
+  const todayISO = new Date().toISOString().split("T")[0];
+  const [clinicDay, setClinicDay] = useState(todayISO);
+  const [clinicSearch, setClinicSearch] = useState("");
+  const [clinicAll, setClinicAll] = useState([]);
+  const [clinicLoading, setClinicLoading] = useState(false);
+  async function fetchClinicAll() {
+    if (!isClinic || !userCompanyId) return;
+    setClinicLoading(true);
+    try {
+      const snap = await getDocs(getScopedQuery("invoices", userRole, userCompanyId, currentUser?.uid));
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      arr.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+      setClinicAll(arr);
+    } catch (e) { console.error(e); }
+    setClinicLoading(false);
+  }
+  useEffect(() => { fetchClinicAll(); }, [isClinic, userCompanyId]);
+  const clinicDayList = useMemo(() => {
+    if (!isClinic) return [];
+    const s = clinicSearch.trim().toLowerCase();
+    // 🔍 لو فيه بحث باسم المريض → دوّر في كل الفواتير (من غير فلتر اليوم)
+    // لو مفيش بحث → فواتير اليوم المختار بس
+    const base = s
+      ? clinicAll
+      : clinicAll.filter((inv) => String(inv.date || inv.createdAt || "").split("T")[0] === clinicDay);
+    return base.filter((inv) => {
+      if (filterStatus !== "all" && String(inv.status || "") !== filterStatus) return false;
+      if (filterApproval !== "all" && (inv.approval || "validated") !== filterApproval) return false;
+      if (s) {
+        const cname = ((clients.find((c) => c.id === inv.clientId)?.name || inv.patientName || "") + " " + (inv.description || "")).toLowerCase();
+        if (!cname.includes(s)) return false;
+      }
+      return true;
+    });
+  }, [isClinic, clinicAll, clinicDay, clinicSearch, filterStatus, filterApproval, clients]);
+  const clinicStats = useMemo(() => {
+    let paid = 0, pending = 0, collected = 0, remain = 0;
+    clinicDayList.forEach((inv) => {
+      const tot = parseFloat(inv.total ?? inv.amount) || 0;
+      const pd = parseFloat(inv.paidAmount) || 0;
+      if (inv.status === "paid") paid++;
+      else { pending++; remain += Math.max(0, tot - pd); }
+      collected += pd;
+    });
+    return { paid, pending, collected, remain };
+  }, [clinicDayList]);
+  function shiftClinicDay(delta) {
+    const d = new Date(clinicDay + "T12:00:00");
+    d.setDate(d.getDate() + delta);
+    setClinicDay(d.toISOString().split("T")[0]);
+  }
+  // بعد أي عملية على فاتورة: حدّث قايمة اليوم (باقي المهن: الـ pagination يتكفل)
+  function afterClinic(p) {
+    if (isClinic && p && typeof p.then === "function") p.then(() => fetchClinicAll(), () => fetchClinicAll());
+    return p;
+  }
   // امسح باركود الفاتورة بالسكانر → تتفتح شاشة المرتجع على طول
   async function handleBarcodeReturn(e) {
     e.preventDefault();
@@ -880,16 +939,29 @@ export default function Invoices() {
 
         {isAdmin ? (
           <div className="stats-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))" }}>
-            <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value">{filteredInvoices.length}</div><div className="stat-label">{isRestaurant ? "إجمالي الطلبات" : t("in.statTotal")}</div></div>
-            {isRestaurant ? (<><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-bell"></i></div><div className="stat-value">{stats.newOrdersCount}</div><div className="stat-label">طلبات جديدة</div></div><div className="stat-card amber"><div className="stat-icon"><i className="fas fa-fire"></i></div><div className="stat-value">{stats.preparingCount}</div><div className="stat-label">قيد التحضير</div></div></>) : (<><div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{stats.paidCount}</div><div className="stat-label">{t("in.statPaid")}</div></div><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-clock"></i></div><div className="stat-value">{stats.pendingCount}</div><div className="stat-label">{t("in.statPending")}</div></div></>)}
-            <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(stats.totalRevenue, locale)}</div><div className="stat-label">{t("in.statRevenue")}</div></div>
-            {!isRestaurant && <div className="stat-card red"><div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(stats.totalOverdue, locale)}</div><div className="stat-label">{t("in.statOverdueAmount")}</div></div>}
+            <div className="stat-card amber"><div className="stat-icon"><i className="fas fa-file-invoice"></i></div><div className="stat-value">{isClinic ? clinicDayList.length : filteredInvoices.length}</div><div className="stat-label">{isRestaurant ? "إجمالي الطلبات" : t("in.statTotal")}</div></div>
+            {isRestaurant ? (<><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-bell"></i></div><div className="stat-value">{stats.newOrdersCount}</div><div className="stat-label">طلبات جديدة</div></div><div className="stat-card amber"><div className="stat-icon"><i className="fas fa-fire"></i></div><div className="stat-value">{stats.preparingCount}</div><div className="stat-label">قيد التحضير</div></div></>) : (<><div className="stat-card green"><div className="stat-icon"><i className="fas fa-check-circle"></i></div><div className="stat-value">{isClinic ? clinicStats.paid : stats.paidCount}</div><div className="stat-label">{t("in.statPaid")}</div></div><div className="stat-card indigo"><div className="stat-icon"><i className="fas fa-clock"></i></div><div className="stat-value">{isClinic ? clinicStats.pending : stats.pendingCount}</div><div className="stat-label">{t("in.statPending")}</div></div></>)}
+            <div className="stat-card cyan"><div className="stat-icon"><i className="fas fa-money-bill-wave"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(isClinic ? clinicStats.collected : stats.totalRevenue, locale)}</div><div className="stat-label">{t("in.statRevenue")}</div></div>
+            {!isRestaurant && <div className="stat-card red"><div className="stat-icon"><i className="fas fa-exclamation-triangle"></i></div><div className="stat-value" style={{ fontSize: 18 }}>{moneyShort(isClinic ? clinicStats.remain : stats.totalOverdue, locale)}</div><div className="stat-label">{t("in.statOverdueAmount")}</div></div>}
           </div>
         ) : (<div className="card" style={{ textAlign: "center", padding: "24px 20px", marginBottom: 24 }}><i className="fas fa-lock" style={{ fontSize: 24, color: "#94a3b8", marginBottom: 8 }}></i><p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>{t("in.statsAdminOnly")}</p></div>)}
 
         {/* الملابس: الفواتير عرض فقط — مفيش إضافة فاتورة من هنا (البيع من نقطة البيع) */}
-        {!isClothing && (
+        {/* العيادة: عرض فقط برضه — الفوترة من الموعد أو الاستقبال */}
+        {!isClothing && !isClinic && (
           <InvoiceForm clients={clients} products={products} newInvoice={newInvoice} setNewInvoice={setNewInvoice} onSubmit={addInvoice} submitting={submitting} fetchClients={fetchClients} taxRate={taxRate} />
+        )}
+
+        {/* 🩺 يومية العيادة: تنقل بين الأيام زي الأرباح + بحث باسم المريض */}
+        {isClinic && (
+          <div className="card" style={{ marginBottom: 16, padding: "14px 18px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", border: "2px solid #05966933" }}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => shiftClinicDay(-1)}>→ اليوم السابق</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setClinicDay(todayISO)}>النهاردة</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => shiftClinicDay(1)}>اليوم التالي ←</button>
+            <input type="date" value={clinicDay} onChange={(e) => e.target.value && setClinicDay(e.target.value)} style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 10, fontSize: 13, fontFamily: "inherit" }} />
+            <span style={{ fontSize: 13, fontWeight: 800, color: "#059669" }}>🧾 {clinicDayList.length} فاتورة {clinicSearch.trim() ? "(بحث شامل)" : `يوم ${clinicDay}`}</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>🔍 البحث باسم المريض من عدسة الجدول تحت 👇 بيدوّر في كل الأيام (من غير ما تفتكر اليوم)</span>
+          </div>
         )}
 
        {/* مرتجع بالباركود: اسكان باركود الفاتورة يفتح المرتجع مباشرة
@@ -915,18 +987,18 @@ export default function Invoices() {
 )}
 
         <InvoiceTable
-          filteredInvoices={filteredInvoices} clients={clients} products={products} returnsByInvoice={returnsByInvoice}
-          loading={loading} loadingMore={loadingMore} hasMore={hasMore} loadMore={loadMore} resetPagination={resetPagination}
-          searchTerm={searchTerm} setSearchTerm={setSearchTerm} filterStatus={filterStatus} setFilterStatus={setFilterStatus}
+          filteredInvoices={isClinic ? clinicDayList : filteredInvoices} clients={clients} products={products} returnsByInvoice={returnsByInvoice}
+          loading={isClinic ? clinicLoading : loading} loadingMore={isClinic ? false : loadingMore} hasMore={isClinic ? false : hasMore} loadMore={isClinic ? () => {} : loadMore} resetPagination={isClinic ? () => {} : resetPagination}
+          searchTerm={isClinic ? clinicSearch : searchTerm} setSearchTerm={isClinic ? setClinicSearch : setSearchTerm} filterStatus={filterStatus} setFilterStatus={setFilterStatus}
           filterApproval={filterApproval} setFilterApproval={setFilterApproval}
           onOrderStatusChange={handleOrderStatusChange}
-          onSendToReview={isAdmin ? sendToReview : null}
-          onValidate={isAdmin ? validateInvoice : null}
+          onSendToReview={isAdmin ? (inv) => afterClinic(sendToReview(inv)) : null}
+          onValidate={isAdmin ? (inv) => afterClinic(validateInvoice(inv)) : null}
           onEdit={isClothing ? null : (inv) => { setEditingInvoice({ ...inv }); setShowEditModal(true); }}
           onPay={(inv) => { setPayingInvoice(inv); setPayAmount(""); setShowPayModal(true); }}
           onReturn={(isAdmin && !isClinic) ? (inv) => openReturnWithPin(inv) : null}
           onExchange={(isAdmin && !isRestaurantOnly && !isClinic) ? (inv) => openExchangeWithPin(inv) : null}
-          onDelete={isClothing ? null : deleteInvoice}
+          onDelete={isClothing ? null : (id, inv) => afterClinic(deleteInvoice(id, inv))}
           onThermalPrint={handleThermalPrint}
           onExportPDF={handleExportPDF}
           PAGE_SIZE={PAGE_SIZE}
@@ -939,8 +1011,8 @@ export default function Invoices() {
         />
 
         <InvoiceModals
-          editingInvoice={editingInvoice} setEditingInvoice={setEditingInvoice} showEditModal={showEditModal} setShowEditModal={setShowEditModal} onUpdateInvoice={updateInvoice}
-          payingInvoice={payingInvoice} showPayModal={showPayModal} setShowPayModal={setShowPayModal} payAmount={payAmount} setPayAmount={setPayAmount} onRecordPayment={recordPayment} paying={paying}
+          editingInvoice={editingInvoice} setEditingInvoice={setEditingInvoice} showEditModal={showEditModal} setShowEditModal={setShowEditModal} onUpdateInvoice={(e) => afterClinic(updateInvoice(e))}
+          payingInvoice={payingInvoice} showPayModal={showPayModal} setShowPayModal={setShowPayModal} payAmount={payAmount} setPayAmount={setPayAmount} onRecordPayment={(e) => afterClinic(recordPayment(e))} paying={paying}
           returningInvoice={returningInvoice} showReturnModal={showReturnModal} setShowReturnModal={setShowReturnModal} returnQtys={returnQtys} setReturnQtys={setReturnQtys} returnReason={returnReason} setReturnReason={setReturnReason} onSubmitReturn={submitSaleReturn} returning={returning}
           exchangingInvoice={exchangingInvoice} showExchangeModal={showExchangeModal} setShowExchangeModal={setShowExchangeModal} exchangeReturnQtys={exchangeReturnQtys} setExchangeReturnQtys={setExchangeReturnQtys} exchangePriorMap={exchangePriorMap} exchangeReason={exchangeReason} setExchangeReason={setExchangeReason} exchangeSearch={exchangeSearch} setExchangeSearch={setExchangeSearch} exchangePicks={exchangePicks} setExchangePicks={setExchangePicks} exchangeSummary={exchangeSummary} onSubmitExchange={submitExchange} exchanging={exchanging}
           clients={clients} products={products}

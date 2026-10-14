@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext.js";
 import { getScopedQuery, isSuperAdmin } from "../utils/companyQuery.js";
 import Sidebar from "../components/common/Sidebar.js";
 import { useLanguage } from "../i18n/LanguageContext.js";
+import { buildClinicThermalHTML, openThermalPrint } from "../utils/invoiceHelpers.js";
 
 const STATUS_BADGES = {
   scheduled: { bg: "#dbeafe", color: "#1d4ed8", label: "appt.scheduled" },
@@ -339,6 +340,22 @@ export default function Appointments() {
       setInvoicingAppt(null);
       setInvoiceFee("");
       await fetchAppointments();
+      // 🖨️ طباعة فورية — نفس إيصال الاستقبال، من غير ما يروح صفحة تانية
+      try {
+        const cSnap = await getDoc(doc(db, "companies", companyId));
+        const comp = cSnap.exists() ? { id: cSnap.id, ...cSnap.data() } : null;
+        openThermalPrint(buildClinicThermalHTML({
+          invoice: {
+            id: invRef.id,
+            products: [{ productId: "", productName: `كشف (${invoicingAppt.type === "first_visit" ? "كشف أول" : invoicingAppt.type === "follow_up" ? "متابعة" : "فحص"})`, quantity: 1, amount: fee }],
+            total: fee,
+            paidAmount: invoicePaid ? fee : 0,
+            doctorName: invoicingAppt.doctor || "",
+          },
+          patientName: invoicingAppt.patientName || "",
+          company: comp,
+        }));
+      } catch (e) { console.warn(e); }
       alert("✅ تم إنشاء فاتورة الكشف بنجاح");
     } catch (err) {
       console.error(err);
