@@ -155,7 +155,7 @@ export default function Recall() {
         phone: phoneOf(p.patientId),
         detail: `متبقي ${leftText(left.length)} (${moneyShort(val, locale)})`,
         value: val,
-        msg: `أهلاً ${p.patientName || ""}، خطة علاجك لسه مخلصتش — فاضل ${leftText(left.length)}، تحب تكمل؟${companyName ? ` — ${companyName}` : ""}`,
+        msg: `أهلاً ${p.patientName || ""}، خطة علاجك لسه مخلصتش${left.length === 1 ? "" : ` — فاضل ${leftText(left.length)}`}، تحب تكمل؟${companyName ? ` — ${companyName}` : ""}`,
       });
     });
     // 4) غايبين من 6 شهور (آخر زيارة أقدم من 180 يوم ومفيش موعد قادم)

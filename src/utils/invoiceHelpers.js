@@ -72,11 +72,30 @@ export function buildClinicThermalHTML({ invoice, patientName, company, t }) {
   const doc = company?.doctorName || invoice.doctorName || "";
   return `<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"/><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Courier New',monospace;font-size:13px;width:80mm;padding:8px}h2{text-align:center;font-size:16px;margin-bottom:2px}.center{text-align:center}.divider{border-top:1px dashed #000;margin:6px 0}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f0f0f0;padding:4px 6px;font-size:11px}.total-row{font-weight:bold;font-size:15px}@media print{body{width:80mm}@page{size:80mm auto;margin:0}}</style></head><body><h2>🩺 ${cName}</h2>${doc ? `<div class="center" style="font-size:12px;">${doc}</div>` : ""}${cPhone || cAddr ? `<div class="center" style="font-size:11px;color:#555;">${cPhone}${cPhone && cAddr ? " • " : ""}${cAddr}</div>` : ""}<div class="center" style="font-size:11px;color:#666;">${new Date().toLocaleString("ar-EG")}</div><div class="divider"></div><div style="font-size:12px;margin-bottom:4px;"><strong>المريض:</strong> ${patientName || "—"}<br/><strong>رقم الفاتورة:</strong> ${invoice.id ? String(invoice.id).slice(0, 8) : "—"}</div><div class="divider"></div><table><thead><tr><th style="text-align:right;">الخدمة</th><th>العدد</th><th>المبلغ</th></tr></thead><tbody>${lines}</tbody></table><div class="divider"></div><div style="text-align:left;font-size:13px;"><div>الإجمالي: ${total.toFixed(2)} ج.م</div><div>المدفوع: ${paid.toFixed(2)} ج.م</div>${remain > 0 ? `<div><strong>المتبقي: ${remain.toFixed(2)} ج.م</strong></div>` : `<div>مدفوعة بالكامل ✅</div>`}</div><div class="divider"></div><div class="center" style="font-size:11px;margin-top:6px;">نتمنى لكم الشفاء العاجل 🙏</div></body></html>`;
 }
+function qrAgeOf(patient) {
+  // السن من تاريخ الميلاد لو موجود (وإلا الرقم المحفوظ) — عشان يفضل صح دايماً
+  const bd = patient?.birthDate;
+  if (bd) {
+    const b = new Date(bd + "T00:00:00");
+    if (!isNaN(b.getTime())) {
+      const now = new Date();
+      let age = now.getFullYear() - b.getFullYear();
+      if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+      if (age >= 0) return String(age);
+    }
+  }
+  return patient?.age || "";
+}
 export function buildVisitQRText({ company, patient, appointment, prescription, invoice }) {
-  // بيانات مضغوطة جوه الـ QR — المريض يمسحها وتفضل معاه من غير سيرفر ولا لينكات
+  // بيانات مضغوطة جوه الـ QR — المريض يمسحها وتفضل معاه من غير سيرفر ولا لينكات.
+  // بيانات المريض الأساسية دايماً موجودة حتى لو مفيش روشتة ولا فاتورة.
+  const age = qrAgeOf(patient);
+  const blood = patient?.bloodType || "";
+  const allergy = patient?.allergies || "";
   const lines = [
     company?.name || "العيادة",
-    `المريض: ${patient?.name || "—"}`,
+    `المريض: ${patient?.name || "—"}${age ? ` • ${age} سنة` : ""}${blood ? ` • فصيلة ${blood}` : ""}`,
+    allergy ? `حساسية: ${allergy}` : "",
     `الزيارة: ${appointment?.date || ""} ${appointment?.time || ""}`.trim(),
     prescription?.diagnosis ? `التشخيص: ${String(prescription.diagnosis).slice(0, 60)}` : "",
     prescription?.followUpDate ? `المتابعة: ${prescription.followUpDate}` : "",
