@@ -141,6 +141,7 @@ export default function Recall() {
     // 3) خطط أسنان ناقصة
     const planRows = [];
     let planValue = 0;
+    const leftText = (n) => (n === 1 ? "بند واحد" : n === 2 ? "بندين" : n <= 10 ? `${n} بنود` : `${n} بند`);
     plans.forEach((p) => {
       const left = (p.items || []).filter((x) => x.status !== "done");
       if (left.length === 0) return;
@@ -152,9 +153,9 @@ export default function Recall() {
         patientId: p.patientId,
         name: p.patientName || nameOf(p.patientId),
         phone: phoneOf(p.patientId),
-        detail: `${left.length} بند متبقي (${moneyShort(val, locale)})`,
+        detail: `متبقي ${leftText(left.length)} (${moneyShort(val, locale)})`,
         value: val,
-        msg: `أهلاً ${p.patientName || ""}، لسه في ${left.length} بنود متبقية في خطة علاجك — تحب تكمل؟${companyName ? ` — ${companyName}` : ""}`,
+        msg: `أهلاً ${p.patientName || ""}، خطة علاجك لسه مخلصتش — فاضل ${leftText(left.length)}، تحب تكمل؟${companyName ? ` — ${companyName}` : ""}`,
       });
     });
     // 4) غايبين من 6 شهور (آخر زيارة أقدم من 180 يوم ومفيش موعد قادم)
@@ -238,7 +239,7 @@ export default function Recall() {
       <div className="main-content">
         <div style={{ background: "linear-gradient(135deg,#b45309,#dc2626)", borderRadius: "var(--radius)", padding: "20px 24px", marginBottom: 20, color: "white", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>💰 رجّع فلوسك</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>🙈 المرضى الغائبين</h1>
             <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.8)", fontSize: 14 }}>المرضى الغايبين = حجوزات مستنية مكالمة — دوس رجّعه واكسب الزيارة</p>
           </div>
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", textAlign: "center" }}>

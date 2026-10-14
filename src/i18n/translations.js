@@ -2039,8 +2039,8 @@
     "nav.medicalAttachments": "التحاليل والأشعة",
     "modules.reception": "الاستقبال السريع",
     "nav.reception": "الاستقبال السريع",
-    "modules.recall": "رجّع فلوسك",
-    "nav.recall": "💰 رجّع فلوسك",
+    "modules.recall": "المرضى الغائبين",
+    "nav.recall": "المرضى الغائبين",
     "modules.dental": "ملف الأسنان",
     "nav.dental": "🦷 الأسنان",
 
@@ -4645,8 +4645,8 @@
     "nav.medicalAttachments": "Labs & Imaging",
     "modules.reception": "Reception",
     "nav.reception": "Reception",
-    "modules.recall": "Win-back",
-    "nav.recall": "Win-back",
+    "modules.recall": "Absent patients",
+    "nav.recall": "Absent patients",
     "modules.dental": "Dental",
     "nav.dental": "Dental",
 

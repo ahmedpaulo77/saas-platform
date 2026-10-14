@@ -171,7 +171,7 @@ export default function Reception() {
       const pat = fullPatients[selected.patientId] || { name: selected.patientName };
       let qr = "";
       try {
-        qr = await QRCode.toDataURL(buildVisitQRText({ company, patient: pat, appointment: appt, prescription: rx, invoice: inv }), { width: 200, margin: 1 });
+        qr = await QRCode.toDataURL(buildVisitQRText({ company, patient: pat, appointment: appt, prescription: rx, invoice: inv }), { width: 220, margin: 1, errorCorrectionLevel: "H" });
       } catch (e) { console.warn("qr:", e?.message); }
       openSheetPrint(buildVisitSummaryHTML({
         company,

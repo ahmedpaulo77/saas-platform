@@ -179,7 +179,7 @@ export default function ClinicDashboard() {
             <div className="card" onClick={() => navigate("/recall")} style={{ border: "2px solid #dc2626", background: "linear-gradient(135deg,#fef2f2,#fff7ed)", padding: "12px 18px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <strong style={{ fontSize: 14, color: "#b91c1c" }}>💰 {data.overdueCount} مريض غايب مستني مكالمة</strong>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#dc2626" }}>افتح رجّع فلوسك ←</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#dc2626" }}>افتح المرضى الغائبين ←</span>
               </div>
             </div>
           )}

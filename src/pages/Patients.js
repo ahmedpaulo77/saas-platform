@@ -92,7 +92,7 @@ export default function Patients() {
       const appt = (rx?.appointmentId && fileData.appointments.find((a) => a.id === rx.appointmentId)) || fileData.appointments[0] || null;
       let qr = "";
       try {
-        qr = await QRCode.toDataURL(buildVisitQRText({ company: comp, patient: filePatient, appointment: appt, prescription: rx, invoice: inv }), { width: 200, margin: 1 });
+        qr = await QRCode.toDataURL(buildVisitQRText({ company: comp, patient: filePatient, appointment: appt, prescription: rx, invoice: inv }), { width: 220, margin: 1, errorCorrectionLevel: "H" });
       } catch (e) { console.warn("qr:", e?.message); }
       openSheetPrint(buildVisitSummaryHTML({
         company: comp,

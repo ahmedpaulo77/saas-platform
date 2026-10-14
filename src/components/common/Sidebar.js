@@ -149,7 +149,7 @@ export default function Sidebar() {
     {
       to: "/recall",
       icon: "fas fa-sack-dollar",
-      label: t("nav.recall") === "nav.recall" ? "💰 رجّع فلوسك" : t("nav.recall"),
+      label: t("nav.recall") === "nav.recall" ? "المرضى الغائبين" : t("nav.recall"),
       module: "recall",
     },
     {
