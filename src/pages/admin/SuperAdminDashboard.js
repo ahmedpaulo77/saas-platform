@@ -52,7 +52,9 @@ export default function SuperAdminDashboard() {
 
   // كل وحدات المجال (كما يراها أدمن الشركة) — مرتبة: الأساسية ثم التشغيلية
   function companyModules(company) {
-    return [...getAvailableModules(company.industry || "general", "admin")];
+    // ملاحظة: من غير disabledModules عمداً — القايمة دي للتحكم نفسه،
+    // فلازم تعرض الكل حتى المقفول (عشان يرجع يتفتح). التخصص بس للعرض الصح.
+    return [...getAvailableModules(company.industry || "general", "admin", [], company.clinicSpecialty)];
   }
 
   function isModuleOff(company, moduleKey) {

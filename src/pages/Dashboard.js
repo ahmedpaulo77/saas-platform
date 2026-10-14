@@ -233,14 +233,14 @@ const ALL_FEATURE_CARDS = [
 
 export default function Dashboard() {
   const { t, locale } = useLanguage();
-  const { currentUser, userRole, userCompanyId, userIndustry, userDisabledModules, logout } =
+  const { currentUser, userRole, userCompanyId, userIndustry, userClinicSpecialty, userDisabledModules, logout } =
     useAuth();
   const navigate = useNavigate();
 
   // ✅ التحقق من أن المستخدم Admin أو Super Admin
   const isAdmin = userRole === "admin" || userRole === "super_admin";
 
-  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules);
+  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules, userClinicSpecialty);
   // 🆕 الأيقونة بتتبع المهنة زي العنوان والوصف.
   // الكارت بيبقى "fas fa-..." جاهز، وبنستبدل الجزء terakhir باللي يناسب المهنة.
   const featureCards = ALL_FEATURE_CARDS.filter((card) =>

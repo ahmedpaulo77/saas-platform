@@ -260,7 +260,7 @@ export const MODULE_MAP = {
 // الوحدات المتاحة لكل مستخدم
 // disabledModules: وحدات قفلها السوبر أدمن لهذه الشركة (companies/{id}.disabledModules)
 // — تُخصم من الكل (أدمن ويوزر وكاشير)، والسوبر أدمن نفسه مستثنى.
-export function getAvailableModules(industry, userRole, disabledModules = []) {
+export function getAvailableModules(industry, userRole, disabledModules = [], clinicSpecialty = "general") {
   const stripDisabled = (set) => {
     if (Array.isArray(disabledModules)) {
       disabledModules.forEach((m) => {
@@ -317,6 +317,11 @@ export function getAvailableModules(industry, userRole, disabledModules = []) {
   // العيادة بدون مخزون: الفواتير ببنود حرة تُكتب يدوياً (لا بيع أدوية من العيادة)
   if (industry === "clinic") {
     modules.delete("inventory");
+    // 🦷 صفحة الأسنان تظهر فقط لو العيادة مختارة تخصص أسنان من شركتي
+    // (companies/{id}.clinicSpecialty) — باقي التخصصات مش بتشوفها أصلاً
+    if (clinicSpecialty !== "dental") {
+      modules.delete("dental");
+    }
   }
 
   // الموارد البشرية: بدون مخزون وأرباح (الأرباح للمبيعات والمخزون فقط)
@@ -351,8 +356,8 @@ export function getAvailableModules(industry, userRole, disabledModules = []) {
 }
 
 // التحقق من صلاحية الوصول لصفحة
-export function canAccess(moduleKey, industry, userRole, disabledModules = []) {
-  const available = getAvailableModules(industry, userRole, disabledModules);
+export function canAccess(moduleKey, industry, userRole, disabledModules = [], clinicSpecialty = "general") {
+  const available = getAvailableModules(industry, userRole, disabledModules, clinicSpecialty);
   return available.has(moduleKey);
 }
 

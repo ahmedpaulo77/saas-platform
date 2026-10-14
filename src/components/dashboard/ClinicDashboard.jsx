@@ -10,7 +10,8 @@ import { moneyShort } from "../../utils/fmt.js";
 
 export default function ClinicDashboard() {
   const { t, locale } = useLanguage();
-  const { userRole, userCompanyId, currentUser } = useAuth();
+  const { userRole, userCompanyId, currentUser, userClinicSpecialty } = useAuth();
+  const isDental = (userClinicSpecialty || "") === "dental";
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
@@ -198,7 +199,9 @@ export default function ClinicDashboard() {
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button onClick={() => navigate("/reception")} className="btn-primary btn-sm" style={{ flex: 1, background: "#059669", border: "none" }}>🧾 الاستقبال</button>
-              <button onClick={() => navigate("/dental")} className="btn-secondary btn-sm" style={{ flex: 1 }}>🦷 الأسنان</button>
+              {isDental && (
+                <button onClick={() => navigate("/dental")} className="btn-secondary btn-sm" style={{ flex: 1 }}>🦷 الأسنان</button>
+              )}
               <button onClick={() => navigate("/patients")} className="btn-secondary btn-sm" style={{ flex: 1 }}>🩺 المرضى</button>
               <button onClick={() => navigate("/prescriptions")} className="btn-secondary btn-sm" style={{ flex: 1 }}>💊 روشتة</button>
             </div>

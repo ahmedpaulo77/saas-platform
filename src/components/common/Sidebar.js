@@ -27,7 +27,7 @@ import "./Sidebar.css";
 export default function Sidebar() {
   const { t } = useLanguage();
   const { theme, toggleTheme, isDark } = useTheme();
-  const { userRole, currentUser, userIndustry, userDisabledModules, logout } = useAuth();
+  const { userRole, currentUser, userIndustry, userClinicSpecialty, userDisabledModules, logout } = useAuth();
   // ✅ عدد التنبيهات غير المقروءة - جاي من الـ Context المشترك
   const { unreadCount } = useNotifications();
   const location = useLocation();
@@ -440,7 +440,7 @@ label: t("nav.attendance"),
     },
   ];
 
-  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules);
+  const availableModules = getAvailableModules(userIndustry, userRole, userDisabledModules, userClinicSpecialty);
   const navItems = ALL_NAV_ITEMS.filter((item) =>
     availableModules.has(item.module),
   );
