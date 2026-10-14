@@ -43,6 +43,7 @@ export default function Reception() {
   const [allInvoices, setAllInvoices] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [dentalPlans, setDentalPlans] = useState([]);
+  const [attachments, setAttachments] = useState([]);
   const [fullPatients, setFullPatients] = useState({});
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export default function Reception() {
   const [search, setSearch] = useState("");
   const [walkName, setWalkName] = useState("");
   const [walkPhone, setWalkPhone] = useState("");
+  const [walkGender, setWalkGender] = useState("male");
 
   const isDental = (company?.clinicSpecialty || "") === "dental";
   const PRESETS = isDental ? DENTAL_PRESETS : GENERAL_PRESETS;
@@ -64,12 +66,13 @@ export default function Reception() {
     setLoading(true);
     try {
       const q = (col) => getScopedQuery(col, userRole, userCompanyId, currentUser?.uid);
-      const [aSnap, pSnap, iSnap, rSnap, dSnap, cSnap] = await Promise.all([
+      const [aSnap, pSnap, iSnap, rSnap, dSnap, mSnap, cSnap] = await Promise.all([
         getDocs(q("appointments")),
         getDocs(q("patients")),
         getDocs(q("invoices")),
         getDocs(q("prescriptions")),
         getDocs(q("dental_plans")),
+        getDocs(q("medical_attachments")),
         getDoc(doc(db, "companies", userCompanyId)),
       ]);
       const appts = [];
@@ -92,6 +95,10 @@ export default function Reception() {
       const plans = [];
       dSnap.forEach((d) => plans.push({ id: d.id, ...d.data() }));
       setDentalPlans(plans);
+      const atts = [];
+      mSnap.forEach((d) => atts.push({ id: d.id, ...d.data() }));
+      atts.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      setAttachments(atts);
       if (cSnap.exists()) setCompany({ id: cSnap.id, ...cSnap.data() });
     } catch (e) {
       console.error(e);
@@ -155,6 +162,7 @@ export default function Reception() {
     const rx = linkedRx();
     const inv = selectedInvoice();
     const plan = dentalPlans.find((p) => p.patientId === selected.patientId) || null;
+    const atts = attachments.filter((a) => a.patientId === selected.patientId);
     openSheetPrint(buildVisitSummaryHTML({
       company,
       patient: fullPatients[selected.patientId] || { name: selected.patientName },
@@ -162,6 +170,7 @@ export default function Reception() {
       prescription: rx,
       invoice: inv,
       dentalPlan: plan,
+      attachments: atts,
     }));
   }
 
@@ -180,6 +189,7 @@ export default function Reception() {
       const ref = await addDoc(collection(db, "patients"), {
         name: walkName.trim(),
         phone: walkPhone.trim() || "",
+        gender: walkGender,
         companyId: userCompanyId,
         createdBy: currentUser?.uid,
         createdAt: new Date().toISOString(),
@@ -190,7 +200,7 @@ export default function Reception() {
       setPatients((p) => [...p, np]);
       setSelected({ walkIn: true, patientId: ref.id, patientName: np.name, date: day, time: new Date().toTimeString().slice(0, 5) });
       setServices([{ name: isDental ? "كشف أسنان" : "كشف أول", price: "" }]);
-      setWalkName(""); setWalkPhone("");
+      setWalkName(""); setWalkPhone(""); setWalkGender("male");
     } catch (err) {
       console.error(err);
       alert("تعذر إضافة المريض");
@@ -311,6 +321,10 @@ export default function Reception() {
             <form onSubmit={addWalkIn} style={{ padding: 10, borderTop: "1px solid #e2e8f0", display: "flex", gap: 6, flexWrap: "wrap" }}>
               <input value={walkName} onChange={(e) => setWalkName(e.target.value)} placeholder="مريض بدون حجز — الاسم" style={{ ...styles.input, flex: 2, minWidth: 120 }} />
               <input value={walkPhone} onChange={(e) => setWalkPhone(e.target.value)} placeholder="📞" style={{ ...styles.input, flex: 1, minWidth: 80 }} />
+              <select value={walkGender} onChange={(e) => setWalkGender(e.target.value)} title="النوع" style={{ ...styles.input, flex: 1, minWidth: 90 }}>
+                <option value="male">♂ ذكر</option>
+                <option value="female">♀ أنثى</option>
+              </select>
               <button className="btn-secondary btn-sm" type="submit">+ إضافة</button>
             </form>
           </div>

@@ -1,9 +1,47 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && userDoc().role == 'super_admin';
+    }
+
+    // فرد نشط في نفس الشركة اللي في المسار (userCompanyId == companyId)
+    function activeUserCompany(cid) {
+      return isSignedIn()
+        && userDoc().companyId == cid
+        && userDoc().isActive != false;
+    }
+
+    // صور فقط + حد أقصى 2MB (حماية من رفع ملفات ضخمة على حسابك)
+    function isImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 2 * 1024 * 1024;
+    }
+
+    // صور المنتجات — عزل كامل حسب الشركة
+    // (الكود الحالي بيحفظ base64 في Firestore ومبيستخدمش Storage أصلاً،
+    //  فالتشديد ده احترازي ولا يكسر أي شاشة)
     match /products/{companyId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isSuperAdmin() || activeUserCompany(companyId);
+      allow write: if (isSuperAdmin() || activeUserCompany(companyId)) && isImage();
+      allow delete: if isSuperAdmin() || activeUserCompany(companyId);
+    }
+
+    // 📎 المرفقات الطبية (تحاليل/أشعة) — جاهز لترحيل الصور من Firestore
+    // مستقبلاً: الرفع هنا + حفظ رابط التحميل فقط في مستند medical_attachments
+    match /medical/{companyId}/{fileName} {
+      allow read: if isSuperAdmin() || activeUserCompany(companyId);
+      allow write: if (isSuperAdmin() || activeUserCompany(companyId)) && isImage();
+      allow delete: if isSuperAdmin() || activeUserCompany(companyId);
     }
   }
 }

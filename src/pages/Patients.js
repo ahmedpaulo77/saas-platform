@@ -93,6 +93,7 @@ export default function Patients() {
       prescription: rx,
       invoice: inv,
       dentalPlan: fileData.dentalPlan,
+      attachments: fileData.attachments || [],
     }));
   }
 
@@ -515,9 +516,13 @@ export default function Patients() {
                       <td style={{ fontWeight: 700 }}>{p.name}</td>
                       <td>{p.birthDate ? calcAge(p.birthDate) : p.age || "—"}</td>
                       <td>
-                        <span className={`badge ${p.gender === "male" ? "badge-active" : ""}`} style={p.gender === "female" ? { background: "#fce7f3", color: "#db2777", border: "1px solid #f9a8d4" } : {}}>
-                          {p.gender === "male" ? "♂ " + t("pat.male") : "♀ " + t("pat.female")}
-                        </span>
+                        {p.gender === "male" ? (
+                          <span className="badge badge-active">♂ {t("pat.male")}</span>
+                        ) : p.gender === "female" ? (
+                          <span className="badge" style={{ background: "#fce7f3", color: "#db2777", border: "1px solid #f9a8d4" }}>♀ {t("pat.female")}</span>
+                        ) : (
+                          <span style={{ color: "#94a3b8" }}>—</span>
+                        )}
                       </td>
                       <td style={{ direction: "ltr" }}>{p.phone}</td>
                       <td>{p.bloodType || "—"}</td>
