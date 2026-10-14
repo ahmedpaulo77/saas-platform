@@ -399,7 +399,7 @@ export default function Patients() {
                 title="لو دخلت تاريخ الميلاد السن بيتحسب لوحده"
               />
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>🎂 الميلاد:</label>
+                <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>الميلاد:</label>
                 <input
                   type="date"
                   value={newPatient.birthDate}
@@ -557,7 +557,7 @@ export default function Patients() {
                   <input type="email" placeholder={t("pat.phEmail")} value={editingPatient.email || ""} onChange={(e) => setEditingPatient({ ...editingPatient, email: e.target.value })} style={styles.input} />
                   <input type="number" placeholder={editingPatient.birthDate ? `السن محسوب: ${calcAge(editingPatient.birthDate) || "—"}` : t("pat.phAge")} value={editingPatient.age || ""} onChange={(e) => setEditingPatient({ ...editingPatient, age: e.target.value })} style={styles.input} disabled={!!editingPatient.birthDate} />
                   <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>🎂 الميلاد:</label>
+                    <label style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>الميلاد:</label>
                     <input type="date" value={editingPatient.birthDate || ""} onChange={(e) => {
                       const bd = e.target.value;
                       setEditingPatient({ ...editingPatient, birthDate: bd, age: bd ? calcAge(bd) : editingPatient.age });
